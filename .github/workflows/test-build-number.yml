@@ -1,0 +1,21 @@
+---
+on:
+  pull_request:
+  merge_group:
+
+jobs:
+  test-build-number:
+    runs-on: sonar-xs
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          sparse-checkout: |
+            actions/get-build-number
+      - uses: ./actions/get-build-number
+      - name: Check build number
+        run: |
+          echo "Build number: ${BUILD_NUMBER}"
+          [[ "${BUILD_NUMBER}" =~ ^[0-9]+$ ]]
