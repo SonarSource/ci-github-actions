@@ -1,0 +1,50 @@
+---
+name: Get build number
+description: GitHub Action to get the build number for a repository
+author: platform.eng-xp@sonarsource.com
+inputs:
+  repository:
+    description: GitHub repository name in the format of org/repo
+    default: ${{ github.repository }}
+  run-id:
+    description: The run ID of the workflow run
+    default: ${{ github.run_id }}
+
+runs:
+  using: composite
+  steps:
+    # Reuse current build number in case of rerun
+    - name: Get cached build number
+      uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+      id: current-build-number
+      with:
+        path: build_number.txt
+        key: build-number-${{ inputs.repository }}-${{ inputs.run-id }}
+
+    # Otherwise, increment the build number
+    - name: Get secrets from Vault
+      id: secrets
+      if: steps.current-build-number.outputs.cache-hit != 'true'
+      uses: SonarSource/vault-action-wrapper@d6d745ffdbc82b040df839b903bc33b5592cd6b0 # 3.0.2
+      with:
+        secrets: development/github/token/{REPO_OWNER_NAME_DASH}-update-build-number token | github_token;
+    - name: Get new build number
+      if: steps.current-build-number.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).github_token }}
+        GITHUB_REPOSITORY: ${{ inputs.repository }}
+      run: ${{ github.action_path }}/get_build_number
+
+    - name: Export build number
+      shell: bash
+      run: |
+        BUILD_NUMBER=$(cat build_number.txt)
+        echo "BUILD_NUMBER: ${BUILD_NUMBER}"
+        echo "BUILD_NUMBER=${BUILD_NUMBER}" >> "$GITHUB_ENV"
+    - name: Save build number to cache
+      uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+      if: steps.current-build-number.outputs.cache-hit != 'true'
+      with:
+        path: build_number.txt
+        key: build-number-${{ inputs.repository }}-${{ inputs.run-id }}
