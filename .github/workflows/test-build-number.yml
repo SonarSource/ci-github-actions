@@ -4,7 +4,27 @@ on:
   merge_group:
 
 jobs:
-  test-build-number:
+  test-build-number-generation:
+    runs-on: sonar-xs
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      BUILD_NUMBER: ${{ steps.get_build_number.outputs.BUILD_NUMBER }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          sparse-checkout: |
+            actions/get-build-number
+      - uses: ./actions/get-build-number
+        id: get_build_number
+      - name: Check build number generation
+        run: |
+          echo "Build number: ${BUILD_NUMBER}"
+          [[ "${BUILD_NUMBER}" =~ ^[0-9]+$ ]]
+
+  test-build-number-reuse:
+    needs: test-build-number-generation
     runs-on: sonar-xs
     permissions:
       id-token: write
@@ -15,7 +35,11 @@ jobs:
           sparse-checkout: |
             actions/get-build-number
       - uses: ./actions/get-build-number
-      - name: Check build number
+      - name: Check build number was reused
         run: |
           echo "Build number: ${BUILD_NUMBER}"
-          [[ "${BUILD_NUMBER}" =~ ^[0-9]+$ ]]
+          if [[ "${BUILD_NUMBER}" != "${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}" ]]; then
+            echo -e "::warning title=test-build-number-reuse::Build number '${BUILD_NUMBER}' does not match the previous job build number" \
+              "'${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}' despite it is the same workflow run.\n" \
+              "Prefer using the output from SonarSource/ci-common-scripts/actions/get-build-number instead of calling it twice."
+          fi
