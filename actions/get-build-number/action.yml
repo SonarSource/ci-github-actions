@@ -39,7 +39,7 @@ runs:
         GITHUB_TOKEN: ${{ steps.current-build-number.outputs.cache-hit != 'true' && fromJSON(steps.secrets.outputs.vault).github_token
           || '' }}
         GITHUB_REPOSITORY: ${{ inputs.repository }}
-      run: ${{ github.action_path }}/get_build_number
+      run: ${GITHUB_ACTION_PATH}/get_build_number
 
     - name: Export build number
       id: export
