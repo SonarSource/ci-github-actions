@@ -1,0 +1,20 @@
+---
+name: Slack Notifications
+on:
+  check_suite:
+    types: [completed]
+
+permissions:
+  contents: read
+  id-token: write
+  checks: read
+jobs:
+  notify:
+    runs-on: ubuntu-24.04-large
+    steps:
+      - name: Send Slack Notification
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        uses: SonarSource/gh-action_slack-notify@master
+        with:
+          slackChannel: squad-eng-xp-github

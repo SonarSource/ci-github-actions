@@ -1,0 +1,6 @@
+# Configuration for https://github.com/rhysd/actionlint run by pre-commit
+self-hosted-runner:
+  labels:
+    - ubuntu-24.04       # GitHub-Hosted runner for public workflows
+    - ubuntu-24.04-large # GitHub-Hosted Large runner for public workflows performing authenticated actions
+    - sonar-runner-large # GitHub-Hosted Large with Docker-in-Docker enabled

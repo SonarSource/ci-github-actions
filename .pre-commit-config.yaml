@@ -7,12 +7,33 @@ repos:
       - id: check-hooks-apply
       - id: check-useless-excludes
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: 3298ddab3c13dd77d6ce1fc0baf97691430d84b0  # frozen: v4.3.0
+    rev: 2c9f875913ee60ca25ce70243dc24d5b6415598c  # v4.6.0
     hooks:
       - id: trailing-whitespace
-      - id: end-of-file-fixer
       - id: check-added-large-files
+      - id: end-of-file-fixer
+  - repo: https://github.com/adrienverge/yamllint/
+    rev: 81e9f98ffd059efe8aa9c1b1a42e5cce61b640c6  # frozen: v1.35.1
+    hooks:
+      - id: yamllint
+        args: [--strict, --config-file=.yamllint.yaml]
+  - repo: https://github.com/gruntwork-io/pre-commit
+    rev: d0bcdb35c6999a4a120b528f050d2b11778fd3d0  # v0.1.23
+    hooks:
+      - id: shellcheck
+  - repo: https://github.com/python-jsonschema/check-jsonschema
+    rev: 96ee1570b119e6337aafcc2f299bb0d902b68328  # 0.28.6
+    hooks:
+      - id: check-github-workflows
   - repo: https://github.com/igorshubovych/markdownlint-cli
-    rev: f295829140d25717bc79368d3f966fc1f67a824f  # frozen: v0.41.0
+    rev: f295829140d25717bc79368d3f966fc1f67a824f  # v0.41.0
     hooks:
       - id: markdownlint
+  - repo: https://github.com/renovatebot/pre-commit-hooks
+    rev: 731b86757c909f5eb4753ce1e743c64bd18f5ea8  # 37.418.1
+    hooks:
+      - id: renovate-config-validator
+  - repo: https://github.com/rhysd/actionlint
+    rev: 62dc61a45fc95efe8c800af7a557ab0b9165d63b  # v1.7.1
+    hooks:
+      - id: actionlint
