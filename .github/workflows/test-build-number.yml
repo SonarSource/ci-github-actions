@@ -2,6 +2,11 @@
 on:
   pull_request:
   merge_group:
+  push:
+    branches:
+      - master
+      - branch-*
+  workflow_dispatch:
 
 jobs:
   test-build-number-generation:
