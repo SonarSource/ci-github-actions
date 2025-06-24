@@ -16,6 +16,6 @@ The build number is unique per workflow run ID. It is not incremented on workflo
 Usage:
 
 ```yaml
-      - uses: SonarSource/ci-github-actions/actions/get-build-number@v1
+      - uses: SonarSource/ci-github-actions/get-build-number@v1
       - run: echo "Build number: ${BUILD_NUMBER}"
 ```
