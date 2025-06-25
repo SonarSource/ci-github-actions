@@ -1,0 +1,55 @@
+---
+name: Test Shell Scripts
+on:
+  pull_request:
+  merge_group:
+  push:
+    branches:
+      - master
+      - branch-*
+  workflow_dispatch:
+
+jobs:
+  test-shell-scripts:
+    runs-on: ubuntu-24.04-large
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: jdx/mise-action@5cb1df66ed5e1fb3c670ea0b62fd17a76979826a # v2.3.1
+      - name: Run ShellSpec tests
+        # FIXME BUILD-8337: improve setup of kcov
+        run: |
+          curl -L -O https://archive.ubuntu.com/ubuntu/pool/universe/k/kcov/kcov_38+dfsg-1_amd64.deb
+          sudo dpkg -i kcov_38+dfsg-1_amd64.deb
+          rm kcov_38+dfsg-1_amd64.deb
+
+          pwd
+          ls -la
+          ./run_shell_tests.sh
+      - name: Vault
+        id: secrets
+        uses: SonarSource/vault-action-wrapper@d6d745ffdbc82b040df839b903bc33b5592cd6b0 # 3.0.2
+        with:
+          secrets: |
+            development/kv/data/sonarcloud url | SONAR_URL;
+            development/kv/data/sonarcloud token | SONAR_TOKEN;
+      - name: Sonar Analysis
+        # FIXME BUILD-8337: improve usage of sonar-scanner-cli
+        env:
+          SONAR_URL: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_URL }}
+          SONAR_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_TOKEN }}
+          SONAR_SCANNER_CLI_VERSION: 6.1.0.4477
+        run: |
+          SCANNER_ZIP="sonar-scanner-cli-${SONAR_SCANNER_CLI_VERSION}-linux-x64.zip"
+          curl -L -O "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/$SCANNER_ZIP"
+          unzip "sonar-scanner-cli-${SONAR_SCANNER_CLI_VERSION}-linux-x64.zip"
+          mv "sonar-scanner-${SONAR_SCANNER_CLI_VERSION}-linux-x64" sonar-scanner-cli
+          chmod +x sonar-scanner-cli/bin/sonar-scanner
+
+          echo "DEBUG: GITHUB_ACTION_PATH=${GITHUB_ACTION_PATH}"
+          echo "DEBUG: PWD=$(pwd)"
+          mkdir coverage/coverage_data
+          sed "s,/${GITHUB_ACTION_PATH}/,/,g" coverage/sonarqube.xml > coverage/coverage_data/sonar_coverage.xml
+          ./sonar-scanner-cli/bin/sonar-scanner -X -Dsonar.host.url="${SONAR_URL}" -Dsonar.token="${SONAR_TOKEN}"

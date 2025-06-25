@@ -1,1 +1,4 @@
 /.idea/
+/coverage/
+/.scannerwork/
+/build_number.txt

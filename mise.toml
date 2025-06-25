@@ -1,3 +1,5 @@
 [tools]
 pre-commit = "4.2.0"
 shellcheck = "0.10.0"
+shellspec = "0.28.1"
+jfrog-cli = "2.77.0"
