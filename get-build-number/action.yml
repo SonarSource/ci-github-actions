@@ -3,9 +3,6 @@ name: Get build number
 description: GitHub Action to get the build number for a repository
 author: platform.eng-xp@sonarsource.com
 inputs:
-  repository:
-    description: GitHub repository name in the format of org/repo
-    default: ${{ github.repository }}
   run-id:
     description: The run ID of the workflow run
     default: ${{ github.run_id }}
@@ -38,7 +35,7 @@ runs:
       env:
         GITHUB_TOKEN: ${{ steps.current-build-number.outputs.cache-hit != 'true' && fromJSON(steps.secrets.outputs.vault).github_token
           || '' }}
-        GITHUB_REPOSITORY: ${{ inputs.repository }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
       run: ${GITHUB_ACTION_PATH}/get_build_number
 
     - name: Export build number
