@@ -1,4 +1,5 @@
 ---
+name: Test Build Number
 on:
   pull_request:
   merge_group:

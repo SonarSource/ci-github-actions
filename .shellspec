@@ -1,0 +1,6 @@
+# kcov (coverage) options
+--kcov-options "--include-pattern=build-poetry/,get-build-number/"
+# --kcov-options "--exclude-pattern="
+
+# define minimum coverage (fail otherwise)
+--kcov-options "--limits=80,100"
