@@ -1,3 +1,4 @@
+name: Pre-commit Checks
 on:
   pull_request:
 
@@ -5,11 +6,7 @@ jobs:
   pre-commit:
     runs-on: sonar-runner-large
     steps:
-      - uses: jdx/mise-action@13abe502c30c1559a5c37dff303831bab82c9402 # v2.2.3
-        with:
-          cache_save: ${{ github.ref_name == github.event.repository.default_branch }}
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+      - uses: jdx/mise-action@5cb1df66ed5e1fb3c670ea0b62fd17a76979826a # v2.3.1
       - uses: SonarSource/gh-action_pre-commit@3d5b503c1ce51d0f92665875b9bea716eff1e70f # 1.0.7
         with:
           extra-args: >

@@ -13,12 +13,83 @@ set it as an environment variable named `BUILD_NUMBER`, and as a GitHub Actions 
 
 The build number is unique per workflow run ID. It is not incremented on workflow reruns.
 
-Usage:
+### Usage
 
 ```yaml
+jobs:
+  get-build-number:
+    runs-on: ubuntu-24.04-large
+    permissions:
+      id-token: write
+      contents: read
+    steps:
       - uses: SonarSource/ci-github-actions/get-build-number@v1
-      - run: echo "Build number: ${BUILD_NUMBER}"
 ```
+
+⚠️ Required GitHub permissions:
+
+- `id-token: write`
+- `contents: read`
+
+⚠️ Required Vault permissions:
+
+- `build-number`: GitHub preset to read and write the build number property. This is built-in to the Vault `auth.github` permission.
+
+### Outputs
+
+- `BUILD_NUMBER`: The current build number.
+
+## build-poetry
+
+Build and publish a Python project using Poetry.
+
+### Usage
+
+_All the `with` parameters are optional and have default values which are shown below._
+
+```yaml
+name: Build
+on:
+  push:
+    branches:
+      - master
+      - branch-*
+  pull_request:
+  merge_group:
+  workflow_dispatch:
+
+jobs:
+  build:
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
+    runs-on: ubuntu-24.04-large
+    name: Build
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - uses: SonarSource/ci-github-actions/get-build-number@v1
+      - uses: SonarSource/ci-github-actions/build-poetry@v1
+        with:
+          public: false                                         # Defaults to `true` if the repository is public
+          artifactory-reader-role: private-reader               # or public-reader if `public` is `true`
+          artifactory-deployer-role: qa-deployer                # or public-deployer if `public` is `true`
+          deploy-pull-request: true
+          poetry-virtualenvs-path: .cache/pypoetry/virtualenvs
+          poetry-cache-dir: .cache/pypoetry
+```
+
+⚠️ Required GitHub permissions:
+
+- `id-token: write`
+- `contents: write`
+
+⚠️ Required Vault permissions:
+
+- `public-reader` or `private-reader` Artifactory roles for the build.
+- `public-deployer` or `qa-deployer` Artifactory roles for the deployment.
+- `qa-deployer` Artifactory role for the QA deploy.
 
 ## pr-cleanup
 

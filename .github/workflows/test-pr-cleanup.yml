@@ -19,8 +19,7 @@ jobs:
         with:
           path: ./test-cache
           key: test-cache-${{ github.event.pull_request.number }}
-          restore-keys: |
-            test-cache-
+          restore-keys: test-cache-
 
       # Create test file and directory for cache
       - name: Create test file for cache
@@ -50,8 +49,9 @@ jobs:
         run: |
           # Try to restore the cache, should fail or be empty
           mkdir -p test-cache
-          CACHE_REF="refs/pull/${{ github.event.pull_request.number }}/merge"
-          if gh cache list --repo "$GITHUB_REPOSITORY" --ref "$CACHE_REF" | grep -q "test-cache-"; then
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          CACHE_REF="refs/pull/$PR_NUMBER/merge"
+          if gh cache list --repo "$GITHUB_REPOSITORY" --ref "$CACHE_REF" | grep -q "test-cache-$PR_NUMBER"; then
             echo "❌ Cache was not cleaned up"
             exit 1
           else
@@ -63,7 +63,8 @@ jobs:
       - name: Verify artifact cleanup
         run: |
           # Check if artifact exists, should not find it
-          ARTIFACT_NAME="test-artifact-${{ github.event.pull_request.number }}"
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          ARTIFACT_NAME="test-artifact-$PR_NUMBER"
           if gh api -X GET "/repos/$GITHUB_REPOSITORY/actions/artifacts" | grep -q "$ARTIFACT_NAME"; then
             echo "❌ Artifact was not cleaned up"
             exit 1
