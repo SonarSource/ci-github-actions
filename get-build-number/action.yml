@@ -23,7 +23,7 @@ runs:
       id: current-build-number
       with:
         path: build_number.txt
-        key: build-number-${{ inputs.repository }}-${{ inputs.run-id }}
+        key: build-number-${{ inputs.run-id }}
 
     # Otherwise, increment the build number
     - name: Get secrets from Vault
@@ -54,4 +54,4 @@ runs:
       if: steps.current-build-number.outputs.cache-hit != 'true'
       with:
         path: build_number.txt
-        key: build-number-${{ inputs.repository }}-${{ inputs.run-id }}
+        key: build-number-${{ inputs.run-id }}
