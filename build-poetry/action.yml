@@ -38,6 +38,7 @@ runs:
         echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_DEPLOYER_ROLE=${ARTIFACTORY_DEPLOYER_ROLE}" >> "$GITHUB_ENV"
         echo "github.action_ref: ${{ github.action_ref }}"
+        cp ${GITHUB_ACTION_PATH}/mise.toml mise.local.toml
         # mkdir .actions/
         # ln -s "${GITHUB_ACTION_PATH}/../get-build-number" .actions/get-build-number
     - name: Vault
@@ -73,7 +74,4 @@ runs:
         POETRY_VIRTUALENVS_PATH: ${{ github.workspace }}/${{ inputs.poetry-virtualenvs-path }}
         POETRY_CACHE_DIR: ${{ github.workspace }}/${{ inputs.poetry-cache-dir }}
       run: |
-        cat mise.toml
-        mise current -v
-        mise use jfrog-cli@2.77.0
         ${GITHUB_ACTION_PATH}/build.sh
