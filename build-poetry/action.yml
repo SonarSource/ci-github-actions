@@ -40,14 +40,6 @@ runs:
         echo "github.action_ref: ${{ github.action_ref }}"
         # mkdir .actions/
         # ln -s "${GITHUB_ACTION_PATH}/../get-build-number" .actions/get-build-number
-    - uses: jdx/mise-action@13abe502c30c1559a5c37dff303831bab82c9402 # v2.2.3
-      env:
-        GITHUB_TOKEN: ${{ github.token }}
-      with:
-        mise_toml: |
-          [tools]
-          jfrog-cli = "2.77.0"
-
     - name: Vault
       # yamllint disable rule:line-length
       id: secrets
@@ -65,6 +57,9 @@ runs:
         restore-keys: poetry-${{ runner.os }}-
     #    - uses: ./.actions/get-build-number
     #      id: build-number
+    - uses: jdx/mise-action@13abe502c30c1559a5c37dff303831bab82c9402 # v2.2.3
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
     - name: Build, Analyze and deploy
       id: build
       shell: bash
@@ -80,4 +75,5 @@ runs:
       run: |
         cat mise.toml
         mise current -v
+        mise use jfrog-cli@2.77.0
         ${GITHUB_ACTION_PATH}/build.sh
