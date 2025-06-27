@@ -1,0 +1,14 @@
+name: PR Cleanup
+description: Cleanup caches and artifacts associated with a pull request
+
+runs:
+  using: composite
+  steps:
+    - name: Cleanup caches
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        CACHE_REF: refs/pull/${{ github.event.pull_request.number }}/merge
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        GITHUB_HEAD_REF: ${{ github.head_ref }}
+      run: ${GITHUB_ACTION_PATH}/cleanup.sh
