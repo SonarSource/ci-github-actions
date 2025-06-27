@@ -1,11 +1,6 @@
 ---
 name: Get build number
 description: GitHub Action to get the build number for a repository
-author: platform.eng-xp@sonarsource.com
-inputs:
-  run-id:
-    description: The run ID of the workflow run
-    default: ${{ github.run_id }}
 outputs:
   BUILD_NUMBER:
     description: The build number, incremented or reused if already cached
@@ -20,7 +15,7 @@ runs:
       id: current-build-number
       with:
         path: build_number.txt
-        key: build-number-${{ inputs.run-id }}
+        key: build-number-${{ github.run_id }}
 
     # Otherwise, increment the build number
     - name: Get secrets from Vault
@@ -36,7 +31,7 @@ runs:
         GITHUB_TOKEN: ${{ steps.current-build-number.outputs.cache-hit != 'true' && fromJSON(steps.secrets.outputs.vault).github_token
           || '' }}
         GITHUB_REPOSITORY: ${{ github.repository }}
-      run: ${GITHUB_ACTION_PATH}/get_build_number
+      run: ${GITHUB_ACTION_PATH}/get_build_number.sh
 
     - name: Export build number
       id: export
@@ -51,4 +46,4 @@ runs:
       if: steps.current-build-number.outputs.cache-hit != 'true'
       with:
         path: build_number.txt
-        key: build-number-${{ inputs.run-id }}
+        key: build-number-${{ github.run_id }}

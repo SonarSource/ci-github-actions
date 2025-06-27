@@ -5,6 +5,9 @@ MD013:
   line_length: 140
   tables: false
 
+MD024: # Multiple headings with the same content
+  siblings_only: true
+
 MD031: # Fenced code blocks should be surrounded by blank lines
   # Disable for list_items to create a tight list containing a code fence
   list_items: false

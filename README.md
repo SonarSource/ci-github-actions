@@ -13,11 +13,43 @@ set it as an environment variable named `BUILD_NUMBER`, and as a GitHub Actions 
 
 The build number is unique per workflow run ID. It is not incremented on workflow reruns.
 
-Usage:
+### Usage
 
 ```yaml
       - uses: SonarSource/ci-github-actions/get-build-number@v1
-      - run: echo "Build number: ${BUILD_NUMBER}"
+```
+
+### Outputs
+
+- `BUILD_NUMBER`: The current build number.
+
+## build-poetry
+
+Build and publish a Python project using Poetry.
+
+### Usage
+
+_All the `with` parameters are optional and have default values which are shown below._
+
+```yaml
+      - uses: SonarSource/ci-github-actions/build-poetry@v1
+        with:
+          public: false
+          artifactory-reader-role: private-reader
+          artifactory-deployer-role: qa-deployer
+          deploy-pull-request: true
+          poetry-virtualenvs-path: .cache/pypoetry/virtualenvs
+          poetry-cache-dir: .cache/pypoetry
+```
+
+When `public` is set to `true`:
+
+```yaml
+      - uses: SonarSource/ci-github-actions/build-poetry@v1
+        with:
+          public: true
+          artifactory-reader-role: public-reader
+          artifactory-deployer-role: public-deployer
 ```
 
 ## pr-cleanup
