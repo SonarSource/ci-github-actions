@@ -1,0 +1,74 @@
+name: Test PR Cleanup Action
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+
+permissions:
+  actions: write  # Required for cache/artifact operations
+
+jobs:
+  test-resources:
+    if: github.event.action != 'closed'  # Only create resources when PR is not being closed
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Create and save a cache
+      - name: Create test cache
+        uses: actions/cache@v4
+        with:
+          path: ./test-cache
+          key: test-cache-${{ github.event.pull_request.number }}
+          restore-keys: |
+            test-cache-
+
+      # Create test file and directory for cache
+      - name: Create test file for cache
+        run: |
+          mkdir -p test-cache
+          echo "Test content for cache" > test-cache/test.txt
+
+      # Upload a test artifact
+      - name: Create and upload test artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-artifact-${{ github.event.pull_request.number }}
+          path: test-cache/test.txt
+          retention-days: 1
+
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      # Test the cleanup action
+      - uses: actions/checkout@v4
+
+      - name: Run PR cleanup
+        uses: ./pr_cleanup
+
+      # Verify cleanup
+      - name: Verify cache cleanup
+        run: |
+          # Try to restore the cache, should fail or be empty
+          mkdir -p test-cache
+          CACHE_REF="refs/pull/${{ github.event.pull_request.number }}/merge"
+          if gh cache list --repo "$GITHUB_REPOSITORY" --ref "$CACHE_REF" | grep -q "test-cache-"; then
+            echo "❌ Cache was not cleaned up"
+            exit 1
+          else
+            echo "✅ Cache was successfully cleaned up"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Verify artifact cleanup
+        run: |
+          # Check if artifact exists, should not find it
+          ARTIFACT_NAME="test-artifact-${{ github.event.pull_request.number }}"
+          if gh api -X GET "/repos/$GITHUB_REPOSITORY/actions/artifacts" | grep -q "$ARTIFACT_NAME"; then
+            echo "❌ Artifact was not cleaned up"
+            exit 1
+          else
+            echo "✅ Artifact was successfully cleaned up"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
