@@ -49,8 +49,8 @@ Describe 'build.sh'
     The line 2 should include "python"
     The line 3 should include "poetry"
     The line 4 should include "poetry"
-    The line 5 should include "jfrog"
-    The line 6 should include "jfrog"
+    The line 5 should include "jf"
+    The line 6 should include "jf"
     The line 7 should equal "PROJECT: my-repo"
     The line 8 should equal "PULL_REQUEST: false"
     The line 9 should equal "Replacing version 1.2 with 1.2.0.42"
@@ -63,6 +63,14 @@ Describe 'build.sh'
 End
 
 Include build-poetry/build.sh
+
+Describe 'check_tool'
+  It 'should report not installed tool'
+    When call check_tool some_tool
+    The status should be failure
+    The line 1 of error should equal "some_tool is not installed."
+  End
+End
 
 Describe 'set_build_env'
   It 'should set the default branch and project name'
