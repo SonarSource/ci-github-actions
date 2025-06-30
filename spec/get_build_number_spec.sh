@@ -19,12 +19,16 @@ Describe 'get_build_number.sh'
         echo "gh $*"
       fi
     End
+    # shellcheck disable=SC2317
+#    preserve() { %preserve BUILD_NUMBER; }
+#    AfterRun preserve
     When run script get-build-number/get_build_number.sh
     The line 1 should include "Fetching build number"
     The line 2 should equal "Current build number from repo: 42"
     The line 3 should include "43"
     The path "$CACHE_FILE" should be file
     The contents of file "$CACHE_FILE" should equal "43"
+#    The variable BUILD_NUMBER should equal "43"
   End
 
   It 'should return an error if BUILD_NUMBER is invalid'

@@ -36,6 +36,7 @@ jobs:
             development/kv/data/sonarcloud url | SONAR_URL;
             development/kv/data/sonarcloud token | SONAR_TOKEN;
       - name: Sonar Analysis
+        if: steps.secrets.outcome == 'success'
         # FIXME BUILD-8337: improve usage of sonar-scanner-cli
         env:
           SONAR_URL: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_URL }}
