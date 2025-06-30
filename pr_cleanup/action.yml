@@ -8,7 +8,6 @@ runs:
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
+        GH_FORCE_TTY: 140
         CACHE_REF: refs/pull/${{ github.event.pull_request.number }}/merge
-        GITHUB_REPOSITORY: ${{ github.repository }}
-        GITHUB_HEAD_REF: ${{ github.head_ref }}
       run: ${GITHUB_ACTION_PATH}/cleanup.sh

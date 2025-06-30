@@ -1,25 +1,24 @@
 #!/bin/bash
-set -e
-
+# Cleanup caches and artifacts for a pull request in a GitHub repository.
 # Required environment variables:
-#   GH_TOKEN         - GitHub token with actions:write permission for cache and artifact deletion
-#   CACHE_REF       - Cache reference in the format "refs/pull/<pr_number>/merge"
+#   GH_TOKEN          - GitHub token with actions:write permission for cache and artifact deletion
+#   CACHE_REF         - Cache reference in the format "refs/pull/<pr_number>/merge"
 #   GITHUB_REPOSITORY - Repository name with owner (e.g. "owner/repo")
-#   GITHUB_HEAD_REF  - Head branch reference of the pull request
+#   GITHUB_HEAD_REF   - Head branch reference of the pull request
 
-# Check required environment variables
-: "${GH_TOKEN:?Required environment variable not set}"
+set -euo pipefail
+
+: "${GH_TOKEN:?Required environment variable not set}" # used by gh CLI
 : "${CACHE_REF:?Required environment variable not set}"
 : "${GITHUB_REPOSITORY:?Required environment variable not set}"
 : "${GITHUB_HEAD_REF:?Required environment variable not set}"
 
+CURDIR=$(dirname "$0")
+
+echo "::group::Cache Cleanup"
 echo "Fetching list of cache keys on $GITHUB_REPOSITORY for $CACHE_REF"
-TEMPLATE='{{tablerow "ID" "KEY" "SIZE (BYTES)"}}
-  {{- range . -}}
-    {{- tablerow .id .key .sizeInBytes -}}
-  {{- end -}}
-  {{- tablerender -}}'
-gh cache list --repo "$GITHUB_REPOSITORY" --ref "$CACHE_REF" --json id,key,sizeInBytes --template "$TEMPLATE"
+CACHE_TEMPLATE="$(cat "$CURDIR"/cache_template.tpl)"
+gh cache list --repo "$GITHUB_REPOSITORY" --ref "$CACHE_REF" --json id,key,sizeInBytes --template "$CACHE_TEMPLATE"
 echo
 
 cacheKeysForPR="$(gh cache list --repo "$GITHUB_REPOSITORY" --ref "$CACHE_REF" --json id --jq '.[].id')"
@@ -32,28 +31,30 @@ done
 echo
 
 echo "Fetching list of cache keys after deletion"
-gh cache list --repo "$GITHUB_REPOSITORY" --ref "$CACHE_REF" --json id,key,sizeInBytes --template "$TEMPLATE"
+gh cache list --repo "$GITHUB_REPOSITORY" --ref "$CACHE_REF" --json id,key,sizeInBytes --template "$CACHE_TEMPLATE"
+echo
+echo "::endgroup::"
 
-echo "Fetching list of artifacts"
-TEMPLATE='{{tablerow "NAME" "ID" "SIZE (BYTES)" "BRANCH" "HEAD_SHA" "RUN_ID"}}
-  {{- range .artifacts -}}
-    {{- if eq .workflow_run.head_branch "'"$GITHUB_HEAD_REF"'" -}}
-      {{- tablerow .name .id .size_in_bytes .workflow_run.head_branch .workflow_run.head_sha .workflow_run.id -}}
-    {{- end -}}
-  {{- end -}}
-  {{- tablerender -}}'
-gh api -X GET "/repos/$GITHUB_REPOSITORY/actions/artifacts" --template "$TEMPLATE"
+echo "::group::Artifact Cleanup"
+echo "Fetching list of artifacts on $GITHUB_REPOSITORY for $GITHUB_HEAD_REF"
+tpl_tmp_file="$(mktemp)"
+# shellcheck disable=SC2016
+envsubst '$GITHUB_HEAD_REF' < "$CURDIR"/artifact_template.tpl > "$tpl_tmp_file"
+ARTIFACT_TEMPLATE="$(cat "$tpl_tmp_file")"
+
+ARTIFACT_API_URL="/repos/$GITHUB_REPOSITORY/actions/artifacts"
+gh api -X GET "$ARTIFACT_API_URL" --template "$ARTIFACT_TEMPLATE"
 echo
 
-artifactIds="$(gh api -X GET "/repos/$GITHUB_REPOSITORY/actions/artifacts" \
-  --jq '.artifacts[] | select(.workflow_run.head_branch == "'"$GITHUB_HEAD_REF"'") | .id')"
+artifactIds="$(gh api -X GET "$ARTIFACT_API_URL" --jq '.artifacts[] | select(.workflow_run.head_branch == "'"$GITHUB_HEAD_REF"'") | .id')"
 echo "Deleting artifacts..."
 for artifactId in $artifactIds
 do
   echo "Deleting artifact: $artifactId"
-  gh api -X DELETE "/repos/$GITHUB_REPOSITORY/actions/artifacts/$artifactId" || true
+  gh api -X DELETE "$ARTIFACT_API_URL/$artifactId" || true
 done
 echo
 
 echo "Fetching list of artifacts after deletion"
-gh api -X GET "/repos/$GITHUB_REPOSITORY/actions/artifacts" --template "$TEMPLATE"
+gh api -X GET "$ARTIFACT_API_URL" --template "$ARTIFACT_TEMPLATE"
+echo "::endgroup::"

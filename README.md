@@ -4,7 +4,7 @@
 
 CI/CD GitHub Actions
 
-## get-build-number
+## `get-build-number`
 
 Manage the build number in GitHub Actions.
 
@@ -39,7 +39,7 @@ jobs:
 
 - `BUILD_NUMBER`: The current build number.
 
-## build-poetry
+## `build-poetry`
 
 Build and publish a Python project using Poetry.
 
@@ -91,20 +91,18 @@ jobs:
 - `public-deployer` or `qa-deployer` Artifactory roles for the deployment.
 - `qa-deployer` Artifactory role for the QA deploy.
 
-## pr-cleanup
+## `pr-cleanup`
 
-Automatically clean up caches and artifacts associated with a pull request when it's closed.
+Automatically clean up caches and artifacts associated with a pull request when it is closed.
 
 Features:
 
-- Removes GitHub Actions caches associated with the PR
-- Cleans up artifacts created during PR workflows
-- Provides detailed output of deleted resources
-- Shows before/after state of caches and artifacts
+- Remove GitHub Actions caches associated with the PR
+- Clean up artifacts created during PR workflows
+- Provide detailed output of the deleted resources
+- Show before/after state of caches and artifacts
 
-⚠️ **Important note:** the calling workflow needs a token with `actions:write` permission for cache and artifact deletion
-
-Usage:
+### Usage
 
 ```yaml
 name: Cleanup PR Resources
@@ -115,26 +113,13 @@ on:
 
 jobs:
   cleanup:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       actions: write  # Required for deleting caches and artifacts
     steps:
-      - uses: SonarSource/ci-github-actions/pr_cleanup@master
+      - uses: SonarSource/ci-github-actions/pr_cleanup@v1
 ```
 
-### Environment Variables
+⚠️ Required GitHub permissions:
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `GH_TOKEN` | GitHub token with actions:write permission for cache and artifact deletion | `${{ github.token }}` |
-| `CACHE_REF` | Cache reference in the format "refs/pull/<pr_number>/merge" | `refs/pull/123/merge` |
-| `GITHUB_REPOSITORY` | Repository name with owner | `owner/repo` |
-| `GITHUB_HEAD_REF` | Head branch reference of the pull request | `feature-branch` |
-
-### Permissions
-
-The workflow requires the following permissions:
-
-- `actions: write` - Required for deleting caches and artifacts
-
-This permission must be explicitly set in the workflow as shown in the example above.
+- `actions: write`: Required to delete caches and artifacts.
