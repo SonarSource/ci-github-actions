@@ -1,0 +1,56 @@
+---
+name: Promote
+description: GitHub Action to promote a project
+inputs:
+  public:
+    description: Whether to build and deploy with/to public repositories. Set to `true` for public repositories (OSS), `false` for private.
+    default: 'false'
+  artifactory-reader-role:
+    description: Suffix for the Artifactory reader role in Vault. Defaults to `private-reader` for private repositories, and `public-reader`
+      for public repositories.
+    default: ''
+#  poetry-virtualenvs-path:
+#    description: Path to the Poetry virtual environments, relative to GitHub workspace. The folder is cached only if it is a subdirectory of
+#      `poetry-cache-dir`.
+#    default: .cache/pypoetry/virtualenvs
+#  poetry-cache-dir:
+#    description: Path to the Poetry cache directory, relative to GitHub workspace.
+#    default: .cache/pypoetry
+
+runs:
+  using: composite
+  steps:
+    - name: Set build parameters
+      shell: bash
+      env:
+        ARTIFACTORY_READER_ROLE: ${{ inputs.artifactory-reader-role != '' && inputs.artifactory-reader-role ||
+          (inputs.public == 'true' && 'public-reader' || 'private-reader') }}
+      run: |
+        echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
+        cp ${GITHUB_ACTION_PATH}/mise.local.toml mise.local.toml
+    - name: Vault
+      id: secrets
+      uses: SonarSource/vault-action-wrapper@d6d745ffdbc82b040df839b903bc33b5592cd6b0 # 3.0.2
+      with:
+        secrets: |
+          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
+          development/artifactory/token/{REPO_OWNER_NAME_DASH}-promoter access_token | ARTIFACTORY_PROMOTE_ACCESS_TOKEN;
+          development/github/token/{REPO_OWNER_NAME_DASH}-promotion token | GITHUB_TOKEN;
+#    - name: Restore local Poetry cache
+#      uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+#      with:
+#        path: ${{ github.workspace }}/${{ inputs.poetry-cache-dir }}
+#        key: poetry-${{ runner.os }}-${{ hashFiles('poetry.lock') }}
+#        restore-keys: poetry-${{ runner.os }}-
+    - uses: jdx/mise-action@13abe502c30c1559a5c37dff303831bab82c9402 # v2.2.3
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+    - name: Promote artifacts
+      shell: bash
+      env:
+        ARTIFACTORY_URL: https://repox.jfrog.io/artifactory
+        ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
+        ARTIFACTORY_PROMOTE_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_PROMOTE_ACCESS_TOKEN }}
+        GITHUB_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).GITHUB_TOKEN }}
+      run: |
+        ${GITHUB_ACTION_PATH}/promote.sh
