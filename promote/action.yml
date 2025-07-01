@@ -1,0 +1,31 @@
+---
+name: Promote
+description: GitHub Action to promote a project
+inputs:
+  public:
+    description: Whether to build and deploy with/to public repositories. Set to `true` for public repositories (OSS), `false` for private.
+    default: ${{ github.event.repository.visibility == 'public' && 'true' || 'false' }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set build parameters
+      shell: bash
+      run: |
+        cp ${GITHUB_ACTION_PATH}/mise.local.toml mise.local.toml
+    - name: Vault
+      id: secrets
+      uses: SonarSource/vault-action-wrapper@d6d745ffdbc82b040df839b903bc33b5592cd6b0 # 3.0.2
+      with:
+        secrets: |
+          development/artifactory/token/{REPO_OWNER_NAME_DASH}-promoter access_token | ARTIFACTORY_PROMOTE_ACCESS_TOKEN;
+          development/github/token/{REPO_OWNER_NAME_DASH}-promotion token | GITHUB_TOKEN;
+    - uses: jdx/mise-action@5cb1df66ed5e1fb3c670ea0b62fd17a76979826a # v2.3.1
+    - name: Promote artifacts
+      shell: bash
+      env:
+        ARTIFACTORY_PROMOTE_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_PROMOTE_ACCESS_TOKEN }}
+        GITHUB_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).GITHUB_TOKEN }}
+        DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      run: |
+        ${GITHUB_ACTION_PATH}/promote.sh
