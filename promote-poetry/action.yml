@@ -1,0 +1,46 @@
+---
+name: Promote
+description: GitHub Action to promote a project
+inputs:
+  public:
+    description: Whether to build and deploy with/to public repositories. Set to `true` for public repositories (OSS), `false` for private.
+    default: 'false'
+  artifactory-reader-role:
+    description: Suffix for the Artifactory reader role in Vault. Defaults to `private-reader` for private repositories, and `public-reader`
+      for public repositories.
+    default: ''
+#  project-version:
+#    description: Version of the project to promote (e.g. 1.2.3)
+#    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Set build parameters
+      shell: bash
+      env:
+        ARTIFACTORY_READER_ROLE: ${{ inputs.artifactory-reader-role != '' && inputs.artifactory-reader-role ||
+          (inputs.public == 'true' && 'public-reader' || 'private-reader') }}
+      run: |
+        echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
+        cp ${GITHUB_ACTION_PATH}/mise.local.toml mise.local.toml
+    - name: Vault
+      id: secrets
+      uses: SonarSource/vault-action-wrapper@d6d745ffdbc82b040df839b903bc33b5592cd6b0 # 3.0.2
+      with:
+        secrets: |
+          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
+          development/artifactory/token/{REPO_OWNER_NAME_DASH}-promoter access_token | ARTIFACTORY_PROMOTE_ACCESS_TOKEN;
+          development/github/token/{REPO_OWNER_NAME_DASH}-promotion token | GITHUB_TOKEN;
+    - uses: jdx/mise-action@13abe502c30c1559a5c37dff303831bab82c9402 # v2.2.3
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+    - name: Promote artifacts
+      shell: bash
+      env:
+        ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
+        ARTIFACTORY_PROMOTE_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_PROMOTE_ACCESS_TOKEN }}
+        GITHUB_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).GITHUB_TOKEN }}
+        # PROJECT_VERSION: ${{ inputs.project-version }}
+      run: |
+        ${GITHUB_ACTION_PATH}/promote.sh

@@ -1,0 +1,280 @@
+#!/bin/bash
+eval "$(shellspec - -c) exit 1"
+
+Mock jf
+  if [[ "$*" == 'rt curl "api/build'* ]]; then
+    cat <<EOF
+{
+  "buildInfo" : {
+    "properties" : {
+      "buildInfo.env.ARTIFACTORY_DEPLOY_REPO" : "sonarsource-deploy-qa",
+      "buildInfo.env.BUILD_NUMBER" : "42"
+      "buildInfo.env.PROJECT_VERSION" : "1.2.3.42",
+    }
+}
+EOF
+  else
+    echo "jf $*"
+  fi
+End
+Mock gh
+  if [[ "$*" =~ "defaultBranchRef" ]]; then
+    echo "default-branch"
+  else
+    echo "gh $*"
+  fi
+End
+Mock jq
+#  if [[ "$*" == *".buildInfo.properties"* ]]; then
+#    jq "$@"
+  if [[ "$*" == *"buildInfo.env.ARTIFACTORY_DEPLOY_REPO"* ]]; then
+    echo "sonarsource-deploy-qa"
+  elif [[ "$*" == *"buildInfo.env.PROJECT_VERSION"* ]]; then
+    echo "1.2.3.42"
+  else
+    echo "jq $*"
+  fi
+End
+
+# Minimal environment variables
+export ARTIFACTORY_URL="https://dummy.repox"
+export ARTIFACTORY_PROMOTE_ACCESS_TOKEN="dummy promote token"
+export GITHUB_REF_NAME="dummy-branch"
+export BUILD_NUMBER="42"
+export GITHUB_REPOSITORY="SonarSource/dummy-project"
+export GITHUB_EVENT_NAME="push"
+GITHUB_EVENT_PATH=$(mktemp)
+export GITHUB_EVENT_PATH
+export GITHUB_TOKEN="promotion token"
+export GITHUB_SHA="abc123"
+
+export PROJECT_VERSION="1.2.3"
+export DEFAULT_BRANCH="main"
+export PROJECT="dummy-project"
+
+Describe 'promote-poetry/promote.sh'
+  It 'does not run promote-poetry() if the script is sourced'
+    When run source promote-poetry/promote.sh
+    The status should be success
+    The output should equal ""
+  End
+
+  It 'skips promotion for merge queue branches'
+    export GITHUB_REF_NAME="gh-readonly-queue/main"
+    When run script promote-poetry/promote.sh
+    The status should be success
+    The output should include "promotion skipped"
+  End
+
+  It 'fails on working branch'
+    When run script promote-poetry/promote.sh
+    The status should be failure
+    The output should include "PROJECT: dummy-project"
+    The error should start with "Promotion is only available for"
+  End
+
+  It 'runs promote-poetry() on pull_request'
+    export ARTIFACTORY_TARGET="artifactory-target"
+    export GITHUB_EVENT_NAME="pull_request"
+    When run script promote-poetry/promote.sh
+    The status should be success
+    The lines of stdout should equal 10
+    The line 1 should include "jq"
+    The line 2 should include "jq"
+    The line 3 should include "jf"
+    The line 4 should include "jf"
+    The line 5 should equal "PROJECT: dummy-project"
+    The line 6 should equal "jf config remove repox"
+    The line 7 should equal "jf config add repox --artifactory-url https://dummy.repox --access-token dummy promote token"
+    The line 8 should equal "Promote dummy-project/$BUILD_NUMBER build artifacts to $ARTIFACTORY_TARGET"
+    The line 9 should equal "jf rt bpr --status it-passed-pr dummy-project $BUILD_NUMBER $ARTIFACTORY_TARGET"
+    The line 10 should include "gh api -X POST"
+  End
+End
+
+Include promote-poetry/promote.sh
+
+Describe 'check_tool()'
+  It 'reports not installed tool'
+    When call check_tool some_tool
+    The status should be failure
+    The line 1 of error should equal "some_tool is not installed."
+  End
+End
+
+Describe 'set_build_env()'
+  It 'sets the default branch and project name'
+    unset PROJECT DEFAULT_BRANCH
+    When call set_build_env
+    The line 1 should equal "PROJECT: dummy-project"
+    The variable DEFAULT_BRANCH should equal "default-branch"
+    The variable PROJECT should equal "dummy-project"
+  End
+End
+
+Describe 'check_branch()'
+  # merge queue branches use case is handled in promote.sh, due to the exit 0 in check_branch
+  It 'allows pull requests'
+    export GITHUB_EVENT_NAME="pull_request"
+    When call check_branch
+    The status should be success
+  End
+
+  It 'allows main branch'
+    export GITHUB_REF_NAME="main"
+    When call check_branch
+    The status should be success
+  End
+
+  It 'allows maintenance branches'
+    export GITHUB_REF_NAME="branch-123"
+    When call check_branch
+    The status should be success
+  End
+
+  It 'allows dogfood branches'
+    export GITHUB_REF_NAME="dogfood-on-123"
+    When call check_branch
+    The status should be success
+  End
+
+  It 'fails on working branch'
+    export GITHUB_REF_NAME="feat/jdoe/JIRA-123-something"
+    When call check_branch
+    The status should be failure
+    The error should start with "Promotion is only available for"
+  End
+End
+
+Describe 'jfrog_config_repox()'
+  It 'configures Repox using JFrog CLI'
+    When call jfrog_config_repox
+    The line 1 should equal "jf config remove repox"
+    The line 2 should start with "jf config add repox"
+  End
+End
+
+Describe 'get_target_repos()'
+  It 'returns target repositories for pull requests'
+    export GITHUB_EVENT_NAME="pull_request"
+    When call get_target_repos
+    The status should be success
+    The variable targetRepo1 should equal "sonarsource-private-dev"
+    The variable targetRepo2 should equal "sonarsource-public-dev"
+  End
+
+  It 'returns target repositories for main branch'
+    export GITHUB_REF_NAME="main"
+    When call get_target_repos
+    The status should be success
+    The variable targetRepo1 should equal "sonarsource-private-builds"
+    The variable targetRepo2 should equal "sonarsource-public-builds"
+  End
+
+  It 'returns target repositories for maintenance branch'
+    export GITHUB_REF_NAME="branch-123"
+    When call get_target_repos
+    The status should be success
+    The variable targetRepo1 should equal "sonarsource-private-builds"
+    The variable targetRepo2 should equal "sonarsource-public-builds"
+  End
+
+  It 'returns target repositories for dogfood branch'
+    export GITHUB_REF_NAME="dogfood-on-123"
+    When call get_target_repos
+    The status should be success
+    The variable targetRepo1 should equal "sonarsource-dogfood-builds"
+    The variable targetRepo2 should equal "sonarsource-dogfood-builds"
+  End
+End
+
+Describe 'promote_multi()'
+  It 'calls the multiRepoPromote plugin'
+    export GITHUB_REF_NAME="main"
+    export status='it-passed'
+    get_target_repos
+    When call promote_multi
+    The line 1 should equal "Promote dummy-project/$BUILD_NUMBER build artifacts to sonarsource-private-builds and sonarsource-public-builds"
+    The line 2 should match pattern "jf rt curl */multiRepoPromote?*;src1=*;target1=*;src2=*;target2=*"
+  End
+End
+
+Describe 'get_target_repo()'
+  It 'returns the target repository for pull requests'
+    export GITHUB_EVENT_NAME="pull_request"
+    When call get_target_repo
+    The status should be success
+    The output should equal "ARTIFACTORY_DEPLOY_REPO=sonarsource-deploy-qa"
+    The variable targetRepo should equal "sonarsource-deploy-dev"
+  End
+
+  It 'returns the target repository for main branch'
+    export GITHUB_REF_NAME="main"
+    When call get_target_repo
+    The status should be success
+    The output should equal "ARTIFACTORY_DEPLOY_REPO=sonarsource-deploy-qa"
+    The variable targetRepo should equal "sonarsource-deploy-builds"
+  End
+
+  It 'returns the target repository for maintenance branch'
+    export GITHUB_REF_NAME="branch-123"
+    When call get_target_repo
+    The status should be success
+    The output should equal "ARTIFACTORY_DEPLOY_REPO=sonarsource-deploy-qa"
+    The variable targetRepo should equal "sonarsource-deploy-builds"
+  End
+
+  It 'returns the target repository for dogfood branch'
+    export GITHUB_REF_NAME="dogfood-on-123"
+    When call get_target_repo
+    The status should be success
+    The output should equal "ARTIFACTORY_DEPLOY_REPO=sonarsource-deploy-qa"
+    The variable targetRepo should equal "sonarsource-dogfood-builds"
+  End
+End
+
+Describe 'jfrog_promote()'
+  It 'sets the status for pull requests then promotes'
+    export GITHUB_EVENT_NAME="pull_request"
+    export ARTIFACTORY_DEPLOY_REPO="artifactory-deploy-repo-qa"
+    When call jfrog_promote
+    The status should be success
+    The line 1 should equal "ARTIFACTORY_DEPLOY_REPO=artifactory-deploy-repo-qa"
+    The line 2 should equal "Promote dummy-project/$BUILD_NUMBER build artifacts to artifactory-deploy-repo-dev"
+    The line 3 should equal "jf rt bpr --status it-passed-pr dummy-project $BUILD_NUMBER artifactory-deploy-repo-dev"
+  End
+
+  It 'promotes the build artifacts to the specified target'
+    export ARTIFACTORY_TARGET="artifactory-target"
+    When call jfrog_promote
+    The line 1 should equal "Promote dummy-project/$BUILD_NUMBER build artifacts to artifactory-target"
+    The line 2 should equal "jf rt bpr --status it-passed dummy-project $BUILD_NUMBER artifactory-target"
+  End
+
+End
+
+Describe 'github_notify_promotion()'
+  It 'notifies GitHub about the promotion'
+    When call github_notify_promotion
+    The line 1 should match pattern "gh api -X POST */repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA *"
+  End
+End
+
+Describe 'promote-poetry()'
+  Mock check_tool
+  End
+  Mock set_build_env
+  End
+  Mock jfrog_config_repox
+  End
+  Mock github_notify_promotion
+  End
+
+  It 'runs the full promotion process for the main branch'
+    export GITHUB_REF_NAME="main"
+    When call promote-poetry
+    The status should be success
+    The line 1 should equal "ARTIFACTORY_DEPLOY_REPO=sonarsource-deploy-qa"
+    The line 2 should equal "Promote dummy-project/$BUILD_NUMBER build artifacts to sonarsource-deploy-builds"
+  End
+End
