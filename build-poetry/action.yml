@@ -3,8 +3,7 @@ name: Build Poetry
 description: GitHub Action to build, analyze, and deploy a Python project using Poetry
 inputs:
   public:
-    description: Whether to build and deploy with/to public repositories. Defaults to `true` for public repositories (OSS), and `false` for
-      private repositories.
+    description: Whether to build and deploy with/to public repositories. Set to `true` for public repositories (OSS), `false` for private.
     default: ${{ github.event.repository.visibility == 'public' && 'true' || 'false' }}
   artifactory-reader-role:
     description: Suffix for the Artifactory reader role in Vault. Defaults to `private-reader` for private repositories, and `public-reader`

@@ -1,27 +1,28 @@
 #!/bin/bash
 # Regular way to build and deploy a SonarSource Poetry project.
 # Environment variables:
-# - ARTIFACTORY_URL: Repox URL
-# - ARTIFACTORY_PYPI_REPO: repository to install dependencies from (sonarsource-pypi)
-# - ARTIFACTORY_ACCESS_TOKEN: access token to access the repository
-# - ARTIFACTORY_DEPLOY_REPO: deployment repository (sonarsource-pypi-public-qa or sonarsource-pypi-private-qa)
-# - ARTIFACTORY_DEPLOY_ACCESS_TOKEN: access token to deploy to the repository
-# - GITHUB_REF_NAME: the short ref name of the branch or tag (e.g. main, branch-123, dogfood-on-123)
-# - DEFAULT_BRANCH: default branch (e.g. main), defaults to the repository configuration
-# - BUILD_NUMBER: build number (e.g. 42)
-# - GITHUB_REPOSITORY: repository name (e.g. sonarsource/sonar-dummy-poetry)
-# - GITHUB_EVENT_NAME: event name (e.g. push, pull_request)
-# - GITHUB_EVENT_PATH: The path to the event webhook payload file. For example, /github/workflow/event.json.
+# - ARTIFACTORY_URL: Repox URL.
+# - ARTIFACTORY_PYPI_REPO: Repository to install dependencies from (sonarsource-pypi)
+# - ARTIFACTORY_ACCESS_TOKEN: Access token to access the repository
+# - ARTIFACTORY_DEPLOY_REPO: Deployment repository (sonarsource-pypi-public-qa or sonarsource-pypi-private-qa)
+# - ARTIFACTORY_DEPLOY_ACCESS_TOKEN: Access token to deploy to the repository
+# - GITHUB_REF_NAME: Short ref name of the branch or tag (e.g. main, branch-123, dogfood-on-123)
+# - DEFAULT_BRANCH: Default branch (e.g. main), defaults to the repository configuration
+# - BUILD_NUMBER: Build number (e.g. 42)
+# - GITHUB_REPOSITORY: Repository name (e.g. sonarsource/sonar-dummy-poetry)
+# - GITHUB_EVENT_NAME: Event name (e.g. push, pull_request)
+# - GITHUB_EVENT_PATH: Path to the event webhook payload file. For example, /github/workflow/event.json.
 # shellcheck source-path=SCRIPTDIR
 
 set -euo pipefail
 
 : "${ARTIFACTORY_URL:="https://repox.jfrog.io/artifactory"}"
 : "${ARTIFACTORY_PYPI_REPO:?}" "${ARTIFACTORY_ACCESS_TOKEN:?}" "${ARTIFACTORY_DEPLOY_REPO:?}" "${ARTIFACTORY_DEPLOY_ACCESS_TOKEN:?}"
-: "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_REPOSITORY:?}"
-: "${GITHUB_EVENT_NAME:?}" "${GITHUB_EVENT_PATH:?}"
+: "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}" "${GITHUB_EVENT_PATH:?}"
+: "${GITHUB_ENV:?}" # "${GITHUB_OUTPUT:?}"
 
 check_tool() {
+  # Check if a command is available and runs it, typically: 'some_tool --version'
   if ! command -v "$1"; then
     echo "$1 is not installed." >&2
     return 1
@@ -85,12 +86,13 @@ jfrog_poetry_publish() {
   popd
   jf rt build-collect-env "$PROJECT" "$BUILD_NUMBER"
   jf rt build-publish "$PROJECT" "$BUILD_NUMBER" \
-    --env-include 'PROJECT;GIT_*;*VERSION*;BUILD_*;GITHUB_*;*BRANCH*;*ID;PULL_REQUEST*' \
+    --env-include 'PROJECT;GIT_*;*VERSION*;BUILD_*;GITHUB_*;*BRANCH*;*ID;PULL_REQUEST*;ARTIFACTORY*' \
     --env-exclude "*login*;*pass*;*psw*;*pwd*;*secret*;*key*;*token*;*auth*" \
     --overwrite # avoid duplicate builds on re-runs
 }
 
-main() {
+build-poetry() {
+  check_tool jq --version
   check_tool python --version
   check_tool poetry --version
   check_tool jf --version
@@ -122,5 +124,5 @@ main() {
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-  main
+  build-poetry
 fi

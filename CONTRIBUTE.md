@@ -50,6 +50,18 @@ The coverage report is available here: `coverage/index.html`
 
 Use `Dump` in the spec file to print the variables and their values during the test execution.
 
+Use ShellSpec options like `-x`, `-X` to run the tests in debug mode.
+
+Use ShellSpec options like `-q` (`--quick`), `-n` (`--next-failure`)... to iterate on the tests and debug them.
+
+```shell
+# List all examples in the spec files, with IDs
+shellspec --kcov --list examples
+
+# List all examples in the spec files, with line numbers
+shellspec --kcov --list examples:lineno
+```
+
 ## Project structure
 
 ```text
@@ -73,10 +85,12 @@ Add a section in the README.md file to document the new action, including its us
 
 Add the action folder to the `.shellspec` configuration file to include it in the tests.
 
+Also add the action to the `sonar-project.properties` file to include its coverage in the SonarQube analysis.
+
 Add a new spec file in the `spec` directory for the action. Use the existing tests as examples for writing your own tests.
 
-Only create Action test workflow when it completes the ShellSpec tests, and does not require complex setup or external dependencies.
-The actions are used in the dummy repositories, so they are tested in the CI/CD environment.
+Only create an Action test workflow when it completes the ShellSpec tests, and does not require complex setup or external dependencies.
+The actions are used in the dummy repositories, so they are tested for real in the CI/CD environment.
 
 ### Test Guidelines
 

@@ -91,6 +91,41 @@ jobs:
 - `public-deployer` or `qa-deployer` Artifactory roles for the deployment.
 - `qa-deployer` Artifactory role for the QA deploy.
 
+## `promote`
+
+This action promotes a build in JFrog Artifactory and updates the GitHub status check accordingly.
+
+The GitHub status check is named `repox-${GITHUB_REF_NAME}`.
+
+### Usage
+
+```yaml
+  promote:
+    needs:
+      - build
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
+    runs-on: ubuntu-24.04-large
+    name: Promote
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - uses: SonarSource/ci-github-actions/get-build-number@v1
+      - uses: SonarSource/ci-github-actions/promote@v1
+```
+
+⚠️ Required GitHub permissions:
+
+- `id-token: write`
+- `contents: write`
+
+⚠️ Required Vault permissions:
+
+- `promoter` Artifactory role for the promotion.
+- `promotion` GitHub token.
+
 ## `pr-cleanup`
 
 Automatically clean up caches and artifacts associated with a pull request when it is closed.
