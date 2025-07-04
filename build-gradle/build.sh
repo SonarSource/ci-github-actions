@@ -69,18 +69,21 @@ configure_gradle() {
 run_gradle_build() {
   # Fetch all commit history for Sonar blame information
   git fetch --unshallow || true
-  
+
   # Fetch references from github for PR analysis
   if [ -n "${GITHUB_BASE_REF:-}" ]; then
     git fetch origin "${GITHUB_BASE_REF}"
   fi
 
-  # Use gradlew if available, otherwise use gradle
-  command -v gradle &> /dev/null || alias gradle=./gradlew
+  # Use gradle if available, otherwise use gradlew
+  if ! command -v gradle &> /dev/null; then
+    gradle() { ./gradlew "$@"; }
+    export -f gradle
+  fi
 
   if [ "${GITHUB_REF_NAME}" == "$DEFAULT_BRANCH" ] && [ "$PULL_REQUEST" == "false" ]; then
     echo '======= Build, deploy and analyze master'
-    
+
     jf gradle --no-daemon --info --stacktrace --console plain \
       build sonar artifactoryPublish \
       -DbuildNumber="$BUILD_NUMBER" \
@@ -93,10 +96,10 @@ run_gradle_build() {
       -Dsonar.analysis.repository="$GITHUB_REPOSITORY" \
       --build-name="$PROJECT" --build-number="$BUILD_NUMBER" \
       "$@"
-      
+
   elif [[ "${GITHUB_REF_NAME}" == "branch-"* ]] && [ "$PULL_REQUEST" == "false" ]; then
     echo '======= Build, deploy and analyze maintenance branch'
-    
+
     jf gradle --no-daemon --info --stacktrace --console plain \
       build sonar artifactoryPublish \
       -DbuildNumber="$BUILD_NUMBER" \
@@ -110,10 +113,10 @@ run_gradle_build() {
       -Dsonar.analysis.repository="$GITHUB_REPOSITORY" \
       --build-name="$PROJECT" --build-number="$BUILD_NUMBER" \
       "$@"
-      
+
   elif [ "$PULL_REQUEST" != "false" ]; then
     echo '======= Build and analyze pull request'
-    
+
     if [ "${DEPLOY_PULL_REQUEST:-}" == "true" ]; then
       jf gradle --no-daemon --info --stacktrace --console plain \
         build sonar artifactoryPublish \
@@ -140,18 +143,18 @@ run_gradle_build() {
         -Dsonar.analysis.prNumber="$PULL_REQUEST" \
         "$@"
     fi
-    
+
   elif [[ "$GITHUB_REF_NAME" == "dogfood-on-"* ]] && [ "$PULL_REQUEST" == "false" ]; then
     echo '======= Build and deploy dogfood branch'
-    
+
     jf gradle --no-daemon --info --stacktrace --console plain \
       build artifactoryPublish -DbuildNumber="$BUILD_NUMBER" \
       --build-name="$PROJECT" --build-number="$BUILD_NUMBER" \
       "$@"
-      
+
   elif [[ "$GITHUB_REF_NAME" == "feature/long/"* ]] && [ "$PULL_REQUEST" == "false" ]; then
     echo '======= Build and analyze long lived feature branch'
-    
+
     gradle --no-daemon --info --stacktrace --console plain \
       build sonar \
       -DbuildNumber="$BUILD_NUMBER" \
@@ -163,10 +166,10 @@ run_gradle_build() {
       -Dsonar.analysis.sha1="$GITHUB_SHA" \
       -Dsonar.analysis.repository="$GITHUB_REPOSITORY" \
       "$@"
-      
+
   else
     echo '======= Build, no analysis, no deploy'
-    
+
     gradle --no-daemon --info --stacktrace --console plain build "$@"
   fi
 }
