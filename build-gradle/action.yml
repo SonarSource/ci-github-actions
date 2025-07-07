@@ -1,0 +1,72 @@
+---
+name: Build Gradle
+description: GitHub Action to build, analyze, and deploy a Java/Kotlin project using Gradle
+inputs:
+  public:
+    description: Whether to build and deploy with/to public repositories. Set to "true" for public repositories (OSS), "false" for private.
+    default: 'false'
+  artifactory-reader-role:
+    description: Suffix for the Artifactory reader role in Vault. Defaults to `private-reader` for private repositories, and `public-reader`
+      for public repositories.
+    default: ''
+  artifactory-deployer-role:
+    description: Suffix for the Artifactory deployer role in Vault. Defaults to `qa-deployer` for private repositories, and
+      `public-deployer` for public repositories.
+    default: ''
+  deploy-pull-request:
+    description: Whether to deploy pull request artifacts.
+    default: 'true'
+  gradle-cache-dir:
+    description: Path to the Gradle cache directory, relative to GitHub workspace.
+    default: .gradle
+
+runs:
+  using: composite
+  steps:
+    - name: Set build parameters
+      id: build-params
+      shell: bash
+      env:
+        ARTIFACTORY_READER_ROLE: ${{ inputs.artifactory-reader-role != '' && inputs.artifactory-reader-role ||
+          (inputs.public == 'true' && 'public-reader' || 'private-reader') }}
+        ARTIFACTORY_DEPLOYER_ROLE: ${{ inputs.artifactory-deployer-role != '' && inputs.artifactory-deployer-role ||
+          (inputs.public == 'true' && 'public-deployer' || 'qa-deployer') }}
+      run: |
+        echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
+        echo "ARTIFACTORY_DEPLOYER_ROLE=${ARTIFACTORY_DEPLOYER_ROLE}" >> "$GITHUB_ENV"
+        echo "github.action_ref: ${{ github.action_ref }}"
+        cp ${GITHUB_ACTION_PATH}/mise.local.toml mise.local.toml
+    - name: Vault
+      # yamllint disable rule:line-length
+      id: secrets
+      uses: SonarSource/vault-action-wrapper@d6d745ffdbc82b040df839b903bc33b5592cd6b0 # 3.0.2
+      with:
+        secrets: |
+          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
+          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;
+          development/kv/data/next next_token | SONAR_TOKEN;
+          development/kv/data/next url | SONAR_HOST_URL;
+      # yamllint enable rule:line-length
+    - name: Cache Gradle
+      uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+      with:
+        path: ${{ github.workspace }}/.gradle
+        key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/gradle.properties') }}
+        restore-keys: gradle-${{ runner.os }}-
+    - uses: jdx/mise-action@13abe502c30c1559a5c37dff303831bab82c9402 # v2.2.3
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+    - name: Build, Analyze and deploy
+      id: build
+      shell: bash
+      env:
+        DEPLOY_PULL_REQUEST: ${{ inputs.deploy-pull-request }}
+        SONAR_HOST_URL: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_HOST_URL }}
+        SONAR_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_TOKEN }}
+        ARTIFACTORY_MAVEN_REPO: ${{ inputs.public == 'true' && 'sonarsource-public-releases' || 'sonarsource-private-releases' }}
+        ARTIFACTORY_DEPLOY_REPO: ${{ inputs.public == 'true' && 'sonarsource-public-qa' || 'sonarsource-private-qa' }}
+        ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
+        ARTIFACTORY_DEPLOY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN }}
+        GRADLE_CACHE_DIR: ${{ github.workspace }}/${{ inputs.gradle-cache-dir }}
+      run: |
+        ${GITHUB_ACTION_PATH}/build.sh
