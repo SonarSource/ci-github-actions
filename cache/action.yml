@@ -1,0 +1,86 @@
+name: Adaptive Cache Action
+description: Automatically chooses GitHub Actions cache for public repos, S3 for private/internal repos
+author: SonarSource
+
+inputs:
+  path:
+    description: A list of files, directories, and wildcard patterns to cache and restore
+    required: true
+  key:
+    description: An explicit key for restoring and saving the cache
+    required: true
+  restore-keys:
+    description: An ordered list of prefix-matched keys to use for restoring stale cache if no cache hit occurred for key
+  upload-chunk-size:
+    description: The chunk size used to split up large files during upload, in bytes
+  enableCrossOsArchive:
+    description: An optional boolean when enabled, allows windows runners to save or restore caches that can be restored or saved respectively on other platforms
+    default: false
+  fail-on-cache-miss:
+    description: Fail the workflow if cache entry is not found
+    default: false
+  lookup-only:
+    description: Check if a cache entry exists for the given input(s) (key, restore-keys) without downloading the cache
+    default: false
+
+outputs:
+  cache-hit:
+    description: A boolean value to indicate an exact match was found for the primary key
+    value: ${{ steps.github-cache.outputs.cache-hit || steps.s3-cache.outputs.cache-hit }}
+
+runs:
+  using: composite
+  steps:
+    - name: Determine repository visibility
+      id: repo-visibility
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: |
+        REPO_VISIBILITY="${{ github.event.repository.visibility }}"
+
+        # If visibility is not available in the event, try to get it from the API
+        if [ -z "$REPO_VISIBILITY" ] || [ "$REPO_VISIBILITY" = "null" ]; then
+          REPO_VISIBILITY=$(curl -s -H "Authorization: token ${{ github.token }}" \
+            "https://api.github.com/repos/${{ github.repository }}" | \
+            jq -r '.visibility // "private"')
+        fi
+
+        echo "Repository visibility: $REPO_VISIBILITY"
+
+        if [ "$REPO_VISIBILITY" = "public" ]; then
+          CACHE_BACKEND="github"
+          echo "Using GitHub cache for public repository"
+        else
+          CACHE_BACKEND="s3"
+          echo "Using S3 cache for private/internal repository"
+        fi
+
+        echo "cache-backend=$CACHE_BACKEND" >> $GITHUB_OUTPUT
+        echo "repo-visibility=$REPO_VISIBILITY" >> $GITHUB_OUTPUT
+
+    - name: Cache with GitHub Actions (public repos)
+      if: steps.repo-visibility.outputs.cache-backend == 'github'
+      uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+      id: github-cache
+      with:
+        path: ${{ inputs.path }}
+        key: ${{ inputs.key }}
+        restore-keys: ${{ inputs.restore-keys }}
+        upload-chunk-size: ${{ inputs.upload-chunk-size }}
+        enableCrossOsArchive: ${{ inputs.enableCrossOsArchive }}
+        fail-on-cache-miss: ${{ inputs.fail-on-cache-miss }}
+        lookup-only: ${{ inputs.lookup-only }}
+
+    - name: Cache with S3 (private/internal repos)
+      if: steps.repo-visibility.outputs.cache-backend == 's3'
+      uses: SonarSource/gh-action_cache@master
+      id: s3-cache
+      with:
+        path: ${{ inputs.path }}
+        key: ${{ inputs.key }}
+        restore-keys: ${{ inputs.restore-keys }}
+        upload-chunk-size: ${{ inputs.upload-chunk-size }}
+        enableCrossOsArchive: ${{ inputs.enableCrossOsArchive }}
+        fail-on-cache-miss: ${{ inputs.fail-on-cache-miss }}
+        lookup-only: ${{ inputs.lookup-only }}
