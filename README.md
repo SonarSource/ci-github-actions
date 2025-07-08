@@ -210,6 +210,96 @@ The GitHub status check is named `repox-${GITHUB_REF_NAME}`.
 - `promoter` Artifactory role for the promotion.
 - `promotion` GitHub token.
 
+## `build-maven`
+
+Build and deploy a Maven project using SonarSource CI practices.
+
+### Usage
+
+_All the `with` parameters are optional and have default values which are shown below._
+
+```yaml
+name: Build
+on:
+  push:
+    branches:
+      - master
+      - branch-*
+  pull_request:
+  merge_group:
+  workflow_dispatch:
+
+jobs:
+  build:
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
+    runs-on: ubuntu-24.04-large
+    name: Build
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: SonarSource/ci-github-actions/get-build-number@v1
+      - uses: SonarSource/ci-github-actions/build-maven@v1
+        with:
+          public: false                                         # Defaults to `true` if the repository is public
+          artifactory-reader-role: private-reader               # or public-reader if `public` is `true`
+          artifactory-deployer-role: qa-deployer                # or public-deployer if `public` is `true`
+          deploy-pull-request: true
+          maven-cache-path: .m2/repository
+```
+
+⚠️ Required GitHub permissions:
+
+- `id-token: write`
+- `contents: write`
+
+⚠️ Required Vault permissions:
+
+- `public-reader` or `private-reader` Artifactory roles for reading dependencies.
+- `public-deployer` or `qa-deployer` Artifactory roles for deployment.
+- `licenses-ro` GitHub token for license validation.
+- SonarQube credentials for code analysis.
+- GPG signing key and passphrase for artifact signing.
+- Develocity token for build caching and insights.
+
+### Configuration Options
+
+- `public`: Repository visibility (defaults to repository setting)
+- `artifactory-reader-role`: Reader role for dependencies
+- `artifactory-deployer-role`: Deployer role for artifacts
+- `deploy-pull-request`: Whether to deploy PR artifacts
+- `maven-cache-path`: Maven local repository cache path
+
+### Features
+
+- **Smart Build Context Detection**: Automatically detects build context (master, maintenance, PR, dogfood, feature branches)
+- **Modular Maven Execution**: Configurable goals, profiles, and properties based on build context
+- **Version Management**: Automatically sets project version using build number, handles SNAPSHOT versions
+- **Artifactory Integration**: Complete Maven settings configuration for private dependencies and deployment
+- **SonarQube Analysis**: Context-aware analysis with proper branch/PR configuration
+- **Artifact Signing**: Automatic GPG signing for deployment contexts
+- **Git Reference Management**: Automatic fetching of required references for accurate analysis
+- **Conditional Deployment**: Intelligent deployment based on branch patterns and configuration
+- **Repository Cleanup**: Automated Maven local repository maintenance
+
+### Build Contexts
+
+The action automatically detects the build context and applies the appropriate strategy:
+
+- **master**: Deploy + SonarQube analysis with full profiles (coverage, deploy-sonarsource, release, sign)
+- **maintenance** (`branch-*`): Deploy with full profiles, followed by separate SonarQube analysis
+- **pr**: Conditional deployment based on `deploy-pull-request` parameter, always includes SonarQube
+  - With deploy: Uses deploy-sonarsource profiles
+  - Without deploy: Uses coverage-only profiles with verify goal
+- **dogfood** (`dogfood-on-*`): Deploy only with dogfood profiles (deploy-sonarsource, release)
+- **feature** (`feature/long/*`): Verify + SonarQube analysis with coverage profile only
+- **default**: Basic verify goal only, no deployment or analysis
+
+All contexts automatically handle version management and use context-appropriate Maven memory settings.
+
 ## `pr-cleanup`
 
 Automatically clean up caches and artifacts associated with a pull request when it is closed.
