@@ -21,8 +21,8 @@ set -euo pipefail
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}" "${GITHUB_EVENT_PATH:?}"
 : "${GITHUB_ENV:?}" # "${GITHUB_OUTPUT:?}"
 
+# Check if a command is available and runs it, typically: 'some_tool --version'
 check_tool() {
-  # Check if a command is available and runs it, typically: 'some_tool --version'
   if ! command -v "$1"; then
     echo "$1 is not installed." >&2
     return 1
@@ -38,6 +38,7 @@ set_build_env() {
 
   if [[ "$GITHUB_EVENT_NAME" = "pull_request" ]]; then
     PULL_REQUEST=$(jq --raw-output .number "$GITHUB_EVENT_PATH")
+    # FIXME Unused? otherwise, it should be '.pull_request.head.sha' (not base.sha)
     PULL_REQUEST_SHA=$(jq --raw-output .pull_request.base.sha "$GITHUB_EVENT_PATH")
   else
     PULL_REQUEST=false
@@ -91,7 +92,7 @@ jfrog_poetry_publish() {
     --overwrite # avoid duplicate builds on re-runs
 }
 
-build-poetry() {
+build_poetry() {
   check_tool jq --version
   check_tool python --version
   check_tool poetry --version
@@ -124,5 +125,5 @@ build-poetry() {
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-  build-poetry
+  build_poetry
 fi

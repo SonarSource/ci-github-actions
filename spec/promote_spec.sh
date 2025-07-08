@@ -78,17 +78,19 @@ Describe 'promote/promote.sh'
     export GITHUB_EVENT_NAME="pull_request"
     When run script promote/promote.sh
     The status should be success
-    The lines of stdout should equal 10
-    The line 1 should include "jq"
-    The line 2 should include "jq"
-    The line 3 should include "jf"
-    The line 4 should include "jf"
-    The line 5 should equal "PROJECT: $PROJECT"
-    The line 6 should equal "jf config remove repox"
-    The line 7 should equal "jf config add repox --artifactory-url https://dummy.repox --access-token dummy promote token"
-    The line 8 should equal "Promote $PROJECT/$BUILD_NUMBER build artifacts to $ARTIFACTORY_TARGET"
-    The line 9 should equal "jf rt bpr --status it-passed-pr $PROJECT $BUILD_NUMBER $ARTIFACTORY_TARGET"
-    The line 10 should include "gh api -X POST"
+    The lines of stdout should equal 12
+    The line 1 should include "gh"
+    The line 2 should include "gh"
+    The line 3 should include "jq"
+    The line 4 should include "jq"
+    The line 5 should include "jf"
+    The line 6 should include "jf"
+    The line 7 should equal "PROJECT: $PROJECT"
+    The line 8 should equal "jf config remove repox"
+    The line 9 should equal "jf config add repox --artifactory-url https://dummy.repox --access-token dummy promote token"
+    The line 10 should equal "Promote $PROJECT/$BUILD_NUMBER build artifacts to $ARTIFACTORY_TARGET"
+    The line 11 should equal "jf rt bpr --status it-passed-pr $PROJECT $BUILD_NUMBER $ARTIFACTORY_TARGET"
+    The line 12 should include "gh api -X POST"
   End
 End
 

@@ -39,6 +39,91 @@ jobs:
 
 - `BUILD_NUMBER`: The current build number.
 
+## `build-maven`
+
+Build and deploy a Maven project.
+
+### Usage
+
+_All the `with` parameters are optional and have default values which are shown below._
+
+```yaml
+name: Build
+on:
+  push:
+    branches:
+      - master
+      - branch-*
+  pull_request:
+  merge_group:
+  workflow_dispatch:
+
+jobs:
+  build:
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
+    runs-on: ubuntu-24.04-large
+    name: Build
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: SonarSource/ci-github-actions/get-build-number@v1
+      - uses: SonarSource/ci-github-actions/build-maven@v1
+```
+
+#### Configuration Options (`with` Parameters)
+
+- `public`: Repository visibility (defaults to repository setting)
+- `artifactory-reader-role`: Suffix for the Artifactory reader role in Vault. Defaults to `private-reader` for private repositories, and
+  `public-reader` for public repositories.
+- `artifactory-deployer-role`: Suffix for the Artifactory deployer role in Vault. Defaults to `qa-deployer` for private repositories, and
+  `public-deployer` for public repositories.
+- `deploy-pull-request`: Whether to deploy pull request artifacts. Defaults to `false`.
+- `maven-local-repository-path`: Path to the Maven cache directory, relative to the user home directory. Defaults to `.m2/repository`.
+- `maven-opts`: Additional Maven options to pass to the build script (`MAVEN_OPTS`). Defaults to `-Xmx1536m -Xms128m`.
+- `scanner-java-opts`: Additional Java options for the Sonar scanner (`SONAR_SCANNER_JAVA_OPTS`). Defaults to `-Xmx512m`.
+- `use-develocity`: Whether to use Develocity for build tracking. Defaults to `false`.
+
+#### Required GitHub permissions
+
+- `id-token: write`
+- `contents: write`
+
+#### Required Vault permissions
+
+- `public-reader` or `private-reader` Artifactory roles for reading dependencies.
+- `public-deployer` or `qa-deployer` Artifactory roles for deployment.
+- `development/kv/data/next` for SonarQube analysis.
+- `development/kv/data/sign`: for artifact signing.
+- `development/kv/data/develocity`: if using Develocity (see
+  [xtranet/Develocity/Maven Projects](https://xtranet-sonarsource.atlassian.net/wiki/spaces/Platform/pages/3705372706/Maven+Projects+-+Develocity)).
+- `licenses` preset when running QA with a licensed SonarQube. If needed, pass it as `GITHUB_TOKEN` environment variable.
+
+### Features
+
+- Build Context Detection: e.g., main, maintenance, PR, dogfood, feature branches.
+- SonarQube analysis.
+- Artifact Signing.
+- Conditional Deployment based on branch patterns and configuration.
+
+### Build Contexts
+
+[//]: # (FIXME BUILD-8317)
+
+The action automatically detects the build context and applies the appropriate strategy:
+
+- **master**: Deploy + SonarQube analysis with full profiles (coverage, deploy-sonarsource, release, sign)
+- **maintenance** (`branch-*`): Deploy with full profiles, followed by separate SonarQube analysis
+- **pr**: Conditional deployment based on `deploy-pull-request` parameter, always includes SonarQube
+  - With deploy: Uses deploy-sonarsource profiles
+  - Without deploy: Uses coverage-only profiles with verify goal
+- **dogfood** (`dogfood-on-*`): Deploy only with dogfood profiles (deploy-sonarsource, release)
+- **feature** (`feature/long/*`): Verify + SonarQube analysis with coverage profile only
+- **default**: Basic verify goal only, no deployment or analysis
+
 ## `build-poetry`
 
 Build and publish a Python project using Poetry.
@@ -75,7 +160,7 @@ jobs:
           public: false                                         # Defaults to `true` if the repository is public
           artifactory-reader-role: private-reader               # or public-reader if `public` is `true`
           artifactory-deployer-role: qa-deployer                # or public-deployer if `public` is `true`
-          deploy-pull-request: true
+          deploy-pull-request: false
           poetry-virtualenvs-path: .cache/pypoetry/virtualenvs
           poetry-cache-dir: .cache/pypoetry
 ```
@@ -360,5 +445,6 @@ jobs:
 
 - `cache-hit`: A boolean value to indicate an exact match was found for the primary key
 
-⚠️ **Note**: This action automatically detects repository visibility and ownership. External repositories will always use GitHub Actions cache.
+⚠️ **Note**: This action automatically detects repository visibility and ownership. External repositories will always use GitHub Actions
+cache.
 SonarSource private repositories will use the internal S3 cache when available.

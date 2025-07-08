@@ -68,7 +68,7 @@ export ARTIFACTORY_URL="https://repox.jfrog.io/artifactory"
 export ARTIFACTORY_ACCESS_TOKEN="reader-token"
 export ARTIFACTORY_DEPLOY_REPO="test-repo"
 export ARTIFACTORY_DEPLOY_ACCESS_TOKEN="deploy-token"
-export SONAR_HOST_URL="https://sonar.example.com"
+export SONAR_HOST_URL="https://sonar.dummy"
 export SONAR_TOKEN="sonar-token"
 export DEPLOY_PULL_REQUEST="false"
 export SKIP_TESTS="false"
@@ -288,7 +288,7 @@ Describe 'build-npm/build.sh'
     End
 
     It 'builds pull request without deploy'
-      export GITHUB_REF_NAME="feature/test"
+      export GITHUB_REF_NAME="123/merge"
       export GITHUB_EVENT_NAME="pull_request"
       export DEPLOY_PULL_REQUEST="false"
       export PULL_REQUEST="123"
@@ -304,7 +304,7 @@ Describe 'build-npm/build.sh'
     End
 
     It 'builds pull request with deploy when enabled'
-      export GITHUB_REF_NAME="feature/test"
+      export GITHUB_REF_NAME="123/merge"
       export GITHUB_EVENT_NAME="pull_request"
       export DEPLOY_PULL_REQUEST="true"
       export PULL_REQUEST="123"

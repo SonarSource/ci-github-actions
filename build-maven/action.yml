@@ -1,0 +1,111 @@
+---
+name: Build Maven
+description: GitHub Action to build, analyze, and deploy a Maven project
+inputs:
+  public:
+    description: Whether to build and deploy with/to public repositories. Defaults to `true` for public repositories (OSS), and `false` for
+      private repositories.
+    default: ${{ github.event.repository.visibility == 'public' && 'true' || 'false' }}
+  artifactory-reader-role:
+    description: Suffix for the Artifactory reader role in Vault. Defaults to `private-reader` for private repositories, and `public-reader`
+      for public repositories.
+    default: ''
+  artifactory-deployer-role:
+    description: Suffix for the Artifactory deployer role in Vault. Defaults to `qa-deployer` for private repositories, and
+      `public-deployer` for public repositories.
+    default: ''
+  deploy-pull-request:
+    description: Whether to deploy pull request artifacts. Set to `false` if not using the promote action.
+    default: 'false'
+  maven-local-repository-path:
+    description: Path to the Maven cache directory, relative to the user home directory.
+    default: .m2/repository
+  maven-opts:
+    description: Additional Maven options to pass to the build script (`MAVEN_OPTS`).
+    default: -Xmx1536m -Xms128m
+  scanner-java-opts:
+    description: Additional Java options for the Sonar scanner (`SONAR_SCANNER_JAVA_OPTS`).
+    default: -Xmx512m
+  use-develocity:
+    description: Whether to use Develocity for build tracking.
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: Set build parameters
+      shell: bash
+      env:
+        ARTIFACTORY_READER_ROLE: ${{ inputs.artifactory-reader-role != '' && inputs.artifactory-reader-role ||
+          (inputs.public == 'true' && 'public-reader' || 'private-reader') }}
+        ARTIFACTORY_DEPLOYER_ROLE: ${{ inputs.artifactory-deployer-role != '' && inputs.artifactory-deployer-role ||
+          (inputs.public == 'true' && 'public-deployer' || 'qa-deployer') }}
+      run: |
+        echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
+        echo "ARTIFACTORY_DEPLOYER_ROLE=${ARTIFACTORY_DEPLOYER_ROLE}" >> "$GITHUB_ENV"
+    - name: Cache local Maven repository
+      uses: SonarSource/ci-github-actions/cache@master
+      with:
+        path: ~/${{ inputs.maven-local-repository-path }}
+        key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+        restore-keys: maven-${{ runner.os }}-
+    - name: Vault
+      # yamllint disable rule:line-length
+      id: secrets
+      uses: SonarSource/vault-action-wrapper@d6d745ffdbc82b040df839b903bc33b5592cd6b0 # 3.0.2
+      with:
+        secrets: |
+          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
+          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} username | ARTIFACTORY_DEPLOY_USERNAME;
+          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} access_token | ARTIFACTORY_DEPLOY_PASSWORD;
+          development/kv/data/next url | SONAR_HOST_URL;
+          development/kv/data/next token | SONAR_TOKEN;
+          development/kv/data/sign key | SIGN_KEY;
+          development/kv/data/sign passphrase | PGP_PASSPHRASE;
+          development/kv/data/develocity token | DEVELOCITY_TOKEN;
+          ${{ inputs.use-develocity == 'true' && 'development/kv/data/develocity token | DEVELOCITY_TOKEN;' || '' }}
+      # yamllint enable rule:line-length
+    - name: Maven configuration
+      shell: bash
+      env:
+        PUBLIC_BUILD: ${{ inputs.public }}
+      run: |
+        MAVEN_CONFIG="$HOME/.m2"
+        mkdir -p "$MAVEN_CONFIG"
+        if [[ "${PUBLIC_BUILD}" == "true" ]]; then
+          echo "Setting up public Maven settings"
+          cp "${GITHUB_ACTION_PATH}/resources/settings-public-auth.xml" "$MAVEN_CONFIG/settings.xml"
+        else
+          echo "Setting up private Maven settings"
+          cp "${GITHUB_ACTION_PATH}/resources/settings-private.xml" "$MAVEN_CONFIG/settings.xml"
+        fi
+        MAVEN_LOCAL_REPOSITORY="$HOME/${{ inputs.maven-local-repository-path }}"
+        mkdir -p "$MAVEN_LOCAL_REPOSITORY"
+        echo "MAVEN_LOCAL_REPOSITORY=${MAVEN_LOCAL_REPOSITORY}" >> "$GITHUB_ENV"
+    - name: Build, Analyze and deploy
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      env:
+        DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
+        ARTIFACTORY_DEPLOY_REPO: ${{ inputs.public == 'true' && 'sonarsource-public-qa' || 'sonarsource-private-qa' }}
+        ARTIFACTORY_DEPLOY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_USERNAME }}
+        ARTIFACTORY_DEPLOY_PASSWORD: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_PASSWORD }}
+        SONAR_HOST_URL: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_HOST_URL }}
+        SONAR_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_TOKEN }}
+        SIGN_KEY: ${{ fromJSON(steps.secrets.outputs.vault).SIGN_KEY }}
+        PGP_PASSPHRASE: ${{ fromJSON(steps.secrets.outputs.vault).PGP_PASSPHRASE }}
+        DEPLOY_PULL_REQUEST: ${{ inputs.deploy-pull-request }}
+        PULL_REQUEST: ${{ github.event.pull_request.number || '' }}
+        DEVELOCITY_ACCESS_KEY: ${{ inputs.use-develocity == 'true' &&
+          format('develocity.sonar.build={0}', fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN) || '' }}
+        MAVEN_OPTS: ${{ inputs.maven-opts }}
+        SONAR_SCANNER_JAVA_OPTS: ${{ inputs.scanner-java-opts }}
+      run: |
+        ${GITHUB_ACTION_PATH}/build.sh
+    - name: Cleanup Maven repository before caching
+      shell: bash
+      run: |
+        rm -rf "$MAVEN_LOCAL_REPOSITORY/org/sonarsource/"
+        rm -rf "$MAVEN_LOCAL_REPOSITORY/repository/com/sonarsource/"
+        /usr/bin/find "$MAVEN_LOCAL_REPOSITORY" -name resolver-status.properties -delete

@@ -32,13 +32,13 @@ export GITHUB_EVENT_PATH
 #export GITHUB_OUTPUT
 
 Describe 'build-poetry/build.sh'
-  It 'does not run build-poetry() if the script is sourced'
+  It 'does not run build_poetry() if the script is sourced'
     When run source build-poetry/build.sh
     The status should be success
     The output should equal ""
   End
 
-  It 'runs build-poetry()'
+  It 'runs build_poetry()'
     Mock poetry
       if [[ "$*" == "version -s" ]]; then
         echo "1.2"
@@ -182,7 +182,7 @@ Describe 'jfrog_poetry_install()'
   End
 End
 
-Describe 'build-poetry()'
+Describe 'build_poetry()'
   setup() {
     mkdir -p dist
   }
@@ -208,7 +208,7 @@ Describe 'build-poetry()'
     unset PULL_REQUEST
     export GITHUB_REF_NAME="main"
 
-    When call build-poetry
+    When call build_poetry
     The line 1 should equal 'poetry build'
     The line 2 should equal "jf config remove repox"
     The line 3 should equal "jf config add repox --artifactory-url https://dummy.repox --access-token <deploy token>"
@@ -223,19 +223,19 @@ Describe 'build-poetry()'
 
   It 'skips when on a PR and DEPLOY_PULL_REQUEST is not true'
     export PULL_REQUEST="123"
-    export GITHUB_REF_NAME="test/pull-request/123"
+    export GITHUB_REF_NAME="123/merge"
 
-    When call build-poetry
+    When call build_poetry
     The output should equal 'poetry build'
     The status should be success
   End
 
   It 'builds and publishes when on a PR and DEPLOY_PULL_REQUEST is true'
     export PULL_REQUEST="123"
-    export GITHUB_REF_NAME="test/pull-request/123"
+    export GITHUB_REF_NAME="123/merge"
     export DEPLOY_PULL_REQUEST="true"
 
-    When call build-poetry
+    When call build_poetry
     The line 1 should equal 'poetry build'
     The line 2 should equal "jf config remove repox"
     The line 3 should equal "jf config add repox --artifactory-url https://dummy.repox --access-token <deploy token>"
