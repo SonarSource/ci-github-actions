@@ -24,7 +24,7 @@ set -euo pipefail
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}" "${GITHUB_EVENT_PATH:?}" "${GITHUB_TOKEN:?}"
 : "${GITHUB_SHA:?}"
 GH_API_VERSION_HEADER="X-GitHub-Api-Version: 2022-11-28"
-BUILD_INFO_FILE=".build-info"
+BUILD_INFO_FILE=$(mktemp)
 rm -f "$BUILD_INFO_FILE"
 
 : "${MULTI_REPO_PROMOTE:=false}"
@@ -179,6 +179,7 @@ jfrog_promote() {
 }
 
 promote() {
+  check_tool gh --version
   check_tool jq --version
   check_tool jf --version
   set_build_env

@@ -15,6 +15,7 @@
 # - DEPLOY_PULL_REQUEST: whether to deploy pull request artifacts (default: false)
 # - SKIP_TESTS: whether to skip running tests (default: false)
 # - GRADLE_ARGS: additional arguments to pass to Gradle
+# - GITHUB_RUN_ID: GitHub workflow run ID. Unique per workflow run, but unchanged on re-runs.
 
 set -euo pipefail
 

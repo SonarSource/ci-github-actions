@@ -36,7 +36,7 @@ export GITHUB_OUTPUT=/dev/null
 export ARTIFACTORY_DEPLOY_REPO="test-repo"
 export ARTIFACTORY_DEPLOY_USERNAME="test-user"
 export ARTIFACTORY_DEPLOY_PASSWORD="test-pass"
-export SONAR_HOST_URL="https://sonar.example.com"
+export SONAR_HOST_URL="https://sonar.dummy"
 export SONAR_TOKEN="test-token"
 export ORG_GRADLE_PROJECT_signingKey="test-key"
 export ORG_GRADLE_PROJECT_signingPassword="test-pass"
@@ -234,7 +234,7 @@ Describe 'build_gradle_args'
 
   It 'should add sonar arguments when SONAR_HOST_URL and SONAR_TOKEN are set'
     export SKIP_TESTS="false"
-    export SONAR_HOST_URL="https://sonar.example.com"
+    export SONAR_HOST_URL="https://sonar.dummy"
     export SONAR_TOKEN="sonar-token"
     export GRADLE_ARGS=""
     export PULL_REQUEST="false"
@@ -242,7 +242,7 @@ Describe 'build_gradle_args'
 
     When call build_gradle_args
     The line 1 should include "sonar"
-    The line 1 should include "-Dsonar.host.url=https://sonar.example.com"
+    The line 1 should include "-Dsonar.host.url=https://sonar.dummy"
     The line 1 should include "-Dsonar.token=sonar-token"
     The line 1 should include "-Dsonar.analysis.buildNumber=42"
     The line 1 should include "-Dsonar.analysis.pipeline=12345"

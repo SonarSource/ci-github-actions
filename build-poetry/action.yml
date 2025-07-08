@@ -15,7 +15,7 @@ inputs:
     default: ''
   deploy-pull-request:
     description: Whether to deploy pull request artifacts. Set to `false` if not using the promote action.
-    default: 'true'
+    default: 'false'
   poetry-virtualenvs-path:
     description: Path to the Poetry virtual environments, relative to GitHub workspace. The folder is cached only if it is a subdirectory of
       `poetry-cache-dir`.
