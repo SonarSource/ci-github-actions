@@ -123,3 +123,48 @@ jobs:
 ⚠️ Required GitHub permissions:
 
 - `actions: write`: Required to delete caches and artifacts.
+
+## `cache`
+
+Adaptive cache action that automatically chooses the appropriate caching backend based on repository visibility and ownership.
+
+Features:
+
+- Automatically uses GitHub Actions cache for public repositories
+- Uses SonarSource S3 cache for private/internal SonarSource repositories
+- Seamless API compatibility with standard GitHub Actions cache
+- Supports all standard cache inputs and outputs
+
+### Usage
+
+```yaml
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: SonarSource/ci-github-actions/cache@v1
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.cache/maven
+          key: ${{ runner.os }}-cache-${{ hashFiles('**/requirements.txt', '**/pom.xml') }}
+          restore-keys: |
+            cache-${{ runner.os }}
+```
+
+### Inputs
+
+- `path`: **Required** - A list of files, directories, and wildcard patterns to cache and restore
+- `key`: **Required** - An explicit key for restoring and saving the cache
+- `restore-keys`: An ordered list of prefix-matched keys to use for restoring stale cache if no cache hit occurred for key
+- `upload-chunk-size`: The chunk size used to split up large files during upload, in bytes
+- `enableCrossOsArchive`: When enabled, allows to save or restore caches that can be restored or saved respectively on other platforms
+- `fail-on-cache-miss`: Fail the workflow if cache entry is not found
+- `lookup-only`: Check if a cache entry exists for the given input(s) without downloading the cache
+
+### Outputs
+
+- `cache-hit`: A boolean value to indicate an exact match was found for the primary key
+
+⚠️ **Note**: This action automatically detects repository visibility and ownership. External repositories will always use GitHub Actions cache.
+SonarSource private repositories will use the internal S3 cache when available.

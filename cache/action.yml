@@ -14,7 +14,7 @@ inputs:
   upload-chunk-size:
     description: The chunk size used to split up large files during upload, in bytes
   enableCrossOsArchive:
-    description: An optional boolean when enabled, allows windows runners to save or restore caches that can be restored or saved respectively on other platforms
+    description: When enabled, allows to save or restore caches that can be restored or saved respectively on other platforms
     default: false
   fail-on-cache-miss:
     description: Fail the workflow if cache entry is not found
