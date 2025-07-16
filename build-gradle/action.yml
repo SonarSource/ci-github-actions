@@ -1,0 +1,140 @@
+---
+name: Build Gradle
+description: GitHub Action to build, analyze, and deploy a Gradle project with SonarQube integration
+inputs:
+  artifactory-deploy-repo:
+    description: Name of deployment repository
+    required: false
+    default: ''
+  artifactory-deploy-username:
+    description: Username to deploy to Artifactory
+    required: false
+    default: ''
+  artifactory-deploy-password:
+    description: Password to deploy to Artifactory
+    required: false
+    default: ''
+  gradle-args:
+    description: Additional arguments to pass to Gradle
+    required: false
+    default: ''
+  gradle-version:
+    description: Gradle version to use for setup-gradle action
+    required: false
+    default: '8.1'
+  deploy-pull-request:
+    description: Whether to deploy pull request artifacts
+    required: false
+    default: 'false'
+  skip-tests:
+    description: Whether to skip running tests
+    required: false
+    default: 'false'
+  gradle-wrapper-validation:
+    description: Whether to validate Gradle wrapper
+    required: false
+    default: 'true'
+  develocity-url:
+    description: URL for Develocity
+    required: false
+    default: https://develocity.sonar.build/
+  artifactory-url:
+    description: URL to Artifactory repository
+    required: false
+    default: https://repox.jfrog.io
+
+outputs:
+  build-number:
+    description: The build number used for this build
+    value: ${{ steps.build.outputs.build-number }}
+  project-version:
+    description: The project version from gradle.properties
+    value: ${{ steps.build.outputs.project-version }}
+
+runs:
+  using: composite
+  steps:
+    - name: Vault
+      id: secrets
+      uses: SonarSource/vault-action-wrapper@d6d745ffdbc82b040df839b903bc33b5592cd6b0 # 3.0.2
+      with:
+        secrets: |
+          development/kv/data/next url | SONAR_HOST_URL;
+          development/kv/data/next token | SONAR_TOKEN;
+          development/kv/data/sign key | SIGN_KEY;
+          development/kv/data/sign passphrase | PGP_PASSPHRASE;
+          development/kv/data/sign key_id | SIGN_KEY_ID;
+          development/kv/data/develocity token | DEVELOCITY_TOKEN;
+
+    - name: Determine repository visibility
+      id: repo-visibility
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+        GITHUB_EVENT_REPOSITORY_VISIBILITY: ${{ github.event.repository.visibility }}
+      run: |
+        ${{ github.action_path }}/../common/detect-repo-visibility.sh
+
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@ac638b010cf58a27ee6c972d7336334ccaf61c96 # v4.4.1
+      with:
+        gradle-version: ${{ inputs.gradle-version }}
+        develocity-access-key: >-
+          ${{ steps.repo-visibility.outputs.repo-visibility != 'public' &&
+          fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN || '' }}
+        develocity-injection-enabled: ${{ steps.repo-visibility.outputs.repo-visibility != 'public' }}
+
+    - name: Build, analyze and deploy
+      id: build
+      shell: bash
+      env:
+        # GitHub context
+        PULL_REQUEST: ${{ github.event_name == 'pull_request' && github.event.number || 'false' }}
+        PULL_REQUEST_SHA: ${{ github.event.pull_request.head.sha }}
+
+        # Action inputs
+        ARTIFACTORY_URL: ${{ inputs.artifactory-url }}/artifactory
+        ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo }}
+        ARTIFACTORY_DEPLOY_USERNAME: ${{ inputs.artifactory-deploy-username }}
+        ARTIFACTORY_DEPLOY_PASSWORD: ${{ inputs.artifactory-deploy-password }}
+        DEPLOY_PULL_REQUEST: ${{ inputs.deploy-pull-request }}
+        SKIP_TESTS: ${{ inputs.skip-tests }}
+        GRADLE_ARGS: ${{ inputs.gradle-args }}
+
+        # Vault secrets
+        SONAR_HOST_URL: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_HOST_URL }}
+        SONAR_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_TOKEN }}
+        ORG_GRADLE_PROJECT_signingKey: ${{ fromJSON(steps.secrets.outputs.vault).SIGN_KEY }}
+        ORG_GRADLE_PROJECT_signingPassword: ${{ fromJSON(steps.secrets.outputs.vault).PGP_PASSPHRASE }}
+        ORG_GRADLE_PROJECT_signingKeyId: ${{ fromJSON(steps.secrets.outputs.vault).SIGN_KEY_ID }}
+      run: |
+        ${{ github.action_path }}/build.sh
+
+    - name: Generate workflow summary
+      if: always()
+      shell: bash
+      run: |
+        echo "## 🏗️ Gradle Build Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        # Basic build information
+        echo "### 📋 Build Information" >> $GITHUB_STEP_SUMMARY
+        echo "- **Project**: ${GITHUB_REPOSITORY#*/}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Version**: ${{ steps.build.outputs.project-version || 'Unknown' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Build Number**: ${{ steps.build.outputs.build-number }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Commit**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        # Deployment information
+        if [[ -n "${{ inputs.artifactory-deploy-repo }}" ]]; then
+          echo "### 🚀 Deployment" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ steps.build.conclusion }}" == "success" ]]; then
+            echo "✅ **Artifacts deployed to Artifactory**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            ARTIFACTORY_BROWSE_URL="${{ inputs.artifactory-url }}/ui/repos/tree/General/${{ inputs.artifactory-deploy-repo }}"
+            echo "🔗 **[Browse artifacts in Artifactory](${ARTIFACTORY_BROWSE_URL})**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Deployment failed** (build unsuccessful)" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+        fi
