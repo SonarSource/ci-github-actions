@@ -78,7 +78,7 @@ runs:
       env:
         # GitHub context
         PULL_REQUEST: ${{ github.event_name == 'pull_request' && github.event.number || 'false' }}
-        PULL_REQUEST_SHA: ${{ github.event.pull_request.head.sha }}
+        PULL_REQUEST_SHA: ${{ github.event.pull_request.base.sha }}
 
         # Action inputs
         ARTIFACTORY_URL: ${{ inputs.repox-url }}/artifactory

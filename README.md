@@ -91,6 +91,90 @@ jobs:
 - `public-deployer` or `qa-deployer` Artifactory roles for the deployment.
 - `qa-deployer` Artifactory role for the QA deploy.
 
+## `build-gradle`
+
+Build and publish a Gradle project with SonarQube analysis and Artifactory deployment.
+
+### Usage
+
+_All the `with` parameters are optional and have default values which are shown below._
+
+```yaml
+name: Build
+on:
+  push:
+    branches:
+      - master
+      - branch-*
+  pull_request:
+  merge_group:
+  workflow_dispatch:
+
+jobs:
+  build:
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
+    runs-on: ubuntu-24.04-large
+    name: Build
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - uses: SonarSource/ci-github-actions/get-build-number@v1
+      - uses: SonarSource/ci-github-actions/build-gradle@v1
+        with:
+          artifactory-deploy-repo: ""                               # Artifactory repository name
+          artifactory-deploy-username: ""                           # Artifactory username
+          artifactory-deploy-password: ""                           # Artifactory password
+          deploy-pull-request: false                                # Deploy pull request artifacts
+          skip-tests: false                                         # Skip running tests
+          gradle-args: ""                                           # Additional Gradle arguments
+          gradle-version: ""                                        # Gradle version for setup-gradle
+          # if not provided Gradle Wrapper specified version will be used
+          gradle-wrapper-validation: true                           # Validate Gradle wrapper
+          develocity-url: https://develocity.sonar.build/           # Develocity URL
+          repox-url: https://repox.jfrog.io                         # Repox URL
+```
+
+⚠️ Required GitHub permissions:
+
+- `id-token: write`
+- `contents: write`
+
+⚠️ Required Vault permissions:
+
+- `development/kv/data/next`: SonarQube credentials
+- `development/kv/data/sign`: Artifact signing credentials
+- `development/kv/data/develocity`: Develocity access token
+
+### Inputs
+
+- `artifactory-deploy-repo`: Name of deployment repository (optional)
+- `artifactory-deploy-username`: Username to deploy to Artifactory (optional)
+- `artifactory-deploy-password`: Password to deploy to Artifactory (optional)
+- `deploy-pull-request`: Whether to deploy pull request artifacts (default: `false`)
+- `skip-tests`: Whether to skip running tests (default: `false`)
+- `gradle-args`: Additional arguments to pass to Gradle (optional)
+- `gradle-version`: Gradle version to use for setup-gradle action (optional)
+- `gradle-wrapper-validation`: Whether to validate Gradle wrapper (default: `true`)
+- `develocity-url`: URL for Develocity (default: `https://develocity.sonar.build/`)
+- `repox-url`: URL for Repox (default: `https://repox.jfrog.io`)
+
+### Outputs
+
+- `project-version`: The project version from gradle.properties
+
+### Features
+
+- Automated version management with build numbers
+- SonarQube analysis for code quality (credentials from Vault)
+- Conditional deployment based on branch patterns
+- Automatic artifact signing (credentials from Vault)
+- Pull request support with optional deployment
+- Develocity integration for build optimization
+- Comprehensive build logging and error handling
+
 ## `promote`
 
 This action promotes a build in JFrog Artifactory and updates the GitHub status check accordingly.
