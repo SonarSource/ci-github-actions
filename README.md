@@ -210,6 +210,87 @@ The GitHub status check is named `repox-${GITHUB_REF_NAME}`.
 - `promoter` Artifactory role for the promotion.
 - `promotion` GitHub token.
 
+## `build-maven`
+
+Build and deploy a Maven project.
+
+### Usage
+
+_All the `with` parameters are optional and have default values which are shown below._
+
+```yaml
+name: Build
+on:
+  push:
+    branches:
+      - master
+      - branch-*
+  pull_request:
+  merge_group:
+  workflow_dispatch:
+
+jobs:
+  build:
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
+    runs-on: ubuntu-24.04-large
+    name: Build
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: SonarSource/ci-github-actions/get-build-number@v1
+      - uses: SonarSource/ci-github-actions/build-maven@v1
+```
+
+#### Required GitHub permissions
+
+- `id-token: write`
+- `contents: write`
+
+#### Required Vault permissions
+
+- `public-reader` or `private-reader` Artifactory roles for reading dependencies.
+- `public-deployer` or `qa-deployer` Artifactory roles for deployment.
+- `licenses` preset when running QA with a licensed SonarQube.
+- `development/kv/data/next` for SonarQube analysis.
+- `development/kv/data/sign`: for artifact signing.
+- `development/kv/data/develocity`: if using Develocity.
+
+#### Configuration Options
+
+- `public`: Repository visibility (defaults to repository setting)
+- `artifactory-reader-role`: Suffix for the Artifactory reader role in Vault. Defaults to `private-reader` for private repositories, and
+  `public-reader` for public repositories.
+- `artifactory-deployer-role`: Suffix for the Artifactory deployer role in Vault. Defaults to `qa-deployer` for private repositories, and
+  `public-deployer` for public repositories.
+- `deploy-pull-request`: Whether to deploy pull request artifacts. Defaults to `true`.
+- `maven-cache-path`: Path to the Maven cache directory, relative to GitHub workspace. Defaults to `.m2/repository`.
+
+### Features
+
+- Build Context Detection: e.g., main, maintenance, PR, dogfood, feature branches.
+- SonarQube analysis.
+- Artifact Signing.
+- Conditional Deployment based on branch patterns and configuration.
+
+### Build Contexts
+
+[//]: # (FIXME BUILD-8317)
+
+The action automatically detects the build context and applies the appropriate strategy:
+
+- **master**: Deploy + SonarQube analysis with full profiles (coverage, deploy-sonarsource, release, sign)
+- **maintenance** (`branch-*`): Deploy with full profiles, followed by separate SonarQube analysis
+- **pr**: Conditional deployment based on `deploy-pull-request` parameter, always includes SonarQube
+  - With deploy: Uses deploy-sonarsource profiles
+  - Without deploy: Uses coverage-only profiles with verify goal
+- **dogfood** (`dogfood-on-*`): Deploy only with dogfood profiles (deploy-sonarsource, release)
+- **feature** (`feature/long/*`): Verify + SonarQube analysis with coverage profile only
+- **default**: Basic verify goal only, no deployment or analysis
+
 ## `pr-cleanup`
 
 Automatically clean up caches and artifacts associated with a pull request when it is closed.
@@ -285,5 +366,6 @@ jobs:
 
 - `cache-hit`: A boolean value to indicate an exact match was found for the primary key
 
-⚠️ **Note**: This action automatically detects repository visibility and ownership. External repositories will always use GitHub Actions cache.
+⚠️ **Note**: This action automatically detects repository visibility and ownership. External repositories will always use GitHub Actions
+cache.
 SonarSource private repositories will use the internal S3 cache when available.

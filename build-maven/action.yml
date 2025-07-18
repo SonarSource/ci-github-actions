@@ -1,0 +1,137 @@
+---
+name: Build Maven
+description: GitHub Action to build, analyze, and deploy a Maven project
+inputs:
+  public:
+    description: Whether to build and deploy with/to public repositories. Defaults to `true` for public repositories (OSS), and `false` for
+      private repositories.
+    default: ${{ github.event.repository.visibility == 'public' && 'true' || 'false' }}
+  artifactory-reader-role:
+    description: Suffix for the Artifactory reader role in Vault. Defaults to `private-reader` for private repositories, and `public-reader`
+      for public repositories.
+    default: ''
+  artifactory-deployer-role:
+    description: Suffix for the Artifactory deployer role in Vault. Defaults to `qa-deployer` for private repositories, and
+      `public-deployer` for public repositories.
+    default: ''
+  deploy-pull-request:
+    description: Whether to deploy pull request artifacts. Set to `false` if not using the promote action.
+    default: 'true'
+  maven-cache-path:
+    description: Path to the Maven cache directory, relative to GitHub workspace.
+    default: .m2/repository
+
+runs:
+  using: composite
+  steps:
+    - name: Set build parameters
+      shell: bash
+      env:
+        ARTIFACTORY_READER_ROLE: ${{ inputs.artifactory-reader-role != '' && inputs.artifactory-reader-role ||
+          (inputs.public == 'true' && 'public-reader' || 'private-reader') }}
+        ARTIFACTORY_DEPLOYER_ROLE: ${{ inputs.artifactory-deployer-role != '' && inputs.artifactory-deployer-role ||
+          (inputs.public == 'true' && 'public-deployer' || 'qa-deployer') }}
+      run: |
+        echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
+        echo "ARTIFACTORY_DEPLOYER_ROLE=${ARTIFACTORY_DEPLOYER_ROLE}" >> "$GITHUB_ENV"
+        cp ${GITHUB_ACTION_PATH}/mise.local.toml mise.local.toml
+    - name: Cache local Maven repository
+      uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+      with:
+        path: ${{ github.workspace }}/${{ inputs.maven-cache-path }}
+        key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+        restore-keys: maven-${{ runner.os }}-
+    - uses: jdx/mise-action@5cb1df66ed5e1fb3c670ea0b62fd17a76979826a # v2.3.1
+    - name: Set up Git repository for SonarQube analysis
+      shell: bash
+      run: |
+        echo "Setting up Git references for SonarQube analysis..."
+
+        # Fetch all commit history so that SonarQube has exact blame information for issue auto-assignment
+        # This command can fail with "fatal: --unshallow on a complete repository does not make sense" if there are not enough commits.
+        # For this reason errors are ignored with "|| true".
+        git fetch --quiet --unshallow || true
+
+        # Fetch PR base branch if available
+        if [ -n "${GITHUB_BASE_REF:-}" ]; then
+          git fetch --quiet origin "${GITHUB_BASE_REF}"
+        fi
+
+        echo "Git repository setup completed successfully"
+    - name: Vault
+      # yamllint disable rule:line-length
+      id: secrets
+      uses: SonarSource/vault-action-wrapper@d6d745ffdbc82b040df839b903bc33b5592cd6b0 # 3.0.2
+      with:
+        secrets: |
+          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_PRIVATE_PASSWORD;
+          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} username | ARTIFACTORY_DEPLOY_USERNAME;
+          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} access_token | ARTIFACTORY_DEPLOY_PASSWORD;
+          development/github/token/licenses-ro token | GITHUB_TOKEN;
+          development/kv/data/next url | SONAR_HOST_URL;
+          development/kv/data/next token | SONAR_TOKEN;
+          development/kv/data/sign key | SIGN_KEY;
+          development/kv/data/sign passphrase | PGP_PASSPHRASE;
+          development/kv/data/develocity token | DEVELOCITY_TOKEN;
+      # yamllint enable rule:line-length
+    - name: Set up Maven configuration
+      shell: bash
+      env:
+        PUBLIC_BUILD: ${{ inputs.public }}
+        ARTIFACTORY_PRIVATE_PASSWORD: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_PRIVATE_PASSWORD }}
+        ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_PRIVATE_PASSWORD }}
+      run: |
+        # Create Maven config directory at default location
+        mkdir -p "$HOME/.m2"
+
+        # Copy appropriate settings file to Maven's default location
+        if [[ "${PUBLIC_BUILD}" == "true" ]]; then
+          echo "Setting up public Maven settings"
+          cp "${GITHUB_ACTION_PATH}/../ressources/mvn/settings-public-auth.xml" "$HOME/.m2/settings.xml"
+        else
+          echo "Setting up private Maven settings"
+          cp "${GITHUB_ACTION_PATH}/../ressources/mvn/settings-private.xml" "$HOME/.m2/settings.xml"
+        fi
+
+        echo "Maven settings configured successfully at default location"
+    - name: Validate and set up Maven environment
+      shell: bash
+      env:
+        MAVEN_CACHE_PATH: ${{ github.workspace }}/${{ inputs.maven-cache-path }}
+      run: |
+        echo "Validating Maven environment setup..."
+
+        # Validate that Maven settings were set up correctly at default location
+        if [[ ! -f "$HOME/.m2/settings.xml" ]]; then
+          echo "ERROR: Maven settings file not found at default location. Action setup may have failed." >&2
+          exit 1
+        fi
+
+        # Ensure Maven local repository directory exists
+        if [[ ! -d "$MAVEN_CACHE_PATH" ]]; then
+          echo "Creating Maven local repository directory: $MAVEN_CACHE_PATH"
+          mkdir -p "$MAVEN_CACHE_PATH"
+        fi
+
+        echo "Maven environment validation completed successfully"
+    - name: Build, Analyze and deploy
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      env:
+        DEPLOY_PULL_REQUEST: ${{ inputs.deploy-pull-request }}
+        MAVEN_LOCAL_REPOSITORY: ${{ github.workspace }}/${{ inputs.maven-cache-path }}
+        MAVEN_OPTS: -Dmaven.repo.local=${{ github.workspace }}/${{ inputs.maven-cache-path }}
+        ARTIFACTORY_DEPLOY_REPO: ${{ inputs.public == 'true' && 'sonarsource-public-qa' || 'sonarsource-private-qa' }}
+        SONAR_HOST_URL: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_HOST_URL }}
+        SONAR_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_TOKEN }}
+        SIGN_KEY: ${{ fromJSON(steps.secrets.outputs.vault).SIGN_KEY }}
+        PGP_PASSPHRASE: ${{ fromJSON(steps.secrets.outputs.vault).PGP_PASSPHRASE }}
+        DEVELOCITY_ACCESS_KEY: develocity.sonar.build=${{ fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN }}
+        ARTIFACTORY_PRIVATE_PASSWORD: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_PRIVATE_PASSWORD }}
+        ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_PRIVATE_PASSWORD }}
+        ARTIFACTORY_DEPLOY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_USERNAME }}
+        ARTIFACTORY_DEPLOY_PASSWORD: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_PASSWORD }}
+        PULL_REQUEST: ${{ github.event.pull_request.number || 'false' }}
+        PULL_REQUEST_SHA: ${{ github.event.pull_request.base.sha || '' }}
+      run: |
+        ${GITHUB_ACTION_PATH}/build.sh
