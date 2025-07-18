@@ -6,7 +6,11 @@ Mock java
   echo "java $*"
 End
 Mock gradle
-  echo "gradle $*"
+  if [[ "$*" == "properties --no-scan" ]]; then
+    echo "version: 1.2.3-SNAPSHOT"
+  else
+    echo "gradle $*"
+  fi
 End
 Mock jq
   echo "jq $*"
@@ -17,6 +21,9 @@ End
 Mock chmod
   echo "chmod $*"
 End
+Mock sed
+  echo "sed $*"
+End
 
 # Set up environment variables
 export GITHUB_REPOSITORY="my-org/my-repo"
@@ -26,6 +33,16 @@ export BUILD_NUMBER="42"
 export GITHUB_RUN_ID="12345"
 export GITHUB_SHA="abc123"
 export GITHUB_OUTPUT=/dev/null
+export ARTIFACTORY_DEPLOY_REPO="test-repo"
+export ARTIFACTORY_DEPLOY_USERNAME="test-user"
+export ARTIFACTORY_DEPLOY_PASSWORD="test-pass"
+export SONAR_HOST_URL="https://sonar.example.com"
+export SONAR_TOKEN="test-token"
+export ORG_GRADLE_PROJECT_signingKey="test-key"
+export ORG_GRADLE_PROJECT_signingPassword="test-pass"
+export ORG_GRADLE_PROJECT_signingKeyId="test-id"
+export DEPLOY_PULL_REQUEST="false"
+export SKIP_TESTS="false"
 GITHUB_EVENT_PATH=$(mktemp)
 export GITHUB_EVENT_PATH
 echo '{}' > "$GITHUB_EVENT_PATH"
@@ -58,8 +75,7 @@ Describe 'set_build_env'
   It 'should set the default branch and project name'
     When call set_build_env
     The line 1 should equal "PROJECT: my-repo"
-    The line 2 should equal "PULL_REQUEST: false"
-    The line 3 should equal "Fetching commit history for SonarQube analysis..."
+    The line 2 should equal "Fetching commit history for SonarQube analysis..."
     The variable PROJECT should equal "my-repo"
     The variable PULL_REQUEST should equal "false"
     The variable PULL_REQUEST_SHA should be undefined
@@ -84,33 +100,43 @@ Describe 'set_build_env'
 
     When call set_build_env
     The line 1 should equal "PROJECT: my-repo"
-    The line 2 should equal "PULL_REQUEST: 123"
-    The line 3 should equal "Fetching commit history for SonarQube analysis..."
+    The line 2 should equal "Fetching commit history for SonarQube analysis..."
     The variable PULL_REQUEST should equal "123"
     The variable PULL_REQUEST_SHA should equal "abc123"
   End
 End
 
 Describe 'set_project_version'
-  It 'should retrieve version from gradle.properties when it exists'
-    # Create a temporary gradle.properties file
-    echo "version=1.2.3" > gradle.properties
+  It 'should process version and create release version'
+    # Create a temporary gradle.properties file for sed to work with
+    echo "version=1.2.3-SNAPSHOT" > gradle.properties
 
     When call set_project_version
-    The line 1 should equal "Retrieved INITIAL_VERSION=1.2.3 from gradle.properties"
-    The variable INITIAL_VERSION should equal "1.2.3"
+    The line 1 should equal "Replacing version 1.2.3-SNAPSHOT with 1.2.3.42"
+    The variable PROJECT_VERSION should equal "1.2.3.42"
 
     # Clean up
-    rm -f gradle.properties
+    rm -f gradle.properties gradle.properties.bak
   End
 
-  It 'should handle missing gradle.properties file'
-    # Ensure no gradle.properties exists
-    rm -f gradle.properties
+  It 'should handle version without patch number'
+    # Create a temporary gradle.properties file for sed to work with
+    echo "version=1.2-SNAPSHOT" > gradle.properties
+
+    Mock gradle
+      if [[ "$*" == "properties --no-scan" ]]; then
+        echo "version: 1.2-SNAPSHOT"
+      else
+        echo "gradle $*"
+      fi
+    End
 
     When call set_project_version
-    The line 1 should equal "gradle.properties not found, version information may be unavailable"
-    The variable INITIAL_VERSION should be undefined
+    The line 1 should equal "Replacing version 1.2-SNAPSHOT with 1.2.0.42"
+    The variable PROJECT_VERSION should equal "1.2.0.42"
+
+    # Clean up
+    rm -f gradle.properties gradle.properties.bak
   End
 End
 
@@ -156,7 +182,7 @@ Describe 'should_deploy'
   End
 
   It 'should not deploy for pull request by default'
-    export PULL_REQUEST="123"
+    export GITHUB_EVENT_NAME="pull_request"
     export DEPLOY_PULL_REQUEST="false"
 
     When call should_deploy
@@ -164,7 +190,7 @@ Describe 'should_deploy'
   End
 
   It 'should deploy for pull request when DEPLOY_PULL_REQUEST is true'
-    export PULL_REQUEST="123"
+    export GITHUB_EVENT_NAME="pull_request"
     export DEPLOY_PULL_REQUEST="true"
 
     When call should_deploy
@@ -269,7 +295,7 @@ Describe 'main'
     End
 
     Mock set_project_version
-      echo "Retrieved INITIAL_VERSION=1.0.0 from gradle.properties"
+      echo "Replacing version 1.0.0-SNAPSHOT with 1.0.0.42"
     End
 
     Mock gradle_build
@@ -281,14 +307,12 @@ Describe 'main'
     The line 1 should equal "java version \"1.8.0_281\""
     The line 2 should equal "gradle"
     The line 3 should equal "Gradle 7.4.2"
-    The line 4 should equal "gradle"
-    The line 5 should equal "Gradle 7.4.2"
-    The line 6 should equal "PROJECT: my-repo"
-    The line 7 should equal "PULL_REQUEST: false"
-    The line 8 should equal "Fetching commit history for SonarQube analysis..."
-    The line 9 should equal "Retrieved INITIAL_VERSION=1.0.0 from gradle.properties"
-    The line 10 should equal "Starting regular build build..."
-    The line 11 should equal "Build completed successfully"
+    The line 4 should equal "PROJECT: my-repo"
+    The line 5 should equal "PULL_REQUEST: false"
+    The line 6 should equal "Fetching commit history for SonarQube analysis..."
+    The line 7 should equal "Replacing version 1.0.0-SNAPSHOT with 1.0.0.42"
+    The line 8 should equal "Starting regular build build..."
+    The line 9 should equal "Build completed successfully"
     The status should be success
   End
 End

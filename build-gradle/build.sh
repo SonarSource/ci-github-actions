@@ -56,18 +56,18 @@ set_build_env() {
 }
 
 set_project_version() {
-  # Get project version from gradle.properties
-  if [[ -f "gradle.properties" ]]; then
-    INITIAL_VERSION=$(grep ^version gradle.properties | awk -F= '{print $2}')
-    export INITIAL_VERSION
-    echo "Retrieved INITIAL_VERSION=$INITIAL_VERSION from gradle.properties"
-
-    echo "project-version=$INITIAL_VERSION" >> "$GITHUB_OUTPUT"
-  else
-    echo "gradle.properties not found, version information may be unavailable"
+  current_version=$(gradle properties --no-scan | grep 'version:' | tr -d "[:space:]" | cut -d ":" -f 2)
+  release_version="${current_version/-SNAPSHOT/}"
+  if [[ "${release_version}" =~ ^[0-9]+\.[0-9]+$ ]]; then
+    release_version="${release_version}.0"
   fi
-}
+  release_version="${release_version}.${BUILD_NUMBER}"
 
+  echo "Replacing version $current_version with $release_version"
+  sed -i.bak "s/$current_version/$release_version/g" gradle.properties
+  export PROJECT_VERSION=$release_version
+  echo "project-version=$release_version" >> "$GITHUB_OUTPUT"
+}
 
 build_gradle_args() {
   local args=()
@@ -122,15 +122,15 @@ should_deploy() {
 }
 
 get_build_type() {
-  if [[ "$GITHUB_REF_NAME" == "master" && ! is_pull_request ]]; then
+  if [[ "$GITHUB_REF_NAME" == "master" ]] && ! is_pull_request; then
     echo "master branch"
-  elif [[ "$GITHUB_REF_NAME" == branch-* && ! is_pull_request ]]; then
+  elif [[ "$GITHUB_REF_NAME" == branch-* ]] && ! is_pull_request; then
     echo "maintenance branch"
   elif is_pull_request; then
     echo "pull request"
-  elif [[ "$GITHUB_REF_NAME" == dogfood-on-* && ! is_pull_request ]]; then
+  elif [[ "$GITHUB_REF_NAME" == dogfood-on-* ]] && ! is_pull_request; then
     echo "dogfood branch"
-  elif [[ "$GITHUB_REF_NAME" == feature/long/* && ! is_pull_request ]]; then
+  elif [[ "$GITHUB_REF_NAME" == feature/long/* ]] && ! is_pull_request; then
     echo "long-lived feature branch"
   else
     echo "regular build"
@@ -144,15 +144,15 @@ set_sonar_args() {
     return 0
   fi
 
-  if [[ "$GITHUB_REF_NAME" == "master" && ! is_pull_request ]]; then
+  if [[ "$GITHUB_REF_NAME" == "master" ]] && ! is_pull_request; then
     # Master branch analysis
-    args_ref+=("-Dsonar.projectVersion=$INITIAL_VERSION")
+    args_ref+=("-Dsonar.projectVersion=$PROJECT_VERSION")
     args_ref+=("-Dsonar.analysis.sha1=$GITHUB_SHA")
 
-  elif [[ "$GITHUB_REF_NAME" == branch-* && ! is_pull_request ]]; then
+  elif [[ "$GITHUB_REF_NAME" == branch-* ]] && ! is_pull_request; then
     # Maintenance branch analysis
     args_ref+=("-Dsonar.branch.name=$GITHUB_REF_NAME")
-    args_ref+=("-Dsonar.projectVersion=$INITIAL_VERSION")
+    args_ref+=("-Dsonar.projectVersion=$PROJECT_VERSION")
     args_ref+=("-Dsonar.analysis.sha1=$GITHUB_SHA")
 
   elif is_pull_request; then
@@ -160,7 +160,7 @@ set_sonar_args() {
     args_ref+=("-Dsonar.analysis.sha1=$PULL_REQUEST_SHA")
     args_ref+=("-Dsonar.analysis.prNumber=$PULL_REQUEST")
 
-  elif [[ "$GITHUB_REF_NAME" == feature/long/* && ! is_pull_request ]]; then
+  elif [[ "$GITHUB_REF_NAME" == feature/long/* ]] && ! is_pull_request; then
     # Long-lived feature branch analysis
     args_ref+=("-Dsonar.branch.name=$GITHUB_REF_NAME")
     args_ref+=("-Dsonar.analysis.sha1=$GITHUB_SHA")
@@ -184,7 +184,8 @@ gradle_build() {
 
   set_sonar_args gradle_args
 
-  local build_type=$(get_build_type)
+  local build_type
+  build_type=$(get_build_type)
 
   echo "Starting $build_type build..."
   echo "Gradle command: $GRADLE_CMD ${gradle_args[*]}"
