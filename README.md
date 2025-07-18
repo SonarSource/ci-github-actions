@@ -212,7 +212,7 @@ The GitHub status check is named `repox-${GITHUB_REF_NAME}`.
 
 ## `build-maven`
 
-Build and deploy a Maven project using SonarSource CI practices.
+Build and deploy a Maven project.
 
 ### Usage
 
@@ -243,49 +243,42 @@ jobs:
       - uses: actions/checkout@v4
       - uses: SonarSource/ci-github-actions/get-build-number@v1
       - uses: SonarSource/ci-github-actions/build-maven@v1
-        with:
-          public: false                                         # Defaults to `true` if the repository is public
-          artifactory-reader-role: private-reader               # or public-reader if `public` is `true`
-          artifactory-deployer-role: qa-deployer                # or public-deployer if `public` is `true`
-          deploy-pull-request: true
-          maven-cache-path: .m2/repository
 ```
 
-⚠️ Required GitHub permissions:
+#### Required GitHub permissions
 
 - `id-token: write`
 - `contents: write`
 
-⚠️ Required Vault permissions:
+#### Required Vault permissions
 
 - `public-reader` or `private-reader` Artifactory roles for reading dependencies.
 - `public-deployer` or `qa-deployer` Artifactory roles for deployment.
-- `licenses-ro` GitHub token for license validation.
-- SonarQube credentials for code analysis.
-- GPG signing key and passphrase for artifact signing.
-- Develocity token for build caching and insights.
+- `licenses` preset when running QA with a licensed SonarQube.
+- `development/kv/data/next` for SonarQube analysis.
+- `development/kv/data/sign`: for artifact signing.
+- `development/kv/data/develocity`: if using Develocity.
 
-### Configuration Options
+#### Configuration Options
 
 - `public`: Repository visibility (defaults to repository setting)
-- `artifactory-reader-role`: Reader role for dependencies
-- `artifactory-deployer-role`: Deployer role for artifacts
-- `deploy-pull-request`: Whether to deploy PR artifacts
-- `maven-cache-path`: Maven local repository cache path
+- `artifactory-reader-role`: Suffix for the Artifactory reader role in Vault. Defaults to `private-reader` for private repositories, and
+  `public-reader` for public repositories.
+- `artifactory-deployer-role`: Suffix for the Artifactory deployer role in Vault. Defaults to `qa-deployer` for private repositories, and
+  `public-deployer` for public repositories.
+- `deploy-pull-request`: Whether to deploy pull request artifacts. Defaults to `true`.
+- `maven-cache-path`: Path to the Maven cache directory, relative to GitHub workspace. Defaults to `.m2/repository`.
 
 ### Features
 
-- **Smart Build Context Detection**: Automatically detects build context (master, maintenance, PR, dogfood, feature branches)
-- **Modular Maven Execution**: Configurable goals, profiles, and properties based on build context
-- **Version Management**: Automatically sets project version using build number, handles SNAPSHOT versions
-- **Artifactory Integration**: Complete Maven settings configuration for private dependencies and deployment
-- **SonarQube Analysis**: Context-aware analysis with proper branch/PR configuration
-- **Artifact Signing**: Automatic GPG signing for deployment contexts
-- **Git Reference Management**: Automatic fetching of required references for accurate analysis
-- **Conditional Deployment**: Intelligent deployment based on branch patterns and configuration
-- **Repository Cleanup**: Automated Maven local repository maintenance
+- Build Context Detection: e.g., main, maintenance, PR, dogfood, feature branches.
+- SonarQube analysis.
+- Artifact Signing.
+- Conditional Deployment based on branch patterns and configuration.
 
 ### Build Contexts
+
+[//]: # (FIXME BUILD-8317)
 
 The action automatically detects the build context and applies the appropriate strategy:
 
@@ -297,8 +290,6 @@ The action automatically detects the build context and applies the appropriate s
 - **dogfood** (`dogfood-on-*`): Deploy only with dogfood profiles (deploy-sonarsource, release)
 - **feature** (`feature/long/*`): Verify + SonarQube analysis with coverage profile only
 - **default**: Basic verify goal only, no deployment or analysis
-
-All contexts automatically handle version management and use context-appropriate Maven memory settings.
 
 ## `pr-cleanup`
 
@@ -375,5 +366,6 @@ jobs:
 
 - `cache-hit`: A boolean value to indicate an exact match was found for the primary key
 
-⚠️ **Note**: This action automatically detects repository visibility and ownership. External repositories will always use GitHub Actions cache.
+⚠️ **Note**: This action automatically detects repository visibility and ownership. External repositories will always use GitHub Actions
+cache.
 SonarSource private repositories will use the internal S3 cache when available.

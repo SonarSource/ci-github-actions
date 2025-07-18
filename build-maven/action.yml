@@ -1,6 +1,6 @@
 ---
 name: Build Maven
-description: GitHub Action to build, analyze, and deploy a Maven project using SonarSource CI practices
+description: GitHub Action to build, analyze, and deploy a Maven project
 inputs:
   public:
     description: Whether to build and deploy with/to public repositories. Defaults to `true` for public repositories (OSS), and `false` for

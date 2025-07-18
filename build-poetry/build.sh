@@ -38,6 +38,7 @@ set_build_env() {
 
   if [[ "$GITHUB_EVENT_NAME" = "pull_request" ]]; then
     PULL_REQUEST=$(jq --raw-output .number "$GITHUB_EVENT_PATH")
+    # FIXME Unused? otherwise, it should be '.pull_request.head.sha' (not base.sha)
     PULL_REQUEST_SHA=$(jq --raw-output .pull_request.base.sha "$GITHUB_EVENT_PATH")
   else
     PULL_REQUEST=false
