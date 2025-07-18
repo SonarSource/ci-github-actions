@@ -21,7 +21,7 @@ inputs:
   gradle-version:
     description: Gradle version to use for setup-gradle action
     required: false
-    default: '8.1'
+    default: ''
   deploy-pull-request:
     description: Whether to deploy pull request artifacts
     required: false
@@ -38,15 +38,12 @@ inputs:
     description: URL for Develocity
     required: false
     default: https://develocity.sonar.build/
-  artifactory-url:
-    description: URL to Artifactory repository
+  repox-url:
+    description: URL for Repox
     required: false
     default: https://repox.jfrog.io
 
 outputs:
-  build-number:
-    description: The build number used for this build
-    value: ${{ steps.build.outputs.build-number }}
   project-version:
     description: The project version from gradle.properties
     value: ${{ steps.build.outputs.project-version }}
@@ -66,21 +63,12 @@ runs:
           development/kv/data/sign key_id | SIGN_KEY_ID;
           development/kv/data/develocity token | DEVELOCITY_TOKEN;
 
-    - name: Determine repository visibility
-      id: repo-visibility
-      shell: bash
-      env:
-        GITHUB_TOKEN: ${{ github.token }}
-        GITHUB_EVENT_REPOSITORY_VISIBILITY: ${{ github.event.repository.visibility }}
-      run: |
-        ${{ github.action_path }}/../common/detect-repo-visibility.sh
-
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@ac638b010cf58a27ee6c972d7336334ccaf61c96 # v4.4.1
       with:
         gradle-version: ${{ inputs.gradle-version }}
         develocity-access-key: >-
-          ${{ steps.repo-visibility.outputs.repo-visibility != 'public' &&
+          ${{ github.event.repository.visibility != 'public' &&
           fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN || '' }}
         develocity-injection-enabled: ${{ steps.repo-visibility.outputs.repo-visibility != 'public' }}
 
@@ -93,7 +81,7 @@ runs:
         PULL_REQUEST_SHA: ${{ github.event.pull_request.head.sha }}
 
         # Action inputs
-        ARTIFACTORY_URL: ${{ inputs.artifactory-url }}/artifactory
+        ARTIFACTORY_URL: ${{ inputs.repox-url }}/artifactory
         ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo }}
         ARTIFACTORY_DEPLOY_USERNAME: ${{ inputs.artifactory-deploy-username }}
         ARTIFACTORY_DEPLOY_PASSWORD: ${{ inputs.artifactory-deploy-password }}
@@ -121,7 +109,7 @@ runs:
         echo "### 📋 Build Information" >> $GITHUB_STEP_SUMMARY
         echo "- **Project**: ${GITHUB_REPOSITORY#*/}" >> $GITHUB_STEP_SUMMARY
         echo "- **Version**: ${{ steps.build.outputs.project-version || 'Unknown' }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Build Number**: ${{ steps.build.outputs.build-number }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Build Number**: ${{ env.BUILD_NUMBER }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Commit**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
@@ -131,7 +119,7 @@ runs:
           if [[ "${{ steps.build.conclusion }}" == "success" ]]; then
             echo "✅ **Artifacts deployed to Artifactory**" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            ARTIFACTORY_BROWSE_URL="${{ inputs.artifactory-url }}/ui/repos/tree/General/${{ inputs.artifactory-deploy-repo }}"
+            ARTIFACTORY_BROWSE_URL="${{ inputs.repox-url }}/ui/repos/tree/General/${{ inputs.artifactory-deploy-repo }}"
             echo "🔗 **[Browse artifacts in Artifactory](${ARTIFACTORY_BROWSE_URL})**" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ **Deployment failed** (build unsuccessful)" >> $GITHUB_STEP_SUMMARY
