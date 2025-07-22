@@ -1,0 +1,105 @@
+name: Run IRIS Analysis
+description: Runs SonarSource IRIS analysis tool to synchronize projects between SonarQube instances
+
+inputs:
+  github_environment:
+    description: GitHub Environment
+    required: false
+    default: ManualDispatch
+  source_project_key:
+    description: Source project key
+    required: true
+  source_organization:
+    description: Source organization name
+    required: true
+  destination_project_key:
+    description: Destination project key
+    required: true
+  destination_organization:
+    description: Destination organization name
+    required: true
+  sonar_sqc_eu_url:
+    description: SonarCloud EU URL
+    required: false
+    default: https://sonarcloud.io
+  sonar_sqc_us_url:
+    description: SonarCloud US URL
+    required: false
+    default: https://sonarqube.us
+  sonar_next_url:
+    description: SonarQube Next URL
+    required: false
+    default: https://next.sonarqube.com/sonarqube
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout repo
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      with:
+        fetch-depth: 1 # Having a shallow clone here reduces overhead significantly
+        fetch-tags: false
+
+    - name: Mise setup
+      id: mise-setup
+      uses: jdx/mise-action@13abe502c30c1559a5c37dff303831bab82c9402 # v2.2.3
+      with:
+        cache_save: true
+        cache_key_prefix: mise-v1
+        mise_toml: |
+          [tools]
+          poetry = '1.8.5'
+          python = '3.13'
+          pipenv = '2024.4.0'
+          sops = '3.9.0'
+          "npm:aws-cdk" = "v2"
+          "npm:newman" = "latest"
+          java = ['corretto-21', 'corretto-17']
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+
+    - name: Print versions
+      shell: bash
+      run: |
+        echo "NPM: $(npm -v)"
+        echo "Python: $(python3 --version)"
+        echo "Pip: $(pip --version)"
+        echo "Pipenv: $(pipenv --version)"
+        echo "Poetry: $(poetry --version)"
+        echo "Node: $(node --version)"
+        echo "CDK: $(cdk --version)"
+        echo "Newman: $(newman --version)"
+        echo "Default Java: $(java --version)"
+        echo "All Java distributions installed: $(env | grep JAVA_)"
+
+    - name: Get secrets from Vault
+      id: secrets
+      uses: SonarSource/vault-action-wrapper@eeb41b89722805725f07028c393860a50c60b51d
+      with:
+        secrets: |
+          development/kv/data/iris next | SONAR_IRIS_NEXT_TOKEN;
+          development/kv/data/iris sqc-eu | SONAR_IRIS_SQC_EU_TOKEN;
+          development/kv/data/iris sqc-us | SONAR_IRIS_SQC_US_TOKEN;
+          development/artifactory/token/{REPO_OWNER_NAME_DASH}-private-reader username | ARTIFACTORY_USERNAME;
+          development/artifactory/token/{REPO_OWNER_NAME_DASH}-private-reader access_token | ARTIFACTORY_ACCESS_TOKEN;
+          development/kv/data/repox artifactory_url | ARTIFACTORY_URL;
+
+    - name: Run IRIS
+      shell: bash
+      run: |
+        chmod +x ${{ github.action_path }}/run_iris.sh
+        ${{ github.action_path }}/run_iris.sh
+      env:
+        SOURCE_PROJECT_KEY: ${{ inputs.source_project_key }}
+        SOURCE_ORGANIZATION: ${{ inputs.source_organization }}
+        DESTINATION_PROJECT_KEY: ${{ inputs.destination_project_key }}
+        DESTINATION_ORGANIZATION: ${{ inputs.destination_organization }}
+        SONAR_SQC_EU_URL: ${{ inputs.sonar_sqc_eu_url }}
+        SONAR_IRIS_SQC_EU_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_IRIS_SQC_EU_TOKEN }}
+        SONAR_SQC_US_URL: ${{ inputs.sonar_sqc_us_url }}
+        SONAR_IRIS_SQC_US_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_IRIS_SQC_US_TOKEN }}
+        SONAR_NEXT_URL: ${{ inputs.sonar_next_url }}
+        SONAR_IRIS_NEXT_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_IRIS_NEXT_TOKEN }}
+        ARTIFACTORY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME }}
+        ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
+        ARTIFACTORY_URL: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_URL }}
