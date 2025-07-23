@@ -1,0 +1,346 @@
+#!/bin/bash
+# Build script for SonarSource NPM projects.
+# Supports building, testing, SonarQube analysis, and JFrog Artifactory deployment.
+#
+# Required environment variables:
+# - GITHUB_REF_NAME: Git branch name
+# - GITHUB_SHA: Git commit SHA
+# - GITHUB_REPOSITORY: Repository name in format "owner/repo"
+# - GITHUB_RUN_ID: GitHub Actions run ID
+# - BUILD_NUMBER: Build number for versioning
+# - SONAR_HOST_URL: URL of SonarQube server
+# - SONAR_TOKEN: Access token to send analysis reports to SonarQube
+# - ARTIFACTORY_URL: URL to Artifactory repository (required for deployment)
+# - ARTIFACTORY_DEPLOY_ACCESS_TOKEN: Access token to deploy to Artifactory (required for deployment)
+#
+# Optional environment variables:
+# - DEPLOY_PULL_REQUEST: Whether to deploy pull request artifacts (default: false)
+# - SKIP_TESTS: Whether to skip running tests (default: false)
+# - DEFAULT_BRANCH: Main branch pattern (default: "main$|^master")
+# - GITHUB_BASE_REF: Base branch for pull requests (auto-set by GitHub Actions)
+# - GITHUB_OUTPUT: Path to GitHub Actions output file (auto-set by GitHub Actions)
+# - ARTIFACTORY_DEPLOY_REPO: Name of deployment repository (used by jfrog_npm_publish)
+# - PULL_REQUEST: Pull request number or "false" (auto-set by action)
+# - PROJECT: Project name derived from GITHUB_REPOSITORY (auto-set by script)
+
+set -euo pipefail
+
+: "${GITHUB_REF_NAME:?}" "${GITHUB_SHA:?}" "${GITHUB_REPOSITORY:?}"
+: "${SONAR_HOST_URL:?}" "${SONAR_TOKEN:?}"
+
+# Git-related utility functions (from git_utils)
+DEFAULT_BRANCH_PATTERN="^${DEFAULT_BRANCH:-"main$|^master"}$"
+
+check_tool() {
+  # Check if a command is available and runs it, typically: 'some_tool --version'
+  if ! command -v "$1"; then
+    echo "$1 is not installed." >&2
+    return 1
+  fi
+  "$@"
+}
+
+fetch_git_history() {
+  # Fetch full git history for SonarQube analysis
+  git fetch --unshallow || true
+
+  # Fetch PR base branch if this is a pull request
+  if [ -n "${GITHUB_BASE_REF:-}" ]; then
+    echo "Fetching base branch: ${GITHUB_BASE_REF}"
+    git fetch origin "${GITHUB_BASE_REF}"
+  fi
+
+  # Fetch current branch for main/maintenance branches
+  if (is_main_branch || is_maintenance_branch) && ! is_pull_request; then
+    echo "Fetching branch: ${GITHUB_REF_NAME}"
+    git fetch origin "${GITHUB_REF_NAME}"
+  fi
+}
+
+
+set_build_env() {
+  # Set default values
+  : "${DEPLOY_PULL_REQUEST:=false}"
+  : "${SKIP_TESTS:=false}"
+  : "${BUILD_NUMBER:=0}"
+
+  export PROJECT="${GITHUB_REPOSITORY#*/}"
+  echo "PROJECT: ${PROJECT}"
+
+  if is_pull_request; then
+    if [ -n "${PULL_REQUEST:-}" ] && [ "${PULL_REQUEST}" != "false" ]; then
+      echo "Building pull request #${PULL_REQUEST}"
+    else
+      PULL_REQUEST="false"
+    fi
+  else
+    PULL_REQUEST="false"
+  fi
+
+  echo "Fetching commit history for SonarQube analysis..."
+  fetch_git_history
+
+  # Set version with build ID for most branch types
+  # (maintenance branch handles this differently based on SNAPSHOT vs RELEASE)
+  if ! is_maintenance_branch || is_pull_request; then
+    set_npm_version_with_build_id "${BUILD_NUMBER}"
+    echo "Set npm version with build ID: ${BUILD_NUMBER}."
+  fi
+}
+
+is_main_branch() {
+  [[ "${GITHUB_REF_NAME}" =~ $DEFAULT_BRANCH_PATTERN ]]
+}
+
+is_maintenance_branch() {
+  [[ "${GITHUB_REF_NAME}" == "branch-"* ]]
+}
+
+is_pull_request() {
+  [[ "${PULL_REQUEST:-false}" != "false" ]]
+}
+
+is_dogfood_branch() {
+  [[ "${GITHUB_REF_NAME}" == "dogfood-on-"* ]]
+}
+
+is_long_lived_feature_branch() {
+  [[ "${GITHUB_REF_NAME}" == "feature/long/"* ]]
+}
+
+is_merge_queue_branch() {
+  [[ "${GITHUB_REF_NAME}" == "gh-readonly-queue/"* ]]
+}
+
+# Version utility functions (from npm_version_utils and version_util)
+PACKAGE_JSON="package.json"
+
+get_current_version() {
+  local current_version
+  current_version=$(jq -r .version "$PACKAGE_JSON")
+  if [ -z "${current_version}" ] || [ "${current_version}" == "null" ]; then
+    echo "Could not get version from ${PACKAGE_JSON}" >&2
+    exit 1
+  fi
+
+  echo "${current_version}"
+}
+
+set_npm_version_with_build_id() {
+  local build_number="$1"
+  local current_version release_version digit_count new_version
+
+  current_version=$(get_current_version)
+  release_version="${current_version%"-SNAPSHOT"}"
+
+  # In case of 2 digits, we need to add the 3rd digit (0 obviously)
+  # Mandatory in order to compare versions (patch VS non patch)
+  digit_count=$(echo "${release_version//./ }" | wc -w)
+  if [ "${digit_count}" -lt 3 ]; then
+      release_version="${release_version}.0"
+  fi
+  new_version="${release_version}-${build_number}"
+
+  echo "Replacing version ${current_version} with ${new_version}"
+  npm version --no-git-tag-version --allow-same-version "${new_version}"
+  export PROJECT_VERSION="${new_version}"
+  echo "project-version=${PROJECT_VERSION}" >> "${GITHUB_OUTPUT}"
+}
+
+check_version_format() {
+  local version="$1"
+  local extracted_points point_count
+
+  extracted_points="${version//[^.]}"
+  point_count=${#extracted_points}
+  if [[ "${point_count}" != 3 ]]; then
+    echo "WARN: Version '${version}' does not match the expected format '<MAJOR>.<MINOR>.<PATCH>.<BUILD_NUMBER>'." >&2
+  fi
+}
+
+run_sonar_scanner() {
+    local additional_params=("$@")
+
+    npx sonarqube-scanner -X \
+        -Dsonar.host.url="${SONAR_HOST_URL}" \
+        -Dsonar.token="${SONAR_TOKEN}" \
+        -Dsonar.analysis.buildNumber="${BUILD_NUMBER}" \
+        -Dsonar.analysis.pipeline="${GITHUB_RUN_ID}" \
+        -Dsonar.analysis.sha1="${GITHUB_SHA}" \
+        -Dsonar.analysis.repository="${GITHUB_REPOSITORY}" \
+        "${additional_params[@]}"
+    echo "SonarQube scanner finished"
+}
+
+jfrog_npm_publish() {
+  if [ -z "${ARTIFACTORY_URL:-}" ] || [ -z "${ARTIFACTORY_DEPLOY_ACCESS_TOKEN:-}" ]; then
+    echo "ERROR: Deployment requires ARTIFACTORY_URL and ARTIFACTORY_DEPLOY_ACCESS_TOKEN to be set" >&2
+    exit 1
+  fi
+
+  echo "DEBUG: Removing existing JFrog config..."
+  jf config remove repox > /dev/null 2>&1 # Do not log if the repox config were not present
+
+  echo "DEBUG: Adding JFrog config..."
+  if ! jf config add repox --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_DEPLOY_ACCESS_TOKEN"; then
+    echo "ERROR: Failed to add JFrog config" >&2
+    exit 1
+  fi
+
+  echo "DEBUG: Configuring NPM repositories..."
+  if ! jf npm-config --repo-resolve "npm" --repo-deploy "$ARTIFACTORY_DEPLOY_REPO"; then
+    echo "ERROR: Failed to configure NPM repositories" >&2
+    exit 1
+  fi
+
+  echo "DEBUG: Publishing NPM package..."
+  if ! jf npm publish --build-name="$PROJECT" --build-number="$BUILD_NUMBER"; then
+    echo "ERROR: Failed to publish NPM package" >&2
+    exit 1
+  fi
+
+  jf rt build-collect-env "$PROJECT" "$BUILD_NUMBER"
+
+  echo "DEBUG: Publishing build info..."
+  local build_publish_output
+  if ! build_publish_output=$(jf rt build-publish "$PROJECT" "$BUILD_NUMBER"); then
+    echo "ERROR: Failed to publish build info" >&2
+    exit 1
+  fi
+
+  echo "DEBUG: Build publish output: ${build_publish_output}"
+
+  # Extract build info URL
+  local build_info_url
+  build_info_url=$(echo "$build_publish_output" | jq -r '.buildInfoUiUrl // empty')
+  if [ -n "$build_info_url" ]; then
+    echo "build-info-url=$build_info_url" >> "$GITHUB_OUTPUT"
+    echo "DEBUG: Build info URL saved: $build_info_url"
+  fi
+
+  echo "DEBUG: JFrog operations completed successfully"
+}
+
+# Common build steps to avoid repetition
+run_npm_install() {
+  echo "Installing npm dependencies..."
+  npm ci
+}
+
+run_npm_tests() {
+  if [ "$SKIP_TESTS" != "true" ]; then
+    echo "Running tests..."
+    npm test
+  else
+    echo "Skipping tests (SKIP_TESTS=true)"
+  fi
+}
+
+run_npm_build() {
+  echo "Building project..."
+  npm run build
+}
+
+# Complete build pipeline with optional steps
+# Usage: run_standard_pipeline <enable_sonar> <enable_deploy> [sonar_args...]
+run_standard_pipeline() {
+  local enable_sonar="${1:-true}"
+  local enable_deploy="${2:-true}"
+  shift 2  # Remove first two parameters
+  local sonar_args=("$@")  # Remaining parameters are sonar args
+
+  run_npm_install
+  run_npm_tests
+
+  if [ "${enable_sonar}" = "true" ]; then
+    run_sonar_scanner "${sonar_args[@]}"
+  fi
+
+  run_npm_build
+
+  if [ "${enable_deploy}" = "true" ]; then
+    jfrog_npm_publish
+  fi
+}
+
+build_npm() {
+  echo "=== NPM Build, Deploy, and Analyze ==="
+  echo "Branch: ${GITHUB_REF_NAME}"
+  echo "Pull Request: ${PULL_REQUEST}"
+  echo "Deploy Pull Request: ${DEPLOY_PULL_REQUEST}"
+  echo "Skip Tests: ${SKIP_TESTS}"
+
+  if is_main_branch && ! is_pull_request; then
+    echo "======= Building main branch ======="
+
+    local current_version
+    current_version=$(get_current_version)
+    echo "Current version: ${current_version}"
+
+    check_version_format "${PROJECT_VERSION}"
+    echo "Checked version format: ${PROJECT_VERSION}."
+
+    run_standard_pipeline true true -Dsonar.projectVersion="${current_version}"
+
+  elif is_maintenance_branch && ! is_pull_request; then
+    echo "======= Building maintenance branch ======="
+
+    local current_version
+    current_version=$(get_current_version)
+
+    if [[ ${current_version} =~ "-SNAPSHOT" ]]; then
+      echo "======= Found SNAPSHOT version ======="
+      set_npm_version_with_build_id "${BUILD_NUMBER}"
+      echo "Set npm version with build ID: ${BUILD_NUMBER}."
+      check_version_format "${PROJECT_VERSION}"
+    else
+      echo "======= Found RELEASE version ======="
+      echo "======= Deploy ${current_version} ======="
+      check_version_format "${current_version}"
+      PROJECT_VERSION="${current_version}"
+      echo "project-version=${PROJECT_VERSION}" >> "${GITHUB_OUTPUT}"
+    fi
+
+    run_standard_pipeline true true -Dsonar.branch.name="${GITHUB_REF_NAME}"
+
+  elif is_pull_request; then
+    echo "======= Building pull request ======="
+
+    if [ "${DEPLOY_PULL_REQUEST:-false}" == "true" ]; then
+      echo "======= with deploy ======="
+      check_version_format "${PROJECT_VERSION}"
+      run_standard_pipeline true true -Dsonar.analysis.prNumber="${PULL_REQUEST}"
+    else
+      echo "======= no deploy ======="
+      run_standard_pipeline true false -Dsonar.analysis.prNumber="${PULL_REQUEST}"
+    fi
+
+  elif is_dogfood_branch && ! is_pull_request; then
+    echo "======= Build dogfood branch ======="
+
+    check_version_format "${PROJECT_VERSION}"
+    run_standard_pipeline false true
+
+  elif is_long_lived_feature_branch && ! is_pull_request; then
+    echo "======= Build long-lived feature branch ======="
+    run_standard_pipeline true false -Dsonar.branch.name="${GITHUB_REF_NAME}"
+
+  else
+    echo "======= Build other branch ======="
+    run_standard_pipeline false false
+  fi
+
+  echo "=== Build completed successfully ==="
+}
+
+main() {
+  check_tool jq --version
+  check_tool jf --version
+  check_tool npm --version
+  set_build_env
+  build_npm
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi

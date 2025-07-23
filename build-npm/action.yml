@@ -1,0 +1,116 @@
+---
+name: Build NPM
+description: GitHub Action to build, analyze, and deploy an NPM project with SonarQube integration
+inputs:
+  artifactory-deploy-repo:
+    description: Name of deployment repository
+    required: false
+    default: ''
+  artifactory-deploy-access-token:
+    description: Access token to deploy to Artifactory
+    required: false
+    default: ''
+  deploy-pull-request:
+    description: Whether to deploy pull request artifacts
+    required: false
+    default: 'false'
+  skip-tests:
+    description: Whether to skip running tests
+    required: false
+    default: 'false'
+  cache-npm:
+    description: Whether to cache NPM dependencies
+    required: false
+    default: 'true'
+  repox-url:
+    description: URL for Repox
+    required: false
+    default: https://repox.jfrog.io
+
+outputs:
+  project-version:
+    description: The project version from package.json
+    value: ${{ steps.build.outputs.project-version }}
+  build-info-url:
+    description: The JFrog build info UI URL
+    value: ${{ steps.build.outputs.BUILD_INFO_URL }}
+
+runs:
+  using: composite
+  steps:
+    - name: Setup build tools
+      shell: bash
+      run: |
+        cp ${GITHUB_ACTION_PATH}/mise.local.toml mise.local.toml
+
+    - uses: jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2.4.0
+      with:
+        version: 2025.7.12
+
+    - name: Cache NPM dependencies
+      if: ${{ inputs.cache-npm == 'true' }}
+      uses: SonarSource/ci-github-actions/cache@master
+      with:
+        path: ~/.npm
+        key: npm-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-npm
+
+    - name: Vault
+      id: secrets
+      uses: SonarSource/vault-action-wrapper@d6d745ffdbc82b040df839b903bc33b5592cd6b0 # 3.0.2
+      with:
+        secrets: |
+          development/kv/data/next url | SONAR_HOST_URL;
+          development/kv/data/next token | SONAR_TOKEN;
+
+    - name: Build, test, analyze and deploy
+      id: build
+      shell: bash
+      env:
+        # GitHub context
+        GITHUB_REF_NAME: ${{ github.ref_name }}
+        GITHUB_RUN_ID: ${{ github.run_id }}
+        PULL_REQUEST: ${{ github.event_name == 'pull_request' && github.event.number || 'false' }}
+
+        # Action inputs
+        ARTIFACTORY_URL: ${{ inputs.repox-url }}/artifactory
+        ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo }}
+        ARTIFACTORY_DEPLOY_ACCESS_TOKEN: ${{ inputs.artifactory-deploy-access-token }}
+        DEPLOY_PULL_REQUEST: ${{ inputs.deploy-pull-request }}
+        SKIP_TESTS: ${{ inputs.skip-tests }}
+
+        # Vault secrets
+        SONAR_HOST_URL: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_HOST_URL }}
+        SONAR_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_TOKEN }}
+      run: |
+        ${{ github.action_path }}/build.sh
+
+    - name: Generate workflow summary
+      if: always()
+      shell: bash
+      run: |
+        echo "## 📦 NPM Build Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        # Basic build information
+        echo "### 📋 Build Information" >> $GITHUB_STEP_SUMMARY
+        echo "- **Project**: ${GITHUB_REPOSITORY#*/}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Version**: ${{ steps.build.outputs.project-version || 'Unknown' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Build Number**: ${{ env.BUILD_NUMBER }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Commit**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        # Deployment information
+        if [[ -n "${{ inputs.artifactory-deploy-repo }}" ]]; then
+          echo "### 🚀 Deployment" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ steps.build.conclusion }}" == "success" ]]; then
+            echo "✅ **Artifacts deployed to Artifactory**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            ARTIFACTORY_BROWSE_URL="${{ steps.build.outputs.build-info-url }}"
+            echo "🔗 **[Browse artifacts in Artifactory](${ARTIFACTORY_BROWSE_URL})**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Deployment failed** (build unsuccessful)" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+        fi
