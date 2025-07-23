@@ -102,3 +102,10 @@ Do not test the missing parameters in the Shell scripts: this is handled by
 the [Bash parameter expansion](https://xtranet-sonarsource.atlassian.net/wiki/spaces/Platform/pages/2683109459/Shell+Script+-+Cirrus+CI#Validate-Values-and-Report-Errors).
 
 Additional tests will be added to cover specific scenarios or edge cases, when fixing bugs (test-driven development).
+
+## Cursor rules
+
+The markdown document [currus-github-migration.md](.cursor/cirrus-github-migration.md) is a comprehensive documentation
+ on how to migrate a CirrusCI pipeline to Github actions. Attach this documentation in your AI prompts to help with migration.
+
+When making changes to Github actions in this repository, always ask AI to keep this markdown doc up-to-date with latest changes.
