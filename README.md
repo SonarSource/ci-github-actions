@@ -175,6 +175,81 @@ jobs:
 - Develocity integration for build optimization
 - Comprehensive build logging and error handling
 
+## `build-npm`
+
+Build, test, analyze, and deploy an NPM project with SonarQube integration and JFrog Artifactory deployment.
+
+### Usage
+
+_All the `with` parameters are optional and have default values which are shown below._
+
+```yaml
+name: Build
+on:
+  push:
+    branches:
+      - master
+      - branch-*
+  pull_request:
+  merge_group:
+  workflow_dispatch:
+
+jobs:
+  build:
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
+    runs-on: ubuntu-24.04-large
+    name: Build
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - uses: SonarSource/ci-github-actions/get-build-number@v1
+      - uses: SonarSource/ci-github-actions/build-npm@v1
+        with:
+          artifactory-deploy-repo: ""                               # Artifactory repository name
+          artifactory-deploy-access-token: ""                       # Artifactory access token
+          deploy-pull-request: false                                # Deploy pull request artifacts
+          skip-tests: false                                         # Skip running tests
+          cache-npm: true                                           # Cache NPM dependencies
+          repox-url: https://repox.jfrog.io                         # Repox URL
+```
+
+⚠️ Required GitHub permissions:
+
+- `id-token: write`
+- `contents: write`
+
+⚠️ Required Vault permissions:
+
+- `development/kv/data/next`: SonarQube credentials
+
+### Inputs
+
+- `artifactory-deploy-repo`: Name of deployment repository (optional)
+- `artifactory-deploy-access-token`: Access token to deploy to Artifactory (optional)
+- `deploy-pull-request`: Whether to deploy pull request artifacts (default: `false`)
+- `skip-tests`: Whether to skip running tests (default: `false`)
+- `cache-npm`: Whether to cache NPM dependencies (default: `true`)
+- `repox-url`: URL for Repox (default: `https://repox.jfrog.io`)
+
+### Outputs
+
+- `project-version`: The project version from package.json
+- `build-info-url`: The JFrog build info UI URL (when deployment occurs)
+
+### Features
+
+- Automated version management with build numbers and SNAPSHOT handling
+- SonarQube analysis for code quality (credentials from Vault)
+- Conditional deployment based on branch patterns (main, maintenance, dogfood branches)
+- NPM dependency caching for faster builds (configurable)
+- Pull request support with optional deployment
+- JFrog build info publishing with UI links
+- Comprehensive build logging and error handling
+- Support for different branch types (main, maintenance, PR, dogfood, long-lived feature)
+
 ## `promote`
 
 This action promotes a build in JFrog Artifactory and updates the GitHub status check accordingly.
