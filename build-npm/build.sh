@@ -25,8 +25,9 @@
 
 set -euo pipefail
 
+: "${ARTIFACTORY_URL:="https://repox.jfrog.io/artifactory"}"
 : "${GITHUB_REF_NAME:?}" "${GITHUB_SHA:?}" "${GITHUB_REPOSITORY:?}"
-: "${ARTIFACTORY_DEPLOY_REPO:?}" "${ARTIFACTORY_DEPLOY_ACCESS_TOKEN:?}"
+: "${ARTIFACTORY_ACCESS_TOKEN:?}" "${ARTIFACTORY_DEPLOY_REPO:?}" "${ARTIFACTORY_DEPLOY_ACCESS_TOKEN:?}"
 : "${SONAR_HOST_URL:?}" "${SONAR_TOKEN:?}"
 
 check_tool() {
@@ -38,39 +39,25 @@ check_tool() {
   "$@"
 }
 
-fetch_git_history() {
-  # Fetch full git history for SonarQube analysis
-  git fetch --unshallow || true
-
-  # Fetch PR base branch if this is a pull request
-  if [ -n "${GITHUB_BASE_REF:-}" ]; then
-    echo "Fetching base branch: ${GITHUB_BASE_REF}"
-    git fetch origin "${GITHUB_BASE_REF}"
-  fi
-
-  # Fetch current branch for main/maintenance branches
-  if (is_main_branch || is_maintenance_branch) && ! is_pull_request; then
-    echo "Fetching branch: ${GITHUB_REF_NAME}"
-    git fetch origin "${GITHUB_REF_NAME}"
+git_fetch_unshallow() {
+  # The --filter=blob:none flag significantly speeds up the download
+  if git rev-parse --is-shallow-repository --quiet >/dev/null 2>&1; then
+    echo "Fetch Git references for SonarQube analysis..."
+    git fetch --unshallow --filter=blob:none
+  elif [ -n "${GITHUB_BASE_REF:-}" ]; then
+    echo "Fetch ${GITHUB_BASE_REF} for SonarQube analysis..."
+    git fetch --filter=blob:none origin "${GITHUB_BASE_REF}"
   fi
 }
-
 
 set_build_env() {
   export PROJECT="${GITHUB_REPOSITORY#*/}"
   echo "PROJECT: ${PROJECT}"
   echo "Fetching commit history for SonarQube analysis..."
-  fetch_git_history
-
-  # Set version with build ID for most branch types
-  # (maintenance branch handles this differently based on SNAPSHOT vs RELEASE)
-  if ! is_maintenance_branch || is_pull_request; then
-    set_npm_version_with_build_id "${BUILD_NUMBER}"
-    echo "Set npm version with build ID: ${BUILD_NUMBER}."
-  fi
+  git_fetch_unshallow
 }
 
-is_main_branch() {
+is_default_branch() {
   [[ "$GITHUB_REF_NAME" == "$DEFAULT_BRANCH" ]]
 }
 
@@ -97,35 +84,38 @@ is_merge_queue_branch() {
 # Version utility functions (from npm_version_utils and version_util)
 PACKAGE_JSON="package.json"
 
-get_current_version() {
-  local current_version
+set_project_version() {
+  local current_version release_version digit_count
+
   current_version=$(jq -r .version "$PACKAGE_JSON")
   if [ -z "${current_version}" ] || [ "${current_version}" == "null" ]; then
     echo "Could not get version from ${PACKAGE_JSON}" >&2
     exit 1
   fi
 
-  echo "${current_version}"
-}
+  export CURRENT_VERSION="${current_version}"
 
-set_npm_version_with_build_id() {
-  local build_number="$1"
-  local current_version release_version digit_count new_version
+  # Set version with build ID for most branch types
+  # (maintenance branch handles this differently based on SNAPSHOT vs RELEASE)
+  if ! is_maintenance_branch || is_pull_request; then
+    release_version="${current_version%"-SNAPSHOT"}"
 
-  current_version=$(get_current_version)
-  release_version="${current_version%"-SNAPSHOT"}"
+    # In case of 2 digits, we need to add the 3rd digit (0 obviously)
+    # Mandatory in order to compare versions (patch VS non patch)
+    digit_count=$(echo "${release_version//./ }" | wc -w)
+    if [ "${digit_count}" -lt 3 ]; then
+        release_version="${release_version}.0"
+    fi
+    PROJECT_VERSION="${release_version}-${BUILD_NUMBER}"
 
-  # In case of 2 digits, we need to add the 3rd digit (0 obviously)
-  # Mandatory in order to compare versions (patch VS non patch)
-  digit_count=$(echo "${release_version//./ }" | wc -w)
-  if [ "${digit_count}" -lt 3 ]; then
-      release_version="${release_version}.0"
+    echo "Replacing version ${current_version} with ${PROJECT_VERSION}"
+    npm version --no-git-tag-version --allow-same-version "${PROJECT_VERSION}"
+  else
+    # For maintenance branches, keep original version initially
+    PROJECT_VERSION="${current_version}"
   fi
-  new_version="${release_version}-${build_number}"
 
-  echo "Replacing version ${current_version} with ${new_version}"
-  npm version --no-git-tag-version --allow-same-version "${new_version}"
-  export PROJECT_VERSION="${new_version}"
+  export PROJECT_VERSION
   echo "project-version=${PROJECT_VERSION}" >> "${GITHUB_OUTPUT}"
 }
 
@@ -240,40 +230,32 @@ build_npm() {
   echo "Deploy Pull Request: ${DEPLOY_PULL_REQUEST}"
   echo "Skip Tests: ${SKIP_TESTS}"
 
+  set_project_version
+
   local enable_sonar enable_deploy
   local sonar_args=()
 
-  if is_main_branch && ! is_pull_request; then
+  if is_default_branch && ! is_pull_request; then
     echo "======= Building main branch ======="
-
-    local current_version
-    current_version=$(get_current_version)
-    echo "Current version: ${current_version}"
-
+    echo "Current version: ${CURRENT_VERSION}"
     check_version_format "${PROJECT_VERSION}"
     echo "Checked version format: ${PROJECT_VERSION}."
 
     enable_sonar=true
     enable_deploy=true
-    sonar_args=("-Dsonar.projectVersion=${current_version}")
+    sonar_args=("-Dsonar.projectVersion=${CURRENT_VERSION}")
 
   elif is_maintenance_branch && ! is_pull_request; then
     echo "======= Building maintenance branch ======="
 
-    local current_version
-    current_version=$(get_current_version)
-
-    if [[ ${current_version} =~ "-SNAPSHOT" ]]; then
+    if [[ ${CURRENT_VERSION} =~ "-SNAPSHOT" ]]; then
       echo "======= Found SNAPSHOT version ======="
-      set_npm_version_with_build_id "${BUILD_NUMBER}"
       echo "Set npm version with build ID: ${BUILD_NUMBER}."
       check_version_format "${PROJECT_VERSION}"
     else
       echo "======= Found RELEASE version ======="
-      echo "======= Deploy ${current_version} ======="
-      check_version_format "${current_version}"
-      PROJECT_VERSION="${current_version}"
-      echo "project-version=${PROJECT_VERSION}" >> "${GITHUB_OUTPUT}"
+      echo "======= Deploy ${CURRENT_VERSION} ======="
+      check_version_format "${CURRENT_VERSION}"
     fi
 
     enable_sonar=true
@@ -297,7 +279,6 @@ build_npm() {
 
   elif is_dogfood_branch && ! is_pull_request; then
     echo "======= Build dogfood branch ======="
-
     check_version_format "${PROJECT_VERSION}"
     enable_sonar=false
     enable_deploy=true
@@ -314,7 +295,7 @@ build_npm() {
     enable_deploy=false
   fi
 
-  run_standard_pipeline "$enable_sonar" "$enable_deploy" "${sonar_args[@]}"
+  run_standard_pipeline "$enable_sonar" "$enable_deploy" "${sonar_args[@]+"${sonar_args[@]}"}"
 
   echo "=== Build completed successfully ==="
 }

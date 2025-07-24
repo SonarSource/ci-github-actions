@@ -2,6 +2,17 @@
 name: Build NPM
 description: GitHub Action to build, analyze, and deploy an NPM project with SonarQube integration
 inputs:
+  public:
+    description: Whether to build and deploy with/to public repositories. Set to `true` for public repositories (OSS), `false` for private.
+    default: ${{ github.event.repository.visibility == 'public' && 'true' || 'false' }}
+  artifactory-reader-role:
+    description: Suffix for the Artifactory reader role in Vault. Defaults to `private-reader` for private repositories, and `public-reader`
+      for public repositories.
+    default: ''
+  artifactory-deployer-role:
+    description: Suffix for the Artifactory deployer role in Vault. Defaults to `qa-deployer` for private repositories, and
+      `public-deployer` for public repositories.
+    default: ''
   artifactory-deploy-repo:
     description: Name of deployment repository
     required: true
@@ -12,15 +23,12 @@ inputs:
     default: ''
   deploy-pull-request:
     description: Whether to deploy pull request artifacts
-    required: false
     default: 'false'
   skip-tests:
     description: Whether to skip running tests
-    required: false
     default: 'false'
   cache-npm:
     description: Whether to cache NPM dependencies
-    required: false
     default: 'true'
   repox-url:
     description: URL for Repox
@@ -38,6 +46,17 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Set build parameters
+      shell: bash
+      env:
+        ARTIFACTORY_READER_ROLE: ${{ inputs.artifactory-reader-role != '' && inputs.artifactory-reader-role ||
+          (inputs.public == 'true' && 'public-reader' || 'private-reader') }}
+        ARTIFACTORY_DEPLOYER_ROLE: ${{ inputs.artifactory-deployer-role != '' && inputs.artifactory-deployer-role ||
+          (inputs.public == 'true' && 'public-deployer' || 'qa-deployer') }}
+      run: |
+        echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
+        echo "ARTIFACTORY_DEPLOYER_ROLE=${ARTIFACTORY_DEPLOYER_ROLE}" >> "$GITHUB_ENV"
+
     - name: Setup build tools
       shell: bash
       run: |
@@ -51,19 +70,22 @@ runs:
       if: ${{ inputs.cache-npm == 'true' }}
       uses: SonarSource/ci-github-actions/cache@master
       with:
-        path: ${{ github.workspace }}/.npm
+        path: ~/.npm
         key: npm-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
         restore-keys: |
           npm-${{ runner.os }}-
 
     - name: Vault
+      # yamllint disable rule:line-length
       id: secrets
       uses: SonarSource/vault-action-wrapper@d6d745ffdbc82b040df839b903bc33b5592cd6b0 # 3.0.2
       with:
         secrets: |
           development/kv/data/next url | SONAR_HOST_URL;
           development/kv/data/next token | SONAR_TOKEN;
-
+          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
+          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;
+      # yamllint enable rule:line-length
     - name: Build, test, analyze and deploy
       id: build
       shell: bash
@@ -75,7 +97,8 @@ runs:
         # Action inputs
         ARTIFACTORY_URL: ${{ inputs.repox-url }}/artifactory
         ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo }}
-        ARTIFACTORY_DEPLOY_ACCESS_TOKEN: ${{ inputs.artifactory-deploy-access-token }}
+        ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
+        ARTIFACTORY_DEPLOY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN }}
         DEPLOY_PULL_REQUEST: ${{ inputs.deploy-pull-request }}
         SKIP_TESTS: ${{ inputs.skip-tests }}
 
