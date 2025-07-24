@@ -121,12 +121,9 @@ set_project_version() {
 
 check_version_format() {
   local version="$1"
-  local extracted_points point_count
-
-  extracted_points="${version//[^.]}"
-  point_count=${#extracted_points}
-  if [[ "${point_count}" != 3 ]]; then
-    echo "WARN: Version '${version}' does not match the expected format '<MAJOR>.<MINOR>.<PATCH>.<BUILD_NUMBER>'." >&2
+  # Check if version follows semantic versioning pattern (X.Y.Z or X.Y.Z-something)
+  if [[ ! $version =~ ^[0-9]+\.[0-9]+\.[0-9]+(-.*)?$ ]]; then
+    echo "WARN: Version '${version}' does not match semantic versioning format (e.g., '1.2.3' or '1.2.3-beta.1')." >&2
   fi
 }
 
@@ -251,6 +248,15 @@ build_npm() {
     if [[ ${CURRENT_VERSION} =~ "-SNAPSHOT" ]]; then
       echo "======= Found SNAPSHOT version ======="
       echo "Set npm version with build ID: ${BUILD_NUMBER}."
+      # For maintenance branch SNAPSHOT, also set version with build number
+      release_version="${CURRENT_VERSION%"-SNAPSHOT"}"
+      digit_count=$(echo "${release_version//./ }" | wc -w)
+      if [ "${digit_count}" -lt 3 ]; then
+          release_version="${release_version}.0"
+      fi
+      PROJECT_VERSION="${release_version}-${BUILD_NUMBER}"
+      echo "Replacing version ${CURRENT_VERSION} with ${PROJECT_VERSION}"
+      npm version --no-git-tag-version --allow-same-version "${PROJECT_VERSION}"
       check_version_format "${PROJECT_VERSION}"
     else
       echo "======= Found RELEASE version ======="
