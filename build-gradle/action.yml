@@ -2,30 +2,31 @@
 name: Build Gradle
 description: GitHub Action to build, analyze, and deploy a Gradle project with SonarQube integration
 inputs:
+  public:
+    description: Whether to build and deploy with/to public repositories. Set to `true` for public repositories (OSS), `false` for private.
+    default: ${{ github.event.repository.visibility == 'public' && 'true' || 'false' }}
   artifactory-deploy-repo:
     description: Name of deployment repository
     required: false
     default: ''
-  artifactory-deploy-username:
-    description: Username to deploy to Artifactory
-    required: false
+  artifactory-reader-role:
+    description: Suffix for the Artifactory reader role in Vault. Defaults to `private-reader` for private repositories,
+      and `public-reader` for public repositories.
     default: ''
-  artifactory-deploy-password:
-    description: Password to deploy to Artifactory
-    required: false
+  artifactory-deployer-role:
+    description: Suffix for the Artifactory deployer role in Vault. Defaults to `qa-deployer` for private repositories, and
+      `public-deployer` for public repositories.
     default: ''
   gradle-args:
     description: Additional arguments to pass to Gradle
     required: false
-    default: ''
   gradle-version:
     description: Gradle version to use for setup-gradle action
     required: false
-    default: ''
   deploy-pull-request:
     description: Whether to deploy pull request artifacts
     required: false
-    default: 'false'
+    default: 'true'
   skip-tests:
     description: Whether to skip running tests
     required: false
@@ -42,6 +43,10 @@ inputs:
     description: URL for Repox
     required: false
     default: https://repox.jfrog.io
+  primary-sonar-platform:
+    description: SonarQube variant (next, sqc-eu, or sqc-us)
+    required: false
+    default: next
 
 outputs:
   project-version:
@@ -51,17 +56,32 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Set build parameters
+      shell: bash
+      env:
+        ARTIFACTORY_READER_ROLE: ${{ inputs.artifactory-reader-role != '' && inputs.artifactory-reader-role ||
+          (inputs.public == 'true' && 'public-reader' || 'private-reader') }}
+        ARTIFACTORY_DEPLOYER_ROLE: ${{ inputs.artifactory-deployer-role != '' && inputs.artifactory-deployer-role ||
+          (inputs.public == 'true' && 'public-deployer' || 'qa-deployer') }}
+      run: |
+        echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
+        echo "ARTIFACTORY_DEPLOYER_ROLE=${ARTIFACTORY_DEPLOYER_ROLE}" >> "$GITHUB_ENV"
+
     - name: Vault
       id: secrets
       uses: SonarSource/vault-action-wrapper@d6d745ffdbc82b040df839b903bc33b5592cd6b0 # 3.0.2
       with:
+        # yamllint disable rule:line-length
         secrets: |
-          development/kv/data/next url | SONAR_HOST_URL;
-          development/kv/data/next token | SONAR_TOKEN;
+          development/kv/data/${{ inputs.primary-sonar-platform == 'sqc-eu' && 'sonarcloud' || (inputs.primary-sonar-platform == 'sqc-us' && 'sonarqube-us' || 'next') }} url | SONAR_HOST_URL;
+          development/kv/data/${{ inputs.primary-sonar-platform == 'sqc-eu' && 'sonarcloud' || (inputs.primary-sonar-platform == 'sqc-us' && 'sonarqube-us' || 'next') }} token | SONAR_TOKEN;
+          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} username | ARTIFACTORY_DEPLOY_USERNAME;
+          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} access_token | ARTIFACTORY_DEPLOY_PASSWORD;
           development/kv/data/sign key | SIGN_KEY;
           development/kv/data/sign passphrase | PGP_PASSPHRASE;
           development/kv/data/sign key_id | SIGN_KEY_ID;
           development/kv/data/develocity token | DEVELOCITY_TOKEN;
+        # yamllint enable rule:line-length
 
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@ac638b010cf58a27ee6c972d7336334ccaf61c96 # v4.4.1
@@ -82,9 +102,10 @@ runs:
 
         # Action inputs
         ARTIFACTORY_URL: ${{ inputs.repox-url }}/artifactory
-        ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo }}
-        ARTIFACTORY_DEPLOY_USERNAME: ${{ inputs.artifactory-deploy-username }}
-        ARTIFACTORY_DEPLOY_PASSWORD: ${{ inputs.artifactory-deploy-password }}
+        ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo != '' && inputs.artifactory-deploy-repo ||
+          (inputs.public == 'true' && 'sonarsource-public-qa' || 'sonarsource-private-qa') }}
+        ARTIFACTORY_DEPLOY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_USERNAME }}
+        ARTIFACTORY_DEPLOY_PASSWORD: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_PASSWORD }}
         DEPLOY_PULL_REQUEST: ${{ inputs.deploy-pull-request }}
         SKIP_TESTS: ${{ inputs.skip-tests }}
         GRADLE_ARGS: ${{ inputs.gradle-args }}
