@@ -91,6 +91,29 @@ build_gradle_args() {
     args+=("-Dsonar.analysis.buildNumber=$BUILD_NUMBER")
     args+=("-Dsonar.analysis.pipeline=$GITHUB_RUN_ID")
     args+=("-Dsonar.analysis.repository=$GITHUB_REPOSITORY")
+
+    # Add branch-specific sonar arguments
+    if [[ "$GITHUB_REF_NAME" == "master" ]] && ! is_pull_request; then
+      # Master branch analysis
+      args+=("-Dsonar.projectVersion=$PROJECT_VERSION")
+      args+=("-Dsonar.analysis.sha1=$GITHUB_SHA")
+
+    elif [[ "$GITHUB_REF_NAME" == branch-* ]] && ! is_pull_request; then
+      # Maintenance branch analysis
+      args+=("-Dsonar.branch.name=$GITHUB_REF_NAME")
+      args+=("-Dsonar.projectVersion=$PROJECT_VERSION")
+      args+=("-Dsonar.analysis.sha1=$GITHUB_SHA")
+
+    elif is_pull_request; then
+      # Pull request analysis
+      args+=("-Dsonar.analysis.sha1=$PULL_REQUEST_SHA")
+      args+=("-Dsonar.analysis.prNumber=$PULL_REQUEST")
+
+    elif [[ "$GITHUB_REF_NAME" == feature/long/* ]] && ! is_pull_request; then
+      # Long-lived feature branch analysis
+      args+=("-Dsonar.branch.name=$GITHUB_REF_NAME")
+      args+=("-Dsonar.analysis.sha1=$GITHUB_SHA")
+    fi
   fi
 
   # Artifactory deployment
@@ -138,35 +161,6 @@ get_build_type() {
   fi
 }
 
-set_sonar_args() {
-  local -n args_ref=$1
-
-  if [[ -z "${SONAR_HOST_URL:-}" || -z "${SONAR_TOKEN:-}" ]]; then
-    return 0
-  fi
-
-  if [[ "$GITHUB_REF_NAME" == "master" ]] && ! is_pull_request; then
-    # Master branch analysis
-    args_ref+=("-Dsonar.projectVersion=$PROJECT_VERSION")
-    args_ref+=("-Dsonar.analysis.sha1=$GITHUB_SHA")
-
-  elif [[ "$GITHUB_REF_NAME" == branch-* ]] && ! is_pull_request; then
-    # Maintenance branch analysis
-    args_ref+=("-Dsonar.branch.name=$GITHUB_REF_NAME")
-    args_ref+=("-Dsonar.projectVersion=$PROJECT_VERSION")
-    args_ref+=("-Dsonar.analysis.sha1=$GITHUB_SHA")
-
-  elif is_pull_request; then
-    # Pull request analysis
-    args_ref+=("-Dsonar.analysis.sha1=$PULL_REQUEST_SHA")
-    args_ref+=("-Dsonar.analysis.prNumber=$PULL_REQUEST")
-
-  elif [[ "$GITHUB_REF_NAME" == feature/long/* ]] && ! is_pull_request; then
-    # Long-lived feature branch analysis
-    args_ref+=("-Dsonar.branch.name=$GITHUB_REF_NAME")
-    args_ref+=("-Dsonar.analysis.sha1=$GITHUB_SHA")
-  fi
-}
 
 is_pull_request() {
   [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]
@@ -182,8 +176,6 @@ gradle_build() {
 
   local gradle_args
   read -ra gradle_args <<< "$(build_gradle_args)"
-
-  set_sonar_args gradle_args
 
   local build_type
   build_type=$(get_build_type)
@@ -203,5 +195,5 @@ main() {
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-  main "$@"
+  main
 fi
