@@ -30,8 +30,10 @@ set -euo pipefail
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_RUN_ID:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}"
 : "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}"
 : "${SONAR_HOST_URL:?}" "${SONAR_TOKEN:?}"
+: "${MAVEN_LOCAL_REPOSITORY:=$HOME/.m2/repository}"
 : "${DEPLOY_PULL_REQUEST:=false}"
 export ARTIFACTORY_URL DEPLOY_PULL_REQUEST
+: "${MAVEN_SETTINGS:=$HOME/.m2/settings.xml}"
 
 # FIXME Workaround for SonarSource parent POM; it can be removed after releases of parent 73+ and parent-oss 84+
 export BUILD_ID=$BUILD_NUMBER
@@ -83,13 +85,21 @@ git_fetch_unshallow() {
 
 # Evaluate a Maven property/expression with org.codehaus.mojo:exec-maven-plugin
 maven_expression() {
-  mvn -q -Dexec.executable="echo" -Dexec.args="\${$1}" --non-recursive org.codehaus.mojo:exec-maven-plugin:1.3.1:exec
+  if ! mvn -q -Dexec.executable="echo" -Dexec.args="\${$1}" --non-recursive org.codehaus.mojo:exec-maven-plugin:1.3.1:exec; then
+    echo "Failed to evaluate Maven expression '$1'" >&2
+    mvn -X -Dexec.executable="echo" -Dexec.args="\${$1}" --non-recursive org.codehaus.mojo:exec-maven-plugin:1.3.1:exec
+    return 1
+  fi
 }
 
 # Set the project version as <MAJOR>.<MINOR>.<PATCH>.<BUILD_NUMBER>
 # Update current_version variable with the current project version.
 # Then remove the -SNAPSHOT suffix if present, complete with '.0' if needed, and append the build number at the end.
 set_project_version() {
+  if [ ! -f "$MAVEN_SETTINGS" ]; then
+    echo "::error title=Missing Maven settings.xml::Maven settings.xml file not found at $MAVEN_SETTINGS"
+    return 1
+  fi
   local current_version
   if ! current_version=$(maven_expression "project.version" 2>&1); then
     echo -e "::error file=pom.xml,title=Maven project version::Could not get 'project.version' from Maven project\nERROR: $current_version"
@@ -104,7 +114,7 @@ set_project_version() {
   if is_maintenance_branch && [[ "$current_version" != *"-SNAPSHOT" ]]; then
     echo "Found RELEASE version on maintenance branch: $current_version"
     if [[ "$digit_count" -ne 3 ]]; then
-      echo "::error file=pom.xml,title=Maven project version::Unsupported version '$current_version' with $((digit_count+1)) digits."
+      echo "::error file=pom.xml,title=Maven project version::Unsupported version '$current_version' with $((digit_count + 1)) digits."
       return 1
     fi
     echo "Skipping version update."
@@ -117,7 +127,7 @@ set_project_version() {
   elif [[ "$digit_count" -eq 1 ]]; then
     release_version="${release_version}.0"
   elif [[ "$digit_count" -ne 2 ]]; then
-    echo "::error file=pom.xml,title=Maven project version::Unsupported version '$current_version' with $((digit_count+1)) digits."
+    echo "::error file=pom.xml,title=Maven project version::Unsupported version '$current_version' with $((digit_count + 1)) digits."
     return 1
   fi
   local new_version="${release_version}.${BUILD_NUMBER}"
