@@ -24,7 +24,7 @@ jobs:
         # FIXME BUILD-8337: improve setup of kcov
         run: |
           curl -L -O https://archive.ubuntu.com/ubuntu/pool/universe/k/kcov/kcov_38+dfsg-1_amd64.deb
-          sudo dpkg -i kcov_38+dfsg-1_amd64.deb
+          sudo dpkg -i --path-exclude=/usr/share/doc/* --path-exclude=/usr/share/man/* kcov_38+dfsg-1_amd64.deb
           rm kcov_38+dfsg-1_amd64.deb
 
           ./run_shell_tests.sh

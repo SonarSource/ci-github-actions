@@ -34,6 +34,9 @@ export SONAR_HOST_URL="https://sonarqube"
 export SONAR_TOKEN="sonar-token"
 export GITHUB_SHA="abc123def456"
 export GITHUB_RUN_ID="123456789"
+MAVEN_SETTINGS="$(mktemp)"
+touch "$MAVEN_SETTINGS"
+export MAVEN_SETTINGS
 
 Describe 'build.sh'
   It 'does not run build_maven() if the script is sourced'
@@ -188,9 +191,21 @@ Describe 'set_project_version()'
     End
     When call set_project_version
     The status should be failure
-    The lines of stdout should equal 2
+    The lines of stdout should equal 4
     The line 1 should include "Could not get 'project.version' from Maven project"
     The line 2 should equal "ERROR: Something went wrong"
+    The line 3 should equal "Failed to evaluate Maven expression 'project.version'"
+    The line 4 should equal "Something went wrong"
+  End
+
+  It 'fails when Maven settings.xml is missing'
+    export MAVEN_SETTINGS="missing-settings.xml"
+    When call set_project_version
+    The status should be failure
+    The lines of stdout should equal 1
+    The line 1 should include "Maven settings.xml file not found at $MAVEN_SETTINGS"
+    The variable PROJECT_VERSION should be undefined
+    unset MAVEN_SETTINGS
   End
 End
 

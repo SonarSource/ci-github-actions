@@ -47,8 +47,8 @@ runs:
       uses: SonarSource/ci-github-actions/cache@master
       with:
         path: ~/${{ inputs.maven-local-repository-path }}
-        key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
-        restore-keys: maven-${{ runner.os }}-
+        key: maven-${{ runner.os }}-${{ github.workflow }}-${{ hashFiles('**/pom.xml') }}
+        restore-keys: maven-${{ runner.os }}-${{ github.workflow }}-
     - name: Vault
       # yamllint disable rule:line-length
       id: secrets
@@ -71,11 +71,12 @@ runs:
       run: |
         MAVEN_CONFIG="$HOME/.m2"
         mkdir -p "$MAVEN_CONFIG"
+        echo "MAVEN_CONFIG=${MAVEN_CONFIG}" >> "$GITHUB_ENV"
         if [[ "${PUBLIC_BUILD}" == "true" ]]; then
-          echo "Setting up public Maven settings"
+          echo "Setting up public Maven settings $MAVEN_CONFIG/settings.xml"
           cp "${GITHUB_ACTION_PATH}/resources/settings-public-auth.xml" "$MAVEN_CONFIG/settings.xml"
         else
-          echo "Setting up private Maven settings"
+          echo "Setting up private Maven settings $MAVEN_CONFIG/settings.xml"
           cp "${GITHUB_ACTION_PATH}/resources/settings-private.xml" "$MAVEN_CONFIG/settings.xml"
         fi
         MAVEN_LOCAL_REPOSITORY="$HOME/${{ inputs.maven-local-repository-path }}"
@@ -83,7 +84,6 @@ runs:
         echo "MAVEN_LOCAL_REPOSITORY=${MAVEN_LOCAL_REPOSITORY}" >> "$GITHUB_ENV"
     - name: Build, Analyze and deploy
       shell: bash
-      working-directory: ${{ github.workspace }}
       env:
         DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
@@ -98,9 +98,10 @@ runs:
         PULL_REQUEST: ${{ github.event.pull_request.number || '' }}
         DEVELOCITY_ACCESS_KEY: ${{ inputs.use-develocity == 'true' &&
           format('develocity.sonar.build={0}', fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN) || '' }}
-        MAVEN_OPTS: ${{ inputs.maven-opts }}
+        USER_MAVEN_OPTS: ${{ inputs.maven-opts }}
         SONAR_SCANNER_JAVA_OPTS: ${{ inputs.scanner-java-opts }}
       run: |
+        export MAVEN_OPTS="$USER_MAVEN_OPTS -Duser.home=$HOME"
         ${GITHUB_ACTION_PATH}/build.sh
     - name: Cleanup Maven repository before caching
       shell: bash
