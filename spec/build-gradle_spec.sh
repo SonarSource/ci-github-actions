@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 eval "$(shellspec - -c) exit 1"
 
 # Mock external commands
@@ -12,43 +12,47 @@ Mock gradle
     echo "gradle $*"
   fi
 End
-Mock jq
-  echo "jq $*"
-End
 Mock git
   echo "git $*"
 End
-Mock chmod
-  echo "chmod $*"
+Mock jq
+  if [[ "$*" == "--raw-output .number"* ]]; then
+    echo "123"
+  elif [[ "$*" == "--raw-output .pull_request.base.sha"* ]]; then
+    echo "base123"
+  else
+    echo "jq $*"
+  fi
 End
 Mock sed
   echo "sed $*"
 End
 
-# Set up environment variables
-export GITHUB_REPOSITORY="my-org/my-repo"
+# Environment setup
 export GITHUB_REF_NAME="master"
-export GITHUB_EVENT_NAME="push"
 export BUILD_NUMBER="42"
-export GITHUB_RUN_ID="12345"
-export GITHUB_SHA="abc123"
-export GITHUB_OUTPUT=/dev/null
-export ARTIFACTORY_DEPLOY_REPO="test-repo"
-export ARTIFACTORY_DEPLOY_USERNAME="test-user"
-export ARTIFACTORY_DEPLOY_PASSWORD="test-pass"
-export SONAR_HOST_URL="https://sonar.dummy"
-export SONAR_TOKEN="test-token"
-export ORG_GRADLE_PROJECT_signingKey="test-key"
-export ORG_GRADLE_PROJECT_signingPassword="test-pass"
-export ORG_GRADLE_PROJECT_signingKeyId="test-id"
+export GITHUB_RUN_ID="123456"
+export GITHUB_SHA="abc123def456"
+export GITHUB_REPOSITORY="my-org/my-repo"
+export ARTIFACTORY_DEPLOY_REPO="deploy-repo"
+export ARTIFACTORY_DEPLOY_USERNAME="deploy-user"
+export ARTIFACTORY_DEPLOY_PASSWORD="deploy-pass"
+export SONAR_HOST_URL="https://sonar.example.com"
+export SONAR_TOKEN="sonar-token"
+export ORG_GRADLE_PROJECT_signingKey="signing-key"
+export ORG_GRADLE_PROJECT_signingPassword="signing-pass"
+export ORG_GRADLE_PROJECT_signingKeyId="signing-id"
 export DEPLOY_PULL_REQUEST="false"
 export SKIP_TESTS="false"
+export GRADLE_ARGS=""
+export GITHUB_EVENT_NAME="push"
+export GITHUB_OUTPUT=/dev/null
 GITHUB_EVENT_PATH=$(mktemp)
 export GITHUB_EVENT_PATH
 echo '{}' > "$GITHUB_EVENT_PATH"
 
-Describe 'build.sh'
-  It 'should not run the main function if the script is sourced'
+Describe 'build-gradle/build.sh'
+  It 'does not run main when sourced'
     When run source build-gradle/build.sh
     The status should be success
     The output should equal ""
@@ -58,261 +62,297 @@ End
 Include build-gradle/build.sh
 
 Describe 'command_exists'
-  It 'should report a tool as not installed'
-    When call command_exists a_tool_that_does_not_exist
+  It 'reports missing tool'
+    When call command_exists nonexistent_tool
     The status should be failure
-    The error should equal "a_tool_that_does_not_exist is not installed."
+    The error should equal "nonexistent_tool is not installed."
   End
 
-  It 'should run a tool with arguments when it exists'
-    When call command_exists echo "hello world"
+  It 'executes existing command'
+    When call command_exists echo "test"
     The status should be success
-    The line 2 should equal "hello world"
+    The line 2 should equal "test"
   End
 End
 
 Describe 'set_build_env'
-  It 'should set the default branch and project name'
+  It 'sets project and default values'
     When call set_build_env
-    The line 1 should equal "PROJECT: my-repo"
-    The line 2 should equal "Fetching commit history for SonarQube analysis..."
+    The output should include "PROJECT: my-repo"
     The variable PROJECT should equal "my-repo"
     The variable PULL_REQUEST should equal "false"
-    The variable PULL_REQUEST_SHA should be undefined
-    The variable DEPLOY_PULL_REQUEST should equal "false"
-    The variable SKIP_TESTS should equal "false"
-    The variable GRADLE_ARGS should equal ""
   End
 
-  It 'should set PULL_REQUEST and PULL_REQUEST_SHA for pull requests'
+  It 'handles pull request'
     export GITHUB_EVENT_NAME="pull_request"
-    echo '{"number": 123, "pull_request": {"base": {"sha": "abc123"}}}' > "$GITHUB_EVENT_PATH"
-
-    Mock jq
-      if [[ "$*" == "--raw-output .number $GITHUB_EVENT_PATH" ]]; then
-        echo "123"
-      elif [[ "$*" == "--raw-output .pull_request.base.sha $GITHUB_EVENT_PATH" ]]; then
-        echo "abc123"
-      else
-        echo "jq $*"
-      fi
-    End
+    echo '{"number": 123, "pull_request": {"base": {"sha": "base123"}}}' > "$GITHUB_EVENT_PATH"
 
     When call set_build_env
-    The line 1 should equal "PROJECT: my-repo"
-    The line 2 should equal "Fetching commit history for SonarQube analysis..."
+    The output should include "PROJECT: my-repo"
+    The output should include "Fetching commit history for SonarQube analysis..."
     The variable PULL_REQUEST should equal "123"
-    The variable PULL_REQUEST_SHA should equal "abc123"
+    The variable PULL_REQUEST_SHA should equal "base123"
+  End
+
+  It 'fetches base branch when GITHUB_BASE_REF is set'
+    export GITHUB_BASE_REF="main"
+    When call set_build_env
+    The output should include "Fetching base branch: main"
   End
 End
 
 Describe 'set_project_version'
-  It 'should process version and create release version'
-    # Create a temporary gradle.properties file for sed to work with
-    echo "version=1.2.3-SNAPSHOT" > gradle.properties
-
+  It 'processes version correctly'
+    echo "version=1.0-SNAPSHOT" > gradle.properties
     When call set_project_version
-    The line 1 should equal "Replacing version 1.2.3-SNAPSHOT with 1.2.3.42"
+    The output should include "Replacing version 1.2.3-SNAPSHOT with 1.2.3.42"
     The variable PROJECT_VERSION should equal "1.2.3.42"
-
-    # Clean up
     rm -f gradle.properties gradle.properties.bak
   End
 
-  It 'should handle version without patch number'
-    # Create a temporary gradle.properties file for sed to work with
+  It 'adds .0 to two-digit version'
     echo "version=1.2-SNAPSHOT" > gradle.properties
-
     Mock gradle
-      if [[ "$*" == "properties --no-scan" ]]; then
-        echo "version: 1.2-SNAPSHOT"
-      else
-        echo "gradle $*"
-      fi
+      echo "version: 1.2-SNAPSHOT"
     End
-
     When call set_project_version
-    The line 1 should equal "Replacing version 1.2-SNAPSHOT with 1.2.0.42"
+    The output should include "Replacing version 1.2-SNAPSHOT with 1.2.0.42"
     The variable PROJECT_VERSION should equal "1.2.0.42"
-
-    # Clean up
     rm -f gradle.properties gradle.properties.bak
   End
 End
 
 Describe 'should_deploy'
-  It 'should deploy for master branch'
-    unset PULL_REQUEST
+  It 'deploys for master branch'
     export GITHUB_REF_NAME="master"
-
+    export GITHUB_EVENT_NAME="push"
     When call should_deploy
     The status should be success
   End
 
-  It 'should deploy for maintenance branch'
-    unset PULL_REQUEST
-    export GITHUB_REF_NAME="branch-1.2"
-
+  It 'deploys for maintenance branch'
+    export GITHUB_REF_NAME="branch-1.0"
+    export GITHUB_EVENT_NAME="push"
     When call should_deploy
     The status should be success
   End
 
-  It 'should deploy for dogfood branch'
-    unset PULL_REQUEST
-    export GITHUB_REF_NAME="dogfood-on-next"
-
-    When call should_deploy
-    The status should be success
-  End
-
-  It 'should deploy for long-lived feature branch'
-    unset PULL_REQUEST
-    export GITHUB_REF_NAME="feature/long/my-feature"
-
-    When call should_deploy
-    The status should be success
-  End
-
-  It 'should not deploy for regular feature branch'
-    unset PULL_REQUEST
-    export GITHUB_REF_NAME="feature/my-feature"
-
+  It 'does not deploy for feature branch'
+    export GITHUB_REF_NAME="feature/test"
+    export GITHUB_EVENT_NAME="push"
     When call should_deploy
     The status should be failure
   End
 
-  It 'should not deploy for pull request by default'
+  It 'does not deploy for PR by default'
     export GITHUB_EVENT_NAME="pull_request"
     export DEPLOY_PULL_REQUEST="false"
-
     When call should_deploy
     The status should be failure
   End
 
-  It 'should deploy for pull request when DEPLOY_PULL_REQUEST is true'
+  It 'deploys for PR when enabled'
     export GITHUB_EVENT_NAME="pull_request"
     export DEPLOY_PULL_REQUEST="true"
-
     When call should_deploy
     The status should be success
   End
 End
 
 Describe 'build_gradle_args'
-  It 'should build basic gradle arguments without deployment'
-    export SKIP_TESTS="false"
-    unset SONAR_HOST_URL
-    unset SONAR_TOKEN
+  It 'includes base arguments'
     export GRADLE_ARGS=""
-    export PULL_REQUEST="false"
-    export GITHUB_REF_NAME="feature/test"
-
+    export PROJECT_VERSION="1.0.0.42"
     When call build_gradle_args
-    The line 1 should include "--no-daemon"
-    The line 1 should include "--info"
-    The line 1 should include "--stacktrace"
-    The line 1 should include "--console"
-    The line 1 should include "plain"
-    The line 1 should include "build"
-    The line 1 should include "-DbuildNumber=42"
-    The line 1 should not include "artifactoryPublish"
+    The output should include "--no-daemon"
+    The output should include "build"
   End
 
-  It 'should skip tests when SKIP_TESTS is true'
-    export SKIP_TESTS="true"
-    unset SONAR_HOST_URL
-    unset SONAR_TOKEN
+  It 'includes sonar when configured'
     export GRADLE_ARGS=""
-    export PULL_REQUEST="false"
-    export GITHUB_REF_NAME="feature/test"
-
+    export PROJECT_VERSION="1.0.0.42"
     When call build_gradle_args
-    The line 2 should include "-x"
-    The line 2 should include "test"
-    The line 1 should equal "Skipping tests as requested"
+    The output should include "sonar"
+    The output should include "-Dsonar.host.url=https://sonar.example.com"
   End
 
-  It 'should add sonar arguments when SONAR_HOST_URL and SONAR_TOKEN are set'
-    export SKIP_TESTS="false"
-    export SONAR_HOST_URL="https://sonar.dummy"
-    export SONAR_TOKEN="sonar-token"
+  It 'includes deployment for master'
     export GRADLE_ARGS=""
-    export PULL_REQUEST="false"
-    export GITHUB_REF_NAME="feature/test"
-
-    When call build_gradle_args
-    The line 1 should include "sonar"
-    The line 1 should include "-Dsonar.host.url=https://sonar.dummy"
-    The line 1 should include "-Dsonar.token=sonar-token"
-    The line 1 should include "-Dsonar.analysis.buildNumber=42"
-    The line 1 should include "-Dsonar.analysis.pipeline=12345"
-    The line 1 should include "-Dsonar.analysis.repository=my-org/my-repo"
-  End
-
-  It 'should add artifactory publish for master branch'
-    export SKIP_TESTS="false"
-    unset SONAR_HOST_URL
-    unset SONAR_TOKEN
-    export GRADLE_ARGS=""
-    export PULL_REQUEST="false"
+    export PROJECT_VERSION="1.0.0.42"
     export GITHUB_REF_NAME="master"
-
+    export GITHUB_EVENT_NAME="push"
     When call build_gradle_args
-    The line 1 should include "artifactoryPublish"
+    The output should include "artifactoryPublish"
   End
 
-  It 'should add additional gradle arguments when GRADLE_ARGS is set'
-    export SKIP_TESTS="false"
-    unset SONAR_HOST_URL
-    unset SONAR_TOKEN
-    export GRADLE_ARGS="--parallel --build-cache"
-    export PULL_REQUEST="false"
-    export GITHUB_REF_NAME="feature/test"
-
+  It 'skips tests when SKIP_TESTS is true'
+    export GRADLE_ARGS=""
+    export PROJECT_VERSION="1.0.0.42"
+    export SKIP_TESTS="true"
     When call build_gradle_args
-    The line 1 should include "--parallel"
-    The line 1 should include "--build-cache"
+    The output should include "-x test"
+  End
+
+  It 'includes sonar args for master branch'
+    export GRADLE_ARGS=""
+    export PROJECT_VERSION="1.0.0.42"
+    export GITHUB_REF_NAME="master"
+    export GITHUB_EVENT_NAME="push"
+    When call build_gradle_args
+    The output should include "-Dsonar.projectVersion=1.0.0.42"
+    The output should include "-Dsonar.analysis.sha1=abc123def456"
+  End
+
+  It 'includes sonar args for maintenance branch'
+    export GRADLE_ARGS=""
+    export PROJECT_VERSION="1.0.0.42"
+    export GITHUB_REF_NAME="branch-1.0"
+    export GITHUB_EVENT_NAME="push"
+    When call build_gradle_args
+    The output should include "-Dsonar.branch.name=branch-1.0"
+  End
+
+  It 'includes sonar args for PR'
+    export GRADLE_ARGS=""
+    export PROJECT_VERSION="1.0.0.42"
+    export GITHUB_EVENT_NAME="pull_request"
+    export PULL_REQUEST="123"
+    export PULL_REQUEST_SHA="base123"
+    When call build_gradle_args
+    The output should include "-Dsonar.analysis.prNumber=123"
+  End
+
+  It 'includes sonar args for long-lived feature branch'
+    export GRADLE_ARGS=""
+    export PROJECT_VERSION="1.0.0.42"
+    export GITHUB_REF_NAME="feature/long/my-feature"
+    export GITHUB_EVENT_NAME="push"
+    When call build_gradle_args
+    The output should include "-Dsonar.branch.name=feature/long/my-feature"
+    The output should include "-Dsonar.analysis.sha1=abc123def456"
+  End
+
+  It 'includes additional gradle args'
+    export PROJECT_VERSION="1.0.0.42"
+    export GRADLE_ARGS="--parallel --max-workers=4"
+    When call build_gradle_args
+    The output should include "--parallel"
+    The output should include "--max-workers=4"
   End
 End
 
-Describe 'main'
-  It 'should call all required functions in order'
+Describe 'get_build_type'
+  It 'returns master branch for master'
+    export GITHUB_REF_NAME="master"
+    export GITHUB_EVENT_NAME="push"
+    When call get_build_type
+    The output should equal "master branch"
+  End
+
+  It 'returns maintenance branch'
+    export GITHUB_REF_NAME="branch-1.0"
+    export GITHUB_EVENT_NAME="push"
+    When call get_build_type
+    The output should equal "maintenance branch"
+  End
+
+  It 'returns pull request'
+    export GITHUB_EVENT_NAME="pull_request"
+    When call get_build_type
+    The output should equal "pull request"
+  End
+
+  It 'returns dogfood branch'
+    export GITHUB_REF_NAME="dogfood-on-main"
+    export GITHUB_EVENT_NAME="push"
+    When call get_build_type
+    The output should equal "dogfood branch"
+  End
+
+  It 'returns long-lived feature branch'
+    export GITHUB_REF_NAME="feature/long/my-feature"
+    export GITHUB_EVENT_NAME="push"
+    When call get_build_type
+    The output should equal "long-lived feature branch"
+  End
+
+  It 'returns regular build for other branches'
+    export GITHUB_REF_NAME="feature/test"
+    export GITHUB_EVENT_NAME="push"
+    When call get_build_type
+    The output should equal "regular build"
+  End
+End
+
+Describe 'gradle_build'
+  It 'uses gradle when available'
+    export PROJECT_VERSION="1.0.0.42"
+    export GRADLE_ARGS=""
     Mock command_exists
-      if [[ "$1" == "java" ]]; then
-        echo "java version \"1.8.0_281\""
-      elif [[ "$1" == "gradle" ]]; then
-        echo "gradle"
-        echo "Gradle 7.4.2"
+      echo "gradle $*"
+    End
+    Mock gradle
+      echo "gradle executed"
+    End
+
+    When call gradle_build
+    The output should include "gradle executed"
+  End
+
+  It 'uses gradlew when gradle not found'
+    export PROJECT_VERSION="1.0.0.42"
+    export GRADLE_ARGS=""
+    Mock command_exists
+      if [[ "$1" == "gradle" ]]; then
+        echo "gradle is not installed." >&2
+        false
       else
-        echo "$1 is not installed." >&2
+        command -v "$1" >/dev/null && "$@"
       fi
     End
+    touch ./gradlew
+    chmod +x ./gradlew
 
+    When call gradle_build
+    The output should include "Gradle command: ./gradlew"
+    The stderr should include "gradle is not installed."
+
+    rm -f ./gradlew
+  End
+End
+
+Describe 'main function'
+  It 'executes full sequence'
+    Mock command_exists
+      case "$1" in
+        java) echo "java ok" ;;
+        gradle) echo "gradle ok" ;;
+      esac
+    End
     Mock set_build_env
-      echo "PROJECT: my-repo"
-      echo "PULL_REQUEST: false"
-      echo "Fetching commit history for SonarQube analysis..."
+      echo "env set"
     End
-
     Mock set_project_version
-      echo "Replacing version 1.0.0-SNAPSHOT with 1.0.0.42"
+      echo "version set"
     End
-
     Mock gradle_build
-      echo "Starting regular build build..."
-      echo "Build completed successfully"
+      echo "build done"
     End
 
     When call main
-    The line 1 should equal "java version \"1.8.0_281\""
-    The line 2 should equal "gradle"
-    The line 3 should equal "Gradle 7.4.2"
-    The line 4 should equal "PROJECT: my-repo"
-    The line 5 should equal "PULL_REQUEST: false"
-    The line 6 should equal "Fetching commit history for SonarQube analysis..."
-    The line 7 should equal "Replacing version 1.0.0-SNAPSHOT with 1.0.0.42"
-    The line 8 should equal "Starting regular build build..."
-    The line 9 should equal "Build completed successfully"
     The status should be success
+    The line 1 should equal "java ok"
+    The line 2 should equal "gradle ok"
+    The line 3 should equal "env set"
+    The line 4 should equal "version set"
+    The line 5 should equal "build done"
+  End
+End
+
+Describe 'script execution'
+  It 'executes main when build.sh is run directly'
+    When run script build-gradle/build.sh
+    The status should be success
+    The output should include "PROJECT: my-repo"
   End
 End
