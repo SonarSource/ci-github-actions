@@ -62,7 +62,6 @@ runs:
           development/kv/data/next token | SONAR_TOKEN;
           development/kv/data/sign key | SIGN_KEY;
           development/kv/data/sign passphrase | PGP_PASSPHRASE;
-          development/kv/data/develocity token | DEVELOCITY_TOKEN;
           ${{ inputs.use-develocity == 'true' && 'development/kv/data/develocity token | DEVELOCITY_TOKEN;' || '' }}
       # yamllint enable rule:line-length
     - name: Maven configuration
