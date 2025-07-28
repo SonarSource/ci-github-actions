@@ -43,7 +43,7 @@ inputs:
     description: URL for Repox
     required: false
     default: https://repox.jfrog.io
-  primary-sonar-platform:
+  sonar-platform:
     description: SonarQube variant (next, sqc-eu, or sqc-us)
     required: false
     default: next
@@ -73,8 +73,8 @@ runs:
       with:
         # yamllint disable rule:line-length
         secrets: |
-          development/kv/data/${{ inputs.primary-sonar-platform == 'sqc-eu' && 'sonarcloud' || (inputs.primary-sonar-platform == 'sqc-us' && 'sonarqube-us' || 'next') }} url | SONAR_HOST_URL;
-          development/kv/data/${{ inputs.primary-sonar-platform == 'sqc-eu' && 'sonarcloud' || (inputs.primary-sonar-platform == 'sqc-us' && 'sonarqube-us' || 'next') }} token | SONAR_TOKEN;
+          development/kv/data/${{ inputs.sonar-platform == 'sqc-eu' && 'sonarcloud' || (inputs.sonar-platform == 'sqc-us' && 'sonarqube-us' || 'next') }} url | SONAR_HOST_URL;
+          development/kv/data/${{ inputs.sonar-platform == 'sqc-eu' && 'sonarcloud' || (inputs.sonar-platform == 'sqc-us' && 'sonarqube-us' || 'next') }} token | SONAR_TOKEN;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} username | ARTIFACTORY_DEPLOY_USERNAME;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} access_token | ARTIFACTORY_DEPLOY_PASSWORD;
           development/kv/data/sign key | SIGN_KEY;

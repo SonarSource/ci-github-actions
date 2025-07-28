@@ -221,7 +221,7 @@ jobs:
           gradle-wrapper-validation: true                           # Validate Gradle wrapper
           develocity-url: https://develocity.sonar.build/           # Develocity URL
           repox-url: https://repox.jfrog.io                         # Repox URL
-          primary-sonar-platform: next                             # SonarQube platform (next, sqc-eu, or sqc-us)
+          sonar-platform: next                             # SonarQube platform (next, sqc-eu, or sqc-us)
 ```
 
 ⚠️ Required GitHub permissions:
@@ -231,7 +231,7 @@ jobs:
 
 ⚠️ Required Vault permissions:
 
-- `development/kv/data/next`, `development/kv/data/sonarcloud`, or `development/kv/data/sonarqube-us`: SonarQube credentials (based on primary-sonar-platform)
+- `development/kv/data/next`, `development/kv/data/sonarcloud`, or `development/kv/data/sonarqube-us`: SonarQube credentials (based on sonar-platform)
 - `development/kv/data/sign`: Artifact signing credentials
 - `development/kv/data/develocity`: Develocity access token
 - `public-reader` or `private-reader` Artifactory roles for the build
@@ -239,13 +239,14 @@ jobs:
 
 ### Inputs
 
-- `public`: Whether to build and deploy with/to public repositories - automatically detected 
+- `public`: Whether to build and deploy with/to public repositories - automatically detected
 from repository visibility (optional)
-- `artifactory-deploy-repo`: Name of deployment repository - defaults to `sonarsource-public-qa` 
+- `artifactory-deploy-repo`: Name of deployment repository - defaults to `sonarsource-public-qa`
 or `sonarsource-private-qa` based on repository visibility (optional)
 - `artifactory-reader-role`: Suffix for the Artifactory reader role in Vault - defaults to `public-reader`
 or `private-reader` based on repository visibility (optional)
-- `artifactory-deployer-role`: Suffix for the Artifactory deployer role in Vault - defaults to `public-deployer` or `qa-deployer` based on repository visibility (optional)
+- `artifactory-deployer-role`: Suffix for the Artifactory deployer role in Vault -
+defaults to `public-deployer` or `qa-deployer` based on repository visibility (optional)
 - `deploy-pull-request`: Whether to deploy pull request artifacts (default: `false`)
 - `skip-tests`: Whether to skip running tests (default: `false`)
 - `gradle-args`: Additional arguments to pass to Gradle (optional)
@@ -253,7 +254,7 @@ or `private-reader` based on repository visibility (optional)
 - `gradle-wrapper-validation`: Whether to validate Gradle wrapper (default: `true`)
 - `develocity-url`: URL for Develocity (default: `https://develocity.sonar.build/`)
 - `repox-url`: URL for Repox (default: `https://repox.jfrog.io`)
-- `primary-sonar-platform`: SonarQube platform - 'next', 'sqc-eu', or 'sqc-us' (default: `next`)
+- `sonar-platform`: SonarQube platform - 'next', 'sqc-eu', or 'sqc-us' (default: `next`)
 
 ### Outputs
 
