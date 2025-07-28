@@ -477,6 +477,6 @@ The @ syntax above will automatically link the shared documentation from this re
 
 If you are not using Cursor, you can also directly provide the link to the documentation as below
 
-```txt
+```md
 Refer @https://github.com/SonarSource/ci-github-actions/blob/master/.cursor/cirrus-github-migration.md and migrate @.cirrus.yml to Github Actions.
 ```
