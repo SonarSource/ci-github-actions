@@ -462,15 +462,21 @@ SonarSource private repositories will use the internal S3 cache when available.
 ## Using AI for Cirrus CI to Github Actions migration
 
 It is recommended to use AI tools like Cursor or Claude code to assist with CirrusCI to Github actions migration.
-This repository contains a comprehensive guide to be passed as a context to AI. Here are some example prompts
+This repository contains a comprehensive guide to be passed as a context to AI. The guide is already shared to everyone
+in the company using Cursor, accessible using @Doc tag.
+
+Example prompt with Cursor:
 
 ```md
-Refer @https://github.com/SonarSource/ci-github-actions/blob/master/.cursor/cirrus-github-migration.md  and migrate @.cirrus.yml to Github actions
+Use the doc @Cirrus to Github actions migration and migrate @.cirrus.yml to Github Actions.
+
+The repository is private. Use the most recent version of Java and Maven.
 ```
 
-In [re-terraform-aws-vault](https://github.com/SonarSource/re-terraform-aws-vault) repo,
+The @ syntax above will automatically link the shared documentation from this repo.
 
-```md
-Refer @https://github.com/SonarSource/ci-github-actions/blob/master/.cursor/cirrus-github-migration.md
-Give me a report of what vault secrets are missing for the repository `sonar-dummy`
+If you are not using Cursor, you can also directly provide the link to the documentation as below
+
+```txt
+Refer @https://github.com/SonarSource/ci-github-actions/blob/master/.cursor/cirrus-github-migration.md and migrate @.cirrus.yml to Github Actions.
 ```

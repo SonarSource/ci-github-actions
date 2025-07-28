@@ -103,9 +103,22 @@ the [Bash parameter expansion](https://xtranet-sonarsource.atlassian.net/wiki/sp
 
 Additional tests will be added to cover specific scenarios or edge cases, when fixing bugs (test-driven development).
 
-## Cursor rules
+## Documentation for AI tools
 
-The markdown document [currus-github-migration.md](.cursor/cirrus-github-migration.md) is a comprehensive documentation
- on how to migrate a CirrusCI pipeline to Github actions. Attach this documentation in your AI prompts to help with migration.
+This repository includes a comprehensive migration guide at [cirrus-github-migration.md](.cursor/cirrus-github-migration.md) that
+documents the process of migrating CirrusCI pipelines to GitHub Actions. This guide is accessible to everyone in the company
+using Cursor through the `@Doc` command. The purpose of the document is to provide a context to Cursor and similar AI tools
+to aid with migration
 
-When making changes to Github actions in this repository, always ask AI to keep this markdown doc up-to-date with latest changes.
+### Development Workflow with AI
+
+When working on this repository or migrating eng-xp repositories, follow these best practices to use AI and keep the doc up-to-date.
+
+1. **Multi-repository setup**: If working on a different repository, add the `ci-github-actions` repository to your workspace
+   via `File → Add Folder to Workspace` in Cursor to access the documentation directly.
+
+2. **Reference documentation**: Directly attach the migration guide to your AI chat conversations rather than using the `@Doc` syntax.
+
+3. **Keep documentation current**: After completing your work, ask the AI to review and update the migration guide based on
+   any new patterns, edge cases, or improvements discovered during development. Include these documentation updates in your
+   pull request to maintain accuracy for future migrations.
