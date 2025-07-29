@@ -213,8 +213,34 @@ instructions for all custom actions.
 
 ### Required Actions for All Projects
 
-- `SonarSource/ci-github-actions/get-build-number@v1`: Generate build numbers
-- `SonarSource/ci-github-actions/promote@v1`: Handle Artifactory promotion
+#### get-build-number
+
+Generates unique build numbers stored in GitHub repository properties. **Always include this before build actions**.
+
+```yaml
+- uses: SonarSource/ci-github-actions/get-build-number@v1
+```
+
+**Features:**
+
+- Stores build number in repository property `build_number`
+- Sets `BUILD_NUMBER` environment variable and output
+- Unique per workflow run ID (unchanged on reruns)
+- **Required permissions:** `id-token: write`, `contents: read`
+
+#### promote
+
+Promotes builds in JFrog Artifactory and updates GitHub status checks.
+
+```yaml
+- uses: SonarSource/ci-github-actions/promote@v1
+```
+
+**Features:**
+
+- Creates GitHub status check named `repox-${GITHUB_REF_NAME}`
+- **Required permissions:** `id-token: write`, `contents: write`
+- **Required vault permissions:** `promoter` Artifactory role, `promotion` GitHub token
 
 ### Build Actions by Project Type
 
@@ -224,13 +250,47 @@ instructions for all custom actions.
 - uses: SonarSource/ci-github-actions/build-maven@v1
   with:
     deploy-pull-request: true
-    # public parameter is auto-detected from repository visibility
-    # Only specify if you need to override the default behavior
+    # All parameters below are optional with auto-detected defaults
+    public: false                                  # Auto-detected from repo visibility
+    artifactory-reader-role: private-reader       # private-reader/public-reader
+    artifactory-deployer-role: qa-deployer        # qa-deployer/public-deployer
+    maven-local-repository-path: .m2/repository   # Maven cache path
+    maven-opts: -Xmx1536m -Xms128m                # JVM options for Maven
+    scanner-java-opts: -Xmx512m                   # JVM options for SonarQube scanner
+    use-develocity: false                          # Enable Develocity build tracking
 ```
 
-**Note**: The `public` parameter is automatically detected from your repository's visibility
-(public repos → `true`, private repos → `false`). Only specify this parameter if you have a
-specific use case requiring different behavior.
+**Features:**
+
+- Automatic build context detection (master, maintenance, PR, dogfood, feature)
+- SonarQube analysis with context-appropriate profiles
+- Artifact signing and conditional deployment
+- **Required permissions:** `id-token: write`, `contents: write`
+
+##### Overriding Artifactory Roles
+
+In some cases, your existing CirrusCI configuration may use different Artifactory roles than the
+automatic detection. For example, a public repository might use `private-reader` and `qa-deployer`
+instead of the default `public-reader` and `public-deployer`.
+
+```yaml
+# Override artifactory roles to match existing CirrusCI configuration
+- uses: SonarSource/ci-github-actions/build-maven@v1
+  with:
+    deploy-pull-request: true
+    artifactory-reader-role: private-reader    # Override default public-reader
+    artifactory-deployer-role: qa-deployer     # Override default public-deployer
+```
+
+**When to use this**: Check your `.cirrus.yml` file for the vault paths used:
+
+- `ARTIFACTORY_PRIVATE_USERNAME: vault-${CIRRUS_REPO_OWNER}-${CIRRUS_REPO_NAME}-private-reader` → Use `artifactory-reader-role: private-reader`
+- `ARTIFACTORY_DEPLOY_USERNAME: vault-${CIRRUS_REPO_OWNER}-${CIRRUS_REPO_NAME}-qa-deployer` → Use `artifactory-deployer-role: qa-deployer`
+
+**Available role options:**
+
+- **Reader roles**: `private-reader`, `public-reader`
+- **Deployer roles**: `qa-deployer`, `public-deployer`
 
 #### Gradle Projects
 
@@ -238,21 +298,79 @@ specific use case requiring different behavior.
 - uses: SonarSource/ci-github-actions/build-gradle@v1
   with:
     deploy-pull-request: true
+    # All parameters below are optional with auto-detected defaults
+    public: false                                     # Auto-detected from repo visibility
+    artifactory-deploy-repo: ""                       # Auto-detected: sonarsource-public-qa/sonarsource-private-qa
+    artifactory-reader-role: private-reader           # private-reader/public-reader
+    artifactory-deployer-role: qa-deployer            # qa-deployer/public-deployer
+    skip-tests: false                                  # Skip running tests
+    gradle-args: ""                                    # Additional Gradle arguments
+    gradle-version: ""                                 # Gradle version (uses wrapper if not specified)
+    gradle-wrapper-validation: true                    # Validate Gradle wrapper
+    develocity-url: https://develocity.sonar.build/   # Develocity URL
+    repox-url: https://repox.jfrog.io                 # Repox URL
+    sonar-platform: next                              # SonarQube platform: next/sqc-eu/sqc-us
 ```
 
-#### Poetry Projects
+**Features:**
+
+- Automated version management with build numbers
+- SonarQube analysis with configurable platform
+- Conditional deployment and automatic artifact signing
+- Develocity integration for build optimization
+- **Required permissions:** `id-token: write`, `contents: write`
+- **Outputs:** `project-version` from gradle.properties
+
+#### Poetry Projects (Python)
 
 ```yaml
 - uses: SonarSource/ci-github-actions/build-poetry@v1
   with:
     deploy-pull-request: true
-    # public parameter is auto-detected from repository visibility
-    # Only specify if you need to override the default behavior
+    # All parameters below are optional with auto-detected defaults
+    public: false                                         # Auto-detected from repo visibility
+    artifactory-reader-role: private-reader              # private-reader/public-reader
+    artifactory-deployer-role: qa-deployer               # qa-deployer/public-deployer
+    poetry-virtualenvs-path: .cache/pypoetry/virtualenvs # Poetry virtual environments path
+    poetry-cache-dir: .cache/pypoetry                    # Poetry cache directory
 ```
 
-### Caching
+**Features:**
 
-Use the adaptive cache action:
+- Python project build and publish using Poetry
+- SonarQube analysis integration
+- Conditional deployment based on branch patterns
+- **Required permissions:** `id-token: write`, `contents: write`
+
+#### NPM Projects (JavaScript/TypeScript)
+
+```yaml
+- uses: SonarSource/ci-github-actions/build-npm@v1
+  with:
+    deploy-pull-request: false                        # Deploy pull request artifacts
+    # All parameters below are optional
+    artifactory-deploy-repo: ""                       # Artifactory repository name
+    artifactory-deploy-access-token: ""               # Artifactory access token
+    skip-tests: false                                  # Skip running tests
+    cache-npm: true                                    # Cache NPM dependencies
+    repox-url: https://repox.jfrog.io                 # Repox URL
+```
+
+**Features:**
+
+- Automated version management with build numbers and SNAPSHOT handling
+- SonarQube analysis for code quality (credentials from Vault)
+- Conditional deployment based on branch patterns (main, maintenance, dogfood branches)
+- NPM dependency caching for faster builds (configurable)
+- JFrog build info publishing with UI links
+- **Required permissions:** `id-token: write`, `contents: write`
+- **Outputs:** `project-version` from package.json, `build-info-url` when deployment occurs
+
+### Additional Actions
+
+#### cache
+
+Adaptive cache action that automatically chooses the appropriate caching backend based on repository visibility.
 
 ```yaml
 - uses: SonarSource/ci-github-actions/cache@v1
@@ -263,6 +381,50 @@ Use the adaptive cache action:
     key: ${{ runner.os }}-cache-${{ hashFiles('**/pom.xml', '**/requirements.txt') }}
     restore-keys: |
       ${{ runner.os }}-cache
+    # Optional parameters
+    upload-chunk-size: ""                           # Chunk size for large files (bytes)
+    enableCrossOsArchive: false                     # Allow cross-platform cache restore
+    fail-on-cache-miss: false                       # Fail if cache entry not found
+    lookup-only: false                              # Check cache existence without downloading
+```
+
+**Features:**
+
+- **Smart backend selection:** GitHub Actions cache for public repos, SonarSource S3 cache for private repos
+- **Seamless API compatibility:** Drop-in replacement for standard GitHub Actions cache
+- **Automatic detection:** Repository visibility and ownership automatically detected
+- **Output:** `cache-hit` boolean indicating exact match found
+
+#### pr_cleanup
+
+Automatically cleans up GitHub Actions resources when pull requests are closed.
+
+```yaml
+- uses: SonarSource/ci-github-actions/pr_cleanup@v1
+```
+
+**Features:**
+
+- Removes GitHub Actions caches associated with closed PRs
+- Cleans up artifacts created during PR workflows
+- Provides detailed output of deleted resources
+- Shows before/after state of caches and artifacts
+- **Required permissions:** `actions: write`
+
+**Usage example in workflow:**
+
+```yaml
+name: Cleanup PR Resources
+on:
+  pull_request:
+    types: [closed]
+jobs:
+  cleanup:
+    runs-on: sonar-xs
+    permissions:
+      actions: write
+    steps:
+      - uses: SonarSource/ci-github-actions/pr_cleanup@v1
 ```
 
 ## CirrusCI → GitHub Actions Mapping
@@ -664,25 +826,11 @@ Reference these SonarSource dummy repositories for specific patterns:
 
 ### PR Cleanup Workflow
 
-Add `.github/workflows/pr-cleanup.yml` to automatically clean up PR resources:
+**Recommended**: Add `.github/workflows/pr-cleanup.yml` to automatically clean up PR resources when PRs are closed.
 
-```yaml
-name: Cleanup PR Resources
-on:
-  pull_request:
-    types:
-      - closed
+See the [pr_cleanup action documentation](#pr_cleanup) above for full details and usage example.
 
-jobs:
-  cleanup:
-    runs-on: sonar-xs
-    permissions:
-      actions: write  # Required for deleting caches and artifacts
-    steps:
-      - uses: SonarSource/ci-github-actions/pr_cleanup@v1
-```
-
-This workflow:
+This workflow automatically:
 
 - Removes GitHub Actions caches associated with closed PRs
 - Cleans up artifacts created during PR workflows
@@ -721,8 +869,16 @@ This workflow:
 4. **Cache conflicts**: Use `cache_save: false` in promote jobs
 5. **Branch conditions**: Let custom actions handle most conditional logic
 6. **Build number continuity**: Set custom property > latest CirrusCI build
-7. **Security**: Ensure third-party actions are pinned to commit SHA
-8. **Script injection**: Never use untrusted input directly in shell commands
+7. **Artifactory role mismatch**: If your CirrusCI uses different roles than auto-detected, override them:
+   ```yaml
+   # Check .cirrus.yml for actual roles used and override if needed
+   - uses: SonarSource/ci-github-actions/build-maven@v1
+     with:
+       artifactory-reader-role: private-reader    # Match CirrusCI config
+       artifactory-deployer-role: qa-deployer     # Match CirrusCI config
+   ```
+8. **Security**: Ensure third-party actions are pinned to commit SHA
+9. **Script injection**: Never use untrusted input directly in shell commands
 
 ### Security Troubleshooting
 
