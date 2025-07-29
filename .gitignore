@@ -5,3 +5,4 @@
 /.shellspec-quick.log
 package.json
 .DS_Store
+yarn.lock

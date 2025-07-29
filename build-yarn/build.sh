@@ -52,18 +52,18 @@ git_fetch_unshallow() {
 set_build_env() {
   export PROJECT="${GITHUB_REPOSITORY#*/}"
   echo "PROJECT: ${PROJECT}"
-  
+
   # Validate required files exist
   if [ ! -f "package.json" ]; then
     echo "ERROR: package.json file not found in current directory." >&2
     exit 1
   fi
-  
+
   if [ ! -f "yarn.lock" ]; then
     echo "ERROR: yarn.lock file not found. This is required for yarn --immutable installs." >&2
     exit 1
   fi
-  
+
   echo "Fetching commit history for SonarQube analysis..."
   git_fetch_unshallow
 }

@@ -8,19 +8,15 @@ inputs:
   artifactory-reader-role:
     description: Suffix for the Artifactory reader role in Vault. Defaults to `private-reader` for private repositories, and `public-reader`
       for public repositories.
-    default: ''
   artifactory-deployer-role:
     description: Suffix for the Artifactory deployer role in Vault. Defaults to `qa-deployer` for private repositories, and
       `public-deployer` for public repositories.
-    default: ''
   artifactory-deploy-repo:
     description: Name of deployment repository
     required: true
-    default: ''
   artifactory-deploy-access-token:
     description: Access token to deploy to Artifactory
     required: true
-    default: ''
   deploy-pull-request:
     description: Whether to deploy pull request artifacts
     default: 'false'
@@ -34,6 +30,10 @@ inputs:
     description: URL for Repox
     required: true
     default: https://repox.jfrog.io
+  sonar-platform:
+    description: SonarQube variant (next, sqc-eu, or sqc-us)
+    required: false
+    default: next
 
 outputs:
   project-version:
@@ -66,16 +66,12 @@ runs:
       with:
         version: 2025.7.12
 
-    - name: List yarn cache
-      shell: bash
-      run: |
-        ls -la ~
-
     - name: Cache Yarn dependencies
       if: ${{ inputs.cache-yarn == 'true' }}
       uses: SonarSource/ci-github-actions/cache@master
       with:
-        path: ~/.yarn/cache
+        path: |
+          ~/.yarn
         key: yarn-${{ runner.os }}-${{ hashFiles('**/yarn.lock') }}
         restore-keys: |
           yarn-${{ runner.os }}-
@@ -86,8 +82,8 @@ runs:
       uses: SonarSource/vault-action-wrapper@d6d745ffdbc82b040df839b903bc33b5592cd6b0 # 3.0.2
       with:
         secrets: |
-          development/kv/data/next url | SONAR_HOST_URL;
-          development/kv/data/next token | SONAR_TOKEN;
+          development/kv/data/${{ inputs.sonar-platform == 'sqc-eu' && 'sonarcloud' || (inputs.sonar-platform == 'sqc-us' && 'sonarqube-us' || 'next') }} url | SONAR_HOST_URL;
+          development/kv/data/${{ inputs.sonar-platform == 'sqc-eu' && 'sonarcloud' || (inputs.sonar-platform == 'sqc-us' && 'sonarqube-us' || 'next') }} token | SONAR_TOKEN;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;
       # yamllint enable rule:line-length
