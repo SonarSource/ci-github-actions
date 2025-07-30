@@ -110,15 +110,32 @@ Follow these security principles during migration:
   run: echo "PR Title: ${{ github.event.pull_request.title }}"
 ```
 
+### Vault Path Format Differences
+
+**CirrusCI vs GitHub Actions vault path syntax**:
+
+```yaml
+# CirrusCI format
+SONAR_TOKEN: VAULT[development/kv/data/sonarcloud data.token]
+
+# GitHub Actions format - remove 'data.' prefix
+secrets: |
+  development/kv/data/sonarcloud token | SONAR_TOKEN;
+```
+
+**Key difference**: In GitHub Actions vault paths, use the field name directly (e.g., `token`, `url`) instead of
+the CirrusCI format (`data.token`, `data.url`).
+
 ## Pre-Migration Checklist
 
 1. ✅ Identify the project type (Maven, Gradle, Poetry, etc.)
-2. ✅ Check existing `.github/workflows/` for conflicts
-3. ✅ Understand the current CirrusCI configuration patterns
-4. ✅ **CRITICAL**: Verify repository visibility (public vs private) - check GitHub repo Settings → General → Repository visibility
+2. ✅ **Check for cirrus-modules usage**: Look for `.cirrus.star` file - if present, see [Cirrus-Modules Migration section](#migrating-repositories-using-cirrus-modules)
+3. ✅ Check existing `.github/workflows/` for conflicts
+4. ✅ Understand the current CirrusCI configuration patterns
+5. ✅ **CRITICAL**: Verify repository visibility (public vs private) - check GitHub repo Settings → General → Repository visibility
    - Public repos → Use `ubuntu-24.04-large` runners for SonarSource custom actions
    - Private repos → Use `sonar-xs` runners (recommended)
-5. ✅ **SECURITY**: Review third-party actions and pin to commit SHAs
+6. ✅ **SECURITY**: Review third-party actions and pin to commit SHAs
 
 ⚠️ **CRITICAL**: During migration, leave `.cirrus.yml` unchanged. Both CirrusCI and GitHub Actions should coexist during the transition period.
 
@@ -735,6 +752,7 @@ Only override if you have specific requirements.
 - [ ] Configure concurrency control
 - [ ] Add checkout, mise, get-build-number steps
 - [ ] Add appropriate build action (maven/gradle/poetry)
+- [ ] **If using cirrus-modules**: Verify all features are covered by SonarSource custom actions
 - [ ] Test build job functionality
 
 ### Phase 3: Promote Job
@@ -877,8 +895,10 @@ This workflow automatically:
        artifactory-reader-role: private-reader    # Match CirrusCI config
        artifactory-deployer-role: qa-deployer     # Match CirrusCI config
    ```
-8. **Security**: Ensure third-party actions are pinned to commit SHA
-9. **Script injection**: Never use untrusted input directly in shell commands
+8. **Cirrus-modules migration**: If migrating from cirrus-modules, don't try to recreate individual features
+   manually - use the comprehensive SonarSource custom actions instead
+9. **Security**: Ensure third-party actions are pinned to commit SHA
+10. **Script injection**: Never use untrusted input directly in shell commands
 
 ### Security Troubleshooting
 
@@ -926,6 +946,33 @@ Remember to update to `@v1` once the feature is released!
 [releases page](https://github.com/SonarSource/ci-github-actions/releases) for the
 latest stable versions. While `@v1` is typically the current stable version, newer
 major versions may be available with enhanced features.
+
+## Migrating Repositories Using Cirrus-Modules
+
+### What is Cirrus-Modules?
+
+Many SonarSource repositories use `cirrus-modules`, a centralized Starlark library that abstracts away CI
+infrastructure complexity. You can identify these repositories by the presence of a `.cirrus.star` file:
+
+```starlark
+# renovate: datasource=github-releases depName=SonarSource/cirrus-modules
+load("github.com/SonarSource/cirrus-modules@74c00b08bd556f6f6f59cc244941f0a815d79e42", "load_features")  # 3.3.0
+
+def main(ctx):
+    return load_features(ctx)
+```
+
+### Cirrus-Modules Features and GitHub Actions Equivalents
+
+The cirrus-modules system provides several features that need to be handled during migration:
+
+| Cirrus-Modules Feature | GitHub Actions Equivalent | Notes |
+|------------------------|---------------------------|-------|
+| **AWS Infrastructure** | `runs-on: sonar-xs` | Runner selection handles infrastructure |
+| **Vault Authentication** | `SonarSource/vault-action-wrapper` | Direct vault integration |
+| **Build Numbers** | `SonarSource/ci-github-actions/get-build-number@v1` | Continuous build numbering |
+| **Repox/Artifactory** | `SonarSource/ci-github-actions/build-*@v1` | Handled by build actions |
+| **Conditional Execution** | `on:` triggers + `if:` conditions | GitHub Actions native conditions |
 
 ## Real Migration Example
 
