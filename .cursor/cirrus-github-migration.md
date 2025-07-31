@@ -155,7 +155,9 @@ maven = "3.9"
 ### GitHub Workflow Integration
 
 ```yaml
-- uses: jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2.4.0
+      - uses: jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2.4.0
+        with:
+          version: 2025.7.12
 ```
 
 **For promote jobs**, disable cache saving:
@@ -164,6 +166,7 @@ maven = "3.9"
 - uses: jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2.4.0
   with:
     cache_save: false
+    version: 2025.7.12
 ```
 
 ## Standard GitHub Actions Workflow Structure
@@ -197,6 +200,8 @@ jobs:
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - uses: jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2.4.0
+        with:
+          version: 2025.7.12
       - uses: SonarSource/ci-github-actions/get-build-number@v1
       - uses: SonarSource/ci-github-actions/build-maven@v1
         with:
@@ -217,6 +222,7 @@ jobs:
       - uses: jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2.4.0
         with:
           cache_save: false
+          version: 2025.7.12
       - uses: SonarSource/ci-github-actions/get-build-number@v1
       - uses: SonarSource/ci-github-actions/promote@v1
 ```
@@ -614,6 +620,8 @@ by the custom actions. No need to specify cache folders or cleanup scripts.
 # ✅ Pin third-party actions to commit SHA
 - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 - uses: jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2.4.0
+  with:
+    version: 2025.7.12
 
 # ✅ SonarSource actions use semantic versioning (trusted)
 - uses: SonarSource/ci-github-actions/build-maven@v1
@@ -1069,6 +1077,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2.4.0
+        with:
+          version: 2025.7.12
       - uses: SonarSource/ci-github-actions/get-build-number@v1
       - uses: SonarSource/ci-github-actions/build-maven@v1
         with:
@@ -1089,6 +1099,7 @@ jobs:
       - uses: jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2.4.0
         with:
           cache_save: false
+          version: 2025.7.12
       - uses: SonarSource/ci-github-actions/get-build-number@v1
       - uses: SonarSource/ci-github-actions/promote@v1
 ```
@@ -1287,6 +1298,14 @@ Update this section when newer versions are released:
 **Tool Management:**
 
 - `jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4`
+
+For mise you always have to include version parameter:
+
+```yaml
+  - uses: jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2.4.0
+    with:
+      version: 2025.7.12
+```
 
 **SonarSource Actions:**
 
