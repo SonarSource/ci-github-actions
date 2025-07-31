@@ -413,6 +413,91 @@ jobs:
 
 - `actions: write`: Required to delete caches and artifacts.
 
+## `build-yarn`
+
+Build, test, analyze, and deploy a Yarn project with SonarQube integration and Artifactory deployment.
+
+### Usage
+
+_All the `with` parameters are optional and have default values which are shown below._
+
+```yaml
+name: Build
+on:
+  push:
+    branches:
+      - master
+      - branch-*
+  pull_request:
+  merge_group:
+  workflow_dispatch:
+
+jobs:
+  build:
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
+    runs-on: ubuntu-24.04-large
+    name: Build
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - uses: SonarSource/ci-github-actions/get-build-number@v1
+      - uses: SonarSource/ci-github-actions/build-yarn@v1
+        with:
+          public: false                                             # Defaults to `true` if the repository is public
+          artifactory-reader-role: private-reader                   # or public-reader if `public` is `true`
+          artifactory-deployer-role: qa-deployer                    # or public-deployer if `public` is `true`
+          artifactory-deploy-repo: ""                               # Artifactory repository name
+          deploy-pull-request: false                                # Deploy pull request artifacts
+          skip-tests: false                                         # Skip running tests
+          cache-yarn: true                                          # Cache Yarn dependencies
+          repox-url: https://repox.jfrog.io                         # Repox URL
+          sonar-platform: next                                      # SonarQube platform (next, sqc-eu, or sqc-us)
+```
+
+⚠️ Required GitHub permissions:
+
+- `id-token: write`
+- `contents: write`
+
+⚠️ Required Vault permissions:
+
+- `development/kv/data/next`, `development/kv/data/sonarcloud`, or `development/kv/data/sonarqube-us`: SonarQube credentials (based on sonar-platform)
+- `public-reader` or `private-reader` Artifactory roles for the build
+- `public-deployer` or `qa-deployer` Artifactory roles for the deployment
+
+### Inputs
+
+- `public`: Whether to build and deploy with/to public repositories - automatically detected from repository visibility (optional)
+- `artifactory-reader-role`: Suffix for the Artifactory reader role in Vault -
+defaults to `public-reader` or `private-reader` based on repository visibility (optional)
+- `artifactory-deployer-role`: Suffix for the Artifactory deployer role in Vault -
+defaults to `public-deployer` or `qa-deployer` based on repository visibility (optional)
+- `artifactory-deploy-repo`: Name of deployment repository (required)
+- `deploy-pull-request`: Whether to deploy pull request artifacts (default: `false`)
+- `skip-tests`: Whether to skip running tests (default: `false`)
+- `cache-yarn`: Whether to cache Yarn dependencies (default: `true`)
+- `repox-url`: URL for Repox (default: `https://repox.jfrog.io`)
+- `sonar-platform`: SonarQube platform - 'next', 'sqc-eu', or 'sqc-us' (default: `next`)
+
+### Outputs
+
+- `project-version`: The project version from package.json with build number
+- `build-info-url`: The JFrog build info UI URL (when deployment occurs)
+
+### Features
+
+- Automated version management with build numbers and SNAPSHOT handling
+- SonarQube analysis for code quality (credentials from Vault)
+- Conditional deployment based on branch patterns (main, maintenance, dogfood branches)
+- Yarn dependency caching for faster builds (configurable)
+- Pull request support with optional deployment
+- JFrog build info publishing with UI links
+- Comprehensive build logging and error handling
+- Support for different branch types (main, maintenance, PR, dogfood, long-lived feature)
+
 ## `cache`
 
 Adaptive cache action that automatically chooses the appropriate caching backend based on repository visibility and ownership.
