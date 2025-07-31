@@ -58,11 +58,13 @@ When updating this migration guide:
 
 # SonarQube Scan
 - name: SonarQube scan
-  uses: sonarsource/sonarqube-scan-action@884b79409bbd464b2a59edc326a4b77dc56b2195 # v3.0.0
+  uses: sonarsource/sonarqube-scan-action@8c71dc039c2dd71d3821e89a2b58ecc7fee6ced9 # v5.3.0
   env:
     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 ```
+
+⚠️ CRITICAL - `sonarsource/sonarqube-scan-action` requires to be running on `sonar-runner-large` regardless of repository visibility
 
 ## ✅ VALIDATION CHECKLIST
 
@@ -70,11 +72,13 @@ After creating your workflow, verify EVERY item:
 
 ### Action Versions
 
+Update this section when newer versions are released:
+
 - [ ] `actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2`
 - [ ] `jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2.4.0`
 - [ ] `actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0`
 - [ ] `actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8`
-- [ ] `sonarsource/sonarqube-scan-action@884b79409bbd464b2a59edc326a4b77dc56b2195 # v3.0.0`
+- [ ] `sonarsource/sonarqube-scan-action@8c71dc039c2dd71d3821e89a2b58ecc7fee6ced9 # v5.3.0`
 
 ### Mise Configuration
 
@@ -1363,38 +1367,3 @@ Example workflow:
 2. Run: `pre-commit run --files [list of changed files]`
 3. Fix any issues reported by pre-commit
 4. Present the fixed files to the user without committing
-
-### Version Management
-
-Always search for and use the latest stable version of tools, dependencies, and GitHub Actions. Avoid using
-outdated versions unless specifically required for compatibility.
-
-## Common GitHub Actions - Latest Versions Index
-
-Update this section when newer versions are released:
-
-**Core Actions:**
-
-- `actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2`
-- `actions/setup-node@26961cf329f22f6837d5f54c3efd76b480a6422d # v4.0.4`
-- `actions/setup-python@41baba1a9c8c95fb52b6b51ee3d90bb4ba21026b # v5.4.0`
-- `actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2`
-- `actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0`
-- `actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.1.2`
-
-**Tool Management:**
-
-- `jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4`
-
-For mise you always have to include version parameter:
-
-```yaml
-  - uses: jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2.4.0
-    with:
-      version: 2025.7.12
-```
-
-**SonarSource Actions:**
-
-- `SonarSource/sonarqube-scan-action@8c71dc039c2dd71d3821e89a2b58ecc7fee6ced9 # v5.3.0`
-- `SonarSource/vault-action-wrapper@d6d745ffdbc82b040df839b903bc33b5592cd6b0 # v3.0.2`
