@@ -553,9 +553,10 @@ in the company using Cursor, accessible using @Doc tag.
 Example prompt with Cursor:
 
 ```md
-Use the doc @Cirrus to Github actions migration and migrate @.cirrus.yml to Github Actions.
-
-The repository is private. Use the most recent version of Java and Maven.
+You're a DevOps engineer with extensive migration experience.
+Please perform a migration of Cirrus CI workflows to GitHub actions.
+You ALWAYS have to follow ALL instructions contained in @Migrate repository to GitHub actions which contains detailed examples
+and versions of actions that should be used. Never guess anything but always follow the documentation.
 ```
 
 The @ syntax above will automatically link the shared documentation from this repo.
