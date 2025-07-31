@@ -1,4 +1,4 @@
-# CirrusCI to GitHub Actions Migration Guide
+# 🚨 CRITICAL: Cirrus CI to GitHub Actions Migration Guide
 
 This guide documents the patterns and best practices for migrating SonarSource projects from CirrusCI to GitHub Actions.
 
@@ -13,6 +13,106 @@ When updating this migration guide:
 3. **Formatting**: Use consistent header levels and bullet points
 4. **Examples**: Always test examples before adding them to the guide
 5. **Links**: Use proper markdown linking format
+
+## ⚠️ MANDATORY READING BEFORE STARTING
+
+**STOP**: This documentation contains EXACT specifications that MUST be followed precisely. Do NOT:
+
+- Guess action versions
+- Mix this documentation with other sources
+- Skip any required parameters
+- Substitute similar-looking configurations from other workflows
+
+## 🔒 EXACT ACTION VERSIONS - COPY THESE PRECISELY
+
+### ⚠️ CRITICAL: Use EXACTLY these versions with COMPLETE configuration
+
+```yaml
+# Checkout
+- name: Checkout
+  uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+  with:
+    fetch-depth: 50
+
+# Mise Setup - INCLUDES REQUIRED VERSION PARAMETER
+- name: Setup mise
+  uses: jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2.4.0
+  with:
+    version: 2025.7.12
+    cache_save: ${{ github.ref_name == github.event.repository.default_branch }}
+
+# Upload Artifacts
+- name: Upload coverage reports
+  if: always()
+  uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
+  with:
+    name: coverage-name-here
+    path: path/to/coverage.xml
+    if-no-files-found: ignore
+
+# Download Artifacts
+- name: Download coverage reports
+  uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+  with:
+    path: coverage-reports
+
+# SonarQube Scan
+- name: SonarQube scan
+  uses: sonarsource/sonarqube-scan-action@884b79409bbd464b2a59edc326a4b77dc56b2195 # v3.0.0
+  env:
+    SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+```
+
+## ✅ VALIDATION CHECKLIST
+
+After creating your workflow, verify EVERY item:
+
+### Action Versions
+
+- [ ] `actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2`
+- [ ] `jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2.4.0`
+- [ ] `actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0`
+- [ ] `actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8`
+- [ ] `sonarsource/sonarqube-scan-action@884b79409bbd464b2a59edc326a4b77dc56b2195 # v3.0.0`
+
+### Mise Configuration
+
+- [ ] `version: 2025.7.12` parameter included
+- [ ] `cache_save: ${{ github.ref_name == github.event.repository.default_branch }}` parameter included
+
+## Pre-Migration Checklist
+
+1. ✅ Identify the project type (Maven, Gradle, Poetry, etc.)
+2. ✅ **Check for cirrus-modules usage**: Look for `.cirrus.star` file - if present, see [Cirrus-Modules Migration section](#migrating-repositories-using-cirrus-modules)
+3. ✅ Check existing `.github/workflows/` for conflicts
+4. ✅ Understand the current CirrusCI configuration patterns
+5. ✅ **CRITICAL**: Verify repository visibility (public vs private) - check GitHub repo Settings → General → Repository visibility
+   - Public repos → Use `ubuntu-24.04-large` runners for SonarSource custom actions
+   - Private repos → Use `sonar-xs` runners (recommended)
+6. ✅ **SECURITY**: Review third-party actions and pin to commit SHAs
+7. Runner type selected (see  **GitHub Actions Runner Selection**)
+8. All required action versions copied from Action Versions Table
+9. Tool versions identified from existing configuration
+
+⚠️ **CRITICAL**: During migration, leave `.cirrus.yml` unchanged. Both CirrusCI and GitHub Actions should coexist during the transition period.
+
+## 🚫 COMMON MISTAKES TO AVOID
+
+1. **Missing mise version parameter**: `version: 2025.7.12` is MANDATORY
+2. **Wrong runner type**: You MUST select runners described in **GitHub Actions Runner Selection** section
+3. **Mixing documentation sources**: Use ONLY this guide, not other workflows
+4. **Incomplete action configurations**: Copy the COMPLETE blocks from this guide
+5. **Missing dependencies**: Convert Cirrus CI `depends_on` to GitHub Actions `needs`
+
+## 📞 SUPPORT
+
+If ANY step is unclear, STOP and ask for clarification. Do NOT proceed with assumptions.
+
+---
+
+**Remember**: Following this documentation EXACTLY is critical for security, consistency, and functionality.
+Every parameter and version listed here is required.
 
 ### Pre-commit Rules
 
@@ -125,19 +225,6 @@ secrets: |
 
 **Key difference**: In GitHub Actions vault paths, use the field name directly (e.g., `token`, `url`) instead of
 the CirrusCI format (`data.token`, `data.url`).
-
-## Pre-Migration Checklist
-
-1. ✅ Identify the project type (Maven, Gradle, Poetry, etc.)
-2. ✅ **Check for cirrus-modules usage**: Look for `.cirrus.star` file - if present, see [Cirrus-Modules Migration section](#migrating-repositories-using-cirrus-modules)
-3. ✅ Check existing `.github/workflows/` for conflicts
-4. ✅ Understand the current CirrusCI configuration patterns
-5. ✅ **CRITICAL**: Verify repository visibility (public vs private) - check GitHub repo Settings → General → Repository visibility
-   - Public repos → Use `ubuntu-24.04-large` runners for SonarSource custom actions
-   - Private repos → Use `sonar-xs` runners (recommended)
-6. ✅ **SECURITY**: Review third-party actions and pin to commit SHAs
-
-⚠️ **CRITICAL**: During migration, leave `.cirrus.yml` unchanged. Both CirrusCI and GitHub Actions should coexist during the transition period.
 
 ## Tool Setup with Mise
 
