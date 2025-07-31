@@ -64,7 +64,6 @@ set_build_env() {
     exit 1
   fi
 
-  echo "Fetching commit history for SonarQube analysis..."
   git_fetch_unshallow
 }
 
@@ -108,24 +107,20 @@ set_project_version() {
   # Calculate version with build ID for all branch types
   release_version="${current_version%"-SNAPSHOT"}"
 
-  # In case of 2 digits, we need to add the 3rd digit (0 obviously)
-  # Mandatory in order to compare versions (patch VS non patch)
+  # Handle version digits: add missing .0 or .0.0, and fail for more than 3 digits
   digit_count=$(echo "${release_version//./ }" | wc -w)
-  if [ "${digit_count}" -lt 3 ]; then
-      release_version="${release_version}.0"
+  if [[ "$digit_count" -eq 1 ]]; then
+    release_version="${release_version}.0.0"
+  elif [[ "$digit_count" -eq 2 ]]; then
+    release_version="${release_version}.0"
+  elif [[ "$digit_count" -ne 3 ]]; then
+    echo "ERROR: Unsupported version '$current_version' with $digit_count digits. Expected 1-3 digits (e.g., '1', '1.2', or '1.2.3')." >&2
+    return 1
   fi
   PROJECT_VERSION="${release_version}-${BUILD_NUMBER}"
 
   export PROJECT_VERSION
   echo "project-version=${PROJECT_VERSION}" >> "${GITHUB_OUTPUT}"
-}
-
-check_version_format() {
-  local version="$1"
-  # Check if version follows semantic versioning pattern (X.Y.Z or X.Y.Z-something)
-  if [[ ! $version =~ ^[0-9]+\.[0-9]+\.[0-9]+(-.*)?$ ]]; then
-    echo "WARN: Version '${version}' does not match semantic versioning format (e.g., '1.2.3' or '1.2.3-beta.1')." >&2
-  fi
 }
 
 run_sonar_scanner() {
@@ -148,47 +143,35 @@ jfrog_yarn_publish() {
     exit 1
   fi
 
-  echo "DEBUG: Removing existing JFrog config..."
-  jf config remove repox > /dev/null 2>&1 # Do not log if the repox config were not present
+  echo "::debug::Removing existing JFrog config..."
+  jf config remove repox > /dev/null 2>&1 || true # Do not log if the repox config were not present
 
-  echo "DEBUG: Adding JFrog config..."
-  if ! jf config add repox --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_DEPLOY_ACCESS_TOKEN"; then
-    echo "ERROR: Failed to add JFrog config" >&2
-    exit 1
-  fi
+  echo "::debug::Adding JFrog config..."
+  jf config add repox --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_DEPLOY_ACCESS_TOKEN"
 
-  echo "DEBUG: Configuring Yarn repositories..."
-  if ! jf npm-config --repo-resolve "npm" --repo-deploy "$ARTIFACTORY_DEPLOY_REPO"; then
-    echo "ERROR: Failed to configure Yarn repositories" >&2
-    exit 1
-  fi
+  echo "::debug::Configuring Yarn repositories..."
+  jf npm-config --repo-resolve "npm" --repo-deploy "$ARTIFACTORY_DEPLOY_REPO"
 
-  echo "DEBUG: Publishing Yarn package..."
-  if ! jf npm publish --build-name="$PROJECT" --build-number="$BUILD_NUMBER"; then
-    echo "ERROR: Failed to publish Yarn package" >&2
-    exit 1
-  fi
+  echo "::debug::Publishing Yarn package..."
+  jf npm publish --build-name="$PROJECT" --build-number="$BUILD_NUMBER"
 
   jf rt build-collect-env "$PROJECT" "$BUILD_NUMBER"
 
-  echo "DEBUG: Publishing build info..."
+  echo "::debug::Publishing build info..."
   local build_publish_output
-  if ! build_publish_output=$(jf rt build-publish "$PROJECT" "$BUILD_NUMBER"); then
-    echo "ERROR: Failed to publish build info" >&2
-    exit 1
-  fi
+  build_publish_output=$(jf rt build-publish "$PROJECT" "$BUILD_NUMBER")
 
-  echo "DEBUG: Build publish output: ${build_publish_output}"
+  echo "::debug::Build publish output: ${build_publish_output}"
 
   # Extract build info URL
   local build_info_url
   build_info_url=$(echo "$build_publish_output" | jq -r '.buildInfoUiUrl // empty')
   if [ -n "$build_info_url" ]; then
     echo "build-info-url=$build_info_url" >> "$GITHUB_OUTPUT"
-    echo "DEBUG: Build info URL saved: $build_info_url"
+    echo "::debug::Build info URL saved: $build_info_url"
   fi
 
-  echo "DEBUG: JFrog operations completed successfully"
+  echo "::debug::JFrog operations completed successfully"
 }
 
 # Complete build pipeline with optional steps
@@ -239,7 +222,6 @@ build_yarn() {
   if is_default_branch && ! is_pull_request; then
     echo "======= Building main branch ======="
     echo "Current version: ${CURRENT_VERSION}"
-    check_version_format "${PROJECT_VERSION}"
     echo "Checked version format: ${PROJECT_VERSION}."
 
     enable_sonar=true
@@ -261,7 +243,6 @@ build_yarn() {
 
     if [ "${DEPLOY_PULL_REQUEST:-false}" == "true" ]; then
       echo "======= with deploy ======="
-      check_version_format "${PROJECT_VERSION}"
       enable_deploy=true
     else
       echo "======= no deploy ======="
@@ -270,7 +251,6 @@ build_yarn() {
 
   elif is_dogfood_branch && ! is_pull_request; then
     echo "======= Build dogfood branch ======="
-    check_version_format "${PROJECT_VERSION}"
     enable_sonar=false
     enable_deploy=true
 

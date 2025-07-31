@@ -450,7 +450,6 @@ jobs:
           artifactory-reader-role: private-reader                   # or public-reader if `public` is `true`
           artifactory-deployer-role: qa-deployer                    # or public-deployer if `public` is `true`
           artifactory-deploy-repo: ""                               # Artifactory repository name
-          artifactory-deploy-access-token: ""                       # Artifactory access token
           deploy-pull-request: false                                # Deploy pull request artifacts
           skip-tests: false                                         # Skip running tests
           cache-yarn: true                                          # Cache Yarn dependencies
@@ -477,7 +476,6 @@ defaults to `public-reader` or `private-reader` based on repository visibility (
 - `artifactory-deployer-role`: Suffix for the Artifactory deployer role in Vault -
 defaults to `public-deployer` or `qa-deployer` based on repository visibility (optional)
 - `artifactory-deploy-repo`: Name of deployment repository (required)
-- `artifactory-deploy-access-token`: Access token to deploy to Artifactory (required)
 - `deploy-pull-request`: Whether to deploy pull request artifacts (default: `false`)
 - `skip-tests`: Whether to skip running tests (default: `false`)
 - `cache-yarn`: Whether to cache Yarn dependencies (default: `true`)

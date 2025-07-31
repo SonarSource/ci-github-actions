@@ -54,7 +54,7 @@ export BUILD_NUMBER="42" GITHUB_RUN_ID="12345" GITHUB_SHA="abc123" GITHUB_OUTPUT
 export ARTIFACTORY_URL="https://repox.jfrog.io/artifactory" ARTIFACTORY_ACCESS_TOKEN="reader-token"
 export ARTIFACTORY_DEPLOY_REPO="test-repo" ARTIFACTORY_DEPLOY_ACCESS_TOKEN="deploy-token"
 export SONAR_HOST_URL="https://sonar.example.com" SONAR_TOKEN="sonar-token"
-export DEPLOY_PULL_REQUEST="false" SKIP_TESTS="false" DEFAULT_BRANCH="main" PULL_REQUEST="false"
+export DEPLOY_PULL_REQUEST="false" SKIP_TESTS="false" DEFAULT_BRANCH="main" PULL_REQUEST=""
 
 # Create mock files
 echo '{"version": "1.2.3-SNAPSHOT", "name": "test-project"}' > package.json
@@ -84,6 +84,25 @@ Describe 'build-yarn/build.sh'
       The output should include "PROJECT: test-project"
       The variable PROJECT should equal "test-project"
     End
+
+    It 'fails when package.json is missing'
+      mv package.json package.json.backup
+      When run set_build_env
+      The status should be failure
+      The stderr should include "ERROR: package.json file not found in current directory."
+      The stdout should include "PROJECT: test-project"
+      mv package.json.backup package.json
+    End
+
+    It 'fails when yarn.lock is missing'
+      mv yarn.lock yarn.lock.backup
+      When run set_build_env
+      The status should be failure
+      The stderr should include "ERROR: yarn.lock file not found. This is required for yarn --immutable installs."
+      The stdout should include "PROJECT: test-project"
+      mv yarn.lock.backup yarn.lock
+    End
+
   End
 
   Describe 'git_fetch_unshallow()'
@@ -132,29 +151,30 @@ Describe 'build-yarn/build.sh'
       The variable CURRENT_VERSION should equal "1.2.3-SNAPSHOT"
     End
 
+    It 'handles 1-digit versions'
+      export MOCK_VERSION="1-SNAPSHOT"
+      When call set_project_version
+      The variable PROJECT_VERSION should equal "1.0.0-42"
+    End
+
     It 'handles 2-digit versions'
       export MOCK_VERSION="1.2-SNAPSHOT"
       When call set_project_version
       The variable PROJECT_VERSION should equal "1.2.0-42"
     End
 
-    It 'fails on invalid version'
+    It 'fails on invalid version (null)'
       export MOCK_VERSION="null"
       When run set_project_version
       The status should be failure
       The stderr should include "Could not get version from package.json"
     End
-  End
 
-  Describe 'check_version_format()'
-    It 'warns on invalid format'
-      When call check_version_format "invalid"
-      The stderr should include "WARN: Version 'invalid' does not match semantic versioning format"
-    End
-
-    It 'accepts valid format'
-      When call check_version_format "1.2.3-beta.1"
-      The stderr should be blank
+    It 'fails on version with more than 3 digits'
+      export MOCK_VERSION="1.2.3.4-SNAPSHOT"
+      When run set_project_version
+      The status should be failure
+      The stderr should include "Unsupported version"
     End
   End
 
@@ -167,7 +187,7 @@ Describe 'build-yarn/build.sh'
       The output should include "Running tests..."
       The output should include "SonarQube scanner completed"
       The output should include "Building project..."
-      The output should include "DEBUG: JFrog operations completed successfully"
+      The output should include "::debug::JFrog operations completed successfully"
     End
 
     It 'skips tests when SKIP_TESTS=true'
@@ -182,7 +202,7 @@ Describe 'build-yarn/build.sh'
     It 'publishes successfully'
       export PROJECT="test"
       When call jfrog_yarn_publish
-      The output should include "DEBUG: JFrog operations completed successfully"
+      The output should include "::debug::JFrog operations completed successfully"
     End
 
     It 'fails without ARTIFACTORY_URL'
@@ -205,6 +225,47 @@ Describe 'build-yarn/build.sh'
       When call build_yarn
       The status should be success
       The output should include "=== Yarn Build, Deploy, and Analyze ==="
+    End
+  End
+
+  Describe 'build_yarn() specific scenarios'
+    It 'builds maintenance branch'
+      export GITHUB_REF_NAME="branch-1.2" GITHUB_EVENT_NAME="push" PROJECT="test"
+      When call build_yarn
+      The status should be success
+      The output should include "======= Building maintenance branch ======="
+    End
+
+    It 'builds pull request with deploy enabled'
+      export GITHUB_REF_NAME="feature/test" GITHUB_EVENT_NAME="pull_request" PROJECT="test"
+      export PULL_REQUEST="123" DEPLOY_PULL_REQUEST="true"
+      When call build_yarn
+      The status should be success
+      The output should include "======= Building pull request ======="
+      The output should include "======= with deploy ======="
+    End
+
+    It 'builds pull request without deploy'
+      export GITHUB_REF_NAME="feature/test" GITHUB_EVENT_NAME="pull_request" PROJECT="test"
+      export PULL_REQUEST="123" DEPLOY_PULL_REQUEST="false"
+      When call build_yarn
+      The status should be success
+      The output should include "======= Building pull request ======="
+      The output should include "======= no deploy ======="
+    End
+
+    It 'builds dogfood branch'
+      export GITHUB_REF_NAME="dogfood-on-feature" GITHUB_EVENT_NAME="push" PROJECT="test"
+      When call build_yarn
+      The status should be success
+      The output should include "======= Build dogfood branch ======="
+    End
+
+    It 'builds long-lived feature branch'
+      export GITHUB_REF_NAME="feature/long/test" GITHUB_EVENT_NAME="push" PROJECT="test"
+      When call build_yarn
+      The status should be success
+      The output should include "======= Build long-lived feature branch ======="
     End
   End
 

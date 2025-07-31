@@ -8,15 +8,15 @@ inputs:
   artifactory-reader-role:
     description: Suffix for the Artifactory reader role in Vault. Defaults to `private-reader` for private repositories, and `public-reader`
       for public repositories.
+    default: ''
   artifactory-deployer-role:
     description: Suffix for the Artifactory deployer role in Vault. Defaults to `qa-deployer` for private repositories, and
       `public-deployer` for public repositories.
+    default: ''
   artifactory-deploy-repo:
     description: Name of deployment repository
     required: true
-  artifactory-deploy-access-token:
-    description: Access token to deploy to Artifactory
-    required: true
+    default: ''
   deploy-pull-request:
     description: Whether to deploy pull request artifacts
     default: 'false'
@@ -31,7 +31,7 @@ inputs:
     required: true
     default: https://repox.jfrog.io
   sonar-platform:
-    description: SonarQube variant (next, sqc-eu, or sqc-us)
+    description: SonarQube primary platform (next, sqc-eu, or sqc-us)
     required: false
     default: next
 
@@ -92,12 +92,13 @@ runs:
       shell: bash
       env:
         # GitHub context
-        PULL_REQUEST: ${{ github.event_name == 'pull_request' && github.event.number || 'false' }}
+        PULL_REQUEST: ${{ github.event.pull_request.number || '' }}
         DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
 
         # Action inputs
         ARTIFACTORY_URL: ${{ inputs.repox-url }}/artifactory
-        ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo }}
+        ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo != '' && inputs.artifactory-deploy-repo ||
+          (inputs.public == 'true' && 'sonarsource-public-qa' || 'sonarsource-private-qa') }}
         ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
         ARTIFACTORY_DEPLOY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN }}
         DEPLOY_PULL_REQUEST: ${{ inputs.deploy-pull-request }}
