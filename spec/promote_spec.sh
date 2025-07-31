@@ -74,7 +74,7 @@ Describe 'promote/promote.sh'
   End
 
   It 'runs promote() on pull_request'
-    export ARTIFACTORY_TARGET="artifactory-target"
+    export ARTIFACTORY_TARGET_REPO="artifactory-target"
     export GITHUB_EVENT_NAME="pull_request"
     When run script promote/promote.sh
     The status should be success
@@ -88,8 +88,8 @@ Describe 'promote/promote.sh'
     The line 7 should equal "PROJECT: $PROJECT"
     The line 8 should equal "jf config remove repox"
     The line 9 should equal "jf config add repox --artifactory-url https://dummy.repox --access-token dummy promote token"
-    The line 10 should equal "Promote $PROJECT/$BUILD_NUMBER build artifacts to $ARTIFACTORY_TARGET"
-    The line 11 should equal "jf rt bpr --status it-passed-pr $PROJECT $BUILD_NUMBER $ARTIFACTORY_TARGET"
+    The line 10 should equal "Promote $PROJECT/$BUILD_NUMBER build artifacts to $ARTIFACTORY_TARGET_REPO"
+    The line 11 should equal "jf rt bpr --status it-passed-pr $PROJECT $BUILD_NUMBER $ARTIFACTORY_TARGET_REPO"
     The line 12 should include "gh api -X POST"
   End
 End
@@ -261,7 +261,7 @@ Describe 'jfrog_promote()'
   End
 
   It 'promotes the build artifacts to the specified target'
-    export ARTIFACTORY_TARGET="artifactory-target"
+    export ARTIFACTORY_TARGET_REPO="artifactory-target"
     When call jfrog_promote
     The line 1 should equal "Promote $PROJECT/$BUILD_NUMBER build artifacts to artifactory-target"
     The line 2 should equal "jf rt bpr --status it-passed $PROJECT $BUILD_NUMBER artifactory-target"

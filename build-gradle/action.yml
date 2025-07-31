@@ -25,8 +25,7 @@ inputs:
     required: false
   deploy-pull-request:
     description: Whether to deploy pull request artifacts
-    required: false
-    default: 'true'
+    default: 'false'
   skip-tests:
     description: Whether to skip running tests
     required: false
