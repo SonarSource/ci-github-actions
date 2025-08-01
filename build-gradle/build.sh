@@ -1,5 +1,8 @@
 #!/bin/bash
-# Build and deploy a Gradle project.
+#
+# Build script for SonarSource Gradle projects.
+# Supports building, testing, SonarQube analysis, and Artifactory deployment.
+#
 # Environment variables:
 # - ARTIFACTORY_URL: URL to Artifactory repository
 # - ARTIFACTORY_DEPLOY_REPO: name of deployment repository
@@ -51,8 +54,6 @@ set_build_env() {
   : "${GRADLE_ARGS:=}"
   export PROJECT=${GITHUB_REPOSITORY#*/}
   echo "PROJECT: $PROJECT"
-
-  # PULL_REQUEST and PULL_REQUEST_SHA are now provided by the action
 
   echo "Fetching commit history for SonarQube analysis..."
   git fetch --unshallow || true

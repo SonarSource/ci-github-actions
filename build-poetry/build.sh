@@ -1,5 +1,7 @@
 #!/bin/bash
-# Build and deploy a Poetry project.
+#
+# Regular way to build and deploy a SonarSource Poetry project.
+#
 # Environment variables:
 # - ARTIFACTORY_URL: Repox URL.
 # - ARTIFACTORY_PYPI_REPO: Repository to install dependencies from (sonarsource-pypi)
@@ -41,10 +43,6 @@ set_build_env() {
   DEFAULT_BRANCH=${DEFAULT_BRANCH:=$(gh repo view --json defaultBranchRef --jq ".defaultBranchRef.name")}
   export PROJECT=${GITHUB_REPOSITORY#*/}
   echo "PROJECT: $PROJECT"
-
-  # PULL_REQUEST and PULL_REQUEST_SHA are now provided by the action
-  : "${PULL_REQUEST:=}"
-  : "${PULL_REQUEST_SHA:=}"
   echo "PULL_REQUEST: $PULL_REQUEST"
   export DEFAULT_BRANCH PULL_REQUEST PULL_REQUEST_SHA
 }
