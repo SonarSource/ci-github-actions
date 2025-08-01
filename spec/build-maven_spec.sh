@@ -34,6 +34,7 @@ export PULL_REQUEST=""
 export SONAR_HOST_URL="https://sonarqube"
 export SONAR_TOKEN="sonar-token"
 export GITHUB_RUN_ID="123456789"
+export GITHUB_OUTPUT=/dev/null
 MAVEN_SETTINGS="$(mktemp)"
 touch "$MAVEN_SETTINGS"
 export MAVEN_SETTINGS

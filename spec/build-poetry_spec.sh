@@ -30,8 +30,7 @@ export PULL_REQUEST=""
 export PULL_REQUEST_SHA=""
 GITHUB_EVENT_PATH=$(mktemp)
 export GITHUB_EVENT_PATH
-#GITHUB_OUTPUT=$(mktemp)
-#export GITHUB_OUTPUT
+export GITHUB_OUTPUT=/dev/null
 
 Describe 'build-poetry/build.sh'
   It 'does not run build_poetry() if the script is sourced'
