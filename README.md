@@ -501,7 +501,7 @@ jobs:
 - `artifactory-reader-role`: Suffix for the Artifactory reader role in Vault -
   defaults to `public-reader` or `private-reader` based on repository visibility (optional)
 - `artifactory-deployer-role`: Suffix for the Artifactory deployer role in Vault -
-defaults to `public-deployer` or `qa-deployer` based on repository visibility (optional)
+  defaults to `public-deployer` or `qa-deployer` based on repository visibility (optional)
 - `artifactory-deploy-repo`: Name of deployment repository (optional)
 - `deploy-pull-request`: Whether to deploy pull request artifacts (default: `false`)
 - `skip-tests`: Whether to skip running tests (default: `false`)

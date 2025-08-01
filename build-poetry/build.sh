@@ -1,22 +1,31 @@
 #!/bin/bash
+# Build script for SonarSource Poetry projects.
+# Supports building, testing, and JFrog Artifactory deployment.
 #
-# Regular way to build and deploy a SonarSource Poetry project.
-#
-# Environment variables:
-# - ARTIFACTORY_URL: Repox URL.
-# - ARTIFACTORY_PYPI_REPO: Repository to install dependencies from (sonarsource-pypi)
+# Required inputs (must be explicitly provided):
+# - BUILD_NUMBER: Build number for versioning
+# - ARTIFACTORY_URL: URL to Artifactory repository
+# - ARTIFACTORY_PYPI_REPO: Repository to install dependencies from
 # - ARTIFACTORY_ACCESS_TOKEN: Access token to access the repository
-# - ARTIFACTORY_DEPLOY_REPO: Deployment repository (sonarsource-pypi-public-qa or sonarsource-pypi-private-qa)
+# - ARTIFACTORY_DEPLOY_REPO: Deployment repository name
 # - ARTIFACTORY_DEPLOY_ACCESS_TOKEN: Access token to deploy to the repository
-# - DEFAULT_BRANCH: Default branch (e.g. main)
-# - PULL_REQUEST: Pull request number (e.g. 1234), if applicable.
-# - PULL_REQUEST_SHA: Pull request base SHA, if applicable.
-# - GITHUB_REF_NAME: Short ref name of the branch or tag (e.g. main, branch-123, dogfood-on-123)
-# - BUILD_NUMBER: Build number (e.g. 42)
+# - DEFAULT_BRANCH: Default branch name (e.g. main)
+# - PULL_REQUEST: Pull request number (e.g. 1234) or empty string
+# - PULL_REQUEST_SHA: Pull request base SHA or empty string
+#
+# GitHub Actions auto-provided:
+# - GITHUB_REF_NAME: Git branch name
 # - GITHUB_REPOSITORY: Repository name (e.g. sonarsource/sonar-dummy-poetry)
 # - GITHUB_EVENT_NAME: Event name (e.g. push, pull_request)
-# - GITHUB_EVENT_PATH: Path to the event webhook payload file. For example, /github/workflow/event.json.
-# - DEPLOY_PULL_REQUEST: whether to deploy pull request artifacts (default: false)
+# - GITHUB_EVENT_PATH: Path to the event webhook payload file
+# - GITHUB_ENV: Path to GitHub Actions environment file
+# - GITHUB_OUTPUT: Path to GitHub Actions output file
+#
+# Optional user customization:
+# - DEPLOY_PULL_REQUEST: Whether to deploy pull request artifacts (default: false)
+#
+# Auto-derived by script:
+# - PROJECT: Project name derived from GITHUB_REPOSITORY
 # shellcheck source-path=SCRIPTDIR
 
 set -euo pipefail
@@ -25,7 +34,7 @@ set -euo pipefail
 : "${ARTIFACTORY_PYPI_REPO:?}" "${ARTIFACTORY_ACCESS_TOKEN:?}" "${ARTIFACTORY_DEPLOY_REPO:?}" "${ARTIFACTORY_DEPLOY_ACCESS_TOKEN:?}"
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}" "${GITHUB_EVENT_PATH:?}"
 : "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}"
-: "${GITHUB_ENV:?}" # "${GITHUB_OUTPUT:?}"
+: "${GITHUB_ENV:?}" "${GITHUB_OUTPUT:?}"
 : "${DEPLOY_PULL_REQUEST:=false}"
 export ARTIFACTORY_URL DEPLOY_PULL_REQUEST
 

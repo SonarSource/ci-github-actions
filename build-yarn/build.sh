@@ -2,34 +2,41 @@
 # Build script for SonarSource Yarn projects.
 # Supports building, testing, SonarQube analysis, and JFrog Artifactory deployment.
 #
-# Required environment variables:
+# Required inputs (must be explicitly provided):
+# - BUILD_NUMBER: Build number for versioning
+# - SONAR_HOST_URL: URL of SonarQube server
+# - SONAR_TOKEN: Access token to send analysis reports to SonarQube
+# - ARTIFACTORY_URL: URL to Artifactory repository
+# - ARTIFACTORY_ACCESS_TOKEN: Access token to access the repository
+# - ARTIFACTORY_DEPLOY_ACCESS_TOKEN: Access token to deploy to Artifactory
+# - ARTIFACTORY_DEPLOY_REPO: Name of deployment repository
+# - DEFAULT_BRANCH: Default branch name (e.g. main)
+# - PULL_REQUEST: Pull request number (e.g. 1234) or empty string
+# - PULL_REQUEST_SHA: Pull request base SHA or empty string
+#
+# GitHub Actions auto-provided:
 # - GITHUB_REF_NAME: Git branch name
 # - GITHUB_SHA: Git commit SHA
 # - GITHUB_REPOSITORY: Repository name in format "owner/repo"
 # - GITHUB_RUN_ID: GitHub Actions run ID
-# - BUILD_NUMBER: Build number for versioning
-# - SONAR_HOST_URL: URL of SonarQube server
-# - SONAR_TOKEN: Access token to send analysis reports to SonarQube
-# - ARTIFACTORY_URL: URL to Artifactory repository (required for deployment)
-# - ARTIFACTORY_DEPLOY_ACCESS_TOKEN: Access token to deploy to Artifactory (required for deployment)
-# - ARTIFACTORY_DEPLOY_REPO: Name of deployment repository (used by jfrog_yarn_publish)
+# - GITHUB_EVENT_NAME: Event name (e.g. push, pull_request)
+# - GITHUB_OUTPUT: Path to GitHub Actions output file
+# - GITHUB_BASE_REF: Base branch for pull requests (only during pull_request events)
 #
-# Optional environment variables:
+# Optional user customization:
 # - DEPLOY_PULL_REQUEST: Whether to deploy pull request artifacts (default: false)
 # - SKIP_TESTS: Whether to skip running tests (default: false)
-# - DEFAULT_BRANCH: Default branch (e.g. main)
-# - PULL_REQUEST: Pull request number (e.g. 1234), if applicable.
-# - PULL_REQUEST_SHA: Pull request base SHA, if applicable.
-# - GITHUB_BASE_REF: Base branch for pull requests (auto-set by GitHub Actions)
-# - GITHUB_OUTPUT: Path to GitHub Actions output file (auto-set by GitHub Actions)
-# - PROJECT: Project name derived from GITHUB_REPOSITORY (auto-set by script)
+#
+# Auto-derived by script:
+# - PROJECT: Project name derived from GITHUB_REPOSITORY
 # shellcheck source-path=SCRIPTDIR
 
 set -euo pipefail
 
 : "${ARTIFACTORY_URL:?}"
 : "${ARTIFACTORY_ACCESS_TOKEN:?}" "${ARTIFACTORY_DEPLOY_REPO:?}" "${ARTIFACTORY_DEPLOY_ACCESS_TOKEN:?}"
-: "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_RUN_ID:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}"
+: "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_RUN_ID:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}" "${GITHUB_SHA:?}"
+: "${GITHUB_OUTPUT:?}"
 : "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}"
 : "${SONAR_HOST_URL:?}" "${SONAR_TOKEN:?}"
 : "${DEPLOY_PULL_REQUEST:=false}" "${SKIP_TESTS:=false}"
@@ -179,48 +186,8 @@ jfrog_yarn_publish() {
   echo "::debug::JFrog operations completed successfully"
 }
 
-# Complete build pipeline with optional steps
-# Usage: run_standard_pipeline <enable_sonar> <enable_deploy> [sonar_args...]
-run_standard_pipeline() {
-  local enable_sonar="${1:-true}"
-  local enable_deploy="${2:-true}"
-  shift 2  # Remove first two parameters
-  local sonar_args=("$@")  # Remaining parameters are sonar args
-
-  echo "Installing yarn dependencies..."
-  yarn install --immutable
-
-  echo "Setting project version to ${PROJECT_VERSION}..."
-  npm version --no-git-tag-version --allow-same-version "${PROJECT_VERSION}"
-
-  if [ "$SKIP_TESTS" != "true" ]; then
-    echo "Running tests..."
-    yarn test
-  else
-    echo "Skipping tests (SKIP_TESTS=true)"
-  fi
-
-  if [ "${enable_sonar}" = "true" ]; then
-    run_sonar_scanner "${sonar_args[@]}"
-  fi
-
-  echo "Building project..."
-  yarn build
-
-  if [ "${enable_deploy}" = "true" ]; then
-    jfrog_yarn_publish
-  fi
-}
-
-build_yarn() {
-  echo "=== Yarn Build, Deploy, and Analyze ==="
-  echo "Branch: ${GITHUB_REF_NAME}"
-  echo "Pull Request: ${PULL_REQUEST}"
-  echo "Deploy Pull Request: ${DEPLOY_PULL_REQUEST}"
-  echo "Skip Tests: ${SKIP_TESTS}"
-
-  set_project_version
-
+# Determine build configuration based on branch type
+get_build_config() {
   local enable_sonar enable_deploy
   local sonar_args=()
 
@@ -271,7 +238,50 @@ build_yarn() {
     enable_deploy=false
   fi
 
-  run_standard_pipeline "$enable_sonar" "$enable_deploy" "${sonar_args[@]+"${sonar_args[@]}"}"
+  # Export the configuration for use by run_standard_pipeline
+  export BUILD_ENABLE_SONAR="$enable_sonar"
+  export BUILD_ENABLE_DEPLOY="$enable_deploy"
+  export BUILD_SONAR_ARGS="${sonar_args[*]:-}"
+}
+
+# Complete build pipeline with optional steps
+run_standard_pipeline() {
+  echo "Installing yarn dependencies..."
+  yarn install --immutable
+
+  echo "Setting project version to ${PROJECT_VERSION}..."
+  npm version --no-git-tag-version --allow-same-version "${PROJECT_VERSION}"
+
+  if [ "$SKIP_TESTS" != "true" ]; then
+    echo "Running tests..."
+    yarn test
+  else
+    echo "Skipping tests (SKIP_TESTS=true)"
+  fi
+
+  if [ "${BUILD_ENABLE_SONAR}" = "true" ]; then
+    read -ra sonar_args <<< "$BUILD_SONAR_ARGS"
+    run_sonar_scanner "${sonar_args[@]}"
+  fi
+
+  echo "Building project..."
+  yarn build
+
+  if [ "${BUILD_ENABLE_DEPLOY}" = "true" ]; then
+    jfrog_yarn_publish
+  fi
+}
+
+build_yarn() {
+  echo "=== Yarn Build, Deploy, and Analyze ==="
+  echo "Branch: ${GITHUB_REF_NAME}"
+  echo "Pull Request: ${PULL_REQUEST}"
+  echo "Deploy Pull Request: ${DEPLOY_PULL_REQUEST}"
+  echo "Skip Tests: ${SKIP_TESTS}"
+
+  set_project_version
+  get_build_config
+  run_standard_pipeline
 
   echo "=== Build completed successfully ==="
 }
