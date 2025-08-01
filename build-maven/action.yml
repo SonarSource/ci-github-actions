@@ -15,7 +15,7 @@ inputs:
       `public-deployer` for public repositories.
     default: ''
   deploy-pull-request:
-    description: Whether to deploy pull request artifacts. Set to `false` if not using the promote action.
+    description: Whether to deploy pull request artifacts.
     default: 'false'
   maven-local-repository-path:
     description: Path to the Maven cache directory, relative to the user home directory.

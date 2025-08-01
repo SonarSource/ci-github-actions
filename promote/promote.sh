@@ -11,7 +11,7 @@
 # - GITHUB_EVENT_PATH: Path to the event webhook payload file. For example, /github/workflow/event.json.
 # - MULTI_REPO_PROMOTE: If true, promotes to multiple repositories (default: false)
 # - ARTIFACTORY_DEPLOY_REPO: Repository to deploy to. If not set, it will be retrieved from the build info.
-# - ARTIFACTORY_TARGET: Target repository for the promotion. If not set, it will be determined based on the branch type.
+# - ARTIFACTORY_TARGET_REPO: Target repository for the promotion. If not set, it will be determined based on the branch type.
 # Required properties in the build info:
 # - buildInfo.env.ARTIFACTORY_DEPLOY_REPO: Repository to deploy to (e.g. sonarsource-deploy-qa)
 # - buildInfo.env.PROJECT_VERSION: Version of the project (e.g. 1.2.3)
@@ -27,7 +27,7 @@ GH_API_VERSION_HEADER="X-GitHub-Api-Version: 2022-11-28"
 BUILD_INFO_FILE=$(mktemp)
 rm -f "$BUILD_INFO_FILE"
 
-: "${MULTI_REPO_PROMOTE:=false}"
+: "${MULTI_REPO_PROMOTE:=false}" "${ARTIFACTORY_DEPLOY_REPO:=}" "${ARTIFACTORY_TARGET_REPO:=}"
 MULTI_REPO_SRC_PRIVATE=sonarsource-private-qa
 MULTI_REPO_SRC_PUBLIC=sonarsource-public-qa
 
@@ -114,8 +114,8 @@ get_build_info_property() {
 
 get_target_repo() {
   # Set targetRepo based on the branch type and ARTIFACTORY_DEPLOY_REPO, if not already set
-  if [[ -n ${ARTIFACTORY_TARGET:-} ]]; then
-    targetRepo="$ARTIFACTORY_TARGET"
+  if [[ -n $ARTIFACTORY_TARGET_REPO ]]; then
+    targetRepo="$ARTIFACTORY_TARGET_REPO"
     return
   fi
   : "${ARTIFACTORY_DEPLOY_REPO:=$(get_build_info_property ARTIFACTORY_DEPLOY_REPO)}"

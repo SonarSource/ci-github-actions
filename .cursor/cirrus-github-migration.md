@@ -316,6 +316,8 @@ jobs:
           version: 2025.7.12
       - uses: SonarSource/ci-github-actions/get-build-number@v1
       - uses: SonarSource/ci-github-actions/promote@v1
+        with:
+           promote-pull-request: true
 ```
 
 ## SonarSource Custom Actions
@@ -1193,6 +1195,8 @@ jobs:
           version: 2025.7.12
       - uses: SonarSource/ci-github-actions/get-build-number@v1
       - uses: SonarSource/ci-github-actions/promote@v1
+        with:
+           promote-pull-request: true
 ```
 
 ### Plus: `mise.toml` (3 lines)

@@ -22,7 +22,7 @@ inputs:
     description: Gradle version to use for setup-gradle action
   deploy-pull-request:
     description: Whether to deploy pull request artifacts
-    default: 'true'
+    default: 'false'
   skip-tests:
     description: Whether to skip running tests
     default: 'false'

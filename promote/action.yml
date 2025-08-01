@@ -2,18 +2,26 @@
 name: Promote
 description: GitHub Action to promote a project
 inputs:
-  public:
-    description: Whether to build and deploy with/to public repositories. Set to `true` for public repositories (OSS), `false` for private.
-    default: ${{ github.event.repository.visibility == 'public' && 'true' || 'false' }}
+  promote-pull-request:
+    description: Whether to promote pull request artifacts. Requires `deploy-pull-request` input to be set to `true` in the build action.
+    default: 'false'
+  multi-repo:
+    description: If true, promotes to public and private repositories. For projects with both public and private artifacts.
+  artifactory-deploy-repo:
+    description: Repository to deploy to. If not set, it will be retrieved from the build info.
+  artifactory-target-repo:
+    description: Target repository for the promotion. If not set, it will be determined based on the branch type and the deploy repository.
 
 runs:
   using: composite
   steps:
     - name: Set build parameters
+      if: ${{ inputs.promote-pull-request == 'true' }}
       shell: bash
       run: |
         cp ${GITHUB_ACTION_PATH}/mise.local.toml mise.local.toml
     - name: Vault
+      if: ${{ inputs.promote-pull-request == 'true' }}
       id: secrets
       uses: SonarSource/vault-action-wrapper@d6d745ffdbc82b040df839b903bc33b5592cd6b0 # 3.0.2
       with:
@@ -21,13 +29,20 @@ runs:
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-promoter access_token | ARTIFACTORY_PROMOTE_ACCESS_TOKEN;
           development/github/token/{REPO_OWNER_NAME_DASH}-promotion token | GITHUB_TOKEN;
     - uses: jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2.4.0
+      if: ${{ inputs.promote-pull-request == 'true' }}
       with:
         version: 2025.7.12
     - name: Promote artifacts
+      if: ${{ inputs.promote-pull-request == 'true' }}
       shell: bash
       env:
-        ARTIFACTORY_PROMOTE_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_PROMOTE_ACCESS_TOKEN }}
-        GITHUB_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).GITHUB_TOKEN }}
+        ARTIFACTORY_PROMOTE_ACCESS_TOKEN: ${{ inputs.promote-pull-request == 'true' &&
+          fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_PROMOTE_ACCESS_TOKEN || '' }}
+        GITHUB_TOKEN: ${{ inputs.promote-pull-request == 'true' &&
+          fromJSON(steps.secrets.outputs.vault).GITHUB_TOKEN || '' }}
         DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        MULTI_REPO_PROMOTE: ${{ inputs.multi-repo }}
+        ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo }}
+        ARTIFACTORY_TARGET_REPO: ${{ inputs.artifactory-target-repo }}
       run: |
         ${GITHUB_ACTION_PATH}/promote.sh

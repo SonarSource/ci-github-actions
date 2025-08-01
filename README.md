@@ -247,7 +247,8 @@ jobs:
 
 ⚠️ Required Vault permissions:
 
-- `development/kv/data/next`, `development/kv/data/sonarcloud`, or `development/kv/data/sonarqube-us`: SonarQube credentials (based on sonar-platform)
+- `development/kv/data/next`, `development/kv/data/sonarcloud`, or `development/kv/data/sonarqube-us`: SonarQube credentials (based on
+  sonar-platform)
 - `development/kv/data/sign`: Artifact signing credentials
 - `development/kv/data/develocity`: Develocity access token
 - `public-reader` or `private-reader` Artifactory roles for the build
@@ -256,13 +257,13 @@ jobs:
 ### Inputs
 
 - `public`: Whether to build and deploy with/to public repositories - automatically detected
-from repository visibility (optional)
+  from repository visibility (optional)
 - `artifactory-deploy-repo`: Name of deployment repository - defaults to `sonarsource-public-qa`
-or `sonarsource-private-qa` based on repository visibility (optional)
+  or `sonarsource-private-qa` based on repository visibility (optional)
 - `artifactory-reader-role`: Suffix for the Artifactory reader role in Vault - defaults to `public-reader`
-or `private-reader` based on repository visibility (optional)
+  or `private-reader` based on repository visibility (optional)
 - `artifactory-deployer-role`: Suffix for the Artifactory deployer role in Vault -
-defaults to `public-deployer` or `qa-deployer` based on repository visibility (optional)
+  defaults to `public-deployer` or `qa-deployer` based on repository visibility (optional)
 - `deploy-pull-request`: Whether to deploy pull request artifacts (default: `false`)
 - `skip-tests`: Whether to skip running tests (default: `false`)
 - `gradle-args`: Additional arguments to pass to Gradle (optional)
@@ -361,11 +362,29 @@ jobs:
 - Comprehensive build logging and error handling
 - Support for different branch types (default, maintenance, PR, dogfood, long-lived feature)
 
+---
+
 ## `promote`
 
 This action promotes a build in JFrog Artifactory and updates the GitHub status check accordingly.
 
 The GitHub status check is named `repox-${GITHUB_REF_NAME}`.
+
+### Requirements
+
+#### Required Vault Permissions
+
+- `promoter`: Artifactory role for the promotion.
+- `promotion`: custom GitHub token for promotion.
+
+#### Other Dependencies
+
+Required properties in the build info:
+
+- `buildInfo.env.ARTIFACTORY_DEPLOY_REPO`: Repository to deploy to (e.g. `sonarsource-deploy-qa`). It can also be set as an input.
+- `buildInfo.env.PROJECT_VERSION`: Version of the project (e.g. 1.2.3).
+
+No pre-installed tool is required.
 
 ### Usage
 
@@ -374,7 +393,7 @@ The GitHub status check is named `repox-${GITHUB_REF_NAME}`.
     needs:
       - build
     concurrency:
-      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+      group: ${{ github.workflow }}-promote-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
     runs-on: ubuntu-24.04-large
     name: Promote
@@ -386,15 +405,22 @@ The GitHub status check is named `repox-${GITHUB_REF_NAME}`.
       - uses: SonarSource/ci-github-actions/promote@v1
 ```
 
-⚠️ Required GitHub permissions:
+### Inputs
 
-- `id-token: write`
-- `contents: write`
+- `promote-pull-request`: Whether to promote pull request artifacts. Default is `false`. Requires `deploy-pull-request` input to be set to
+  `true` in the build action.
+- `multi-repo`: If true, promotes to public and private repositories. For projects with both public and private artifacts.
+- `artifactory-deploy-repo`: Repository to deploy to. If not set, it will be retrieved from the build info.
+- `artifactory-target-repo`: Target repository for the promotion. If not set, it will be determined based on the branch type and the
+  deployment repository.
 
-⚠️ Required Vault permissions:
+### Outputs
 
-- `promoter` Artifactory role for the promotion.
-- `promotion` GitHub token.
+No outputs are provided by this action.
+
+### Features
+
+---
 
 ## `pr-cleanup`
 
@@ -480,7 +506,8 @@ jobs:
 
 ⚠️ Required Vault permissions:
 
-- `development/kv/data/next`, `development/kv/data/sonarcloud`, or `development/kv/data/sonarqube-us`: SonarQube credentials (based on sonar-platform)
+- `development/kv/data/next`, `development/kv/data/sonarcloud`, or `development/kv/data/sonarqube-us`: SonarQube credentials (based on
+  sonar-platform)
 - `public-reader` or `private-reader` Artifactory roles for the build
 - `public-deployer` or `qa-deployer` Artifactory roles for the deployment
 
@@ -488,7 +515,7 @@ jobs:
 
 - `public`: Whether to build and deploy with/to public repositories - automatically detected from repository visibility (optional)
 - `artifactory-reader-role`: Suffix for the Artifactory reader role in Vault -
-defaults to `public-reader` or `private-reader` based on repository visibility (optional)
+  defaults to `public-reader` or `private-reader` based on repository visibility (optional)
 - `artifactory-deployer-role`: Suffix for the Artifactory deployer role in Vault -
 defaults to `public-deployer` or `qa-deployer` based on repository visibility (optional)
 - `artifactory-deploy-repo`: Name of deployment repository (optional)
@@ -580,5 +607,6 @@ The @ syntax above will automatically link the shared documentation from this re
 If you are not using Cursor, you can also directly provide the link to the documentation as below
 
 ```md
-Refer @https://github.com/SonarSource/ci-github-actions/blob/master/.cursor/cirrus-github-migration.md and migrate @.cirrus.yml to Github Actions.
+Refer @https://github.com/SonarSource/ci-github-actions/blob/master/.cursor/cirrus-github-migration.md and migrate @.cirrus.yml to Github
+Actions.
 ```
