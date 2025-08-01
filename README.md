@@ -339,12 +339,12 @@ jobs:
 
 - Automated version management with build numbers and SNAPSHOT handling
 - SonarQube analysis for code quality (credentials from Vault)
-- Conditional deployment based on branch patterns (main, maintenance, dogfood branches)
+- Conditional deployment based on branch patterns (default, maintenance, dogfood branches)
 - NPM dependency caching for faster builds (configurable)
 - Pull request support with optional deployment
 - JFrog build info publishing with UI links
 - Comprehensive build logging and error handling
-- Support for different branch types (main, maintenance, PR, dogfood, long-lived feature)
+- Support for different branch types (default, maintenance, PR, dogfood, long-lived feature)
 
 ---
 
@@ -501,8 +501,8 @@ jobs:
 - `artifactory-reader-role`: Suffix for the Artifactory reader role in Vault -
   defaults to `public-reader` or `private-reader` based on repository visibility (optional)
 - `artifactory-deployer-role`: Suffix for the Artifactory deployer role in Vault -
-  defaults to `public-deployer` or `qa-deployer` based on repository visibility (optional)
-- `artifactory-deploy-repo`: Name of deployment repository (required)
+defaults to `public-deployer` or `qa-deployer` based on repository visibility (optional)
+- `artifactory-deploy-repo`: Name of deployment repository (optional)
 - `deploy-pull-request`: Whether to deploy pull request artifacts (default: `false`)
 - `skip-tests`: Whether to skip running tests (default: `false`)
 - `cache-yarn`: Whether to cache Yarn dependencies (default: `true`)
@@ -518,12 +518,12 @@ jobs:
 
 - Automated version management with build numbers and SNAPSHOT handling
 - SonarQube analysis for code quality (credentials from Vault)
-- Conditional deployment based on branch patterns (main, maintenance, dogfood branches)
+- Conditional deployment based on branch patterns (default, maintenance, dogfood branches)
 - Yarn dependency caching for faster builds (configurable)
 - Pull request support with optional deployment
 - JFrog build info publishing with UI links
 - Comprehensive build logging and error handling
-- Support for different branch types (main, maintenance, PR, dogfood, long-lived feature)
+- Support for different branch types (default, maintenance, PR, dogfood, long-lived feature)
 
 ## `cache`
 

@@ -15,11 +15,9 @@ inputs:
     default: ''
   artifactory-deploy-repo:
     description: Name of deployment repository
-    required: true
     default: ''
   artifactory-deploy-access-token:
     description: Access token to deploy to Artifactory
-    required: true
     default: ''
   deploy-pull-request:
     description: Whether to deploy pull request artifacts
@@ -32,7 +30,6 @@ inputs:
     default: 'true'
   repox-url:
     description: URL for Repox
-    required: true
     default: https://repox.jfrog.io
 
 outputs:
@@ -91,7 +88,8 @@ runs:
       shell: bash
       env:
         # GitHub context
-        PULL_REQUEST: ${{ github.event_name == 'pull_request' && github.event.number || 'false' }}
+        PULL_REQUEST: ${{ github.event.pull_request.number || '' }}
+        PULL_REQUEST_SHA: ${{ github.event.pull_request.base.sha || '' }}
         DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
 
         # Action inputs

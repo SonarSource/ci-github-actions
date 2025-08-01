@@ -7,7 +7,6 @@ inputs:
     default: ${{ github.event.repository.visibility == 'public' && 'true' || 'false' }}
   artifactory-deploy-repo:
     description: Name of deployment repository
-    required: false
     default: ''
   artifactory-reader-role:
     description: Suffix for the Artifactory reader role in Vault. Defaults to `private-reader` for private repositories,
@@ -19,32 +18,25 @@ inputs:
     default: ''
   gradle-args:
     description: Additional arguments to pass to Gradle
-    required: false
   gradle-version:
     description: Gradle version to use for setup-gradle action
-    required: false
   deploy-pull-request:
     description: Whether to deploy pull request artifacts
     default: 'false'
   skip-tests:
     description: Whether to skip running tests
-    required: false
     default: 'false'
   gradle-wrapper-validation:
     description: Whether to validate Gradle wrapper
-    required: false
     default: 'true'
   develocity-url:
     description: URL for Develocity
-    required: false
     default: https://develocity.sonar.build/
   repox-url:
     description: URL for Repox
-    required: false
     default: https://repox.jfrog.io
   sonar-platform:
     description: SonarQube variant (next, sqc-eu, or sqc-us)
-    required: false
     default: next
 
 outputs:
@@ -96,8 +88,9 @@ runs:
       shell: bash
       env:
         # GitHub context
-        PULL_REQUEST: ${{ github.event_name == 'pull_request' && github.event.number || 'false' }}
-        PULL_REQUEST_SHA: ${{ github.event.pull_request.base.sha }}
+        PULL_REQUEST: ${{ github.event.pull_request.number || '' }}
+        PULL_REQUEST_SHA: ${{ github.event.pull_request.base.sha || '' }}
+        DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
 
         # Action inputs
         ARTIFACTORY_URL: ${{ inputs.repox-url }}/artifactory

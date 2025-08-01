@@ -24,7 +24,7 @@
 
 set -euo pipefail
 
-: "${ARTIFACTORY_URL:="https://repox.jfrog.io/artifactory"}"
+: "${ARTIFACTORY_URL:?}"
 # Required by maven-enforcer-plugin in SonarSource parent POM
 : "${ARTIFACTORY_DEPLOY_REPO:?}" "${ARTIFACTORY_DEPLOY_USERNAME:?}" "${ARTIFACTORY_DEPLOY_PASSWORD:?}" "${ARTIFACTORY_ACCESS_TOKEN:?}"
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_RUN_ID:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}"
@@ -51,7 +51,7 @@ check_tool() {
   "$@"
 }
 
-is_main_branch() {
+is_default_branch() {
   [[ "$GITHUB_REF_NAME" == "$DEFAULT_BRANCH" ]]
 }
 
@@ -67,7 +67,7 @@ is_dogfood_branch() {
   [[ "${GITHUB_REF_NAME}" == dogfood-on-* ]]
 }
 
-is_feature_branch() {
+is_long_lived_feature_branch() {
   [[ "${GITHUB_REF_NAME}" == feature/long/* ]]
 }
 
@@ -147,7 +147,7 @@ build_maven() {
   local sonar_props=("-Dsonar.host.url=${SONAR_HOST_URL}" "-Dsonar.token=${SONAR_TOKEN}")
   sonar_props+=("-Dsonar.projectVersion=$PROJECT_VERSION" "-Dsonar.scm.revision=$GITHUB_SHA")
 
-  if is_main_branch || is_maintenance_branch; then
+  if is_default_branch || is_maintenance_branch; then
     echo "======= Build, deploy and analyze $GITHUB_REF_NAME ======="
     maven_command_args=("deploy" "$SONAR_GOAL" "-Pcoverage,deploy-sonarsource,release,sign" "${sonar_props[@]}")
 
@@ -169,7 +169,7 @@ build_maven() {
     echo "======= Build, and deploy dogfood branch $GITHUB_REF_NAME ======="
     maven_command_args=("deploy" "-Pdeploy-sonarsource,release")
 
-  elif is_feature_branch; then
+  elif is_long_lived_feature_branch; then
     echo "======= Build and analyze long lived feature branch $GITHUB_REF_NAME ======="
     maven_command_args=("verify" "$SONAR_GOAL" "-Pcoverage" "${sonar_props[@]}")
 

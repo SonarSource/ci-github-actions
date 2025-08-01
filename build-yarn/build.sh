@@ -17,18 +17,23 @@
 # Optional environment variables:
 # - DEPLOY_PULL_REQUEST: Whether to deploy pull request artifacts (default: false)
 # - SKIP_TESTS: Whether to skip running tests (default: false)
-# - DEFAULT_BRANCH: Main branch pattern (default: "main$|^master")
+# - DEFAULT_BRANCH: Default branch (e.g. main)
+# - PULL_REQUEST: Pull request number (e.g. 1234), if applicable.
+# - PULL_REQUEST_SHA: Pull request base SHA, if applicable.
 # - GITHUB_BASE_REF: Base branch for pull requests (auto-set by GitHub Actions)
 # - GITHUB_OUTPUT: Path to GitHub Actions output file (auto-set by GitHub Actions)
-# - PULL_REQUEST: Pull request number or "false" (auto-set by action)
 # - PROJECT: Project name derived from GITHUB_REPOSITORY (auto-set by script)
+# shellcheck source-path=SCRIPTDIR
 
 set -euo pipefail
 
-: "${ARTIFACTORY_URL:="https://repox.jfrog.io/artifactory"}"
-: "${GITHUB_REF_NAME:?}" "${GITHUB_SHA:?}" "${GITHUB_REPOSITORY:?}"
+: "${ARTIFACTORY_URL:?}"
 : "${ARTIFACTORY_ACCESS_TOKEN:?}" "${ARTIFACTORY_DEPLOY_REPO:?}" "${ARTIFACTORY_DEPLOY_ACCESS_TOKEN:?}"
+: "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_RUN_ID:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}"
+: "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}"
 : "${SONAR_HOST_URL:?}" "${SONAR_TOKEN:?}"
+: "${DEPLOY_PULL_REQUEST:=false}" "${SKIP_TESTS:=false}"
+export ARTIFACTORY_URL DEPLOY_PULL_REQUEST SKIP_TESTS
 
 check_tool() {
   if ! command -v "$1"; then

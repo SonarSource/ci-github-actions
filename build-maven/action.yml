@@ -29,6 +29,12 @@ inputs:
   use-develocity:
     description: Whether to use Develocity for build tracking.
     default: 'false'
+  repox-url:
+    description: URL for Repox
+    default: https://repox.jfrog.io
+  develocity-url:
+    description: URL for Develocity
+    default: https://develocity.sonar.build/
 
 runs:
   using: composite
@@ -96,6 +102,8 @@ runs:
         PGP_PASSPHRASE: ${{ fromJSON(steps.secrets.outputs.vault).PGP_PASSPHRASE }}
         DEPLOY_PULL_REQUEST: ${{ inputs.deploy-pull-request }}
         PULL_REQUEST: ${{ github.event.pull_request.number || '' }}
+        PULL_REQUEST_SHA: ${{ github.event.pull_request.base.sha || '' }}
+        ARTIFACTORY_URL: ${{ inputs.repox-url }}/artifactory
         DEVELOCITY_ACCESS_KEY: ${{ inputs.use-develocity == 'true' &&
           format('develocity.sonar.build={0}', fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN) || '' }}
         USER_MAVEN_OPTS: ${{ inputs.maven-opts }}

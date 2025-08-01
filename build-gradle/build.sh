@@ -1,28 +1,43 @@
 #!/bin/bash
+#
 # Build script for SonarSource Gradle projects.
 # Supports building, testing, SonarQube analysis, and Artifactory deployment.
 #
 # Environment variables:
-# - SONAR_HOST_URL: URL of SonarQube server
-# - SONAR_TOKEN: access token to send analysis reports to SonarQube
 # - ARTIFACTORY_URL: URL to Artifactory repository
 # - ARTIFACTORY_DEPLOY_REPO: name of deployment repository
 # - ARTIFACTORY_DEPLOY_USERNAME: login to deploy to Artifactory
 # - ARTIFACTORY_DEPLOY_PASSWORD: password to deploy to Artifactory
+# - DEFAULT_BRANCH: Default branch (e.g. main)
+# - PULL_REQUEST: Pull request number (e.g. 1234), if applicable.
+# - PULL_REQUEST_SHA: Pull request base SHA, if applicable.
+# - GITHUB_REF_NAME: Short ref name of the branch or tag (e.g. main, branch-123, dogfood-on-123)
+# - BUILD_NUMBER: Build number (e.g. 42)
+# - GITHUB_RUN_ID: GitHub workflow run ID. Unique per workflow run, but unchanged on re-runs.
+# - GITHUB_EVENT_NAME: Event name (e.g. push, pull_request)
+# - GITHUB_SHA: Git commit SHA
+# - GITHUB_REPOSITORY: Repository name (e.g. sonarsource/sonar-dummy-gradle)
+# - SONAR_HOST_URL: URL of SonarQube server
+# - SONAR_TOKEN: access token to send analysis reports to SonarQube
 # - ORG_GRADLE_PROJECT_signingKey: OpenPGP key for signing artifacts (private key content)
 # - ORG_GRADLE_PROJECT_signingPassword: passphrase of the signing key
 # - ORG_GRADLE_PROJECT_signingKeyId: OpenPGP subkey id
 # - DEPLOY_PULL_REQUEST: whether to deploy pull request artifacts (default: false)
 # - SKIP_TESTS: whether to skip running tests (default: false)
 # - GRADLE_ARGS: additional arguments to pass to Gradle
-# - GITHUB_RUN_ID: GitHub workflow run ID. Unique per workflow run, but unchanged on re-runs.
+# shellcheck source-path=SCRIPTDIR
 
 set -euo pipefail
 
-: "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_RUN_ID:?}" "${GITHUB_SHA:?}" "${GITHUB_REPOSITORY:?}"
+: "${ARTIFACTORY_URL:?}"
 : "${ARTIFACTORY_DEPLOY_REPO:?}" "${ARTIFACTORY_DEPLOY_USERNAME:?}" "${ARTIFACTORY_DEPLOY_PASSWORD:?}"
-: "${SONAR_HOST_URL:?}" "${SONAR_TOKEN:?}" "${ORG_GRADLE_PROJECT_signingKey:?}" "${ORG_GRADLE_PROJECT_signingPassword:?}" "${ORG_GRADLE_PROJECT_signingKeyId:?}"
-: "${DEPLOY_PULL_REQUEST:?}" "${SKIP_TESTS:?}"
+: "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_RUN_ID:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}"
+: "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}"
+: "${SONAR_HOST_URL:?}" "${SONAR_TOKEN:?}"
+: "${ORG_GRADLE_PROJECT_signingKey:?}" "${ORG_GRADLE_PROJECT_signingPassword:?}" "${ORG_GRADLE_PROJECT_signingKeyId:?}"
+: "${DEPLOY_PULL_REQUEST:=false}" "${SKIP_TESTS:=false}"
+export ARTIFACTORY_URL DEPLOY_PULL_REQUEST SKIP_TESTS
+: "${GRADLE_ARGS:=}"
 
 command_exists() {
   if ! command -v "$1"; then
@@ -39,13 +54,6 @@ set_build_env() {
   : "${GRADLE_ARGS:=}"
   export PROJECT=${GITHUB_REPOSITORY#*/}
   echo "PROJECT: $PROJECT"
-
-  if is_pull_request; then
-    PULL_REQUEST=$(jq --raw-output .number "$GITHUB_EVENT_PATH")
-    PULL_REQUEST_SHA=$(jq --raw-output .pull_request.base.sha "$GITHUB_EVENT_PATH")
-  else
-    PULL_REQUEST=false
-  fi
 
   echo "Fetching commit history for SonarQube analysis..."
   git fetch --unshallow || true
@@ -93,12 +101,12 @@ build_gradle_args() {
     args+=("-Dsonar.analysis.repository=$GITHUB_REPOSITORY")
 
     # Add branch-specific sonar arguments
-    if [[ "$GITHUB_REF_NAME" == "master" ]] && ! is_pull_request; then
+    if is_default_branch && ! is_pull_request; then
       # Master branch analysis
       args+=("-Dsonar.projectVersion=$PROJECT_VERSION")
       args+=("-Dsonar.analysis.sha1=$GITHUB_SHA")
 
-    elif [[ "$GITHUB_REF_NAME" == branch-* ]] && ! is_pull_request; then
+    elif is_maintenance_branch && ! is_pull_request; then
       # Maintenance branch analysis
       args+=("-Dsonar.branch.name=$GITHUB_REF_NAME")
       args+=("-Dsonar.projectVersion=$PROJECT_VERSION")
@@ -109,7 +117,7 @@ build_gradle_args() {
       args+=("-Dsonar.analysis.sha1=$PULL_REQUEST_SHA")
       args+=("-Dsonar.analysis.prNumber=$PULL_REQUEST")
 
-    elif [[ "$GITHUB_REF_NAME" == feature/long/* ]] && ! is_pull_request; then
+    elif is_long_lived_feature_branch && ! is_pull_request; then
       # Long-lived feature branch analysis
       args+=("-Dsonar.branch.name=$GITHUB_REF_NAME")
       args+=("-Dsonar.analysis.sha1=$GITHUB_SHA")
@@ -138,32 +146,47 @@ should_deploy() {
     # For pull requests, deploy only if explicitly enabled
     [[ "$DEPLOY_PULL_REQUEST" == "true" ]]
   else
-    [[ "$GITHUB_REF_NAME" == "master" ]] || \
-    [[ "$GITHUB_REF_NAME" == branch-* ]] || \
-    [[ "$GITHUB_REF_NAME" == dogfood-on-* ]] || \
-    [[ "$GITHUB_REF_NAME" == feature/long/* ]]
+    is_default_branch || \
+    is_maintenance_branch || \
+    is_dogfood_branch || \
+    is_long_lived_feature_branch
   fi
 }
 
 get_build_type() {
-  if [[ "$GITHUB_REF_NAME" == "master" ]] && ! is_pull_request; then
-    echo "master branch"
-  elif [[ "$GITHUB_REF_NAME" == branch-* ]] && ! is_pull_request; then
+  if is_default_branch && ! is_pull_request; then
+    echo "default branch"
+  elif is_maintenance_branch && ! is_pull_request; then
     echo "maintenance branch"
   elif is_pull_request; then
     echo "pull request"
-  elif [[ "$GITHUB_REF_NAME" == dogfood-on-* ]] && ! is_pull_request; then
+  elif is_dogfood_branch && ! is_pull_request; then
     echo "dogfood branch"
-  elif [[ "$GITHUB_REF_NAME" == feature/long/* ]] && ! is_pull_request; then
+  elif is_long_lived_feature_branch && ! is_pull_request; then
     echo "long-lived feature branch"
   else
     echo "regular build"
   fi
 }
 
+is_default_branch() {
+  [[ "$GITHUB_REF_NAME" == "$DEFAULT_BRANCH" ]]
+}
+
+is_maintenance_branch() {
+  [[ "${GITHUB_REF_NAME}" == "branch-"* ]]
+}
 
 is_pull_request() {
   [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]
+}
+
+is_dogfood_branch() {
+  [[ "${GITHUB_REF_NAME}" == "dogfood-on-"* ]]
+}
+
+is_long_lived_feature_branch() {
+  [[ "${GITHUB_REF_NAME}" == "feature/long/"* ]]
 }
 
 gradle_build() {

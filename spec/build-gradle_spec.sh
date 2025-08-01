@@ -29,6 +29,10 @@ Mock sed
 End
 
 # Environment setup
+export ARTIFACTORY_URL="https://dummy.repox/artifactory"
+export DEFAULT_BRANCH="master"
+export PULL_REQUEST=""
+export PULL_REQUEST_SHA=""
 export GITHUB_REF_NAME="master"
 export BUILD_NUMBER="42"
 export GITHUB_RUN_ID="123456"
@@ -77,21 +81,22 @@ End
 
 Describe 'set_build_env'
   It 'sets project and default values'
+    export PULL_REQUEST=""
+    export PULL_REQUEST_SHA=""
     When call set_build_env
     The output should include "PROJECT: my-repo"
     The variable PROJECT should equal "my-repo"
-    The variable PULL_REQUEST should equal "false"
   End
 
   It 'handles pull request'
     export GITHUB_EVENT_NAME="pull_request"
+    export PULL_REQUEST="123"
+    export PULL_REQUEST_SHA="base123"
     echo '{"number": 123, "pull_request": {"base": {"sha": "base123"}}}' > "$GITHUB_EVENT_PATH"
 
     When call set_build_env
     The output should include "PROJECT: my-repo"
     The output should include "Fetching commit history for SonarQube analysis..."
-    The variable PULL_REQUEST should equal "123"
-    The variable PULL_REQUEST_SHA should equal "base123"
   End
 
   It 'fetches base branch when GITHUB_BASE_REF is set'
@@ -242,11 +247,11 @@ Describe 'build_gradle_args'
 End
 
 Describe 'get_build_type'
-  It 'returns master branch for master'
+  It 'returns default branch for master'
     export GITHUB_REF_NAME="master"
     export GITHUB_EVENT_NAME="push"
     When call get_build_type
-    The output should equal "master branch"
+    The output should equal "default branch"
   End
 
   It 'returns maintenance branch'
