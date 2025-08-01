@@ -571,26 +571,11 @@ jobs:
 cache.
 SonarSource private repositories will use the internal S3 cache when available.
 
-## Using AI for Cirrus CI to Github Actions migration
+## Using AI for Cirrus CI to GitHub Actions Migration
 
-It is recommended to use AI tools like Cursor or Claude code to assist with CirrusCI to Github actions migration.
-This repository contains a comprehensive guide to be passed as a context to AI. The guide is already shared to everyone
-in the company using Cursor, accessible using @Doc tag.
+It is recommended to use AI tools like Cursor or Claude code to assist with Cirrus CI to GitHub actions migration.
+This repository contains a comprehensive guide to be passed as a context to AI. The guide is shared with Sonar developers using Cursor,
+accessible using `@Doc` tag.
 
-Example prompt with Cursor:
-
-```md
-You're a DevOps engineer with extensive migration experience.
-Please perform a migration of Cirrus CI workflows to GitHub actions.
-You ALWAYS have to follow ALL instructions contained in @Migrate repository to GitHub actions which contains detailed examples
-and versions of actions that should be used. Never guess anything but always follow the documentation.
-```
-
-The @ syntax above will automatically link the shared documentation from this repo.
-
-If you are not using Cursor, you can also directly provide the link to the documentation as below
-
-```md
-Refer @https://github.com/SonarSource/ci-github-actions/blob/master/.cursor/cirrus-github-migration.md and migrate @.cirrus.yml to Github
-Actions.
-```
+See the [documentation](https://xtranet-sonarsource.atlassian.net/wiki/spaces/Platform/pages/2639560710/Migration+From+Cirrus+CI+-+GitHub)
+for details on how to use it.
