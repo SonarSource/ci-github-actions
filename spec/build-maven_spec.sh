@@ -218,7 +218,7 @@ Describe 'build_maven()'
   End
   export PROJECT_VERSION="1.2.3.42"
 
-  Describe 'is_main_branch'
+  Describe 'is_default_branch'
     export GITHUB_REF_NAME="def_main"
 
     It 'builds, deploys and analyzes main branch'

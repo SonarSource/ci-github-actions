@@ -15,7 +15,6 @@ inputs:
     default: ''
   artifactory-deploy-repo:
     description: Name of deployment repository
-    required: true
     default: ''
   deploy-pull-request:
     description: Whether to deploy pull request artifacts
@@ -28,11 +27,9 @@ inputs:
     default: 'true'
   repox-url:
     description: URL for Repox
-    required: true
     default: https://repox.jfrog.io
   sonar-platform:
     description: SonarQube primary platform (next, sqc-eu, or sqc-us)
-    required: false
     default: next
 
 outputs:

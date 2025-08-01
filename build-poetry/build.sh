@@ -1,25 +1,31 @@
 #!/bin/bash
-# Regular way to build and deploy a SonarSource Poetry project.
+# Build and deploy a Poetry project.
 # Environment variables:
 # - ARTIFACTORY_URL: Repox URL.
 # - ARTIFACTORY_PYPI_REPO: Repository to install dependencies from (sonarsource-pypi)
 # - ARTIFACTORY_ACCESS_TOKEN: Access token to access the repository
 # - ARTIFACTORY_DEPLOY_REPO: Deployment repository (sonarsource-pypi-public-qa or sonarsource-pypi-private-qa)
 # - ARTIFACTORY_DEPLOY_ACCESS_TOKEN: Access token to deploy to the repository
+# - DEFAULT_BRANCH: Default branch (e.g. main)
+# - PULL_REQUEST: Pull request number (e.g. 1234), if applicable.
+# - PULL_REQUEST_SHA: Pull request base SHA, if applicable.
 # - GITHUB_REF_NAME: Short ref name of the branch or tag (e.g. main, branch-123, dogfood-on-123)
-# - DEFAULT_BRANCH: Default branch (e.g. main), defaults to the repository configuration
 # - BUILD_NUMBER: Build number (e.g. 42)
 # - GITHUB_REPOSITORY: Repository name (e.g. sonarsource/sonar-dummy-poetry)
 # - GITHUB_EVENT_NAME: Event name (e.g. push, pull_request)
 # - GITHUB_EVENT_PATH: Path to the event webhook payload file. For example, /github/workflow/event.json.
+# - DEPLOY_PULL_REQUEST: whether to deploy pull request artifacts (default: false)
 # shellcheck source-path=SCRIPTDIR
 
 set -euo pipefail
 
-: "${ARTIFACTORY_URL:="https://repox.jfrog.io/artifactory"}"
+: "${ARTIFACTORY_URL:?}"
 : "${ARTIFACTORY_PYPI_REPO:?}" "${ARTIFACTORY_ACCESS_TOKEN:?}" "${ARTIFACTORY_DEPLOY_REPO:?}" "${ARTIFACTORY_DEPLOY_ACCESS_TOKEN:?}"
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}" "${GITHUB_EVENT_PATH:?}"
+: "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}"
 : "${GITHUB_ENV:?}" # "${GITHUB_OUTPUT:?}"
+: "${DEPLOY_PULL_REQUEST:=false}"
+export ARTIFACTORY_URL DEPLOY_PULL_REQUEST
 
 # Check if a command is available and runs it, typically: 'some_tool --version'
 check_tool() {
@@ -36,16 +42,32 @@ set_build_env() {
   export PROJECT=${GITHUB_REPOSITORY#*/}
   echo "PROJECT: $PROJECT"
 
-  if [[ "$GITHUB_EVENT_NAME" = "pull_request" ]]; then
-    PULL_REQUEST=$(jq --raw-output .number "$GITHUB_EVENT_PATH")
-    # FIXME Unused? otherwise, it should be '.pull_request.head.sha' (not base.sha)
-    PULL_REQUEST_SHA=$(jq --raw-output .pull_request.base.sha "$GITHUB_EVENT_PATH")
-  else
-    PULL_REQUEST=false
-  fi
+  # PULL_REQUEST and PULL_REQUEST_SHA are now provided by the action
+  : "${PULL_REQUEST:=}"
+  : "${PULL_REQUEST_SHA:=}"
   echo "PULL_REQUEST: $PULL_REQUEST"
   export DEFAULT_BRANCH PULL_REQUEST PULL_REQUEST_SHA
 }
+
+is_default_branch() {
+  [[ "$GITHUB_REF_NAME" == "$DEFAULT_BRANCH" ]]
+}
+
+is_maintenance_branch() {
+  [[ "${GITHUB_REF_NAME}" == "branch-"* ]]
+}
+
+is_pull_request() {
+  [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]
+}
+
+is_dogfood_branch() {
+  [[ "${GITHUB_REF_NAME}" == "dogfood-on-"* ]]
+}
+
+# is_long_lived_feature_branch() {
+#   [[ "${GITHUB_REF_NAME}" == "feature/long/"* ]]
+# }
 
 set_project_version() {
   if ! current_version=$(poetry version -s); then
@@ -101,9 +123,8 @@ build_poetry() {
   set_project_version
   jfrog_poetry_install
   poetry build
-  if [[ -n "${PULL_REQUEST:-}" && "${DEPLOY_PULL_REQUEST:-}" == "true" ]] || \
-     [[ -z "${PULL_REQUEST:-}" && ( "$GITHUB_REF_NAME" = "$DEFAULT_BRANCH" || "$GITHUB_REF_NAME" =~ ^branch- ||
-                                    "$GITHUB_REF_NAME" =~ ^dogfood-on- ) ]]; then
+  if (is_pull_request && [[ "${DEPLOY_PULL_REQUEST:-}" == "true" ]]) || \
+     (! is_pull_request && (is_default_branch || is_maintenance_branch || is_dogfood_branch)); then
     jfrog_poetry_publish
   fi
 

@@ -4,6 +4,22 @@
 
 CI/CD GitHub Actions
 
+## Recent Improvements
+
+### Standardization (2025)
+
+All build actions have been standardized with consistent:
+
+- **Environment Variables**: Unified `PULL_REQUEST`, `PULL_REQUEST_SHA`, and `DEFAULT_BRANCH` handling
+- **Repository Configuration**: All actions now include `repox-url` parameter with default `https://repox.jfrog.io`
+- **Maven & Gradle Integration**: Added `develocity-url` parameter for enhanced build tracking
+- **Branch Detection**: Standardized helper functions for consistent branch-based logic across all build scripts
+- **Input Parameters**: Removed conflicting `required: true` from parameters with default values
+
+These improvements ensure consistent behavior and easier maintenance across all build actions.
+
+---
+
 ## `get-build-number`
 
 Manage the build number in GitHub Actions.
@@ -338,12 +354,12 @@ jobs:
 
 - Automated version management with build numbers and SNAPSHOT handling
 - SonarQube analysis for code quality (credentials from Vault)
-- Conditional deployment based on branch patterns (main, maintenance, dogfood branches)
+- Conditional deployment based on branch patterns (default, maintenance, dogfood branches)
 - NPM dependency caching for faster builds (configurable)
 - Pull request support with optional deployment
 - JFrog build info publishing with UI links
 - Comprehensive build logging and error handling
-- Support for different branch types (main, maintenance, PR, dogfood, long-lived feature)
+- Support for different branch types (default, maintenance, PR, dogfood, long-lived feature)
 
 ## `promote`
 
@@ -475,7 +491,7 @@ jobs:
 defaults to `public-reader` or `private-reader` based on repository visibility (optional)
 - `artifactory-deployer-role`: Suffix for the Artifactory deployer role in Vault -
 defaults to `public-deployer` or `qa-deployer` based on repository visibility (optional)
-- `artifactory-deploy-repo`: Name of deployment repository (required)
+- `artifactory-deploy-repo`: Name of deployment repository (optional)
 - `deploy-pull-request`: Whether to deploy pull request artifacts (default: `false`)
 - `skip-tests`: Whether to skip running tests (default: `false`)
 - `cache-yarn`: Whether to cache Yarn dependencies (default: `true`)
@@ -491,12 +507,12 @@ defaults to `public-deployer` or `qa-deployer` based on repository visibility (o
 
 - Automated version management with build numbers and SNAPSHOT handling
 - SonarQube analysis for code quality (credentials from Vault)
-- Conditional deployment based on branch patterns (main, maintenance, dogfood branches)
+- Conditional deployment based on branch patterns (default, maintenance, dogfood branches)
 - Yarn dependency caching for faster builds (configurable)
 - Pull request support with optional deployment
 - JFrog build info publishing with UI links
 - Comprehensive build logging and error handling
-- Support for different branch types (main, maintenance, PR, dogfood, long-lived feature)
+- Support for different branch types (default, maintenance, PR, dogfood, long-lived feature)
 
 ## `cache`
 

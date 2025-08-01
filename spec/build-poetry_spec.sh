@@ -26,6 +26,8 @@ export DEFAULT_BRANCH="main"
 export GITHUB_REF_NAME="any-branch"
 export GITHUB_EVENT_NAME="push"
 export BUILD_NUMBER="42"
+export PULL_REQUEST=""
+export PULL_REQUEST_SHA=""
 GITHUB_EVENT_PATH=$(mktemp)
 export GITHUB_EVENT_PATH
 #GITHUB_OUTPUT=$(mktemp)
@@ -58,7 +60,7 @@ Describe 'build-poetry/build.sh'
       The line 7 should include "jf"
       The line 8 should include "jf"
       The line 9 should equal "PROJECT: my-repo"
-      The line 10 should equal "PULL_REQUEST: false"
+      The line 10 should equal "PULL_REQUEST: "
       The line 11 should equal "Replacing version 1.2 with 1.2.0.42"
       The line 12 should equal "poetry version 1.2.0.42"
       The line 13 should equal "jf config add repox --artifactory-url https://dummy.repox --access-token dummy access token"
@@ -76,21 +78,32 @@ Describe 'check_tool()'
     The status should be failure
     The line 1 of error should equal "some_tool is not installed."
   End
+
+  It 'executes existing command with arguments'
+    When call check_tool echo "test message"
+    The status should be success
+    The line 1 should include "echo"
+    The line 2 should equal "test message"
+  End
 End
 
 Describe 'set_build_env()'
   It 'sets the default branch and project name'
+    export PULL_REQUEST=""
+    export PULL_REQUEST_SHA=""
     When call set_build_env
     The line 1 should equal "PROJECT: my-repo"
-    The line 2 should equal "PULL_REQUEST: false"
+    The line 2 should equal "PULL_REQUEST: "
     The variable DEFAULT_BRANCH should equal "main"
     The variable PROJECT should equal "my-repo"
-    The variable PULL_REQUEST should equal "false"
-    The variable PULL_REQUEST_SHA should be undefined
+    The variable PULL_REQUEST should equal ""
+    The variable PULL_REQUEST_SHA should equal ""
   End
 
   It 'sets PULL_REQUEST and PULL_REQUEST_SHA for pull requests'
     export GITHUB_EVENT_NAME="pull_request"
+    export PULL_REQUEST="123"
+    export PULL_REQUEST_SHA="abc123"
     echo '{"number": 123, "pull_request": {"base": {"sha": "abc123"}}}' > "$GITHUB_EVENT_PATH"
 
     When call set_build_env
@@ -98,6 +111,36 @@ Describe 'set_build_env()'
     The line 2 should equal "PULL_REQUEST: 123"
     The variable PULL_REQUEST should equal "123"
     The variable PULL_REQUEST_SHA should equal "abc123"
+  End
+End
+
+Describe 'helper functions'
+  Describe 'is_maintenance_branch()'
+    It 'returns true for branch-* pattern'
+      export GITHUB_REF_NAME="branch-1.2"
+      When call is_maintenance_branch
+      The status should be success
+    End
+
+    It 'returns false for non-maintenance branch'
+      export GITHUB_REF_NAME="main"
+      When call is_maintenance_branch
+      The status should be failure
+    End
+  End
+
+  Describe 'is_dogfood_branch()'
+    It 'returns true for dogfood-on-* pattern'
+      export GITHUB_REF_NAME="dogfood-on-main"
+      When call is_dogfood_branch
+      The status should be success
+    End
+
+    It 'returns false for non-dogfood branch'
+      export GITHUB_REF_NAME="main"
+      When call is_dogfood_branch
+      The status should be failure
+    End
   End
 End
 
@@ -222,6 +265,7 @@ Describe 'build_poetry()'
   End
 
   It 'skips when on a PR and DEPLOY_PULL_REQUEST is not true'
+    export GITHUB_EVENT_NAME="pull_request"
     export PULL_REQUEST="123"
     export GITHUB_REF_NAME="123/merge"
 
@@ -231,6 +275,7 @@ Describe 'build_poetry()'
   End
 
   It 'builds and publishes when on a PR and DEPLOY_PULL_REQUEST is true'
+    export GITHUB_EVENT_NAME="pull_request"
     export PULL_REQUEST="123"
     export GITHUB_REF_NAME="123/merge"
     export DEPLOY_PULL_REQUEST="true"
