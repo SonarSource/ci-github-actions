@@ -4,22 +4,6 @@
 
 CI/CD GitHub Actions
 
-## Recent Improvements
-
-### Standardization (2025)
-
-All build actions have been standardized with consistent:
-
-- **Environment Variables**: Unified `PULL_REQUEST`, `PULL_REQUEST_SHA`, and `DEFAULT_BRANCH` handling
-- **Repository Configuration**: All actions now include `repox-url` parameter with default `https://repox.jfrog.io`
-- **Maven & Gradle Integration**: Added `develocity-url` parameter for enhanced build tracking
-- **Branch Detection**: Standardized helper functions for consistent branch-based logic across all build scripts
-- **Input Parameters**: Removed conflicting `required: true` from parameters with default values
-
-These improvements ensure consistent behavior and easier maintenance across all build actions.
-
----
-
 ## `get-build-number`
 
 Manage the build number in GitHub Actions.
