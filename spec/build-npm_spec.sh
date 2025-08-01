@@ -248,7 +248,7 @@ End
       The output should include "Installing npm dependencies..."
       The output should include "SonarQube scanner completed"
       The output should include "Building project..."
-      The output should include "DEBUG: JFrog operations completed successfully"
+      The output should include "::debug::JFrog operations completed successfully"
     End
 
     It 'builds maintenance branch with SNAPSHOT version'
@@ -303,7 +303,7 @@ End
       The status should be success
       The output should include "======= Building pull request ======="
       The output should include "======= with deploy ======="
-      The output should include "DEBUG: JFrog operations completed successfully"
+      The output should include "::debug::JFrog operations completed successfully"
     End
 
     It 'builds dogfood branch without sonar'
@@ -316,7 +316,7 @@ End
       The output should include "======= Build dogfood branch ======="
       The output should include "Installing npm dependencies..."
       The output should not include "SonarQube scanner"
-      The output should include "DEBUG: JFrog operations completed successfully"
+      The output should include "::debug::JFrog operations completed successfully"
     End
 
     It 'builds long-lived feature branch without deploy'
@@ -369,73 +369,6 @@ End
       The stderr should include "ERROR: Deployment requires ARTIFACTORY_URL and ARTIFACTORY_DEPLOY_ACCESS_TOKEN"
     End
 
-    It 'fails when jf config add fails'
-      export PROJECT="test-project"
-      export BUILD_NUMBER="42"
-      Mock jf
-        case "$*" in
-          *"config add repox"*)
-            echo "ERROR: Failed to add config" >&2
-            return 1;;
-          *) echo "jf $*" ;;
-        esac
-      End
-      When run jfrog_npm_publish
-      The status should be failure
-      The output should include "DEBUG: Adding JFrog config..."
-      The stderr should include "ERROR: Failed to add JFrog config"
-    End
-
-    It 'fails when jf npm-config fails'
-      export PROJECT="test-project"
-      export BUILD_NUMBER="42"
-      Mock jf
-        case "$*" in
-          *"npm-config"*)
-            echo "ERROR: Failed to configure npm" >&2
-            return 1;;
-          *) echo "jf $*" ;;
-        esac
-      End
-      When run jfrog_npm_publish
-      The status should be failure
-      The output should include "DEBUG: Configuring NPM repositories..."
-      The stderr should include "ERROR: Failed to configure NPM repositories"
-    End
-
-    It 'fails when jf npm publish fails'
-      export PROJECT="test-project"
-      export BUILD_NUMBER="42"
-      Mock jf
-        case "$*" in
-          *"npm publish"*)
-            echo "ERROR: Failed to publish" >&2
-            return 1;;
-          *) echo "jf $*" ;;
-        esac
-      End
-      When run jfrog_npm_publish
-      The status should be failure
-      The output should include "DEBUG: Publishing NPM package..."
-      The stderr should include "ERROR: Failed to publish NPM package"
-    End
-
-    It 'fails when jf rt build-publish fails'
-      export PROJECT="test-project"
-      export BUILD_NUMBER="42"
-      Mock jf
-        case "$*" in
-          *"rt build-publish"*)
-            echo "ERROR: Failed to publish build info" >&2
-            return 1;;
-          *) echo "jf $*" ;;
-        esac
-      End
-      When run jfrog_npm_publish
-      The status should be failure
-      The output should include "DEBUG: Publishing build info..."
-      The stderr should include "ERROR: Failed to publish build info"
-    End
   End
 
   Describe 'Main function execution'

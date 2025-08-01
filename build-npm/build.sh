@@ -2,28 +2,30 @@
 # Build script for SonarSource NPM projects.
 # Supports building, testing, SonarQube analysis, and JFrog Artifactory deployment.
 #
-# Required environment variables:
+# Required inputs (must be explicitly provided):
+# - BUILD_NUMBER: Build number for versioning
+# - SONAR_HOST_URL: URL of SonarQube server
+# - SONAR_TOKEN: Access token to send analysis reports to SonarQube
+# - ARTIFACTORY_URL: URL to Artifactory repository
+# - ARTIFACTORY_ACCESS_TOKEN: Access token to access the repository
+# - ARTIFACTORY_DEPLOY_ACCESS_TOKEN: Access token to deploy to Artifactory
+# - ARTIFACTORY_DEPLOY_REPO: Name of deployment repository
+# - DEFAULT_BRANCH: Default branch name (e.g. main)
+# - PULL_REQUEST: Pull request number (e.g. 1234) or empty string
+# - PULL_REQUEST_SHA: Pull request base SHA or empty string
+#
+# GitHub Actions auto-provided:
 # - GITHUB_REF_NAME: Git branch name
 # - GITHUB_SHA: Git commit SHA
 # - GITHUB_REPOSITORY: Repository name in format "owner/repo"
 # - GITHUB_RUN_ID: GitHub Actions run ID
 # - GITHUB_EVENT_NAME: Event name (e.g. push, pull_request)
-# - BUILD_NUMBER: Build number for versioning
-# - SONAR_HOST_URL: URL of SonarQube server
-# - SONAR_TOKEN: Access token to send analysis reports to SonarQube
-# - ARTIFACTORY_URL: URL to Artifactory repository (required for deployment)
-# - ARTIFACTORY_ACCESS_TOKEN: Access token to access the repository
-# - ARTIFACTORY_DEPLOY_ACCESS_TOKEN: Access token to deploy to Artifactory (required for deployment)
-# - ARTIFACTORY_DEPLOY_REPO: Name of deployment repository (used by jfrog_npm_publish)
+# - GITHUB_OUTPUT: Path to GitHub Actions output file
+# - GITHUB_BASE_REF: Base branch for pull requests (only during pull_request events)
 #
-# Optional environment variables:
+# Optional user customization:
 # - DEPLOY_PULL_REQUEST: Whether to deploy pull request artifacts (default: false)
 # - SKIP_TESTS: Whether to skip running tests (default: false)
-# - DEFAULT_BRANCH: Default branch (e.g. main)
-# - PULL_REQUEST: Pull request number (e.g. 1234), if applicable.
-# - PULL_REQUEST_SHA: Pull request base SHA, if applicable.
-# - GITHUB_BASE_REF: Base branch for pull requests (auto-set by GitHub Actions)
-# - GITHUB_OUTPUT: Path to GitHub Actions output file (auto-set by GitHub Actions)
 # shellcheck source-path=SCRIPTDIR
 
 set -euo pipefail
@@ -154,47 +156,35 @@ jfrog_npm_publish() {
     exit 1
   fi
 
-  echo "DEBUG: Removing existing JFrog config..."
-  jf config remove repox > /dev/null 2>&1 # Do not log if the repox config were not present
+  echo "::debug::Removing existing JFrog config..."
+  jf config remove repox > /dev/null 2>&1 || true # Do not log if the repox config were not present
 
-  echo "DEBUG: Adding JFrog config..."
-  if ! jf config add repox --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_DEPLOY_ACCESS_TOKEN"; then
-    echo "ERROR: Failed to add JFrog config" >&2
-    exit 1
-  fi
+  echo "::debug::Adding JFrog config..."
+  jf config add repox --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_DEPLOY_ACCESS_TOKEN"
 
-  echo "DEBUG: Configuring NPM repositories..."
-  if ! jf npm-config --repo-resolve "npm" --repo-deploy "$ARTIFACTORY_DEPLOY_REPO"; then
-    echo "ERROR: Failed to configure NPM repositories" >&2
-    exit 1
-  fi
+  echo "::debug::Configuring NPM repositories..."
+  jf npm-config --repo-resolve "npm" --repo-deploy "$ARTIFACTORY_DEPLOY_REPO"
 
-  echo "DEBUG: Publishing NPM package..."
-  if ! jf npm publish --build-name="$PROJECT" --build-number="$BUILD_NUMBER"; then
-    echo "ERROR: Failed to publish NPM package" >&2
-    exit 1
-  fi
+  echo "::debug::Publishing NPM package..."
+  jf npm publish --build-name="$PROJECT" --build-number="$BUILD_NUMBER"
 
   jf rt build-collect-env "$PROJECT" "$BUILD_NUMBER"
 
-  echo "DEBUG: Publishing build info..."
+  echo "::debug::Publishing build info..."
   local build_publish_output
-  if ! build_publish_output=$(jf rt build-publish "$PROJECT" "$BUILD_NUMBER"); then
-    echo "ERROR: Failed to publish build info" >&2
-    exit 1
-  fi
+  build_publish_output=$(jf rt build-publish "$PROJECT" "$BUILD_NUMBER")
 
-  echo "DEBUG: Build publish output: ${build_publish_output}"
+  echo "::debug::Build publish output: ${build_publish_output}"
 
   # Extract build info URL
   local build_info_url
   build_info_url=$(echo "$build_publish_output" | jq -r '.buildInfoUiUrl // empty')
   if [ -n "$build_info_url" ]; then
     echo "build-info-url=$build_info_url" >> "$GITHUB_OUTPUT"
-    echo "DEBUG: Build info URL saved: $build_info_url"
+    echo "::debug::Build info URL saved: $build_info_url"
   fi
 
-  echo "DEBUG: JFrog operations completed successfully"
+  echo "::debug::JFrog operations completed successfully"
 }
 
 # Handle maintenance branch version logic

@@ -1,31 +1,38 @@
 #!/bin/bash
-#
 # Build script for SonarSource Gradle projects.
 # Supports building, testing, SonarQube analysis, and Artifactory deployment.
 #
-# Environment variables:
+# Required inputs (must be explicitly provided):
+# - BUILD_NUMBER: Build number for versioning
+# - SONAR_HOST_URL: URL of SonarQube server
+# - SONAR_TOKEN: Access token to send analysis reports to SonarQube
 # - ARTIFACTORY_URL: URL to Artifactory repository
-# - ARTIFACTORY_DEPLOY_REPO: name of deployment repository
-# - ARTIFACTORY_DEPLOY_USERNAME: login to deploy to Artifactory
-# - ARTIFACTORY_DEPLOY_PASSWORD: password to deploy to Artifactory
-# - DEFAULT_BRANCH: Default branch (e.g. main)
-# - PULL_REQUEST: Pull request number (e.g. 1234), if applicable.
-# - PULL_REQUEST_SHA: Pull request base SHA, if applicable.
-# - GITHUB_REF_NAME: Short ref name of the branch or tag (e.g. main, branch-123, dogfood-on-123)
-# - BUILD_NUMBER: Build number (e.g. 42)
-# - GITHUB_RUN_ID: GitHub workflow run ID. Unique per workflow run, but unchanged on re-runs.
-# - GITHUB_EVENT_NAME: Event name (e.g. push, pull_request)
+# - ARTIFACTORY_DEPLOY_REPO: Name of deployment repository
+# - ARTIFACTORY_DEPLOY_USERNAME: Username to deploy to Artifactory
+# - ARTIFACTORY_DEPLOY_PASSWORD: Password to deploy to Artifactory
+# - ORG_GRADLE_PROJECT_signingKey: OpenPGP key for signing artifacts (private key content)
+# - ORG_GRADLE_PROJECT_signingPassword: Passphrase of the signing key
+# - ORG_GRADLE_PROJECT_signingKeyId: OpenPGP subkey id
+# - DEFAULT_BRANCH: Default branch name (e.g. main)
+# - PULL_REQUEST: Pull request number (e.g. 1234) or empty string
+# - PULL_REQUEST_SHA: Pull request base SHA or empty string
+#
+# GitHub Actions auto-provided:
+# - GITHUB_REF_NAME: Git branch name
 # - GITHUB_SHA: Git commit SHA
 # - GITHUB_REPOSITORY: Repository name (e.g. sonarsource/sonar-dummy-gradle)
-# - SONAR_HOST_URL: URL of SonarQube server
-# - SONAR_TOKEN: access token to send analysis reports to SonarQube
-# - ORG_GRADLE_PROJECT_signingKey: OpenPGP key for signing artifacts (private key content)
-# - ORG_GRADLE_PROJECT_signingPassword: passphrase of the signing key
-# - ORG_GRADLE_PROJECT_signingKeyId: OpenPGP subkey id
-# - DEPLOY_PULL_REQUEST: whether to deploy pull request artifacts (default: false)
-# - SKIP_TESTS: whether to skip running tests (default: false)
-# - GRADLE_ARGS: additional arguments to pass to Gradle
-# - GITHUB_OUTPUT: Path to GitHub Actions output file (auto-set by GitHub Actions)
+# - GITHUB_RUN_ID: GitHub workflow run ID
+# - GITHUB_EVENT_NAME: Event name (e.g. push, pull_request)
+# - GITHUB_OUTPUT: Path to GitHub Actions output file
+# - GITHUB_BASE_REF: Base branch for pull requests (only during pull_request events)
+#
+# Optional user customization:
+# - DEPLOY_PULL_REQUEST: Whether to deploy pull request artifacts (default: false)
+# - SKIP_TESTS: Whether to skip running tests (default: false)
+# - GRADLE_ARGS: Additional arguments to pass to Gradle
+#
+# Auto-derived by script:
+# - PROJECT: Project name derived from GITHUB_REPOSITORY
 # shellcheck source-path=SCRIPTDIR
 
 set -euo pipefail

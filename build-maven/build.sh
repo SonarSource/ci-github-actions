@@ -1,27 +1,36 @@
 #!/bin/bash
 # Build and deploy a Maven project.
-# Environment variables:
-# - ARTIFACTORY_URL: Repox URL.
-# - ARTIFACTORY_DEPLOY_REPO: Deployment repository (sonarsource-public-qa or sonarsource-private-qa)
+# Supports building, testing, SonarQube analysis, and Maven deployment to Artifactory.
+#
+# Required inputs (must be explicitly provided):
+# - BUILD_NUMBER: Build number for versioning
+# - SONAR_HOST_URL: URL of SonarQube server
+# - SONAR_TOKEN: Access token to send analysis reports to SonarQube
+# - ARTIFACTORY_URL: Artifactory repository URL
+# - ARTIFACTORY_DEPLOY_REPO: Deployment repository name
 # - ARTIFACTORY_DEPLOY_PASSWORD: Access token to deploy to the repository
 # - ARTIFACTORY_ACCESS_TOKEN: Access token to access the private repository
-# - ARTIFACTORY_DEPLOY_USERNAME: used by artifactory-maven-plugin
-# - DEFAULT_BRANCH: Default branch (e.g. main)
-# - PULL_REQUEST: Pull request number (e.g. 1234), if applicable.
-# - GITHUB_REF_NAME: Short ref name of the branch or tag (e.g. main, branch-123, dogfood-on-123)
-# - GITHUB_BASE_REF: Base branch of the pull request (e.g. main, branch-123), if applicable.
-# - BUILD_NUMBER: Build number (e.g. 42)
-# - GITHUB_RUN_ID: GitHub workflow run ID. Unique per workflow run, but unchanged on re-runs.
-# - GITHUB_EVENT_NAME: Event name (e.g. push, pull_request)
+# - ARTIFACTORY_DEPLOY_USERNAME: Username used by artifactory-maven-plugin
+# - DEFAULT_BRANCH: Default branch name (e.g. main)
+# - PULL_REQUEST: Pull request number (e.g. 1234) or empty string
+#
+# GitHub Actions auto-provided:
+# - GITHUB_REF_NAME: Git branch name
 # - GITHUB_SHA: Git commit SHA
 # - GITHUB_REPOSITORY: Repository name (e.g. sonarsource/sonar-dummy-maven)
+# - GITHUB_RUN_ID: GitHub workflow run ID
+# - GITHUB_EVENT_NAME: Event name (e.g. push, pull_request)
+# - GITHUB_OUTPUT: Path to GitHub Actions output file
+# - GITHUB_BASE_REF: Base branch for pull requests (only during pull_request events)
+# - GITHUB_HEAD_REF: Head branch for pull requests (only during pull_request events)
+#
+# Optional user customization:
+# - DEPLOY_PULL_REQUEST: Whether to deploy pull request artifacts (default: false)
 # - MAVEN_LOCAL_REPOSITORY: Path to Maven local repository (default: $HOME/.m2/repository)
-# - MAVEN_OPTS: Optional JVM options for Maven (e.g. -Xmx1536m -Xms128m)
-# - SONAR_SCANNER_JAVA_OPTS: Optional JVM options for SonarQube scanner (e.g. -Xmx512m)
-# - DEPLOY_PULL_REQUEST: whether to deploy pull request artifacts (default: false)
-# - SONAR_HOST_URL: URL of SonarQube server
-# - SONAR_TOKEN: access token to send analysis reports to SonarQube
-# - ARTIFACTORY_PUBLISH_ARTIFACTS: NOT IMPLEMENTED
+# - MAVEN_SETTINGS: Path to Maven settings.xml (default: $HOME/.m2/settings.xml)
+# - MAVEN_OPTS: JVM options for Maven (e.g. -Xmx1536m -Xms128m)
+# - SONAR_SCANNER_JAVA_OPTS: JVM options for SonarQube scanner (e.g. -Xmx512m)
+# - SCANNER_VERSION: SonarQube Maven plugin version (default: 5.1.0.4751)
 # shellcheck source-path=SCRIPTDIR
 
 set -euo pipefail

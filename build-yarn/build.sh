@@ -2,29 +2,33 @@
 # Build script for SonarSource Yarn projects.
 # Supports building, testing, SonarQube analysis, and JFrog Artifactory deployment.
 #
-# Required environment variables:
+# Required inputs (must be explicitly provided):
+# - BUILD_NUMBER: Build number for versioning
+# - SONAR_HOST_URL: URL of SonarQube server
+# - SONAR_TOKEN: Access token to send analysis reports to SonarQube
+# - ARTIFACTORY_URL: URL to Artifactory repository
+# - ARTIFACTORY_ACCESS_TOKEN: Access token to access the repository
+# - ARTIFACTORY_DEPLOY_ACCESS_TOKEN: Access token to deploy to Artifactory
+# - ARTIFACTORY_DEPLOY_REPO: Name of deployment repository
+# - DEFAULT_BRANCH: Default branch name (e.g. main)
+# - PULL_REQUEST: Pull request number (e.g. 1234) or empty string
+# - PULL_REQUEST_SHA: Pull request base SHA or empty string
+#
+# GitHub Actions auto-provided:
 # - GITHUB_REF_NAME: Git branch name
 # - GITHUB_SHA: Git commit SHA
 # - GITHUB_REPOSITORY: Repository name in format "owner/repo"
 # - GITHUB_RUN_ID: GitHub Actions run ID
 # - GITHUB_EVENT_NAME: Event name (e.g. push, pull_request)
-# - BUILD_NUMBER: Build number for versioning
-# - SONAR_HOST_URL: URL of SonarQube server
-# - SONAR_TOKEN: Access token to send analysis reports to SonarQube
-# - ARTIFACTORY_URL: URL to Artifactory repository (required for deployment)
-# - ARTIFACTORY_ACCESS_TOKEN: Access token to access the repository
-# - ARTIFACTORY_DEPLOY_ACCESS_TOKEN: Access token to deploy to Artifactory (required for deployment)
-# - ARTIFACTORY_DEPLOY_REPO: Name of deployment repository (used by jfrog_yarn_publish)
+# - GITHUB_OUTPUT: Path to GitHub Actions output file
+# - GITHUB_BASE_REF: Base branch for pull requests (only during pull_request events)
 #
-# Optional environment variables:
+# Optional user customization:
 # - DEPLOY_PULL_REQUEST: Whether to deploy pull request artifacts (default: false)
 # - SKIP_TESTS: Whether to skip running tests (default: false)
-# - DEFAULT_BRANCH: Default branch (e.g. main)
-# - PULL_REQUEST: Pull request number (e.g. 1234), if applicable.
-# - PULL_REQUEST_SHA: Pull request base SHA, if applicable.
-# - GITHUB_BASE_REF: Base branch for pull requests (auto-set by GitHub Actions)
-# - GITHUB_OUTPUT: Path to GitHub Actions output file (auto-set by GitHub Actions)
-# - PROJECT: Project name derived from GITHUB_REPOSITORY (auto-set by script)
+#
+# Auto-derived by script:
+# - PROJECT: Project name derived from GITHUB_REPOSITORY
 # shellcheck source-path=SCRIPTDIR
 
 set -euo pipefail
