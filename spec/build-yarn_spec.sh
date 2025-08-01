@@ -181,7 +181,8 @@ Describe 'build-yarn/build.sh'
   Describe 'run_standard_pipeline()'
     It 'runs full pipeline'
       export PROJECT="test" PROJECT_VERSION="1.2.3-42"
-      When call run_standard_pipeline true true -Dsonar.branch.name=main
+      export BUILD_ENABLE_SONAR="true" BUILD_ENABLE_DEPLOY="true" BUILD_SONAR_ARGS="-Dsonar.branch.name=main"
+      When call run_standard_pipeline
       The output should include "Installing yarn dependencies..."
       The output should include "Setting project version to 1.2.3-42..."
       The output should include "Running tests..."
@@ -192,7 +193,8 @@ Describe 'build-yarn/build.sh'
 
     It 'skips tests when SKIP_TESTS=true'
       export SKIP_TESTS="true" PROJECT="test" PROJECT_VERSION="1.2.3-42"
-      When call run_standard_pipeline false false
+      export BUILD_ENABLE_SONAR="false" BUILD_ENABLE_DEPLOY="false" BUILD_SONAR_ARGS=""
+      When call run_standard_pipeline
       The output should include "Skipping tests (SKIP_TESTS=true)"
       The output should not include "Running tests..."
     End

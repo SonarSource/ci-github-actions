@@ -16,6 +16,7 @@
 # - GITHUB_REPOSITORY: Repository name (e.g. sonarsource/sonar-dummy-poetry)
 # - GITHUB_EVENT_NAME: Event name (e.g. push, pull_request)
 # - GITHUB_EVENT_PATH: Path to the event webhook payload file. For example, /github/workflow/event.json.
+# - GITHUB_ENV: Path to GitHub Actions environment file (auto-set by GitHub Actions)
 # - DEPLOY_PULL_REQUEST: whether to deploy pull request artifacts (default: false)
 # shellcheck source-path=SCRIPTDIR
 

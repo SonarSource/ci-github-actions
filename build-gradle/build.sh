@@ -25,18 +25,20 @@
 # - DEPLOY_PULL_REQUEST: whether to deploy pull request artifacts (default: false)
 # - SKIP_TESTS: whether to skip running tests (default: false)
 # - GRADLE_ARGS: additional arguments to pass to Gradle
+# - GITHUB_OUTPUT: Path to GitHub Actions output file (auto-set by GitHub Actions)
 # shellcheck source-path=SCRIPTDIR
 
 set -euo pipefail
 
 : "${ARTIFACTORY_URL:?}"
 : "${ARTIFACTORY_DEPLOY_REPO:?}" "${ARTIFACTORY_DEPLOY_USERNAME:?}" "${ARTIFACTORY_DEPLOY_PASSWORD:?}"
-: "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_RUN_ID:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}"
+: "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_RUN_ID:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}" "${GITHUB_SHA:?}"
+: "${GITHUB_OUTPUT:?}"
 : "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}"
 : "${SONAR_HOST_URL:?}" "${SONAR_TOKEN:?}"
 : "${ORG_GRADLE_PROJECT_signingKey:?}" "${ORG_GRADLE_PROJECT_signingPassword:?}" "${ORG_GRADLE_PROJECT_signingKeyId:?}"
 : "${DEPLOY_PULL_REQUEST:=false}" "${SKIP_TESTS:=false}"
-export ARTIFACTORY_URL DEPLOY_PULL_REQUEST SKIP_TESTS
+export ARTIFACTORY_URL DEPLOY_PULL_REQUEST
 : "${GRADLE_ARGS:=}"
 
 command_exists() {

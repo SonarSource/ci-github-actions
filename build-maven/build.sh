@@ -13,7 +13,9 @@
 # - BUILD_NUMBER: Build number (e.g. 42)
 # - GITHUB_RUN_ID: GitHub workflow run ID. Unique per workflow run, but unchanged on re-runs.
 # - GITHUB_EVENT_NAME: Event name (e.g. push, pull_request)
+# - GITHUB_SHA: Git commit SHA
 # - GITHUB_REPOSITORY: Repository name (e.g. sonarsource/sonar-dummy-maven)
+# - MAVEN_LOCAL_REPOSITORY: Path to Maven local repository (default: $HOME/.m2/repository)
 # - MAVEN_OPTS: Optional JVM options for Maven (e.g. -Xmx1536m -Xms128m)
 # - SONAR_SCANNER_JAVA_OPTS: Optional JVM options for SonarQube scanner (e.g. -Xmx512m)
 # - DEPLOY_PULL_REQUEST: whether to deploy pull request artifacts (default: false)
@@ -28,11 +30,12 @@ set -euo pipefail
 # Required by maven-enforcer-plugin in SonarSource parent POM
 : "${ARTIFACTORY_DEPLOY_REPO:?}" "${ARTIFACTORY_DEPLOY_USERNAME:?}" "${ARTIFACTORY_DEPLOY_PASSWORD:?}" "${ARTIFACTORY_ACCESS_TOKEN:?}"
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_RUN_ID:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}"
+: "${GITHUB_SHA:?}"
 : "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}"
 : "${SONAR_HOST_URL:?}" "${SONAR_TOKEN:?}"
 : "${MAVEN_LOCAL_REPOSITORY:=$HOME/.m2/repository}"
 : "${DEPLOY_PULL_REQUEST:=false}"
-export ARTIFACTORY_URL DEPLOY_PULL_REQUEST
+export ARTIFACTORY_URL DEPLOY_PULL_REQUEST MAVEN_LOCAL_REPOSITORY
 : "${MAVEN_SETTINGS:=$HOME/.m2/settings.xml}"
 
 # FIXME Workaround for SonarSource parent POM; it can be removed after releases of parent 73+ and parent-oss 84+
