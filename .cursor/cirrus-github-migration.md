@@ -1,6 +1,6 @@
 # 🚨 CRITICAL: Cirrus CI to GitHub Actions Migration Guide
 
-This guide documents the patterns and best practices for migrating SonarSource projects from CirrusCI to GitHub Actions.
+This guide documents the patterns and best practices for migrating SonarSource projects from Cirrus CI to GitHub Actions.
 
 ## Maintaining This Documentation
 
@@ -29,42 +29,37 @@ When updating this migration guide:
 
 ```yaml
 # Checkout
-- name: Checkout
-  uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-  with:
-    fetch-depth: 50
+- uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
 # Mise Setup - INCLUDES REQUIRED VERSION PARAMETER
-- name: Setup mise
-  uses: jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2.4.0
+- uses: jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2.4.0
   with:
     version: 2025.7.12
-    cache_save: ${{ github.ref_name == github.event.repository.default_branch }}
 
 # Upload Artifacts
 - name: Upload coverage reports
-  if: always()
+  if: always() && ! canceled()
   uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
   with:
-    name: coverage-name-here
+    name: coverage-reports
     path: path/to/coverage.xml
-    if-no-files-found: ignore
 
 # Download Artifacts
 - name: Download coverage reports
   uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
   with:
-    path: coverage-reports
+    name: coverage-reports
 
 # SonarQube Scan
 - name: SonarQube scan
   uses: sonarsource/sonarqube-scan-action@8c71dc039c2dd71d3821e89a2b58ecc7fee6ced9 # v5.3.0
   env:
-    SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-    SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+    SONAR_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_TOKEN }}
+    SONAR_HOST_URL: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_HOST_URL }}
 ```
 
-⚠️ CRITICAL - `sonarsource/sonarqube-scan-action` requires to be running on `sonar-runner-large` regardless of repository visibility
+⚠️ CRITICAL - `sonarsource/sonarqube-scan-action` requires to be running on `sonar-runner-large` for private repository and
+`ubuntu-24.04-large` for public repositories.
 
 ## ✅ VALIDATION CHECKLIST
 
@@ -83,23 +78,24 @@ Update this section when newer versions are released:
 ### Mise Configuration
 
 - [ ] `version: 2025.7.12` parameter included
-- [ ] `cache_save: ${{ github.ref_name == github.event.repository.default_branch }}` parameter included
 
 ## Pre-Migration Checklist
 
 1. ✅ Identify the project type (Maven, Gradle, Poetry, etc.)
-2. ✅ **Check for cirrus-modules usage**: Look for `.cirrus.star` file - if present, see [Cirrus-Modules Migration section](#migrating-repositories-using-cirrus-modules)
+2. ✅ **Check for cirrus-modules usage**: Look for `.cirrus.star` file - if present,
+   see [Cirrus-Modules Migration section](#migrating-repositories-using-cirrus-modules)
 3. ✅ Check existing `.github/workflows/` for conflicts
-4. ✅ Understand the current CirrusCI configuration patterns
+4. ✅ Understand the current Cirrus CI configuration patterns
 5. ✅ **CRITICAL**: Verify repository visibility (public vs private) - check GitHub repo Settings → General → Repository visibility
-   - Public repos → Use `ubuntu-24.04-large` runners for SonarSource custom actions
-   - Private repos → Use `sonar-xs` runners (recommended)
+    - Public repos → Use `ubuntu-24.04-large` runners for SonarSource custom actions
+    - Private repos → Use `sonar-xs` runners (recommended)
 6. ✅ **SECURITY**: Review third-party actions and pin to commit SHAs
 7. Runner type selected (see  **GitHub Actions Runner Selection**)
 8. All required action versions copied from Action Versions Table
 9. Tool versions identified from existing configuration
 
-⚠️ **CRITICAL**: During migration, leave `.cirrus.yml` unchanged. Both CirrusCI and GitHub Actions should coexist during the transition period.
+⚠️ **CRITICAL**: During migration, leave `.cirrus.yml` unchanged. Both Cirrus CI and GitHub Actions should coexist during the transition
+period.
 
 ## 🚫 COMMON MISTAKES TO AVOID
 
@@ -108,6 +104,9 @@ Update this section when newer versions are released:
 3. **Mixing documentation sources**: Use ONLY this guide, not other workflows
 4. **Incomplete action configurations**: Copy the COMPLETE blocks from this guide
 5. **Missing dependencies**: Convert Cirrus CI `depends_on` to GitHub Actions `needs`
+6. **Forgetting documentation updates**: Always update README.md badges and path references
+7. **Leaving Cirrus CI path references**: Update `/tmp/cirrus-ci-build/` paths to GitHub Actions equivalents
+8. **Keeping manual workflow implementations**: Replace manual pr-cleanup.yml with official SonarSource actions
 
 ## 📞 SUPPORT
 
@@ -139,12 +138,12 @@ This repository uses the following linting rules:
 When adding new patterns or updating existing ones:
 
 1. **Document the "why"**: Explain reasoning behind recommendations
-2. **Provide before/after examples**: Show CirrusCI → GitHub Actions transformations
+2. **Provide before/after examples**: Show Cirrus CI → GitHub Actions transformations
 3. **Update multiple sections**: Ensure consistency across:
-   - Main examples
-   - "Common Pitfalls" section
-   - "Do These Instead" best practices
-   - Migration checklist items
+    - Main examples
+    - "Common Pitfalls" section
+    - "Do These Instead" best practices
+    - Migration checklist items
 4. **Version references**: Always use stable versions (e.g., `@v1`) in final examples
 5. **Test thoroughly**: Validate in both public and private repository contexts
 
@@ -165,7 +164,7 @@ ci-github-actions/
 
 ## Overview
 
-The migration typically involves converting two main CirrusCI tasks:
+The migration typically involves converting two main Cirrus CI tasks:
 
 - **build_task**: Build, test, analyze, and deploy artifacts
 - **promote_task**: Promote artifacts in Artifactory
@@ -207,19 +206,21 @@ Follow these security principles during migration:
 - name: Echo PR Title
   env:
     PR_TITLE: ${{ github.event.pull_request.title }}
-  run: echo "PR Title: $PR_TITLE"
+  run:
+    echo "PR Title: $PR_TITLE"
 
 # ❌ WRONG - Script injection vulnerability
 - name: Echo PR Title
-  run: echo "PR Title: ${{ github.event.pull_request.title }}"
+  run:
+    echo "PR Title: ${{ github.event.pull_request.title }}"
 ```
 
 ### Vault Path Format Differences
 
-**CirrusCI vs GitHub Actions vault path syntax**:
+**Cirrus CI vs GitHub Actions vault path syntax**:
 
 ```yaml
-# CirrusCI format
+# Cirrus CI format
 SONAR_TOKEN: VAULT[development/kv/data/sonarcloud data.token]
 
 # GitHub Actions format - remove 'data.' prefix
@@ -228,7 +229,7 @@ secrets: |
 ```
 
 **Key difference**: In GitHub Actions vault paths, use the field name directly (e.g., `token`, `url`) instead of
-the CirrusCI format (`data.token`, `data.url`).
+the Cirrus CI format (`data.token`, `data.url`).
 
 ## Tool Setup with Mise
 
@@ -299,7 +300,7 @@ jobs:
           deploy-pull-request: true
 
   promote:
-    needs: [build]
+    needs: [ build ]
     concurrency:
       group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
@@ -317,7 +318,7 @@ jobs:
       - uses: SonarSource/ci-github-actions/get-build-number@v1
       - uses: SonarSource/ci-github-actions/promote@v1
         with:
-           promote-pull-request: true
+          promote-pull-request: true
 ```
 
 ## SonarSource Custom Actions
@@ -385,12 +386,12 @@ Promotes builds in JFrog Artifactory and updates GitHub status checks.
 
 ##### Overriding Artifactory Roles
 
-In some cases, your existing CirrusCI configuration may use different Artifactory roles than the
+In some cases, your existing Cirrus CI configuration may use different Artifactory roles than the
 automatic detection. For example, a public repository might use `private-reader` and `qa-deployer`
 instead of the default `public-reader` and `public-deployer`.
 
 ```yaml
-# Override artifactory roles to match existing CirrusCI configuration
+# Override artifactory roles to match existing Cirrus CI configuration
 - uses: SonarSource/ci-github-actions/build-maven@v1
   with:
     deploy-pull-request: true
@@ -400,7 +401,8 @@ instead of the default `public-reader` and `public-deployer`.
 
 **When to use this**: Check your `.cirrus.yml` file for the vault paths used:
 
-- `ARTIFACTORY_PRIVATE_USERNAME: vault-${CIRRUS_REPO_OWNER}-${CIRRUS_REPO_NAME}-private-reader` → Use `artifactory-reader-role: private-reader`
+- `ARTIFACTORY_PRIVATE_USERNAME: vault-${CIRRUS_REPO_OWNER}-${CIRRUS_REPO_NAME}-private-reader` → Use
+  `artifactory-reader-role: private-reader`
 - `ARTIFACTORY_DEPLOY_USERNAME: vault-${CIRRUS_REPO_OWNER}-${CIRRUS_REPO_NAME}-qa-deployer` → Use `artifactory-deployer-role: qa-deployer`
 
 **Available role options:**
@@ -533,7 +535,7 @@ Automatically cleans up GitHub Actions resources when pull requests are closed.
 name: Cleanup PR Resources
 on:
   pull_request:
-    types: [closed]
+    types: [ closed ]
 jobs:
   cleanup:
     runs-on: sonar-xs
@@ -543,26 +545,26 @@ jobs:
       - uses: SonarSource/ci-github-actions/pr_cleanup@v1
 ```
 
-## CirrusCI → GitHub Actions Mapping
+## Cirrus CI → GitHub Actions Mapping
 
 ### Environment Variables
 
 Complete mapping table for ci-common-scripts compatibility:
 
-| CirrusCI Variable | GitHub Actions Variable | Purpose |
-|------------------|------------------------|---------|
-| `CIRRUS_CHANGE_IN_REPO` | `GITHUB_SHA` | Git commit SHA |
-| `CIRRUS_BASE_BRANCH` | `GITHUB_BASE_REF` | Base branch for PRs |
-| `CIRRUS_BRANCH` | `GITHUB_HEAD_REF` (PR) / `GITHUB_REF_NAME` (branch) | Current branch |
-| `CIRRUS_REPO_FULL_NAME` | `GITHUB_REPOSITORY` | Full repo name (owner/repo) |
-| `CIRRUS_BUILD_ID` / `CIRRUS_TASK_ID` | `GITHUB_RUN_ID` | Build/run identifier |
-| `BUILD_NUMBER` / `CI_BUILD_NUMBER` | `BUILD_NUMBER` / `BUILD_ID` / `PIPELINE_ID` | Build number |
-| `CIRRUS_REPO_NAME` | `PROJECT` | Repository name only |
-| `PROJECT_VERSION` | `PROJECT_VERSION` | Project version |
-| `CIRRUS_DEFAULT_BRANCH` | `DEFAULT_BRANCH` | Default branch |
-| `CIRRUS_PR` | `PULL_REQUEST` | PR number or false |
-| `CIRRUS_BASE_SHA` | `PULL_REQUEST_SHA` | Base SHA for PRs |
-| `CIRRUS_ENV` | `GITHUB_ENV` | Environment file path |
+| Cirrus CI Variable                   | GitHub Actions Variable                             | Purpose                     |
+|--------------------------------------|-----------------------------------------------------|-----------------------------|
+| `CIRRUS_CHANGE_IN_REPO`              | `GITHUB_SHA`                                        | Git commit SHA              |
+| `CIRRUS_BASE_BRANCH`                 | `GITHUB_BASE_REF`                                   | Base branch for PRs         |
+| `CIRRUS_BRANCH`                      | `GITHUB_HEAD_REF` (PR) / `GITHUB_REF_NAME` (branch) | Current branch              |
+| `CIRRUS_REPO_FULL_NAME`              | `GITHUB_REPOSITORY`                                 | Full repo name (owner/repo) |
+| `CIRRUS_BUILD_ID` / `CIRRUS_TASK_ID` | `GITHUB_RUN_ID`                                     | Build/run identifier        |
+| `BUILD_NUMBER` / `CI_BUILD_NUMBER`   | `BUILD_NUMBER` / `BUILD_ID` / `PIPELINE_ID`         | Build number                |
+| `CIRRUS_REPO_NAME`                   | `PROJECT`                                           | Repository name only        |
+| `PROJECT_VERSION`                    | `PROJECT_VERSION`                                   | Project version             |
+| `CIRRUS_DEFAULT_BRANCH`              | `DEFAULT_BRANCH`                                    | Default branch              |
+| `CIRRUS_PR`                          | `PULL_REQUEST`                                      | PR number or false          |
+| `CIRRUS_BASE_SHA`                    | `PULL_REQUEST_SHA`                                  | Base SHA for PRs            |
+| `CIRRUS_ENV`                         | `GITHUB_ENV`                                        | Environment file path       |
 
 **Additional Variables**:
 
@@ -572,10 +574,10 @@ Complete mapping table for ci-common-scripts compatibility:
 
 #### Specific Environment Variable Mappings
 
-CirrusCI configurations often include these patterns:
+Cirrus CI configurations often include these patterns:
 
 ```yaml
-# CirrusCI
+# Cirrus CI
 env:
   ARTIFACTORY_DEPLOY_REPO: sonarsource-private-qa  # or sonarsource-public-qa
   ARTIFACTORY_DEPLOY_USERNAME: VAULT[development/artifactory/token/${CIRRUS_REPO_OWNER}-${CIRRUS_REPO_NAME}-qa-deployer username]
@@ -591,16 +593,16 @@ You don't need to specify any of these environment variables or vault secrets ma
 
 ### Container Definitions
 
-| CirrusCI | GitHub Actions |
-|----------|----------------|
-| `eks_container` | `runs-on: sonar-xs` |
+| Cirrus CI            | GitHub Actions           |
+|----------------------|--------------------------|
+| `eks_container`      | `runs-on: sonar-xs`      |
 | `cpu: 2, memory: 2G` | Runner handles resources |
-| Custom images | Use mise for tools |
+| Custom images        | Use mise for tools       |
 
 #### Resource Requirements
 
 ```yaml
-# CirrusCI
+# Cirrus CI
 eks_container:
   <<: *CONTAINER_DEFINITION
   cpu: 2
@@ -615,17 +617,17 @@ eks_container:
 - Public repositories are visible to everyone on GitHub
 - Private repositories are only visible to you and people you share them with
 
-| Runner Type | OS | Label | Usage |
-|-------------|-------|-------|-------|
-| GitHub-Hosted | Ubuntu | `ubuntu-24.04` | Public repos, no auth actions |
-| **GitHub-Hosted Large** | **Ubuntu** | **`ubuntu-24.04-large`** | **Public repos, auth actions, Docker-in-Docker** |
-| GitHub-Hosted Large | Ubuntu ARM | `ubuntu-24.04-arm-large` | Public repos, ARM builds |
-| GitHub-Hosted Large | Windows | `windows-latest-large` | Public repos, Windows builds |
-| Self-Hosted Large | Ubuntu | `sonar-runner-large` | Private repos, Docker-in-Docker |
-| Self-Hosted Large | Ubuntu ARM | `sonar-runner-large-arm` | Private repos, ARM builds |
-| **Self-Hosted On-Demand** | **Ubuntu** | **`sonar-xs`, `sonar-s`, `sonar-m`, `sonar-l`, `sonar-xl`** | **Recommended for private repos** |
-| Self-Hosted Sidecar | Ubuntu | `sonar-se-xs`, `sonar-se-m` | Private repos with Kubernetes sidecar |
-| Self-Hosted ARM | Ubuntu ARM | `sonar-arm-s` | Private repos, ARM builds |
+| Runner Type               | OS         | Label                                                       | Usage                                            |
+|---------------------------|------------|-------------------------------------------------------------|--------------------------------------------------|
+| GitHub-Hosted             | Ubuntu     | `ubuntu-24.04`                                              | Public repos, no auth actions                    |
+| **GitHub-Hosted Large**   | **Ubuntu** | **`ubuntu-24.04-large`**                                    | **Public repos, auth actions, Docker-in-Docker** |
+| GitHub-Hosted Large       | Ubuntu ARM | `ubuntu-24.04-arm-large`                                    | Public repos, ARM builds                         |
+| GitHub-Hosted Large       | Windows    | `windows-latest-large`                                      | Public repos, Windows builds                     |
+| Self-Hosted Large         | Ubuntu     | `sonar-runner-large`                                        | Private repos, Docker-in-Docker                  |
+| Self-Hosted Large         | Ubuntu ARM | `sonar-runner-large-arm`                                    | Private repos, ARM builds                        |
+| **Self-Hosted On-Demand** | **Ubuntu** | **`sonar-xs`, `sonar-s`, `sonar-m`, `sonar-l`, `sonar-xl`** | **Recommended for private repos**                |
+| Self-Hosted Sidecar       | Ubuntu     | `sonar-se-xs`, `sonar-se-m`                                 | Private repos with Kubernetes sidecar            |
+| Self-Hosted ARM           | Ubuntu ARM | `sonar-arm-s`                                               | Private repos, ARM builds                        |
 
 **Runner Selection Guide**:
 
@@ -636,7 +638,7 @@ eks_container:
 #### Job Dependencies
 
 ```yaml
-# CirrusCI
+# Cirrus CI
 promote_task:
   depends_on:
     - build
@@ -649,15 +651,15 @@ promote:
 
 ### Conditional Execution
 
-| CirrusCI Pattern | GitHub Actions Pattern |
-|------------------|------------------------|
+| Cirrus CI Pattern                              | GitHub Actions Pattern                |
+|------------------------------------------------|---------------------------------------|
 | `only_if: $CIRRUS_USER_COLLABORATOR == 'true'` | Built into SonarSource custom actions |
-| `only_if: $CIRRUS_TAG == ""` | Built into promotion logic |
-| `only_if: $CIRRUS_PR != ""` | Use `if:` conditions on jobs |
+| `only_if: $CIRRUS_TAG == ""`                   | Built into promotion logic            |
+| `only_if: $CIRRUS_PR != ""`                    | Use `if:` conditions on jobs          |
 
-#### Complex CirrusCI Conditions
+#### Complex Cirrus CI Conditions
 
-Original CirrusCI often has complex anchor patterns like:
+Original Cirrus CI often has complex anchor patterns like:
 
 ```yaml
 only_sonarsource_qa: &ONLY_SONARSOURCE_QA
@@ -680,18 +682,18 @@ and the actions will handle internal authorization and deployment logic.
 
 ### Build Scripts
 
-| CirrusCI | GitHub Actions |
-|----------|----------------|
-| `source cirrus-env BUILD-PRIVATE` | Handled by custom actions |
-| `regular_mvn_build_deploy_analyze` | `build-maven@v1` action |
-| `cleanup_maven_repository` | Automatic in custom actions |
+| Cirrus CI                          | GitHub Actions              |
+|------------------------------------|-----------------------------|
+| `source cirrus-env BUILD-PRIVATE`  | Handled by custom actions   |
+| `regular_mvn_build_deploy_analyze` | `build-maven@v1` action     |
+| `cleanup_maven_repository`         | Automatic in custom actions |
 
 #### Cache and Cleanup Patterns
 
-CirrusCI typically includes:
+Cirrus CI typically includes:
 
 ```yaml
-# CirrusCI
+# Cirrus CI
 maven_cache:
   folder: ${CIRRUS_WORKING_DIR}/.m2/repository
 build_script:
@@ -845,6 +847,7 @@ Only override if you have specific requirements.
 - [ ] Verify Vault permissions are configured
 - [ ] Create `.github/workflows/build.yml`
 - [ ] Verify no conflicts with existing workflows
+- [ ] **DOCUMENTATION**: Identify all documentation files requiring updates (see Phase 6)
 
 ### Phase 2: Build Job
 
@@ -866,20 +869,106 @@ Only override if you have specific requirements.
 
 ### Phase 4: Additional Workflows
 
-- [ ] Add `pr-cleanup.yml` for automatic PR resource cleanup
+- [ ] **Replace manual pr-cleanup.yml** with official SonarSource action (see details below)
+- [ ] Add `pr-cleanup.yml` for automatic PR resource cleanup if not present
 - [ ] Consider stable-branch-update job if needed
 - [ ] Set up any project-specific additional workflows
 
+#### PR Cleanup Workflow Migration
+
+**CRITICAL**: If `.github/workflows/pr-cleanup.yml` exists, check if it uses manual implementation:
+
+**❌ Replace Manual Implementation:**
+
+```yaml
+# Manual implementation (64+ lines) - REPLACE THIS
+name: Cleanup caches and artifacts on PR close
+jobs:
+  cleanup:
+    steps:
+      - name: Cleanup caches
+        run: |
+          # Complex shell scripts with gh cache commands...
+      - name: Delete artifacts
+        run: |
+          # Complex shell scripts with gh api commands...
+```
+
+**✅ With Official SonarSource Action:**
+
+```yaml
+# Official implementation (13 lines) - USE THIS
+name: Cleanup PR Resources
+on:
+  pull_request:
+    types: [closed]
+jobs:
+  cleanup:
+    runs-on: sonar-xs
+    permissions:
+      actions: write
+    steps:
+      - uses: SonarSource/ci-github-actions/pr_cleanup@v1
+```
+
 ### Phase 5: Cleanup & Configuration
 
-⚠️ **IMPORTANT**: Do NOT modify `.cirrus.yml` during migration. Leave it exactly as-is to ensure
-CirrusCI continues to work alongside GitHub Actions during the transition period.
+⚠️ **IMPORTANT**: During the migration, remove from `.cirrus.yml` the tasks that are now handled by GitHub Actions.
+If no task remain, then remove the Cirrus CI files: `.cirrus.yml`, `.cirrus.star`, `.cirrus/Dockerfile`...
 
-- [ ] Verify all CirrusCI functionality is replicated
-- [ ] Configure build number in repository settings (> latest CirrusCI build)
+- [ ] Verify all Cirrus CI functionality is replicated
+- [ ] Configure build number in repository settings (> latest Cirrus CI build)
 - [ ] Test both PR and branch builds
 - [ ] Keep `.cirrus.yml` as-is (DO NOT remove or comment out during migration)
-- [ ] Update any documentation references
+
+### Phase 6: Documentation Updates
+
+**CRITICAL**: Always update documentation to reflect the migration. Search systematically:
+
+#### Build Badges
+
+- [ ] **README.md**: Replace Cirrus CI badges with GitHub Actions badges
+  ```markdown
+  # Before (Cirrus CI)
+  ![Cirrus CI - Branch Build Status](https://img.shields.io/cirrus/github/SonarSource/REPO/master?task=TASK&label=LABEL)
+
+  # After (GitHub Actions)
+  [![Build](https://github.com/SonarSource/REPO/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/SonarSource/REPO/actions/workflows/build.yml)
+  ```
+
+#### Working Directory Path References
+
+- [ ] **Search workflows for Cirrus CI paths**: Look for `/tmp/cirrus-ci-build/` references
+- [ ] **Replace with GitHub Actions paths**: Use `$GITHUB_WORKSPACE/` or relative paths
+  ```bash
+  # Before (Cirrus CI)
+  sed "s|/tmp/cirrus-ci-build/src/|src/|g"
+
+  # After (GitHub Actions)
+  sed "s|$GITHUB_WORKSPACE/src/|src/|g"
+  ```
+
+#### Manual Workflow Replacements
+
+- [ ] **Check existing pr-cleanup.yml**: Look for manual `gh cache` and `gh api` commands
+- [ ] **Replace with official action**: Use `SonarSource/ci-github-actions/pr_cleanup@v1`
+- [ ] **Verify correct permissions**: Ensure `actions: write` permission is set
+- [ ] **Search for other manual implementations** that have official SonarSource equivalents
+
+#### Systematic Documentation Search
+
+- [ ] **Search all `.md` files** for Cirrus CI references:
+  ```bash
+  grep -ri "cirrus\|\.cirrus" *.md
+  ```
+- [ ] **Update CI setup instructions** in CONTRIBUTE.md (if present)
+- [ ] **Update any workflow documentation** that references `.cirrus.yml`
+- [ ] **Check for environment variable references** that may need updating
+
+#### Pre-commit Integration
+
+- [ ] **Run pre-commit on all changed files** to ensure formatting compliance
+- [ ] **Fix any linting issues** reported by pre-commit hooks
 
 ## Vault Permissions Setup
 
@@ -892,18 +981,18 @@ some-repository:
   secrets:
     artifactory:
       roles:
-        - *artifactory_public-reader    # For PUBLIC repository, reader token
-        - *artifactory_public-deployer  # For PUBLIC repository, deployer token
-        - *artifactory_private-reader   # For PRIVATE repository, reader token
-        - *artifactory_qa-deployer      # For PRIVATE repository, deployer token
-        - *artifactory_promoter         # For artifact promotion
+        - *artifactory_public-reader     # For PUBLIC repository, reader token
+        - *artifactory_public-deployer   # For PUBLIC repository, deployer token
+        - *artifactory_private-reader    # For PRIVATE repository, reader token
+        - *artifactory_qa-deployer       # For PRIVATE repository, deployer token
+        - *artifactory_promoter          # For artifact promotion
     github:
       presets:
-        - licenses                      # Only for QA tests
+        - licenses                       # Only for QA tests
       customs:
-        - <<: *github_jira             # For gh-action-lt-backlog
+        - <<: *github_jira               # For gh-action-lt-backlog
           repositories: [some-repository]
-        - <<: *github_promotion        # GitHub checks with build number
+        - <<: *github_promotion          # GitHub checks with build number
           repositories: [some-repository]
     kv_paths:
       development/kv/data/datadog: {}    # For gh-action_release
@@ -916,28 +1005,28 @@ some-repository:
       development/kv/data/sonarcloud: {} # For manual scan with SC
 ```
 
-**Note**: Most secrets should already exist from CirrusCI usage.
+**Note**: Most secrets should already exist from Cirrus CI usage.
 
 ## Build Number Configuration
 
 **Critical Step**: After migration, configure the build number in repository settings:
 
 1. Go to Repository Settings → Custom Properties
-2. Set build number to a value **greater than the latest CirrusCI build**
+2. Set build number to a value **greater than the latest Cirrus CI build**
 3. This ensures continuous build numbering after migration
 
 ## Additional Example Repositories
 
 Reference these SonarSource dummy repositories for specific patterns:
 
-| Repository | Type | Build System | Notes |
-|------------|------|--------------|-------|
-| [sonar-dummy](https://github.com/SonarSource/sonar-dummy) | Private Java | Maven | Standard private Maven project |
-| [sonar-dummy-maven-enterprise](https://github.com/SonarSource/sonar-dummy-maven-enterprise) | Public+Private Java | Maven | Mixed public/private content |
-| [sonar-dummy-yarn](https://github.com/SonarSource/sonar-dummy-yarn) | Private NodeJS | NPM+Yarn | Node.js with Yarn |
-| [sonar-dummy-js](https://github.com/SonarSource/sonar-dummy-js) | Private JavaScript | NPM | JavaScript project |
-| [sonar-dummy-oss](https://github.com/SonarSource/sonar-dummy-oss) | Public Java | Gradle | Public Gradle project |
-| [sonar-dummy-python-oss](https://github.com/SonarSource/sonar-dummy-python-oss) | Public Python | Poetry | Public Python with Poetry |
+| Repository                                                                                  | Type                | Build System | Notes                          |
+|---------------------------------------------------------------------------------------------|---------------------|--------------|--------------------------------|
+| [sonar-dummy](https://github.com/SonarSource/sonar-dummy)                                   | Private Java        | Maven        | Standard private Maven project |
+| [sonar-dummy-maven-enterprise](https://github.com/SonarSource/sonar-dummy-maven-enterprise) | Public+Private Java | Maven        | Mixed public/private content   |
+| [sonar-dummy-yarn](https://github.com/SonarSource/sonar-dummy-yarn)                         | Private NodeJS      | NPM+Yarn     | Node.js with Yarn              |
+| [sonar-dummy-js](https://github.com/SonarSource/sonar-dummy-js)                             | Private JavaScript  | NPM          | JavaScript project             |
+| [sonar-dummy-oss](https://github.com/SonarSource/sonar-dummy-oss)                           | Public Java         | Gradle       | Public Gradle project          |
+| [sonar-dummy-python-oss](https://github.com/SonarSource/sonar-dummy-python-oss)             | Public Python       | Poetry       | Public Python with Poetry      |
 
 **Best Practice**: Check the most similar dummy repository for your project type before starting migration.
 
@@ -966,6 +1055,10 @@ This workflow automatically:
 - **SECURITY**: Pin all third-party actions to commit SHA
 - **SECURITY**: Use environment variables for untrusted input
 - **SECURITY**: Document all permissions with comments explaining why they're needed
+- **DOCUMENTATION**: Update README.md build badges from Cirrus CI to GitHub Actions
+- **DOCUMENTATION**: Replace all Cirrus CI path references with GitHub Actions equivalents
+- **DOCUMENTATION**: Search systematically for all CI system references in `.md` files
+- **WORKFLOWS**: Replace manual pr-cleanup.yml implementations with SonarSource/ci-github-actions/pr_cleanup@v1
 
 ### ❌ DON'T Do These
 
@@ -977,6 +1070,10 @@ This workflow automatically:
 - **SECURITY**: Don't use untrusted input directly in shell commands
 - **SECURITY**: Don't upload entire directories as artifacts (may contain secrets)
 - **SECURITY**: Don't cache sensitive information (tokens, keys, credentials)
+- **DOCUMENTATION**: Don't forget to update README.md build badges
+- **DOCUMENTATION**: Don't leave Cirrus CI path references (e.g., `/tmp/cirrus-ci-build/`)
+- **DOCUMENTATION**: Don't skip systematic search for CI references in documentation files
+- **WORKFLOWS**: Don't keep manual pr-cleanup implementations when official SonarSource actions exist
 
 ## Troubleshooting
 
@@ -987,14 +1084,14 @@ This workflow automatically:
 3. **Tool versions**: Use mise.toml instead of manual setup actions
 4. **Cache conflicts**: Use `cache_save: false` in promote jobs
 5. **Branch conditions**: Let custom actions handle most conditional logic
-6. **Build number continuity**: Set custom property > latest CirrusCI build
-7. **Artifactory role mismatch**: If your CirrusCI uses different roles than auto-detected, override them:
+6. **Build number continuity**: Set custom property > latest Cirrus CI build
+7. **Artifactory role mismatch**: If your Cirrus CI uses different roles than auto-detected, override them:
    ```yaml
    # Check .cirrus.yml for actual roles used and override if needed
    - uses: SonarSource/ci-github-actions/build-maven@v1
      with:
-       artifactory-reader-role: private-reader    # Match CirrusCI config
-       artifactory-deployer-role: qa-deployer     # Match CirrusCI config
+       artifactory-reader-role: private-reader    # Match Cirrus CI config
+       artifactory-deployer-role: qa-deployer     # Match Cirrus CI config
    ```
 8. **Cirrus-modules migration**: If migrating from cirrus-modules, don't try to recreate individual features
    manually - use the comprehensive SonarSource custom actions instead
@@ -1027,7 +1124,8 @@ run: echo "Title: $PR_TITLE"
 - Test both PR and branch builds
 - Verify promotion works correctly
 - Check Artifactory deployments
-- **Always consult the [official repository](https://github.com/SonarSource/ci-github-actions/) for the latest action parameters and examples**
+- **Always consult the [official repository](https://github.com/SonarSource/ci-github-actions/) for the latest action parameters and
+  examples**
 
 #### Using Feature Branches for Testing
 
@@ -1059,21 +1157,107 @@ infrastructure complexity. You can identify these repositories by the presence o
 # renovate: datasource=github-releases depName=SonarSource/cirrus-modules
 load("github.com/SonarSource/cirrus-modules@74c00b08bd556f6f6f59cc244941f0a815d79e42", "load_features")  # 3.3.0
 
+
 def main(ctx):
     return load_features(ctx)
 ```
+
+### Understanding Cirrus-Modules Configuration with .cirrus.generated.yml
+
+When migrating repositories that use `cirrus-modules`, it can be helpful to see the actual YAML configuration that the Starlark code
+generates. This makes it easier to understand what features need to be replicated in GitHub Actions.
+
+#### Generating the Interpolated Configuration
+
+To see the expanded configuration that `cirrus-modules` generates, you can create a `.cirrus.generated.yml` file by running the Starlark
+interpolation locally:
+
+```bash
+# Generate the expanded configuration
+CIRRUS_REPO_NAME=$(basename $(git rev-parse --show-toplevel))
+CIRRUS_DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef --jq ".defaultBranchRef.name")
+cat .cirrus.yml > .cirrus.generated.yml
+cirrus validate -f .cirrus.star -p -e "CIRRUS_REPO_CLONE_TOKEN=$(gh auth token)" \
+  -e "CIRRUS_BRANCH=$CIRRUS_DEFAULT_BRANCH" -e "CIRRUS_DEFAULT_BRANCH=$CIRRUS_DEFAULT_BRANCH" \
+  -e "CIRRUS_REPO_OWNER=SonarSource" -e "CIRRUS_REPO_NAME=$CIRRUS_REPO_NAME" -e "CIRRUS_REPO_FULL_NAME=SonarSource/$CIRRUS_REPO_NAME" \
+  >> .cirrus.generated.yml
+```
+
+#### Using .cirrus.generated.yml for Migration
+
+The generated file shows you exactly what tasks, environments, and configurations the Starlark code creates. Use this file to:
+
+- **Identify all tasks and dependencies** that need to be migrated
+- **Understand environment variables** and vault secrets being used
+- **Map Cirrus CI patterns** to their GitHub Actions equivalents
+- **Verify completeness** of your migration by comparing features
+
+**Example workflow for migration**:
+
+```bash
+# 1. Generate the expanded configuration
+
+# 2. Review the generated tasks
+grep -E "(task:|depends_on:|only_if:)" .cirrus.generated.yml
+
+# 3. Identify environment variables and vault secrets
+grep -E "(env:|VAULT\[)" .cirrus.generated.yml
+
+# 4. Use this information to create your GitHub Actions workflows
+# 5. Compare the generated file with your GitHub Actions implementation
+```
+
+**⚠️ Important Notes:**
+
+- The `.cirrus.generated.yml` file is for **migration reference only**
+- **Never commit** this file to your repository (add to `.gitignore`)
+- **Always use the latest version** by regenerating when cirrus-modules updates
+- **Remember**: GitHub Actions workflows will be simpler than the generated Cirrus CI config
+
+#### Example Generated Content
+
+A typical `.cirrus.generated.yml` might expand your simple `.cirrus.star` into something like:
+
+```yaml
+# This is what gets generated from load_features(ctx)
+env:
+  CIRRUS_CLONE_DEPTH: "20"
+  CIRRUS_SHELL: bash
+  ARTIFACTORY_URL: VAULT[development/kv/data/repox data.url]
+  # ... many more environment variables
+
+build_task:
+  only_if: $CIRRUS_USER_COLLABORATOR == 'true' && ...
+  eks_container:
+    image: ${CIRRUS_AWS_ACCOUNT}.dkr.ecr.eu-central-1.amazonaws.com/base:j17-latest
+    # ... container configuration
+  env:
+  # ... task-specific environment variables
+  maven_cache:
+    folder: ${CIRRUS_WORKING_DIR}/.m2/repository
+  build_script:
+    - source cirrus-env BUILD-PRIVATE
+    - regular_mvn_build_deploy_analyze
+  # ... more task configuration
+
+promote_task:
+  depends_on: [ build ]
+  # ... promotion task configuration
+```
+
+This expanded view makes it clear what needs to be migrated to GitHub Actions workflows.
 
 ### Cirrus-Modules Features and GitHub Actions Equivalents
 
 The cirrus-modules system provides several features that need to be handled during migration:
 
-| Cirrus-Modules Feature | GitHub Actions Equivalent | Notes |
-|------------------------|---------------------------|-------|
-| **AWS Infrastructure** | `runs-on: sonar-xs` | Runner selection handles infrastructure |
-| **Vault Authentication** | `SonarSource/vault-action-wrapper` | Direct vault integration |
-| **Build Numbers** | `SonarSource/ci-github-actions/get-build-number@v1` | Continuous build numbering |
-| **Repox/Artifactory** | `SonarSource/ci-github-actions/build-*@v1` | Handled by build actions |
-| **Conditional Execution** | `on:` triggers + `if:` conditions | GitHub Actions native conditions |
+| Cirrus-Modules Feature    | GitHub Actions Equivalent                           | Notes                                   |
+|---------------------------|-----------------------------------------------------|-----------------------------------------|
+| **AWS Infrastructure**    | `runs-on: sonar-xs`                                 | Runner selection handles infrastructure |
+| **Vault Authentication**  | `SonarSource/vault-action-wrapper`                  | Direct vault integration                |
+| **Build Numbers**         | `SonarSource/ci-github-actions/get-build-number@v1` | Continuous build numbering              |
+| **Repox/Artifactory**     | `SonarSource/ci-github-actions/build-*@v1`          | Handled by build actions                |
+| **Conditional Execution** | `on:` triggers + `if:` conditions                   | GitHub Actions native conditions        |
 
 ## Real Migration Example
 
@@ -1196,7 +1380,7 @@ jobs:
       - uses: SonarSource/ci-github-actions/get-build-number@v1
       - uses: SonarSource/ci-github-actions/promote@v1
         with:
-           promote-pull-request: true
+          promote-pull-request: true
 ```
 
 ### Plus: `mise.toml` (3 lines)
@@ -1238,7 +1422,7 @@ maven = "3.9"
 
    ✅ **Correct**: Custom actions handle caching automatically.
 
-3. **Don't copy complex CirrusCI conditions**:
+3. **Don't copy complex Cirrus CI conditions**:
 
    ```yaml
    # ❌ WRONG - Don't port these complex conditions
@@ -1302,7 +1486,7 @@ maven = "3.9"
 
 ### Checkout Depth Configuration
 
-When migrating from CirrusCI, replace specific checkout depth configurations (like CIRRUS_CLONE_DEPTH) with
+When migrating from Cirrus CI, replace specific checkout depth configurations (like CIRRUS_CLONE_DEPTH) with
 standard checkout action without fetch-depth parameter.
 
 ### SonarQube Scanning
@@ -1326,7 +1510,7 @@ Example of manual scanning that should be replaced:
     sonar-scanner
 ```
 
-Example from CirrusCI that should be replaced:
+Example from Cirrus CI that should be replaced:
 
 ```yaml
 scanner_task:
@@ -1357,17 +1541,3 @@ Replace with:
     SONAR_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_TOKEN }}
     SONAR_HOST_URL: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_HOST_URL }}
 ```
-
-### Pre-commit Integration
-
-If pre-commit is available in the repository (indicated by any precommit file like `.pre-commit-config.yaml`,
-`.github/workflows/pre-commit.yml`, etc.), after making any file changes, always run pre-commit on all
-changed files to catch and fix linting/formatting issues. Fix any errors that pre-commit reports, but do not
-commit the changes automatically.
-
-Example workflow:
-
-1. Make changes to files
-2. Run: `pre-commit run --files [list of changed files]`
-3. Fix any issues reported by pre-commit
-4. Present the fixed files to the user without committing

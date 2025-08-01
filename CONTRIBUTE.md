@@ -106,7 +106,7 @@ Additional tests will be added to cover specific scenarios or edge cases, when f
 ## Documentation for AI tools
 
 This repository includes a comprehensive migration guide at [cirrus-github-migration.md](.cursor/cirrus-github-migration.md) that
-documents the process of migrating CirrusCI pipelines to GitHub Actions. This guide is accessible to everyone in the company
+documents the process of migrating Cirrus CI pipelines to GitHub Actions. This guide is accessible to everyone in the company
 using Cursor through the `@Doc` command. The purpose of the document is to provide a context to Cursor and similar AI tools
 to aid with migration
 
