@@ -40,9 +40,13 @@ outputs:
     description: The JFrog build info UI URL
     value: ${{ steps.build.outputs.BUILD_INFO_URL }}
 
+
 runs:
   using: composite
   steps:
+    - name: Get build number
+      uses: SonarSource/ci-github-actions/get-build-number@master
+      id: build-number
     - name: Set build parameters
       shell: bash
       env:
