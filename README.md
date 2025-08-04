@@ -151,7 +151,7 @@ No outputs are provided by this action.
 
 ## `build-poetry`
 
-Build and publish a Python project using Poetry.
+Build, analyze, and publish a Python project using Poetry with SonarQube integration and Artifactory deployment.
 
 ### Requirements
 
@@ -196,6 +196,15 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: SonarSource/ci-github-actions/build-poetry@v1
+        with:
+          public: false                                        # Defaults to `true` if the repository is public
+          artifactory-reader-role: private-reader              # or public-reader if `public` is `true`
+          artifactory-deployer-role: qa-deployer               # or public-deployer if `public` is `true`
+          deploy-pull-request: false                           # Deploy pull request artifacts
+          poetry-virtualenvs-path: .cache/pypoetry/virtualenvs # Poetry virtual environment path
+          poetry-cache-dir: .cache/pypoetry                    # Poetry cache directory
+          repox-url: https://repox.jfrog.io                    # Repox URL
+          sonar-platform: next                                 # SonarQube platform (next, sqc-eu, or sqc-us)
 ```
 
 ### Inputs
@@ -213,15 +222,18 @@ jobs:
 
 ### Outputs
 
-No outputs are provided by this action.
+- `project-version`: The project version from pyproject.toml with build number
 
 ### Features
 
-- Automated dependency management with Poetry
-- Conditional deployment based on branch patterns
-- Python virtual environment caching for faster builds
-- SonarQube analysis integration (configurable)
+- Automated version management with build numbers and .dev suffix handling
+- SonarQube analysis for code quality using pysonar (credentials from Vault)
+- Conditional deployment based on branch patterns (default, maintenance, dogfood branches)
+- Poetry dependency management and virtual environment isolation
+- Pull request support with optional deployment
 - Comprehensive build logging and error handling
+- Support for different branch types (default, maintenance, PR, dogfood, long-lived feature)
+- Multi-platform SonarQube support (SonarCloud EU/US, SonarQube Next)
 
 ## `build-gradle`
 
