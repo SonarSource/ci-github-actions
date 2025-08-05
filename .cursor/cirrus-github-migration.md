@@ -69,11 +69,22 @@ After creating your workflow, verify EVERY item:
 
 Update this section when newer versions are released:
 
+#### Core GitHub Actions
+
 - [ ] `actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2`
-- [ ] `jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2.4.0`
 - [ ] `actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0`
 - [ ] `actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8`
+
+#### Build Tools
+
+- [ ] `jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2.4.0`
 - [ ] `sonarsource/sonarqube-scan-action@8c71dc039c2dd71d3821e89a2b58ecc7fee6ced9 # v5.3.0`
+
+#### SonarSource Actions
+
+- [ ] `SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # v3.1.0`
+- [ ] `SonarSource/gh-action_pre-commit@0ecedc4e4070444a95f6b6714ddc3ebcdde697c4 # v1.1.0`
+- [ ] `SonarSource/gh-action_release/.github/workflows/main.yaml@78fbbb684c2ebb36a682b9d66b1eda8a2eebd9b2 # v5.17.2`
 
 ### Mise Configuration
 
@@ -451,6 +462,8 @@ instead of the default `public-reader` and `public-deployer`.
     artifactory-deployer-role: qa-deployer               # qa-deployer/public-deployer
     poetry-virtualenvs-path: .cache/pypoetry/virtualenvs # Poetry virtual environments path
     poetry-cache-dir: .cache/pypoetry                    # Poetry cache directory
+    repox-url: https://repox.jfrog.io                    # Repox URL
+    sonar-platform: next                                 # SonarQube platform (next, sqc-eu, sqc-us)
 ```
 
 **Features:**
@@ -472,6 +485,32 @@ instead of the default `public-reader` and `public-deployer`.
     skip-tests: false                                  # Skip running tests
     cache-npm: true                                    # Cache NPM dependencies
     repox-url: https://repox.jfrog.io                 # Repox URL
+    sonar-platform: next                              # SonarQube platform (next, sqc-eu, sqc-us)
+```
+
+**Features:**
+
+- Automated version management with build numbers and SNAPSHOT handling
+- SonarQube analysis for code quality (credentials from Vault)
+- Conditional deployment based on branch patterns (main, maintenance, dogfood branches)
+- NPM dependency caching for faster builds (configurable)
+- JFrog build info publishing with UI links
+- **Required permissions:** `id-token: write`, `contents: write`
+- **Outputs:** `project-version` from package.json, `build-info-url` when deployment occurs
+
+#### YARN Projects (JavaScript/TypeScript)
+
+```yaml
+- uses: SonarSource/ci-github-actions/build-yarn@v1
+  with:
+    deploy-pull-request: false                        # Deploy pull request artifacts
+    # All parameters below are optional
+    artifactory-deploy-repo: ""                       # Artifactory repository name
+    artifactory-deploy-access-token: ""               # Artifactory access token
+    skip-tests: false                                  # Skip running tests
+    cache-yarn: true                                   # Cache Yarn dependencies
+    repox-url: https://repox.jfrog.io                 # Repox URL
+    sonar-platform: next                              # SonarQube platform (next, sqc-eu, sqc-us)
 ```
 
 **Features:**
