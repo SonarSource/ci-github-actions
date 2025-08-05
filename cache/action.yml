@@ -31,14 +31,10 @@ outputs:
 runs:
   using: composite
   steps:
-    - uses: jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2.4.0
-      with:
-        version: 2025.7.12
-
     - name: Install OS-level requirements
       shell: bash
       run: |
-        ${GITHUB_ACTION_PATH}/cache-mise-install.sh
+        ${GITHUB_ACTION_PATH}/cache-install-requirements.sh
 
     - name: Determine repository visibility
       id: repo-visibility

@@ -67,7 +67,7 @@ runs:
 
     - name: Cache Yarn dependencies
       if: ${{ inputs.cache-yarn == 'true' }}
-      uses: SonarSource/ci-github-actions/cache@master
+      uses: SonarSource/ci-github-actions/cache@feat/mmatuszny/BUILD-8695
       with:
         path: |
           ~/.yarn
