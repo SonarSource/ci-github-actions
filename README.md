@@ -222,18 +222,7 @@ jobs:
 
 ### Outputs
 
-- `project-version`: The project version from pyproject.toml with build number
-
-### Features
-
-- Automated version management with build numbers and .dev suffix handling
-- SonarQube analysis for code quality using pysonar (credentials from Vault)
-- Conditional deployment based on branch patterns (default, maintenance, dogfood branches)
-- Poetry dependency management and virtual environment isolation
-- Pull request support with optional deployment
-- Comprehensive build logging and error handling
-- Support for different branch types (default, maintenance, PR, dogfood, long-lived feature)
-- Multi-platform SonarQube support (SonarCloud EU/US, SonarQube Next)
+- `project-version`: The project version from pyproject.toml with build number. The same is also exposed as `PROJECT_VERSION` environment variable.
 
 ## `build-gradle`
 

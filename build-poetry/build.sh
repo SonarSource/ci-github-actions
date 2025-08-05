@@ -13,7 +13,6 @@
 # - ARTIFACTORY_DEPLOY_ACCESS_TOKEN: Access token to deploy to the repository
 # - DEFAULT_BRANCH: Default branch name (e.g. main)
 # - PULL_REQUEST: Pull request number (e.g. 1234) or empty string
-# - PULL_REQUEST_SHA: Pull request base SHA or empty string
 #
 # GitHub Actions auto-provided:
 # - GITHUB_REF_NAME: Git branch name
@@ -68,10 +67,7 @@ run_sonar_scanner() {
     local additional_params=("$@")
 
     # Install pysonar into Poetry's virtual environment without modifying project files
-    if ! poetry run pysonar --help >/dev/null 2>&1; then
-        echo "Installing pysonar into Poetry virtual environment..."
-        poetry run pip install pysonar
-    fi
+    poetry run pip install pysonar
 
     poetry run pysonar \
         -Dsonar.host.url="${SONAR_HOST_URL}" \
@@ -124,8 +120,6 @@ set_project_version() {
     return 1
   fi
 
-  export CURRENT_VERSION="${current_version}"
-
   release_version=${current_version%".dev"*}
   # In case of 2 digits, we need to add a '0' as the 3rd digit.
   digit_count=$(echo "${release_version//./ }" | wc -w)
@@ -151,11 +145,9 @@ get_build_config() {
 
   if is_default_branch && ! is_pull_request; then
     echo "======= Building main branch ======="
-    echo "Current version: ${CURRENT_VERSION}"
 
     enable_sonar=true
     enable_deploy=true
-    sonar_args=("-Dsonar.projectVersion=${CURRENT_VERSION}")
 
   elif is_maintenance_branch && ! is_pull_request; then
     echo "======= Building maintenance branch ======="
