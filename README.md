@@ -4,6 +4,29 @@
 
 CI/CD GitHub Actions
 
+## 📋 Standardization & Requirements
+
+All actions in this repository follow standardized patterns for consistency and maintainability. Key standardizations include:
+
+### Required Inputs
+
+- **`repox-url`**: Required for all build actions (default: `https://repox.jfrog.io`)
+- **`develocity-url`**: Required for Gradle and Maven build actions (default: `https://develocity.sonar.build/`)
+
+### Standardized Environment Variables
+
+All actions use consistent environment variables with safe fallback patterns (`|| ''` instead of `false` or `null`):
+
+- `PULL_REQUEST`: Pull request number or empty string
+- `PULL_REQUEST_SHA`: Pull request base SHA or empty string
+- `DEFAULT_BRANCH`: Repository default branch name
+
+### Event Detection
+
+Actions use `$GITHUB_EVENT_NAME` environment variable for reliable pull request detection instead of legacy string comparison patterns.
+
+---
+
 ## `get-build-number`
 
 Manage the build number in GitHub Actions.
@@ -106,7 +129,7 @@ jobs:
       id-token: write
       contents: write
     steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: SonarSource/ci-github-actions/build-maven@v1
 ```
 
@@ -382,7 +405,7 @@ jobs:
 | Output | Description |
 |--------|-------------|
 | `project-version` | The project version from package.json |
-| `build-info-url` | The JFrog build info UI URL (when deployment occurs) |
+| `build-info-url` | The JFrog build info UI URL |
 
 ### Features
 
@@ -464,8 +487,8 @@ jobs:
 
 | Output | Description |
 |--------|-------------|
-| `project-version` | The project version from package.json with build number |
-| `build-info-url` | The JFrog build info UI URL (when deployment occurs) |
+| `project-version` | The project version from package.json |
+| `build-info-url` | The JFrog build info UI URL |
 
 ### Features
 
@@ -530,7 +553,7 @@ promote:
 | `promote-pull-request` | Whether to promote pull request artifacts. Requires `deploy-pull-request` input to be set to `true` in the build action | `false` |
 | `multi-repo` | If true, promotes to public and private repositories. For projects with both public and private artifacts | (optional) |
 | `artifactory-deploy-repo` | Repository to deploy to. If not set, it will be retrieved from the build info | (optional) |
-| `artifactory-target-repo` | Target repository for the promotion. If not set, it will be determined based on the branch type and the deployment repository | (optional) |
+| `artifactory-target-repo` | Target repository for the promotion. If not set, it will be determined based on the branch type and the deploy repository | (optional) |
 
 ### Outputs
 
