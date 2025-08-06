@@ -26,10 +26,15 @@ inputs:
   repox-url:
     description: URL for Repox
     default: https://repox.jfrog.io
+  sonar-platform:
+    description: SonarQube primary platform (next, sqc-eu, or sqc-us) - currently not enabled in build script
+    default: next
 
 runs:
   using: composite
   steps:
+    - name: Get build number
+      uses: SonarSource/ci-github-actions/get-build-number@master
     - name: Set build parameters
       shell: bash
       env:
@@ -41,10 +46,6 @@ runs:
         echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_DEPLOYER_ROLE=${ARTIFACTORY_DEPLOYER_ROLE}" >> "$GITHUB_ENV"
         cp ${GITHUB_ACTION_PATH}/mise.local.toml mise.local.toml
-      # mkdir .actions/
-      # ln -s "${GITHUB_ACTION_PATH}/../get-build-number" .actions/get-build-number
-    # - uses: ./.actions/get-build-number
-    #   id: build-number
     - name: Cache local Poetry cache
       uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
       with:
@@ -60,6 +61,8 @@ runs:
       uses: SonarSource/vault-action-wrapper@d6d745ffdbc82b040df839b903bc33b5592cd6b0 # 3.0.2
       with:
         secrets: |
+          development/kv/data/${{ inputs.sonar-platform == 'sqc-eu' && 'sonarcloud' || (inputs.sonar-platform == 'sqc-us' && 'sonarqube-us' || 'next') }} url | SONAR_HOST_URL;
+          development/kv/data/${{ inputs.sonar-platform == 'sqc-eu' && 'sonarcloud' || (inputs.sonar-platform == 'sqc-us' && 'sonarqube-us' || 'next') }} token | SONAR_TOKEN;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;
       # yamllint enable rule:line-length
@@ -74,7 +77,9 @@ runs:
         # Action inputs
         ARTIFACTORY_URL: ${{ inputs.repox-url }}/artifactory
         DEPLOY_PULL_REQUEST: ${{ inputs.deploy-pull-request }}
-        # SONAR_HOST_URL: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_HOST_URL }}
+        # SonarQube integration (currently disabled in build script)
+        SONAR_HOST_URL: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_HOST_URL }}
+        SONAR_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_TOKEN }}
         ARTIFACTORY_PYPI_REPO: ${{ inputs.public == 'true' && 'sonarsource-pypi' || 'sonarsource-pypi' }} # FIXME: sonarsource-pypi-public
         ARTIFACTORY_DEPLOY_REPO: ${{ inputs.public == 'true' && 'sonarsource-pypi-public-qa' || 'sonarsource-pypi-private-qa' }}
         ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}

@@ -31,6 +31,9 @@ inputs:
   repox-url:
     description: URL for Repox
     default: https://repox.jfrog.io
+  sonar-platform:
+    description: SonarQube primary platform (next, sqc-eu, or sqc-us)
+    default: next
 
 outputs:
   project-version:
@@ -40,9 +43,12 @@ outputs:
     description: The JFrog build info UI URL
     value: ${{ steps.build.outputs.BUILD_INFO_URL }}
 
+
 runs:
   using: composite
   steps:
+    - name: Get build number
+      uses: SonarSource/ci-github-actions/get-build-number@master
     - name: Set build parameters
       shell: bash
       env:
@@ -78,8 +84,8 @@ runs:
       uses: SonarSource/vault-action-wrapper@d6d745ffdbc82b040df839b903bc33b5592cd6b0 # 3.0.2
       with:
         secrets: |
-          development/kv/data/next url | SONAR_HOST_URL;
-          development/kv/data/next token | SONAR_TOKEN;
+          development/kv/data/${{ inputs.sonar-platform == 'sqc-eu' && 'sonarcloud' || (inputs.sonar-platform == 'sqc-us' && 'sonarqube-us' || 'next') }} url | SONAR_HOST_URL;
+          development/kv/data/${{ inputs.sonar-platform == 'sqc-eu' && 'sonarcloud' || (inputs.sonar-platform == 'sqc-us' && 'sonarqube-us' || 'next') }} token | SONAR_TOKEN;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;
       # yamllint enable rule:line-length
