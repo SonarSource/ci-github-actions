@@ -31,11 +31,6 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Install OS-level requirements
-      shell: bash
-      run: |
-        ${GITHUB_ACTION_PATH}/cache-install-requirements.sh
-
     - name: Determine repository visibility
       id: repo-visibility
       shell: bash
