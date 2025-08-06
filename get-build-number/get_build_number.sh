@@ -8,7 +8,7 @@ GH_API_VERSION_HEADER="X-GitHub-Api-Version: 2022-11-28"
 CACHE_FILE="build_number.txt"
 
 echo "Fetching build number from repository properties..."
-PROPERTIES_API_URL="/repos/${GITHUB_REPOSITORY}/properties/values"
+PROPERTIES_API_URL="repos/${GITHUB_REPOSITORY}/properties/values"
 BUILD_NUMBER=$(gh api -H "$GH_API_VERSION_HEADER" "$PROPERTIES_API_URL" --jq '.[] | select(.property_name == "build_number") | .value')
 echo "Current build number from repo: ${BUILD_NUMBER:=0}"
 if ! [[ "$BUILD_NUMBER" =~ ^[0-9]+$ ]]; then
