@@ -588,6 +588,63 @@ env:
 2. **Configure Build Action**: Add `deploy-pull-request: true` to your build action
 3. **Configure Promote Action**: Add `promote-pull-request: true` to your promote action
 
+##### Overriding SonarQube Platform
+
+The SonarQube platform used for analysis is based on the `SONAR_HOST_URL` in your Cirrus CI configuration.
+
+**🔍 Detection Steps - Follow These Exactly**:
+
+1. **Examine `.cirrus.yml` for SONAR_HOST_URL pattern**:
+   Look for: `SONAR_HOST_URL: VAULT[development/kv/data/... data.url]`
+
+2. **Check the vault path to determine platform**:
+   - `development/kv/data/next` → **No action needed** (default platform)
+   - `development/kv/data/sonarcloud` → Set `sonar-platform: sqc-eu`
+   - `development/kv/data/sonarqube-us` → Set `sonar-platform: sqc-us`
+
+**🎯 Decision Matrix**:
+
+| Vault Path in .cirrus.yml                    | SONAR_HOST_URL Contains | Action Required                    |
+|----------------------------------------------|-------------------------|-----------------------------------|
+| `development/kv/data/next`                   | `next`                  | **No override needed** (default)  |
+| `development/kv/data/sonarcloud`             | `sonarcloud`            | **Set `sonar-platform: sqc-eu`**  |
+| `development/kv/data/sonarqube-us`           | `sonarqube-us`          | **Set `sonar-platform: sqc-us`**  |
+
+**🛠️ Implementation Examples**:
+
+```yaml
+# Example 1: Using sonarcloud platform (EU)
+# Found in .cirrus.yml: SONAR_HOST_URL: VAULT[development/kv/data/sonarcloud data.url]
+- uses: SonarSource/ci-github-actions/build-maven@v1
+  with:
+    sonar-platform: sqc-eu    # Override default next platform
+
+# Example 2: Using sonarqube-us platform (US)
+# Found in .cirrus.yml: SONAR_HOST_URL: VAULT[development/kv/data/sonarqube-us data.url]
+- uses: SonarSource/ci-github-actions/build-maven@v1
+  with:
+    sonar-platform: sqc-us    # Override default next platform
+
+# Example 3: Using next platform (default)
+# Found in .cirrus.yml: SONAR_HOST_URL: VAULT[development/kv/data/next data.url]
+- uses: SonarSource/ci-github-actions/build-maven@v1
+  with:
+    # sonar-platform auto-detected (next) - no override needed
+```
+
+**Available platform options**:
+
+- **`next`**: Default SonarQube platform (auto-detected)
+- **`sqc-eu`**: SonarCloud EU platform
+- **`sqc-us`**: SonarCloud US platform
+
+**Migration Steps**:
+
+1. **Check Cirrus CI**: Look for `SONAR_HOST_URL` in your `.cirrus.yml`
+2. **Identify vault path**: Determine which vault path is used for the SonarQube URL
+3. **Configure platform**: Add `sonar-platform` parameter if needed (see decision matrix above)
+4. **Test analysis**: Verify that SonarQube analysis works with the correct platform
+
 ### Additional Actions
 
 #### cache
@@ -967,6 +1024,11 @@ Only override if you have specific requirements.
   - [ ] If public repo + no patterns found → Use default auto-detection (no override needed)
   - [ ] If private repo → Use default auto-detection (no override needed)
 - [ ] Verify Overriding Pull Request Deployment and Promotion
+- [ ] **Verify Overriding SonarQube Platform**:
+  - [ ] Search `.cirrus.yml` for `SONAR_HOST_URL` vault pattern
+  - [ ] If vault path contains `sonarcloud` → Add `sonar-platform: sqc-eu`
+  - [ ] If vault path contains `sonarqube-us` → Add `sonar-platform: sqc-us`
+  - [ ] If vault path contains `next` → Use default auto-detection (no override needed)
 - [ ] **If using cirrus-modules**: Verify all features are covered by SonarSource custom actions
 - [ ] Test build job functionality
 
