@@ -1,5 +1,21 @@
 # Contribute
 
+## 📋 Standardization & Requirements
+
+All actions in this repository follow standardized patterns for consistency and maintainability. Key standardizations include:
+
+### Standardized Environment Variables
+
+All actions use consistent environment variables with safe fallback patterns (`|| ''` instead of `false` or `null`):
+
+- `PULL_REQUEST`: Pull request number or empty string
+- `PULL_REQUEST_SHA`: Pull request base SHA or empty string
+- `DEFAULT_BRANCH`: Repository default branch name
+
+### Event Detection
+
+Actions use `$GITHUB_EVENT_NAME` environment variable for reliable pull request detection instead of legacy string comparison patterns.
+
 ## Unit testing of Bash scripts
 
 The Bash scripts used by the GitHub actions are tested with the [ShellSpec framework](https://github.com/shellspec/shellspec)

@@ -4,34 +4,16 @@
 
 CI/CD GitHub Actions
 
-## 📋 Standardization & Requirements
-
-All actions in this repository follow standardized patterns for consistency and maintainability. Key standardizations include:
-
-### Required Inputs
-
-- **`repox-url`**: Required for all build actions (default: `https://repox.jfrog.io`)
-- **`develocity-url`**: Required for Gradle and Maven build actions (default: `https://develocity.sonar.build/`)
-
-### Standardized Environment Variables
-
-All actions use consistent environment variables with safe fallback patterns (`|| ''` instead of `false` or `null`):
-
-- `PULL_REQUEST`: Pull request number or empty string
-- `PULL_REQUEST_SHA`: Pull request base SHA or empty string
-- `DEFAULT_BRANCH`: Repository default branch name
-
-### Event Detection
-
-Actions use `$GITHUB_EVENT_NAME` environment variable for reliable pull request detection instead of legacy string comparison patterns.
-
 ---
 
 ## `get-build-number`
 
 Manage the build number in GitHub Actions.
 
-The GitHub status check is named `get-build-number`.
+The build number is stored in the GitHub repository property named `build_number`. This action will reuse or increment the build number,
+and set it as an environment variable named `BUILD_NUMBER`, and as a GitHub Actions output variable also named `BUILD_NUMBER`.
+
+The build number is unique per workflow run ID. It is not incremented on workflow reruns.
 
 ### Requirements
 
@@ -77,8 +59,6 @@ No inputs are required for this action.
 ## `build-maven`
 
 Build and deploy a Maven project with SonarQube analysis and Artifactory deployment.
-
-The GitHub status check is named `Build`.
 
 ### Requirements
 
@@ -173,8 +153,6 @@ No outputs are provided by this action.
 
 Build and publish a Python project using Poetry.
 
-The GitHub status check is named `Build`.
-
 ### Requirements
 
 #### Required GitHub Permissions
@@ -248,8 +226,6 @@ No outputs are provided by this action.
 ## `build-gradle`
 
 Build and publish a Gradle project with SonarQube analysis and Artifactory deployment.
-
-The GitHub status check is named `Build`.
 
 ### Requirements
 
@@ -338,8 +314,6 @@ jobs:
 
 Build, test, analyze, and deploy an NPM project with SonarQube integration and JFrog Artifactory deployment.
 
-The GitHub status check is named `Build`.
-
 ### Requirements
 
 #### Required GitHub Permissions
@@ -421,8 +395,6 @@ jobs:
 ## `build-yarn`
 
 Build, test, analyze, and deploy a Yarn project with SonarQube integration and Artifactory deployment.
-
-The GitHub status check is named `Build`.
 
 ### Requirements
 
@@ -573,8 +545,6 @@ No outputs are provided by this action.
 
 Automatically clean up caches and artifacts associated with a pull request when it is closed.
 
-The GitHub status check is named `cleanup`.
-
 ### Requirements
 
 #### Required GitHub Permissions
@@ -618,8 +588,6 @@ No outputs are provided by this action.
 ## `cache`
 
 Adaptive cache action that automatically chooses the appropriate caching backend based on repository visibility and ownership.
-
-The GitHub status check is named `Adaptive Cache Action`.
 
 ### Requirements
 
