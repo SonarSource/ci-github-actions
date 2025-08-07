@@ -97,7 +97,7 @@ Update this section when newer versions are released:
    see [Cirrus-Modules Migration section](#migrating-repositories-using-cirrus-modules)
 3. ✅ Check existing `.github/workflows/` for conflicts
 4. ✅ Understand the current Cirrus CI configuration patterns
-5. ✅ **CRITICAL**: Verify repository visibility (public vs private) - check GitHub repo Settings → General → Repository visibility
+5. ✅ **CRITICAL**: Verify repository visibility (public vs private)
     - Public repos → Use `ubuntu-24.04-large` runners for SonarSource custom actions
     - Private repos → Use `sonar-xs` runners (recommended)
 6. ✅ **SECURITY**: Review third-party actions and pin to commit SHAs
@@ -362,7 +362,6 @@ Promotes builds in JFrog Artifactory and updates GitHub status checks.
   with:
     deploy-pull-request: true
     # All parameters below are optional with auto-detected defaults
-    public: false                                  # Auto-detected from repo visibility
     artifactory-reader-role: private-reader       # private-reader/public-reader
     artifactory-deployer-role: qa-deployer        # qa-deployer/public-deployer
     maven-local-repository-path: .m2/repository   # Maven cache path
@@ -380,9 +379,8 @@ Promotes builds in JFrog Artifactory and updates GitHub status checks.
 
 ##### Overriding Artifactory Roles
 
-In some cases, your existing Cirrus CI configuration may use different Artifactory roles than the
-automatic detection. For example, a public repository might use `private-reader` and `qa-deployer`
-instead of the default `public-reader` and `public-deployer`.
+Some public repositories use private Artifactory credentials instead of the default public ones. This is
+common when the repository content is public but the project needs access to private Artifactory repositories.
 
 ```yaml
 # Override artifactory roles to match existing Cirrus CI configuration
@@ -393,11 +391,46 @@ instead of the default `public-reader` and `public-deployer`.
     artifactory-deployer-role: qa-deployer     # Override default public-deployer
 ```
 
-**When to use this**: Check your `.cirrus.yml` file for the vault paths used:
+**🔍 Detection Steps - Follow These Exactly**:
 
-- `ARTIFACTORY_PRIVATE_USERNAME: vault-${CIRRUS_REPO_OWNER}-${CIRRUS_REPO_NAME}-private-reader` → Use
-  `artifactory-reader-role: private-reader`
-- `ARTIFACTORY_DEPLOY_USERNAME: vault-${CIRRUS_REPO_OWNER}-${CIRRUS_REPO_NAME}-qa-deployer` → Use `artifactory-deployer-role: qa-deployer`
+1. **Check repository visibility**: Verify that the repository is public
+2. **Examine `.cirrus.yml` for private reader pattern**:
+    Look for: `VAULT[development/artifactory/token/${CIRRUS_REPO_OWNER}-${CIRRUS_REPO_NAME}-private-reader access_token]`
+
+3. **Examine `.cirrus.yml` for qa-deployer pattern**:
+    Look for: `VAULT[development/artifactory/token/${CIRRUS_REPO_OWNER}-${CIRRUS_REPO_NAME}-qa-deployer access_token]`
+
+**🎯 Decision Matrix**:
+
+| Repository Type | Reader Pattern Found | Deployer Pattern Found | Action Required |
+|----------------|---------------------|------------------------|-----------------|
+| **Public**     | ✅ `private-reader`  | ✅ `qa-deployer`       | **Override both roles** |
+| **Public**     | ❌ No pattern       | ❌ No pattern          | **Use defaults** |
+| **Private**    | Any pattern         | Any pattern            | **Use defaults** |
+
+**🛠️ Implementation Examples**:
+
+```yaml
+# Example 1: Public repo with private artifactory access (OVERRIDE NEEDED)
+# Found in .cirrus.yml: ARTIFACTORY_PRIVATE_PASSWORD: VAULT[...private-reader...]
+# Found in .cirrus.yml: ARTIFACTORY_DEPLOY_PASSWORD: VAULT[...qa-deployer...]
+- uses: SonarSource/ci-github-actions/build-maven@v1
+  with:
+    artifactory-reader-role: private-reader    # Override default public-reader
+    artifactory-deployer-role: qa-deployer     # Override default public-deployer
+
+# Example 2: Public repo with public artifactory access (NO OVERRIDE NEEDED)
+# No private-reader or qa-deployer patterns found in .cirrus.yml
+- uses: SonarSource/ci-github-actions/build-maven@v1
+  with:
+    # artifactory roles auto-detected (public-reader, public-deployer)
+
+# Example 3: Private repo (NO OVERRIDE NEEDED)
+# Regardless of patterns in .cirrus.yml
+- uses: SonarSource/ci-github-actions/build-maven@v1
+  with:
+    # artifactory roles auto-detected (private-reader, qa-deployer)
+```
 
 **Available role options:**
 
@@ -505,6 +538,55 @@ instead of the default `public-reader` and `public-deployer`.
 - JFrog build info publishing with UI links
 - **Required permissions:** `id-token: write`, `contents: write`
 - **Outputs:** `project-version` from package.json, `build-info-url` when deployment occurs
+
+##### Overriding Pull Request Deployment and Promotion
+
+Certain repositories want to publish PR artifacts to repox and promote them to the `builds` repository from the initial `qa` repository.
+This is useful if the project is being tested in another project and you want to reference it from another repository.
+
+**When to use this**: If your Cirrus CI pipeline has the environment variable `DEPLOY_PULL_REQUEST` set to `true`, you need to configure
+these parameters for both the build and promote actions.
+
+**GitHub Actions Configuration:**
+
+```yaml
+# .github/workflows/build.yml
+jobs:
+  build:
+    # ... other configuration
+    steps:
+      - uses: SonarSource/ci-github-actions/build-maven@v1
+        with:
+          deploy-pull-request: true    # Deploy PR artifacts to qa repository
+
+  promote:
+    # ... other configuration
+    steps:
+      - uses: SonarSource/ci-github-actions/promote@v1
+        with:
+          promote-pull-request: true   # Promote PR artifacts to builds repository
+```
+
+**Cirrus CI Equivalent:**
+
+```yaml
+# .cirrus.yml
+env:
+  DEPLOY_PULL_REQUEST: "true"  # This triggers both deployment and promotion for PRs
+```
+
+**Key Points:**
+
+- **Build Action**: `deploy-pull-request: true` deploys PR artifacts to the `qa` repository
+- **Promote Action**: `promote-pull-request: true` promotes PR artifacts from `qa` to `builds` repository
+- **Cross-Repository Testing**: Enables other projects to reference PR artifacts for testing
+- **Automatic Promotion**: PR artifacts are automatically promoted, not just deployed
+
+**Migration Steps:**
+
+1. **Check Cirrus CI**: Look for `DEPLOY_PULL_REQUEST: "true"` in your `.cirrus.yml`
+2. **Configure Build Action**: Add `deploy-pull-request: true` to your build action
+3. **Configure Promote Action**: Add `promote-pull-request: true` to your promote action
 
 ### Additional Actions
 
@@ -877,6 +959,14 @@ Only override if you have specific requirements.
 - [ ] Configure concurrency control
 - [ ] Add checkout, mise steps
 - [ ] Add appropriate build action (maven/gradle/poetry)
+- [ ] **Verify Overriding Artifactory Roles**:
+  - [ ] Check repository visibility (public/private)
+  - [ ] Search `.cirrus.yml` for `private-reader` vault pattern
+  - [ ] Search `.cirrus.yml` for `qa-deployer` vault pattern
+  - [ ] If public repo + both patterns found → Add `artifactory-reader-role: private-reader` and `artifactory-deployer-role: qa-deployer`
+  - [ ] If public repo + no patterns found → Use default auto-detection (no override needed)
+  - [ ] If private repo → Use default auto-detection (no override needed)
+- [ ] Verify Overriding Pull Request Deployment and Promotion
 - [ ] **If using cirrus-modules**: Verify all features are covered by SonarSource custom actions
 - [ ] Test build job functionality
 
@@ -886,6 +976,7 @@ Only override if you have specific requirements.
 - [ ] Configure same concurrency control
 - [ ] Add checkout, mise (with cache_save: false)
 - [ ] Add promote action
+- [ ] Verify Overriding Pull Request Deployment and Promotion
 - [ ] Test promotion functionality
 
 ### Phase 4: Additional Workflows
@@ -1030,11 +1121,8 @@ some-repository:
 
 ## Build Number Configuration
 
-**Critical Step**: After migration, configure the build number in repository settings:
-
-1. Go to Repository Settings → Custom Properties
-2. Set build number to a value **greater than the latest Cirrus CI build**
-3. This ensures continuous build numbering after migration
+**Critical Step**: After migration, configure the GitHub build number: login to SPEED and run the
+[Update GitHub Build Number](https://app.getport.io/self-serve?action=update_github_build_number) action.
 
 ## Additional Example Repositories
 
@@ -1069,7 +1157,6 @@ This workflow automatically:
 
 ### ✅ DO These
 
-- Move `DEPLOY_PULL_REQUEST` to global environment variable
 - Use Maven cache key format: `maven-${{ runner.os }}` (better UI filtering)
 - Include `pr-cleanup.yml` for automatic PR resource cleanup
 - **SECURITY**: Pin all third-party actions to commit SHA
