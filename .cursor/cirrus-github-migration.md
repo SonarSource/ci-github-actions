@@ -305,7 +305,6 @@ jobs:
       - uses: jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2.4.0
         with:
           version: 2025.7.12
-      - uses: SonarSource/ci-github-actions/get-build-number@v1
       - uses: SonarSource/ci-github-actions/build-maven@v1
         with:
           deploy-pull-request: true
@@ -326,7 +325,6 @@ jobs:
         with:
           cache_save: false
           version: 2025.7.12
-      - uses: SonarSource/ci-github-actions/get-build-number@v1
       - uses: SonarSource/ci-github-actions/promote@v1
         with:
           promote-pull-request: true
@@ -340,21 +338,6 @@ repository is public and contains the most up-to-date documentation, examples, a
 instructions for all custom actions.
 
 ### Required Actions for All Projects
-
-#### get-build-number
-
-Generates unique build numbers stored in GitHub repository properties. **Always include this before build actions**.
-
-```yaml
-- uses: SonarSource/ci-github-actions/get-build-number@v1
-```
-
-**Features:**
-
-- Stores build number in repository property `build_number`
-- Sets `BUILD_NUMBER` environment variable and output
-- Unique per workflow run ID (unchanged on reruns)
-- **Required permissions:** `id-token: write`, `contents: read`
 
 #### promote
 
@@ -839,9 +822,8 @@ Standard order:
 
 1. `actions/checkout@v4`
 2. `jdx/mise-action` (tool setup)
-3. `get-build-number@v1`
-4. Build action (`build-maven@v1`, etc.)
-5. `promote@v1` (promote job only)
+3. Build action (`build-maven@v1`, etc.)
+4. `promote@v1` (promote job only)
 
 ### 7. Avoid Unnecessary Environment Variables
 
@@ -893,7 +875,7 @@ Only override if you have specific requirements.
 - [ ] Add standard triggers (push, PR, merge_group, workflow_dispatch)
 - [ ] Select appropriate runner type (sonar-xs for private repos)
 - [ ] Configure concurrency control
-- [ ] Add checkout, mise, get-build-number steps
+- [ ] Add checkout, mise steps
 - [ ] Add appropriate build action (maven/gradle/poetry)
 - [ ] **If using cirrus-modules**: Verify all features are covered by SonarSource custom actions
 - [ ] Test build job functionality
@@ -902,7 +884,7 @@ Only override if you have specific requirements.
 
 - [ ] Add promote job with proper dependencies
 - [ ] Configure same concurrency control
-- [ ] Add checkout, mise (with cache_save: false), get-build-number
+- [ ] Add checkout, mise (with cache_save: false)
 - [ ] Add promote action
 - [ ] Test promotion functionality
 
@@ -1087,7 +1069,6 @@ This workflow automatically:
 
 ### ✅ DO These
 
-- Get build number before promotion (always include `get-build-number@v1`)
 - Move `DEPLOY_PULL_REQUEST` to global environment variable
 - Use Maven cache key format: `maven-${{ runner.os }}` (better UI filtering)
 - Include `pr-cleanup.yml` for automatic PR resource cleanup
@@ -1119,12 +1100,11 @@ This workflow automatically:
 ### Common Issues
 
 1. **Missing permissions**: Ensure `id-token: write` and `contents: write` are set
-2. **Build numbers**: Always include `get-build-number@v1` before build actions
-3. **Tool versions**: Use mise.toml instead of manual setup actions
-4. **Cache conflicts**: Use `cache_save: false` in promote jobs
-5. **Branch conditions**: Let custom actions handle most conditional logic
-6. **Build number continuity**: Set custom property > latest Cirrus CI build
-7. **Artifactory role mismatch**: If your Cirrus CI uses different roles than auto-detected, override them:
+2. **Tool versions**: Use mise.toml instead of manual setup actions
+3. **Cache conflicts**: Use `cache_save: false` in promote jobs
+4. **Branch conditions**: Let custom actions handle most conditional logic
+5. **Build number continuity**: Set custom property > latest Cirrus CI build
+6. **Artifactory role mismatch**: If your Cirrus CI uses different roles than auto-detected, override them:
    ```yaml
    # Check .cirrus.yml for actual roles used and override if needed
    - uses: SonarSource/ci-github-actions/build-maven@v1
@@ -1132,10 +1112,10 @@ This workflow automatically:
        artifactory-reader-role: private-reader    # Match Cirrus CI config
        artifactory-deployer-role: qa-deployer     # Match Cirrus CI config
    ```
-8. **Cirrus-modules migration**: If migrating from cirrus-modules, don't try to recreate individual features
+7. **Cirrus-modules migration**: If migrating from cirrus-modules, don't try to recreate individual features
    manually - use the comprehensive SonarSource custom actions instead
-9. **Security**: Ensure third-party actions are pinned to commit SHA
-10. **Script injection**: Never use untrusted input directly in shell commands
+8. **Security**: Ensure third-party actions are pinned to commit SHA
+9. **Script injection**: Never use untrusted input directly in shell commands
 
 ### Security Troubleshooting
 
@@ -1395,7 +1375,6 @@ jobs:
       - uses: jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2.4.0
         with:
           version: 2025.7.12
-      - uses: SonarSource/ci-github-actions/get-build-number@v1
       - uses: SonarSource/ci-github-actions/build-maven@v1
         with:
           deploy-pull-request: true
@@ -1416,7 +1395,6 @@ jobs:
         with:
           cache_save: false
           version: 2025.7.12
-      - uses: SonarSource/ci-github-actions/get-build-number@v1
       - uses: SonarSource/ci-github-actions/promote@v1
         with:
           promote-pull-request: true
@@ -1515,7 +1493,6 @@ maven = "3.9"
 
 - Keep it simple - trust the custom actions
 - Use standard triggers and let actions handle the rest
-- Always include `get-build-number@v1`
 - Use `mise.toml` for tool versions
 - Let parameters auto-detect from repository settings (public/private, Artifactory roles)
 - **Leave `.cirrus.yml` unchanged during migration**
