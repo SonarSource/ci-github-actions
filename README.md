@@ -151,7 +151,7 @@ No outputs are provided by this action.
 
 ## `build-poetry`
 
-Build and publish a Python project using Poetry.
+Build, analyze, and publish a Python project using Poetry with SonarQube integration and Artifactory deployment.
 
 ### Requirements
 
@@ -196,6 +196,15 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: SonarSource/ci-github-actions/build-poetry@v1
+        with:
+          public: false                                        # Defaults to `true` if the repository is public
+          artifactory-reader-role: private-reader              # or public-reader if `public` is `true`
+          artifactory-deployer-role: qa-deployer               # or public-deployer if `public` is `true`
+          deploy-pull-request: false                           # Deploy pull request artifacts
+          poetry-virtualenvs-path: .cache/pypoetry/virtualenvs # Poetry virtual environment path
+          poetry-cache-dir: .cache/pypoetry                    # Poetry cache directory
+          repox-url: https://repox.jfrog.io                    # Repox URL
+          sonar-platform: next                                 # SonarQube platform (next, sqc-eu, or sqc-us)
 ```
 
 ### Inputs
@@ -213,15 +222,7 @@ jobs:
 
 ### Outputs
 
-No outputs are provided by this action.
-
-### Features
-
-- Automated dependency management with Poetry
-- Conditional deployment based on branch patterns
-- Python virtual environment caching for faster builds
-- SonarQube analysis integration (configurable)
-- Comprehensive build logging and error handling
+- `project-version`: The project version from pyproject.toml with build number. The same is also exposed as `PROJECT_VERSION` environment variable.
 
 ## `build-gradle`
 

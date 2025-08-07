@@ -1,6 +1,6 @@
 ---
 name: Build Poetry
-description: GitHub Action to build, analyze, and deploy a Python project using Poetry
+description: GitHub Action to build, analyze, and deploy a Python project using Poetry with SonarQube integration
 inputs:
   public:
     description: Whether to build and deploy with/to public repositories. Set to `true` for public repositories (OSS), `false` for private.
@@ -27,8 +27,13 @@ inputs:
     description: URL for Repox
     default: https://repox.jfrog.io
   sonar-platform:
-    description: SonarQube primary platform (next, sqc-eu, or sqc-us) - currently not enabled in build script
+    description: SonarQube primary platform (next, sqc-eu, or sqc-us)
     default: next
+
+outputs:
+  project-version:
+    description: The project version from pyproject.toml with BUILD_NUMBER
+    value: ${{ env.PROJECT_VERSION }}
 
 runs:
   using: composite
@@ -77,14 +82,15 @@ runs:
         # Action inputs
         ARTIFACTORY_URL: ${{ inputs.repox-url }}/artifactory
         DEPLOY_PULL_REQUEST: ${{ inputs.deploy-pull-request }}
-        # SonarQube integration (currently disabled in build script)
-        SONAR_HOST_URL: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_HOST_URL }}
-        SONAR_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_TOKEN }}
         ARTIFACTORY_PYPI_REPO: ${{ inputs.public == 'true' && 'sonarsource-pypi' || 'sonarsource-pypi' }} # FIXME: sonarsource-pypi-public
         ARTIFACTORY_DEPLOY_REPO: ${{ inputs.public == 'true' && 'sonarsource-pypi-public-qa' || 'sonarsource-pypi-private-qa' }}
         ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
         ARTIFACTORY_DEPLOY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN }}
         POETRY_VIRTUALENVS_PATH: ${{ github.workspace }}/${{ inputs.poetry-virtualenvs-path }}
         POETRY_CACHE_DIR: ${{ github.workspace }}/${{ inputs.poetry-cache-dir }}
+
+        # Vault secrets
+        SONAR_HOST_URL: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_HOST_URL }}
+        SONAR_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_TOKEN }}
       run: |
         ${GITHUB_ACTION_PATH}/build.sh
