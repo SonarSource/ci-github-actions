@@ -156,6 +156,7 @@ set_project_version() {
   echo "Replacing version $current_version with $new_version"
   mvn --settings "$MAVEN_SETTINGS" org.codehaus.mojo:versions-maven-plugin:2.7:set -DnewVersion="$new_version" -DgenerateBackupPoms=false -B -e
   export PROJECT_VERSION=$new_version
+  echo "project-version=$PROJECT_VERSION" >> "$GITHUB_OUTPUT"
 }
 
 build_maven() {
