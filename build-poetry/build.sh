@@ -4,8 +4,6 @@
 #
 # Required inputs (must be explicitly provided):
 # - BUILD_NUMBER: Build number for versioning
-# - SONAR_HOST_URL: URL of SonarQube server
-# - SONAR_TOKEN: Access token to send analysis reports to SonarQube
 # - ARTIFACTORY_URL: URL to Artifactory repository
 # - ARTIFACTORY_PYPI_REPO: Repository to install dependencies from
 # - ARTIFACTORY_ACCESS_TOKEN: Access token to access the repository
@@ -13,6 +11,14 @@
 # - ARTIFACTORY_DEPLOY_ACCESS_TOKEN: Access token to deploy to the repository
 # - DEFAULT_BRANCH: Default branch name (e.g. main)
 # - PULL_REQUEST: Pull request number (e.g. 1234) or empty string
+# - SONAR_PLATFORM: SonarQube primary platform (next, sqc-eu, or sqc-us)
+# - NEXT_URL: URL of SonarQube server for next platform
+# - NEXT_TOKEN: Access token to send analysis reports to SonarQube for next platform
+# - SQC_US_URL: URL of SonarQube server for sqc-us platform
+# - SQC_US_TOKEN: Access token to send analysis reports to SonarQube for sqc-us platform
+# - SQC_EU_URL: URL of SonarQube server for sqc-eu platform
+# - SQC_EU_TOKEN: Access token to send analysis reports to SonarQube for sqc-eu platform
+# - RUN_SHADOW_SCANS: If true, run sonar scanner on all 3 platforms. If false, run on the platform provided by SONAR_PLATFORM.
 #
 # GitHub Actions auto-provided:
 # - GITHUB_REF_NAME: Git branch name
@@ -39,7 +45,8 @@ set -euo pipefail
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}" "${GITHUB_EVENT_PATH:?}"
 : "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}"
 : "${GITHUB_ENV:?}" "${GITHUB_OUTPUT:?}" "${GITHUB_SHA:?}" "${GITHUB_RUN_ID:?}"
-: "${SONAR_HOST_URL:?}" "${SONAR_TOKEN:?}"
+: "${SONAR_PLATFORM:?}" "${NEXT_URL:?}" "${NEXT_TOKEN:?}" "${SQC_US_URL:?}" "${SQC_US_TOKEN:?}" "${SQC_EU_URL:?}" "${SQC_EU_TOKEN:?}"
+: "${RUN_SHADOW_SCANS:?}"
 : "${DEPLOY_PULL_REQUEST:=false}"
 export ARTIFACTORY_URL DEPLOY_PULL_REQUEST
 
@@ -63,6 +70,31 @@ git_fetch_unshallow() {
   fi
 }
 
+set_sonar_platform_vars() {
+  local platform="$1"
+
+  case "$platform" in
+    "next")
+      export SONAR_HOST_URL="$NEXT_URL"
+      export SONAR_TOKEN="$NEXT_TOKEN"
+      ;;
+    "sqc-us")
+      export SONAR_HOST_URL="$SQC_US_URL"
+      export SONAR_TOKEN="$SQC_US_TOKEN"
+      ;;
+    "sqc-eu")
+      export SONAR_HOST_URL="$SQC_EU_URL"
+      export SONAR_TOKEN="$SQC_EU_TOKEN"
+      ;;
+    *)
+      echo "ERROR: Unknown sonar platform '$platform'. Expected: next, sqc-us, or sqc-eu" >&2
+      return 1
+      ;;
+  esac
+
+  echo "Using Sonar platform: $platform (URL: $SONAR_HOST_URL)"
+}
+
 run_sonar_scanner() {
     local additional_params=("$@")
 
@@ -77,7 +109,28 @@ run_sonar_scanner() {
         -Dsonar.analysis.sha1="${GITHUB_SHA}" \
         -Dsonar.analysis.repository="${GITHUB_REPOSITORY}" \
         "${additional_params[@]}"
-    echo "SonarQube scanner finished"
+    echo "SonarQube scanner finished for platform: $(basename "$SONAR_HOST_URL")"
+}
+
+run_sonar_analysis() {
+  local sonar_args=("$@")
+
+  if [ "${RUN_SHADOW_SCANS}" = "true" ]; then
+      echo "=== Running Sonar analysis on all platforms (shadow scan enabled) ==="
+      local platforms=("next" "sqc-us" "sqc-eu")
+
+      for platform in "${platforms[@]}"; do
+          echo "--- Analyzing with platform: $platform ---"
+          set_sonar_platform_vars "$platform"
+          run_sonar_scanner "${sonar_args[@]}"
+      done
+
+      echo "=== Completed Sonar analysis on all platforms ==="
+  else
+      echo "=== Running Sonar analysis on selected platform: $SONAR_PLATFORM ==="
+      set_sonar_platform_vars "$SONAR_PLATFORM"
+      run_sonar_scanner "${sonar_args[@]}"
+  fi
 }
 
 # FIXME BUILD-8337? this is similar to source github-env <BUILD|BUILD-PRIVATE>
@@ -231,7 +284,7 @@ build_poetry() {
 
   if [ "${BUILD_ENABLE_SONAR}" = "true" ]; then
     read -ra sonar_args <<< "$BUILD_SONAR_ARGS"
-    run_sonar_scanner "${sonar_args[@]}"
+    run_sonar_analysis "${sonar_args[@]}"
   fi
 
   if [ "${BUILD_ENABLE_DEPLOY}" = "true" ]; then
