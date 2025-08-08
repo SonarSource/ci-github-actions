@@ -77,7 +77,7 @@ Update this section when newer versions are released:
 
 #### Build Tools
 
-- [ ] `jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2.4.0`
+- [ ] `jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4`
 - [ ] `sonarsource/sonarqube-scan-action@8c71dc039c2dd71d3821e89a2b58ecc7fee6ced9 # v5.3.0`
 
 #### SonarSource Actions
