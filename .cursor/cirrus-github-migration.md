@@ -32,7 +32,7 @@ When updating this migration guide:
 - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
 # Mise Setup - INCLUDES REQUIRED VERSION PARAMETER
-- uses: jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2.4.0
+- uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
   with:
     version: 2025.7.12
 
@@ -199,7 +199,7 @@ Follow these security principles during migration:
 
 ```yaml
 # ✅ CORRECT - Pinned to commit SHA
-- uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+- uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
 # ❌ WRONG - Unpinned versions
 - uses: actions/checkout@v4  # Can be modified
@@ -258,7 +258,7 @@ maven = "3.9"
 ### GitHub Workflow Integration
 
 ```yaml
-      - uses: jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2.4.0
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
         with:
           version: 2025.7.12
 ```
@@ -266,7 +266,7 @@ maven = "3.9"
 **For promote jobs**, disable cache saving:
 
 ```yaml
-- uses: jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2.4.0
+- uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
   with:
     cache_save: false
     version: 2025.7.12
@@ -276,7 +276,7 @@ maven = "3.9"
 
 ### Basic Template
 
-⚠️ **First, check your repository visibility** (Settings → General → Repository visibility) to select the correct runner.
+⚠️ **First, check your repository visibility** to select the correct runner.
 
 ```yaml
 name: Build
@@ -301,8 +301,8 @@ jobs:
       id-token: write  # Required for Vault OIDC authentication
       contents: write  # Required for repository access and tagging
     steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-      - uses: jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2.4.0
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
         with:
           version: 2025.7.12
       - uses: SonarSource/ci-github-actions/build-maven@v1
@@ -320,8 +320,8 @@ jobs:
       id-token: write
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2.4.0
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
         with:
           cache_save: false
           version: 2025.7.12
@@ -874,8 +874,8 @@ by the custom actions. No need to specify cache folders or cleanup scripts.
 
 ```yaml
 # ✅ Pin third-party actions to commit SHA
-- uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-- uses: jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2.4.0
+- uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+- uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
   with:
     version: 2025.7.12
 
@@ -1520,8 +1520,8 @@ jobs:
       id-token: write
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2.4.0
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
         with:
           version: 2025.7.12
       - uses: SonarSource/ci-github-actions/build-maven@v1
@@ -1539,8 +1539,8 @@ jobs:
       id-token: write
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2.4.0
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
         with:
           cache_save: false
           version: 2025.7.12
@@ -1612,7 +1612,7 @@ maven = "3.9"
      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
 
    # ❌ WRONG - GITHUB_TOKEN is already available by default
-   - uses: jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2.4.0
+   - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
      env:
        GITHUB_TOKEN: ${{ github.token }}  # Not needed!
    ```
