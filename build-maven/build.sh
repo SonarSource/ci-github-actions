@@ -23,6 +23,7 @@
 # - GITHUB_OUTPUT: Path to GitHub Actions output file
 # - GITHUB_BASE_REF: Base branch for pull requests (only during pull_request events)
 # - GITHUB_HEAD_REF: Head branch for pull requests (only during pull_request events)
+# - RUNNER_OS: Operating system (e.g. Linux, Windows)
 #
 # Optional user customization:
 # - DEPLOY_PULL_REQUEST: Whether to deploy pull request artifacts (default: false)
@@ -41,6 +42,7 @@ set -euo pipefail
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_RUN_ID:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}"
 : "${GITHUB_SHA:?}"
 : "${GITHUB_OUTPUT:?}"
+: "${RUNNER_OS:?}"
 : "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}"
 : "${SONAR_HOST_URL:?}" "${SONAR_TOKEN:?}"
 : "${MAVEN_LOCAL_REPOSITORY:=$HOME/.m2/repository}"
@@ -50,6 +52,12 @@ export ARTIFACTORY_URL DEPLOY_PULL_REQUEST MAVEN_LOCAL_REPOSITORY
 
 # FIXME Workaround for SonarSource parent POM; it can be removed after releases of parent 73+ and parent-oss 84+
 export BUILD_ID=$BUILD_NUMBER
+
+# Handle Windows path conversion for Maven settings
+if [[ "$RUNNER_OS" == "Windows" ]]; then
+  # Convert Unix-style path to Windows format for Maven
+  MAVEN_SETTINGS=$(cygpath -w "$MAVEN_SETTINGS" 2>/dev/null || echo "$MAVEN_SETTINGS")
+fi
 
 # SonarQube parameters
 : "${SCANNER_VERSION:=5.1.0.4751}"
@@ -98,9 +106,9 @@ git_fetch_unshallow() {
 
 # Evaluate a Maven property/expression with org.codehaus.mojo:exec-maven-plugin
 maven_expression() {
-  if ! mvn -q -Dexec.executable="echo" -Dexec.args="\${$1}" --non-recursive org.codehaus.mojo:exec-maven-plugin:1.3.1:exec; then
+  if ! mvn --settings "$MAVEN_SETTINGS" -q -Dexec.executable="echo" -Dexec.args="\${$1}" --non-recursive org.codehaus.mojo:exec-maven-plugin:1.3.1:exec; then
     echo "Failed to evaluate Maven expression '$1'" >&2
-    mvn -X -Dexec.executable="echo" -Dexec.args="\${$1}" --non-recursive org.codehaus.mojo:exec-maven-plugin:1.3.1:exec
+    mvn --settings "$MAVEN_SETTINGS" -X -Dexec.executable="echo" -Dexec.args="\${$1}" --non-recursive org.codehaus.mojo:exec-maven-plugin:1.3.1:exec
     return 1
   fi
 }
@@ -146,7 +154,7 @@ set_project_version() {
   local new_version="${release_version}.${BUILD_NUMBER}"
 
   echo "Replacing version $current_version with $new_version"
-  mvn org.codehaus.mojo:versions-maven-plugin:2.7:set -DnewVersion="$new_version" -DgenerateBackupPoms=false -B -e
+  mvn --settings "$MAVEN_SETTINGS" org.codehaus.mojo:versions-maven-plugin:2.7:set -DnewVersion="$new_version" -DgenerateBackupPoms=false -B -e
   export PROJECT_VERSION=$new_version
 }
 
@@ -191,7 +199,15 @@ build_maven() {
     maven_command_args=("verify")
   fi
 
-  readonly COMMON_MVN_FLAGS=("-Dmaven.test.redirectTestOutputToFile=false" "-B" "-e" "-V")
+  readonly COMMON_MVN_FLAGS=(
+    "-Dmaven.test.redirectTestOutputToFile=false"
+    "--settings" "$MAVEN_SETTINGS"
+    "--batch-mode"
+    "--no-transfer-progress"
+    "--errors"
+    "--fail-at-end"
+    "--show-version"
+  )
   echo "Maven command: mvn ${maven_command_args[*]} ${COMMON_MVN_FLAGS[*]} $*"
   mvn "${maven_command_args[@]}" "${COMMON_MVN_FLAGS[@]}" "$@"
 }

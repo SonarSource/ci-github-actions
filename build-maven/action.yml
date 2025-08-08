@@ -93,6 +93,7 @@ runs:
         MAVEN_LOCAL_REPOSITORY="$HOME/${{ inputs.maven-local-repository-path }}"
         mkdir -p "$MAVEN_LOCAL_REPOSITORY"
         echo "MAVEN_LOCAL_REPOSITORY=${MAVEN_LOCAL_REPOSITORY}" >> "$GITHUB_ENV"
+        echo "MAVEN_SETTINGS=${MAVEN_CONFIG}/settings.xml" >> "$GITHUB_ENV"
     - name: Build, Analyze and deploy
       shell: bash
       env:
