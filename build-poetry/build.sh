@@ -73,18 +73,23 @@ git_fetch_unshallow() {
 set_sonar_platform_vars() {
   local platform="$1"
 
+  # TODO: The SONAR_REGION variable can be removed once SCANPY-203 is fixed
+
   case "$platform" in
     "next")
       export SONAR_HOST_URL="$NEXT_URL"
       export SONAR_TOKEN="$NEXT_TOKEN"
+      export SONAR_REGION=""
       ;;
     "sqc-us")
       export SONAR_HOST_URL="$SQC_US_URL"
       export SONAR_TOKEN="$SQC_US_TOKEN"
+      export SONAR_REGION="us"
       ;;
     "sqc-eu")
       export SONAR_HOST_URL="$SQC_EU_URL"
       export SONAR_TOKEN="$SQC_EU_TOKEN"
+      export SONAR_REGION=""
       ;;
     *)
       echo "ERROR: Unknown sonar platform '$platform'. Expected: next, sqc-us, or sqc-eu" >&2
