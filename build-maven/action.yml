@@ -38,6 +38,9 @@ inputs:
   sonar-platform:
     description: SonarQube primary platform (next, sqc-eu, or sqc-us)
     default: next
+  working-directory:
+    description: Relative path under github.workspace to execute the build in
+    default: .
 
 runs:
   using: composite
@@ -116,6 +119,7 @@ runs:
         SONAR_SCANNER_JAVA_OPTS: ${{ inputs.scanner-java-opts }}
       run: |
         export MAVEN_OPTS="$USER_MAVEN_OPTS -Duser.home=$HOME"
+        cd "${{ inputs.working-directory }}"
         ${GITHUB_ACTION_PATH}/build.sh
     - name: Cleanup Maven repository before caching
       shell: bash
