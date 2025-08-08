@@ -17,6 +17,10 @@ Mock gh
   echo "gh $*"
 End
 
+Mock cygwin
+  echo "cygwin $*"
+End
+
 # Set required environment variables
 export GITHUB_ENV=/dev/null
 export ARTIFACTORY_URL="https://dummy.repox"
@@ -35,6 +39,7 @@ export SONAR_HOST_URL="https://sonarqube"
 export SONAR_TOKEN="sonar-token"
 export GITHUB_RUN_ID="123456789"
 export GITHUB_OUTPUT=/dev/null
+export RUNNER_OS="Linux"
 MAVEN_SETTINGS="$(mktemp)"
 touch "$MAVEN_SETTINGS"
 export MAVEN_SETTINGS
@@ -55,10 +60,26 @@ Describe 'build.sh'
       The line 3 should include "Fetch Git references"
       The line 4 should include "git fetch"
       The line 5 should include "Replacing version 1.2.3-SNAPSHOT with 1.2.3.42"
-      The line 6 should match pattern "mvn org.codehaus.mojo:versions-maven-plugin*newVersion=1.2.3.42*"
+      The line 6 should match pattern "mvn --settings /tmp/* org.codehaus.mojo:versions-maven-plugin*newVersion=1.2.3.42*"
       The line 7 should include "Build, no analysis, no deploy"
       The line 8 should include "Maven command: mvn verify"
-      The line 9 should include "mvn verify -Dmaven.test.redirectTestOutputToFile=false -B -e -V"
+      The line 9 should match pattern "mvn verify -Dmaven.test.redirectTestOutputToFile=false --settings /tmp/* --batch-mode --no-transfer-progress --errors --fail-at-end --show-version"
+  End
+
+  It 'runs build_maven() for windows'
+    export RUNNER_OS="Windows"
+    When run script build-maven/build.sh
+    The status should be success
+      The lines of stdout should equal 9
+      The line 1 should include "mvn"
+      The line 2 should include "mvn"
+      The line 3 should include "Fetch Git references"
+      The line 4 should include "git fetch"
+      The line 5 should include "Replacing version 1.2.3-SNAPSHOT with 1.2.3.42"
+      The line 6 should match pattern "mvn --settings /tmp/* org.codehaus.mojo:versions-maven-plugin*newVersion=1.2.3.42*"
+      The line 7 should include "Build, no analysis, no deploy"
+      The line 8 should include "Maven command: mvn verify"
+      The line 9 should match pattern "mvn verify -Dmaven.test.redirectTestOutputToFile=false --settings /tmp/* --batch-mode --no-transfer-progress --errors --fail-at-end --show-version"
   End
 End
 
@@ -110,7 +131,7 @@ Describe 'set_project_version()'
     When call set_project_version
     The lines of stdout should equal 2
     The line 1 should include "Replacing version 1.2.3-SNAPSHOT with 1.2.3.42"
-    The line 2 should match pattern "mvn org.codehaus.mojo:versions-maven-plugin*newVersion=1.2.3.42*"
+    The line 2 should match pattern "mvn --settings /tmp/* org.codehaus.mojo:versions-maven-plugin*newVersion=1.2.3.42*"
     The variable PROJECT_VERSION should equal "1.2.3.42"
   End
 
