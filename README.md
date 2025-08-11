@@ -2,7 +2,14 @@
 
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=SonarSource_ci-github-actions&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=SonarSource_ci-github-actions)
 
-CI/CD GitHub Actions
+## Using AI for Cirrus CI to GitHub Actions Migration
+
+It is recommended to use AI tools like Cursor or Claude code to assist with Cirrus CI to GitHub actions migration.
+This repository contains a comprehensive guide to be passed as a context to AI. The guide is shared with Sonar developers using Cursor,
+accessible using `@Doc` tag.
+
+See the [documentation](https://xtranet-sonarsource.atlassian.net/wiki/spaces/Platform/pages/4232970266/Migration+From+Cirrus+CI+-+GitHub)
+for details on how to use it.
 
 ---
 
@@ -642,12 +649,3 @@ jobs:
 - Seamless API compatibility with standard GitHub Actions cache
 - Supports all standard cache inputs and outputs
 - Automatic repository visibility detection
-
-## Using AI for Cirrus CI to GitHub Actions Migration
-
-It is recommended to use AI tools like Cursor or Claude code to assist with Cirrus CI to GitHub actions migration.
-This repository contains a comprehensive guide to be passed as a context to AI. The guide is shared with Sonar developers using Cursor,
-accessible using `@Doc` tag.
-
-See the [documentation](https://xtranet-sonarsource.atlassian.net/wiki/spaces/Platform/pages/2639560710/Migration+From+Cirrus+CI+-+GitHub)
-for details on how to use it.
