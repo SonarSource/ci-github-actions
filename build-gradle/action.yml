@@ -29,6 +29,9 @@ inputs:
   gradle-wrapper-validation:
     description: Whether to validate Gradle wrapper
     default: 'true'
+  use-develocity:
+    description: Whether to use Develocity for build tracking.
+    default: 'false'
   develocity-url:
     description: URL for Develocity
     default: https://develocity.sonar.build/
@@ -73,7 +76,7 @@ runs:
           development/kv/data/sign key | SIGN_KEY;
           development/kv/data/sign passphrase | PGP_PASSPHRASE;
           development/kv/data/sign key_id | SIGN_KEY_ID;
-          development/kv/data/develocity token | DEVELOCITY_TOKEN;
+          ${{ inputs.use-develocity == 'true' && 'development/kv/data/develocity token | DEVELOCITY_TOKEN;' || '' }}
         # yamllint enable rule:line-length
 
     - name: Setup Gradle
@@ -81,9 +84,9 @@ runs:
       with:
         gradle-version: ${{ inputs.gradle-version }}
         develocity-access-key: >-
-          ${{ github.event.repository.visibility != 'public' &&
-          fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN || '' }}
-        develocity-injection-enabled: ${{ steps.repo-visibility.outputs.repo-visibility != 'public' }}
+         ${{ inputs.use-develocity == 'true' &&
+         fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN || '' }}
+        develocity-injection-enabled: ${{ inputs.use-develocity == 'true' }}
 
     - name: Build, analyze and deploy
       id: build
