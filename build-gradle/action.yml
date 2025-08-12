@@ -84,8 +84,8 @@ runs:
       with:
         gradle-version: ${{ inputs.gradle-version }}
         develocity-access-key: >-
-         ${{ inputs.use-develocity == 'true' ?
-         format('develocity.sonar.build={0}', fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN) : '' }}
+         ${{ inputs.use-develocity == 'true' &&
+         format('develocity.sonar.build={0}', fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN) || '' }}
         develocity-injection-enabled: ${{ inputs.use-develocity == 'true' }}
 
     - name: Build, analyze and deploy
