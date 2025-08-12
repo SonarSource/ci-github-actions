@@ -74,7 +74,7 @@ set_build_env() {
 }
 
 set_project_version() {
-  current_version=$(gradle properties --no-scan | grep 'version:' | tr -d "[:space:]" | cut -d ":" -f 2)
+  current_version=$(./gradlew properties --no-scan | grep 'version:' | tr -d "[:space:]" | cut -d ":" -f 2)
   release_version="${current_version/-SNAPSHOT/}"
   if [[ "${release_version}" =~ ^[0-9]+\.[0-9]+$ ]]; then
     release_version="${release_version}.0"
@@ -199,13 +199,6 @@ is_long_lived_feature_branch() {
 }
 
 gradle_build() {
-  # Setup Gradle
-  if command_exists gradle; then
-    GRADLE_CMD="gradle"
-  elif [[ -f "./gradlew" ]]; then
-    GRADLE_CMD="./gradlew"
-  fi
-
   local gradle_args
   read -ra gradle_args <<< "$(build_gradle_args)"
 
@@ -213,14 +206,14 @@ gradle_build() {
   build_type=$(get_build_type)
 
   echo "Starting $build_type build..."
-  echo "Gradle command: $GRADLE_CMD ${gradle_args[*]}"
+  echo "Gradle command: ./gradlew ${gradle_args[*]}"
 
-  "$GRADLE_CMD" "${gradle_args[@]}"
+  "./gradlew" "${gradle_args[@]}"
 }
 
 main() {
   command_exists java -version
-  command_exists gradle -version
+  command_exists ./gradlew -version
   set_build_env
   set_project_version
   gradle_build
