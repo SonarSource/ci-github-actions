@@ -20,6 +20,7 @@ inputs:
     description: Additional arguments to pass to Gradle
   gradle-version:
     description: Gradle version to use for setup-gradle action
+    default: wrapper
   deploy-pull-request:
     description: Whether to deploy pull request artifacts
     default: 'false'
