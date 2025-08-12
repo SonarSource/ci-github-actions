@@ -5,13 +5,7 @@ eval "$(shellspec - -c) exit 1"
 Mock java
   echo "java $*"
 End
-Mock gradle
-  if [[ "$*" == "properties --no-scan" ]]; then
-    echo "version: 1.2.3-SNAPSHOT"
-  else
-    echo "gradle $*"
-  fi
-End
+
 Mock git
   echo "git $*"
 End
@@ -108,22 +102,25 @@ End
 
 Describe 'set_project_version'
   It 'processes version correctly'
+    # Create a mock gradlew file for this test
+    printf 'echo "version: 1.2.3-SNAPSHOT"' > ./gradlew
+    chmod +x ./gradlew
     echo "version=1.0-SNAPSHOT" > gradle.properties
     When call set_project_version
     The output should include "Replacing version 1.2.3-SNAPSHOT with 1.2.3.42"
     The variable PROJECT_VERSION should equal "1.2.3.42"
-    rm -f gradle.properties gradle.properties.bak
+    rm -f gradle.properties gradle.properties.bak ./gradlew
   End
 
   It 'adds .0 to two-digit version'
+    # Create a mock gradlew file for this test
+    printf 'echo "version: 1.2-SNAPSHOT"' > ./gradlew
+    chmod +x ./gradlew
     echo "version=1.2-SNAPSHOT" > gradle.properties
-    Mock gradle
-      echo "version: 1.2-SNAPSHOT"
-    End
     When call set_project_version
     The output should include "Replacing version 1.2-SNAPSHOT with 1.2.0.42"
     The variable PROJECT_VERSION should equal "1.2.0.42"
-    rm -f gradle.properties gradle.properties.bak
+    rm -f gradle.properties gradle.properties.bak ./gradlew
   End
 End
 
@@ -290,48 +287,36 @@ Describe 'get_build_type'
 End
 
 Describe 'gradle_build'
-  It 'uses gradle when available'
-    export PROJECT_VERSION="1.0.0.42"
-    export GRADLE_ARGS=""
-    Mock command_exists
-      echo "gradle $*"
-    End
-    Mock gradle
-      echo "gradle executed"
-    End
-
-    When call gradle_build
-    The output should include "gradle executed"
-  End
-
-  It 'uses gradlew when gradle not found'
-    export PROJECT_VERSION="1.0.0.42"
-    export GRADLE_ARGS=""
-    Mock command_exists
-      if [[ "$1" == "gradle" ]]; then
-        echo "gradle is not installed." >&2
-        false
-      else
-        command -v "$1" >/dev/null && "$@"
-      fi
-    End
-    touch ./gradlew
+  It 'uses ./gradlew when available'
+    # Create a mock gradlew file for this test
+    printf 'echo "./gradlew executed"' > ./gradlew
     chmod +x ./gradlew
+    export PROJECT_VERSION="1.0.0.42"
+    export GRADLE_ARGS=""
+    Mock command_exists
+      case "$1" in
+        java) echo "java ok" ;;
+        ./gradlew) echo "./gradlew ok" ;;
+        *) echo "$1 is not installed." >&2; false ;;
+      esac
+    End
 
     When call gradle_build
-    The output should include "Gradle command: ./gradlew"
-    The stderr should include "gradle is not installed."
-
+    The output should include "./gradlew executed"
     rm -f ./gradlew
   End
 End
 
 Describe 'main function'
   It 'executes full sequence'
+    # Create a mock gradlew file for this test
+    printf 'echo "./gradlew ok"' > ./gradlew
+    chmod +x ./gradlew
     Mock command_exists
       case "$1" in
         java) echo "java ok" ;;
-        gradle) echo "gradle ok" ;;
+        ./gradlew) echo "./gradlew ok" ;;
+        *) echo "$1 is not installed." >&2; false ;;
       esac
     End
     Mock set_build_env
@@ -347,17 +332,31 @@ Describe 'main function'
     When call main
     The status should be success
     The line 1 should equal "java ok"
-    The line 2 should equal "gradle ok"
+    The line 2 should equal "./gradlew ok"
     The line 3 should equal "env set"
     The line 4 should equal "version set"
     The line 5 should equal "build done"
+    rm -f ./gradlew
   End
 End
 
 Describe 'script execution'
   It 'executes main when build.sh is run directly'
+    # Create a mock gradlew file for this test
+    printf 'echo "version: 1.2.3-SNAPSHOT"' > ./gradlew
+    chmod +x ./gradlew
+    Mock command_exists
+      case "$1" in
+        java) echo "java ok" ;;
+        ./gradlew) echo "./gradlew ok" ;;
+        *) echo "$1 is not installed." >&2; false ;;
+      esac
+    End
+    # Create a gradle.properties file for the version parsing
+    echo "version=1.0-SNAPSHOT" > gradle.properties
     When run script build-gradle/build.sh
     The status should be success
     The output should include "PROJECT: my-repo"
+    rm -f ./gradlew gradle.properties gradle.properties.bak
   End
 End
