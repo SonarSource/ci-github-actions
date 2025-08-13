@@ -18,17 +18,12 @@ inputs:
     default: ''
   gradle-args:
     description: Additional arguments to pass to Gradle
-  gradle-version:
-    description: Gradle version to use for setup-gradle action
   deploy-pull-request:
     description: Whether to deploy pull request artifacts
     default: 'false'
   skip-tests:
     description: Whether to skip running tests
     default: 'false'
-  gradle-wrapper-validation:
-    description: Whether to validate Gradle wrapper
-    default: 'true'
   use-develocity:
     description: Whether to use Develocity for build tracking.
     default: 'false'
@@ -79,10 +74,10 @@ runs:
           ${{ inputs.use-develocity == 'true' && 'development/kv/data/develocity token | DEVELOCITY_TOKEN;' || '' }}
         # yamllint enable rule:line-length
 
-    - name: Setup Gradle
+    # Configure Gradle for comprehensive caching and build summary reporting. It does not install Gradle.
+    - name: Configure Gradle
       uses: gradle/actions/setup-gradle@017a9effdb900e5b5b2fddfb590a105619dca3c3 # v4.4.2
       with:
-        gradle-version: ${{ inputs.gradle-version }}
         develocity-access-key: >-
          ${{ inputs.use-develocity == 'true' &&
          fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN || '' }}

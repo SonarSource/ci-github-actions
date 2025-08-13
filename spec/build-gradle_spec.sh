@@ -290,7 +290,7 @@ Describe 'get_build_type'
 End
 
 Describe 'gradle_build'
-  It 'uses gradle when available'
+  It 'executes gradle build successfully'
     export PROJECT_VERSION="1.0.0.42"
     export GRADLE_ARGS=""
     Mock command_exists
@@ -303,26 +303,74 @@ Describe 'gradle_build'
     When call gradle_build
     The output should include "gradle executed"
   End
+End
 
-  It 'uses gradlew when gradle not found'
-    export PROJECT_VERSION="1.0.0.42"
-    export GRADLE_ARGS=""
+Describe 'set_gradle_cmd'
+  It 'uses gradlew when available'
     Mock command_exists
-      if [[ "$1" == "gradle" ]]; then
-        echo "gradle is not installed." >&2
-        false
-      else
-        command -v "$1" >/dev/null && "$@"
+      # For ./gradlew -version call
+      if [[ "$1" == "./gradlew" && "$2" == "-version" ]]; then
+        echo "Gradle 7.0"
       fi
     End
     touch ./gradlew
     chmod +x ./gradlew
 
-    When call gradle_build
-    The output should include "Gradle command: ./gradlew"
-    The stderr should include "gradle is not installed."
+    When call set_gradle_cmd
+    The status should be success
+    The variable GRADLE_CMD should equal "./gradlew"
 
     rm -f ./gradlew
+  End
+
+  It 'uses gradle when gradlew not found'
+    Mock command_exists
+      if [[ "$1" == "gradle" && $# -eq 1 ]]; then
+        # This is the availability check - return success silently
+        true
+      elif [[ "$1" == "gradle" && "$2" == "-version" ]]; then
+        # This is the version check - output version
+        echo "Gradle 7.0"
+      fi
+    End
+    # Ensure no gradlew exists
+    rm -f ./gradlew
+
+    When call set_gradle_cmd
+    The status should be success
+    The variable GRADLE_CMD should equal "gradle"
+
+    # Clean up just in case
+    rm -f ./gradlew
+  End
+
+  It 'fails when neither gradle nor gradlew are available'
+    # Create a test wrapper function that handles the exit
+    test_set_gradle_cmd_failure() {
+      # Mock command_exists within the function
+      # shellcheck disable=SC2317  # Function is called indirectly
+      command_exists() {
+        if [[ "$1" == "gradle" && $# -eq 1 ]]; then
+          # This is the availability check - fail with error message
+          echo "gradle is not installed." >&2
+          false
+        else
+          # Any other call should also fail
+          echo "$1 is not installed." >&2
+          false
+        fi
+      }
+
+      # Ensure no gradlew exists
+      rm -f ./gradlew
+
+      # Call set_gradle_cmd in a subshell to contain the exit
+      ( set_gradle_cmd )
+    }
+
+    When call test_set_gradle_cmd_failure
+    The status should be failure
+    The stderr should include "Neither ./gradlew nor gradle command found!"
   End
 End
 
@@ -347,10 +395,9 @@ Describe 'main function'
     When call main
     The status should be success
     The line 1 should equal "java ok"
-    The line 2 should equal "gradle ok"
-    The line 3 should equal "env set"
-    The line 4 should equal "version set"
-    The line 5 should equal "build done"
+    The line 2 should equal "env set"
+    The line 3 should equal "version set"
+    The line 4 should equal "build done"
   End
 End
 
