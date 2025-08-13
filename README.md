@@ -212,6 +212,7 @@ jobs:
           poetry-cache-dir: .cache/pypoetry                    # Poetry cache directory
           repox-url: https://repox.jfrog.io                    # Repox URL
           sonar-platform: next                                 # SonarQube platform (next, sqc-eu, or sqc-us)
+          run-shadow-scans: false                              # Run SonarQube scans on all 3 platforms (next, sqc-eu, sqc-us)
 ```
 
 ### Inputs
