@@ -13,6 +13,18 @@ for details on how to use it.
 
 ---
 
+## Actions provided in this repository
+
+- [`get-build-number`](#get-build-number)
+- [`build-maven`](#build-maven)
+- [`build-poetry`](#build-poetry)
+- [`build-gradle`](#build-gradle)
+- [`build-npm`](#build-npm)
+- [`build-yarn`](#build-yarn)
+- [`promote`](#promote)
+- [`pr-cleanup`](#pr-cleanup)
+- [`cache`](#cache)
+
 ## `get-build-number`
 
 Manage the build number in GitHub Actions.
@@ -253,9 +265,12 @@ Build and publish a Gradle project with SonarQube analysis and Artifactory deplo
 
 #### Other Dependencies
 
-The Java and Gradle tools must be pre-installed. Use of `mise` is recommended.
+**Java**: Not pre-installed in the runner image. We recommend using `mise` to install and manage Java versions.
 
-Gradle Artifactory plugin configuration is required in your `build.gradle` file.
+**Gradle**: Not pre-installed in the runner image. We recommend including the Gradle wrapper (`gradlew`) in your repository, which will be
+used automatically. If the Gradle wrapper is not available, you can install Gradle using `mise` in your pipeline.
+
+**Additional Configuration**: The Gradle Artifactory plugin configuration is required in your `build.gradle` file.
 
 ### Usage
 
