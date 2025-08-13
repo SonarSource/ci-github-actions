@@ -247,7 +247,7 @@ Build and publish a Gradle project with SonarQube analysis and Artifactory deplo
 
 - `development/kv/data/next`, `development/kv/data/sonarcloud`, or `development/kv/data/sonarqube-us`: SonarQube credentials (based on sonar-platform)
 - `development/kv/data/sign`: Artifact signing credentials (key, passphrase, and key_id)
-- `development/kv/data/develocity`: Develocity access token
+- `development/kv/data/develocity`: Develocity access token if `use-develocity: true`
 - `public-reader` or `private-reader`: Artifactory role for reading dependencies
 - `public-deployer` or `qa-deployer`: Artifactory role for deployment
 
@@ -296,8 +296,6 @@ jobs:
 | `deploy-pull-request` | Whether to deploy pull request artifacts | `false` |
 | `skip-tests` | Whether to skip running tests | `false` |
 | `gradle-args` | Additional arguments to pass to Gradle | (optional) |
-| `gradle-version` | Gradle version to use for setup-gradle action | (optional) |
-| `gradle-wrapper-validation` | Whether to validate Gradle wrapper | `true` |
 | `develocity-url` | URL for Develocity | `https://develocity.sonar.build/` |
 | `repox-url` | URL for Repox | `https://repox.jfrog.io` |
 | `sonar-platform` | SonarQube variant - 'next', 'sqc-eu', or 'sqc-us' | `next` |
@@ -310,13 +308,13 @@ jobs:
 
 ### Features
 
+- Uses the gradle wrapper (`./gradlew`) by default and falls back to the `gradle` binary in case it is not found
 - Automated version management with build numbers
 - SonarQube analysis for code quality
 - Conditional deployment based on branch patterns
 - Automatic artifact signing with credentials from Vault
 - Pull request support with optional deployment
-- Develocity integration for build optimization
-- Gradle wrapper validation
+- Develocity integration for build scans
 - Comprehensive build logging and error handling
 
 ## `build-npm`
