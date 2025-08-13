@@ -128,7 +128,7 @@ jobs:
       id-token: write
       contents: write
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
       - uses: SonarSource/ci-github-actions/build-maven@v1
 ```
 
@@ -213,7 +213,7 @@ jobs:
       id-token: write
       contents: write
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
       - uses: SonarSource/ci-github-actions/build-poetry@v1
         with:
           public: false                                        # Defaults to `true` if the repository is public
@@ -296,7 +296,7 @@ jobs:
       id-token: write
       contents: write
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
       - uses: SonarSource/ci-github-actions/build-gradle@v1
 ```
 
@@ -377,7 +377,7 @@ jobs:
       id-token: write
       contents: write
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
       - uses: SonarSource/ci-github-actions/build-npm@v1
 ```
 
@@ -459,7 +459,7 @@ jobs:
       id-token: write
       contents: write
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
       - uses: SonarSource/ci-github-actions/build-yarn@v1
 ```
 

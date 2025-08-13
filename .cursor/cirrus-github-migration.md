@@ -29,7 +29,7 @@ When updating this migration guide:
 
 ```yaml
 # Checkout
-- uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+- uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
 
 # Mise Setup - INCLUDES REQUIRED VERSION PARAMETER
 - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
@@ -71,7 +71,7 @@ Update this section when newer versions are released:
 
 #### Core GitHub Actions
 
-- [ ] `actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2`
+- [ ] `actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0`
 - [ ] `actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0`
 - [ ] `actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8`
 
@@ -199,7 +199,7 @@ Follow these security principles during migration:
 
 ```yaml
 # ✅ CORRECT - Pinned to commit SHA
-- uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+- uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
 
 # ❌ WRONG - Unpinned versions
 - uses: actions/checkout@v4  # Can be modified
@@ -301,7 +301,7 @@ jobs:
       id-token: write  # Required for Vault OIDC authentication
       contents: write  # Required for repository access and tagging
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
       - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
         with:
           version: 2025.7.12
@@ -320,7 +320,7 @@ jobs:
       id-token: write
       contents: write
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
       - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
         with:
           cache_save: false
@@ -874,7 +874,7 @@ by the custom actions. No need to specify cache folders or cleanup scripts.
 
 ```yaml
 # ✅ Pin third-party actions to commit SHA
-- uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+- uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
 - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
   with:
     version: 2025.7.12
@@ -1520,7 +1520,7 @@ jobs:
       id-token: write
       contents: write
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
       - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
         with:
           version: 2025.7.12
@@ -1539,7 +1539,7 @@ jobs:
       id-token: write
       contents: write
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
       - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
         with:
           cache_save: false
