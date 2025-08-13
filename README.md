@@ -147,6 +147,7 @@ jobs:
 | `repox-url` | URL for Repox | `https://repox.jfrog.io` |
 | `develocity-url` | URL for Develocity | `https://develocity.sonar.build/` |
 | `sonar-platform` | SonarQube primary platform - 'next', 'sqc-eu', or 'sqc-us' | `next` |
+| `run-shadow-scans` | If true, run SonarQube analysis on all 3 platforms (next, sqc-eu, sqc-us); if false, only on the selected `sonar-platform` | `false` |
 
 ### Outputs
 
