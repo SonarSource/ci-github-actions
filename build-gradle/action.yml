@@ -68,6 +68,8 @@ runs:
           development/kv/data/${{ inputs.sonar-platform == 'sqc-eu' && 'sonarcloud' || (inputs.sonar-platform == 'sqc-us' && 'sonarqube-us' || 'next') }} token | SONAR_TOKEN;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} username | ARTIFACTORY_DEPLOY_USERNAME;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} access_token | ARTIFACTORY_DEPLOY_PASSWORD;
+          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_READER_USERNAME;
+          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_READER_PASSWORD;
           development/kv/data/sign key | SIGN_KEY;
           development/kv/data/sign passphrase | PGP_PASSPHRASE;
           development/kv/data/sign key_id | SIGN_KEY_ID;
@@ -98,6 +100,8 @@ runs:
           (inputs.public == 'true' && 'sonarsource-public-qa' || 'sonarsource-private-qa') }}
         ARTIFACTORY_DEPLOY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_USERNAME }}
         ARTIFACTORY_DEPLOY_PASSWORD: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_PASSWORD }}
+        ARTIFACTORY_PRIVATE_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_READER_PASSWORD }}
+        ARTIFACTORY_PRIVATE_PASSWORD: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_READER_USERNAME }}
         DEPLOY_PULL_REQUEST: ${{ inputs.deploy-pull-request }}
         SKIP_TESTS: ${{ inputs.skip-tests }}
         GRADLE_ARGS: ${{ inputs.gradle-args }}
