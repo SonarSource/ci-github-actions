@@ -109,7 +109,7 @@ run_sonar_scanner() {
 
     local sonar_props=("-Dsonar.host.url=${SONAR_HOST_URL}" "-Dsonar.token=${SONAR_TOKEN}")
     sonar_props+=("-Dsonar.projectVersion=$PROJECT_VERSION" "-Dsonar.scm.revision=$GITHUB_SHA")
-    sonar_props+=("${additional_params[@]}")
+    sonar_props+=("${additional_params[@]+"${additional_params[@]}"}")
 
     mvn "${COMMON_MVN_FLAGS[@]}" "$SONAR_GOAL" "${sonar_props[@]}"
     echo "SonarQube scanner finished for platform: $(basename "$SONAR_HOST_URL")"
@@ -229,16 +229,9 @@ build_maven() {
 
   set_project_version
 
-  # Common Maven flags (made global for use in run_sonar_scanner)
-  readonly COMMON_MVN_FLAGS=(
-    "-Dmaven.test.redirectTestOutputToFile=false"
-    "--settings" "$MAVEN_SETTINGS"
-    "--batch-mode"
-    "--no-transfer-progress"
-    "--errors"
-    "--fail-at-end"
-    "--show-version"
-  )
+  # Source common Maven flags (made global for use in run_sonar_scanner)
+  # shellcheck source=maven-flags.sh
+  source "$(dirname "${BASH_SOURCE[0]}")/maven-flags.sh"
 
   local maven_command_args
   local enable_sonar=false
@@ -278,13 +271,29 @@ build_maven() {
     maven_command_args=("verify")
   fi
 
+  # Disable deployment when running shadow scans
+  if [ "${RUN_SHADOW_SCANS}" = "true" ]; then
+    echo "Shadow scans enabled - disabling deployment"
+    # Replace deploy with verify to disable deployment
+    if [[ "${maven_command_args[0]}" == "deploy" ]]; then
+      maven_command_args[0]="verify"
+      # Remove deploy-specific profiles but keep others
+      for i in "${!maven_command_args[@]}"; do
+        if [[ "${maven_command_args[$i]}" == *"deploy-sonarsource"* ]]; then
+          # Remove deploy-sonarsource from profiles
+          maven_command_args[i]=$(echo "${maven_command_args[i]}" | sed 's/,deploy-sonarsource//g' | sed 's/deploy-sonarsource,//g' | sed 's/deploy-sonarsource//g')
+        fi
+      done
+    fi
+  fi
+
   # Execute the main Maven build
   echo "Maven command: mvn ${maven_command_args[*]} ${COMMON_MVN_FLAGS[*]} $*"
   mvn "${maven_command_args[@]}" "${COMMON_MVN_FLAGS[@]}" "$@"
 
   # Execute SonarQube analysis if enabled
   if [ "$enable_sonar" = true ]; then
-    run_sonar_analysis "${sonar_args[@]}"
+    run_sonar_analysis "${sonar_args[@]+"${sonar_args[@]}"}"
   fi
 }
 
