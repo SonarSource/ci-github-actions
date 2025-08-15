@@ -253,6 +253,12 @@ get_build_config() {
     enable_deploy=false
   fi
 
+  # Disable deployment when running shadow scans
+  if [ "${RUN_SHADOW_SCANS}" = "true" ]; then
+    echo "Shadow scans enabled - disabling deployment"
+    enable_deploy=false
+  fi
+
   # Export the configuration for use by build_poetry
   export BUILD_ENABLE_SONAR="$enable_sonar"
   export BUILD_ENABLE_DEPLOY="$enable_deploy"
