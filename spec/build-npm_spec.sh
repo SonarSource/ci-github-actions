@@ -386,7 +386,7 @@ End
     It 'sets sonar variables for sqc-us platform'
       When call set_sonar_platform_vars "sqc-us"
       The status should be success
-      The output should include "Using Sonar platform: sqc-us (URL: https://sonarqube-us.example.com)"
+      The output should include "Using Sonar platform: sqc-us (URL: https://sonarqube-us.example.com, Region: us)"
       The variable SONAR_HOST_URL should equal "https://sonarqube-us.example.com"
       The variable SONAR_TOKEN should equal "sqc-us-token"
     End

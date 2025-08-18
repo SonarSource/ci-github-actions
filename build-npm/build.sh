@@ -154,6 +154,7 @@ set_sonar_platform_vars() {
     "sqc-us")
       export SONAR_HOST_URL="$SQC_US_URL"
       export SONAR_TOKEN="$SQC_US_TOKEN"
+      export SONAR_REGION="us"
       ;;
     "sqc-eu")
       export SONAR_HOST_URL="$SQC_EU_URL"
@@ -165,26 +166,36 @@ set_sonar_platform_vars() {
       ;;
   esac
 
-  echo "Using Sonar platform: $platform (URL: $SONAR_HOST_URL)"
+  if [ -n "${SONAR_REGION:-}" ]; then
+    echo "Using Sonar platform: $platform (URL: $SONAR_HOST_URL, Region: $SONAR_REGION)"
+  else
+    echo "Using Sonar platform: $platform (URL: $SONAR_HOST_URL)"
+  fi
 }
 
 run_sonar_scanner() {
     local additional_params=("$@")
 
-    echo "DEBUG: SONAR_HOST_URL='${SONAR_HOST_URL}'"
-    echo "DEBUG: SONAR_TOKEN='${SONAR_TOKEN:0:10}...'"
-    echo "DEBUG: Running command: npx sonarqube-scanner -X -Dsonar.host.url=\"${SONAR_HOST_URL}\" -Dsonar.token=\"***\" [additional params]"
+    # Build base scanner arguments
+    local scanner_args=(
+        "-Dsonar.host.url=${SONAR_HOST_URL}"
+        "-Dsonar.token=${SONAR_TOKEN}"
+        "-Dsonar.analysis.buildNumber=${BUILD_NUMBER}"
+        "-Dsonar.analysis.pipeline=${GITHUB_RUN_ID}"
+        "-Dsonar.analysis.sha1=${GITHUB_SHA}"
+        "-Dsonar.analysis.repository=${GITHUB_REPOSITORY}"
+        "-Dsonar.projectVersion=${PROJECT_VERSION}"
+        "-Dsonar.scm.revision=${GITHUB_SHA}"
+    )
 
-    npx sonarqube-scanner -X \
-        -Dsonar.host.url="${SONAR_HOST_URL}" \
-        -Dsonar.token="${SONAR_TOKEN}" \
-        -Dsonar.analysis.buildNumber="${BUILD_NUMBER}" \
-        -Dsonar.analysis.pipeline="${GITHUB_RUN_ID}" \
-        -Dsonar.analysis.sha1="${GITHUB_SHA}" \
-        -Dsonar.analysis.repository="${GITHUB_REPOSITORY}" \
-        -Dsonar.projectVersion="${PROJECT_VERSION}" \
-        -Dsonar.scm.revision="${GITHUB_SHA}" \
-        "${additional_params[@]}"
+    # Add region parameter only for sqc-us platform
+    if [ -n "${SONAR_REGION:-}" ]; then
+        scanner_args+=("-Dsonar.region=${SONAR_REGION}")
+    fi
+
+    scanner_args+=("${additional_params[@]}")
+
+    npx sonarqube-scanner -X "${scanner_args[@]}"
     echo "SonarQube scanner finished for platform: $(basename "$SONAR_HOST_URL")"
 }
 
