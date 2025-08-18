@@ -30,7 +30,7 @@ runs:
         secrets: |
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-promoter access_token | ARTIFACTORY_PROMOTE_ACCESS_TOKEN;
           development/github/token/{REPO_OWNER_NAME_DASH}-promotion token | GITHUB_TOKEN;
-    - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
+    - uses: jdx/mise-action@c0b8518a9f5e56c720e9545c993b77ff15dc7b27 # v3.0.2
       if: ${{ inputs.promote-pull-request == 'true' }}
       with:
         version: 2025.7.12
