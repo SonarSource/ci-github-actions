@@ -4,8 +4,14 @@
 #
 # Required inputs (must be explicitly provided):
 # - BUILD_NUMBER: Build number for versioning
-# - SONAR_HOST_URL: URL of SonarQube server
-# - SONAR_TOKEN: Access token to send analysis reports to SonarQube
+# - SONAR_PLATFORM: SonarQube primary platform (next, sqc-eu, or sqc-us)
+# - NEXT_URL: URL of SonarQube server for next platform
+# - NEXT_TOKEN: Access token to send analysis reports to SonarQube for next platform
+# - SQC_US_URL: URL of SonarQube server for sqc-us platform
+# - SQC_US_TOKEN: Access token to send analysis reports to SonarQube for sqc-us platform
+# - SQC_EU_URL: URL of SonarQube server for sqc-eu platform
+# - SQC_EU_TOKEN: Access token to send analysis reports to SonarQube for sqc-eu platform
+# - RUN_SHADOW_SCANS: If true, run sonar scanner on all 3 platforms. If false, run on the platform provided by SONAR_PLATFORM.
 # - ARTIFACTORY_URL: URL to Artifactory repository
 # - ARTIFACTORY_ACCESS_TOKEN: Access token to access the repository
 # - ARTIFACTORY_DEPLOY_ACCESS_TOKEN: Access token to deploy to Artifactory
@@ -35,7 +41,8 @@ set -euo pipefail
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_RUN_ID:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}" "${GITHUB_SHA:?}"
 : "${GITHUB_OUTPUT:?}"
 : "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}"
-: "${SONAR_HOST_URL:?}" "${SONAR_TOKEN:?}"
+: "${SONAR_PLATFORM:?}" "${RUN_SHADOW_SCANS:?}"
+: "${NEXT_URL:?}" "${NEXT_TOKEN:?}" "${SQC_US_URL:?}" "${SQC_US_TOKEN:?}" "${SQC_EU_URL:?}" "${SQC_EU_TOKEN:?}"
 : "${DEPLOY_PULL_REQUEST:=false}" "${SKIP_TESTS:=false}"
 export ARTIFACTORY_URL DEPLOY_PULL_REQUEST SKIP_TESTS
 
@@ -136,8 +143,37 @@ check_version_format() {
   fi
 }
 
+set_sonar_platform_vars() {
+  local platform="${1:?}"
+
+  case "$platform" in
+    "next")
+      export SONAR_HOST_URL="$NEXT_URL"
+      export SONAR_TOKEN="$NEXT_TOKEN"
+      ;;
+    "sqc-us")
+      export SONAR_HOST_URL="$SQC_US_URL"
+      export SONAR_TOKEN="$SQC_US_TOKEN"
+      ;;
+    "sqc-eu")
+      export SONAR_HOST_URL="$SQC_EU_URL"
+      export SONAR_TOKEN="$SQC_EU_TOKEN"
+      ;;
+    *)
+      echo "ERROR: Invalid Sonar platform '$platform'. Must be one of: next, sqc-us, sqc-eu" >&2
+      return 1
+      ;;
+  esac
+
+  echo "Using Sonar platform: $platform (URL: $SONAR_HOST_URL)"
+}
+
 run_sonar_scanner() {
     local additional_params=("$@")
+
+    echo "DEBUG: SONAR_HOST_URL='${SONAR_HOST_URL}'"
+    echo "DEBUG: SONAR_TOKEN='${SONAR_TOKEN:0:10}...'"
+    echo "DEBUG: Running command: npx sonarqube-scanner -X -Dsonar.host.url=\"${SONAR_HOST_URL}\" -Dsonar.token=\"***\" [additional params]"
 
     npx sonarqube-scanner -X \
         -Dsonar.host.url="${SONAR_HOST_URL}" \
@@ -146,8 +182,31 @@ run_sonar_scanner() {
         -Dsonar.analysis.pipeline="${GITHUB_RUN_ID}" \
         -Dsonar.analysis.sha1="${GITHUB_SHA}" \
         -Dsonar.analysis.repository="${GITHUB_REPOSITORY}" \
+        -Dsonar.projectVersion="${PROJECT_VERSION}" \
+        -Dsonar.scm.revision="${GITHUB_SHA}" \
         "${additional_params[@]}"
-    echo "SonarQube scanner finished"
+    echo "SonarQube scanner finished for platform: $(basename "$SONAR_HOST_URL")"
+}
+
+run_sonar_analysis() {
+  local sonar_args=("$@")
+
+  if [ "${RUN_SHADOW_SCANS}" = "true" ]; then
+      echo "=== Running Sonar analysis on all platforms (shadow scan enabled) ==="
+      local platforms=("next" "sqc-eu" "sqc-us")
+
+      for platform in "${platforms[@]}"; do
+          echo "--- Analyzing with platform: $platform ---"
+          set_sonar_platform_vars "$platform"
+          run_sonar_scanner "${sonar_args[@]}"
+      done
+
+      echo "=== Completed Sonar analysis on all platforms ==="
+  else
+      echo "=== Running Sonar analysis on selected platform: $SONAR_PLATFORM ==="
+      set_sonar_platform_vars "$SONAR_PLATFORM"
+      run_sonar_scanner "${sonar_args[@]}"
+  fi
 }
 
 jfrog_npm_publish() {
@@ -183,8 +242,6 @@ jfrog_npm_publish() {
     echo "build-info-url=$build_info_url" >> "$GITHUB_OUTPUT"
     echo "::debug::Build info URL saved: $build_info_url"
   fi
-
-  echo "::debug::JFrog operations completed successfully"
 }
 
 # Handle maintenance branch version logic
@@ -266,6 +323,12 @@ get_build_config() {
     enable_deploy=false
   fi
 
+  # Disable deployment when shadow scans are enabled to prevent duplicate artifacts
+  if [ "${RUN_SHADOW_SCANS}" = "true" ]; then
+    echo "======= Shadow scans enabled - disabling deployment to prevent duplicate artifacts ======="
+    enable_deploy=false
+  fi
+
   # Export the configuration for use by run_standard_pipeline
   export BUILD_ENABLE_SONAR="$enable_sonar"
   export BUILD_ENABLE_DEPLOY="$enable_deploy"
@@ -286,7 +349,7 @@ run_standard_pipeline() {
 
   if [ "${BUILD_ENABLE_SONAR}" = "true" ]; then
     read -ra sonar_args <<< "$BUILD_SONAR_ARGS"
-    run_sonar_scanner "${sonar_args[@]}"
+    run_sonar_analysis "${sonar_args[@]}"
   fi
 
   echo "Building project..."
@@ -303,6 +366,8 @@ build_npm() {
   echo "Pull Request: ${PULL_REQUEST}"
   echo "Deploy Pull Request: ${DEPLOY_PULL_REQUEST}"
   echo "Skip Tests: ${SKIP_TESTS}"
+  echo "Sonar Platform: ${SONAR_PLATFORM}"
+  echo "Run Shadow Scans: ${RUN_SHADOW_SCANS}"
 
   set_project_version
   get_build_config

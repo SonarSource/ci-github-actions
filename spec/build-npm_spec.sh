@@ -76,8 +76,14 @@ export ARTIFACTORY_URL="https://repox.jfrog.io/artifactory"
 export ARTIFACTORY_ACCESS_TOKEN="reader-token"
 export ARTIFACTORY_DEPLOY_REPO="test-repo"
 export ARTIFACTORY_DEPLOY_ACCESS_TOKEN="deploy-token"
-export SONAR_HOST_URL="https://sonar.example.com"
-export SONAR_TOKEN="sonar-token"
+export SONAR_PLATFORM="next"
+export RUN_SHADOW_SCANS="false"
+export NEXT_URL="https://next.sonarqube.com"
+export NEXT_TOKEN="next-token"
+export SQC_US_URL="https://sonarqube-us.example.com"
+export SQC_US_TOKEN="sqc-us-token"
+export SQC_EU_URL="https://sonarcloud.io"
+export SQC_EU_TOKEN="sqc-eu-token"
 export DEPLOY_PULL_REQUEST="false"
 export SKIP_TESTS="false"
 export DEFAULT_BRANCH="main"
@@ -248,7 +254,6 @@ End
       The output should include "Installing npm dependencies..."
       The output should include "SonarQube scanner completed"
       The output should include "Building project..."
-      The output should include "::debug::JFrog operations completed successfully"
     End
 
     It 'builds maintenance branch with SNAPSHOT version'
@@ -303,7 +308,6 @@ End
       The status should be success
       The output should include "======= Building pull request ======="
       The output should include "======= with deploy ======="
-      The output should include "::debug::JFrog operations completed successfully"
     End
 
     It 'builds dogfood branch without sonar'
@@ -316,7 +320,6 @@ End
       The output should include "======= Build dogfood branch ======="
       The output should include "Installing npm dependencies..."
       The output should not include "SonarQube scanner"
-      The output should include "::debug::JFrog operations completed successfully"
     End
 
     It 'builds long-lived feature branch without deploy'
@@ -369,6 +372,115 @@ End
       The stderr should include "ERROR: Deployment requires ARTIFACTORY_URL and ARTIFACTORY_DEPLOY_ACCESS_TOKEN"
     End
 
+  End
+
+  Describe 'Sonar platform configuration'
+    It 'sets sonar variables for next platform'
+      When call set_sonar_platform_vars "next"
+      The status should be success
+      The output should include "Using Sonar platform: next (URL: https://next.sonarqube.com)"
+      The variable SONAR_HOST_URL should equal "https://next.sonarqube.com"
+      The variable SONAR_TOKEN should equal "next-token"
+    End
+
+    It 'sets sonar variables for sqc-us platform'
+      When call set_sonar_platform_vars "sqc-us"
+      The status should be success
+      The output should include "Using Sonar platform: sqc-us (URL: https://sonarqube-us.example.com)"
+      The variable SONAR_HOST_URL should equal "https://sonarqube-us.example.com"
+      The variable SONAR_TOKEN should equal "sqc-us-token"
+    End
+
+    It 'sets sonar variables for sqc-eu platform'
+      When call set_sonar_platform_vars "sqc-eu"
+      The status should be success
+      The output should include "Using Sonar platform: sqc-eu (URL: https://sonarcloud.io)"
+      The variable SONAR_HOST_URL should equal "https://sonarcloud.io"
+      The variable SONAR_TOKEN should equal "sqc-eu-token"
+    End
+
+    It 'fails with invalid platform'
+      When run set_sonar_platform_vars "invalid"
+      The status should be failure
+      The stderr should include "ERROR: Invalid Sonar platform 'invalid'. Must be one of: next, sqc-us, sqc-eu"
+    End
+  End
+
+  Describe 'Sonar analysis functionality'
+    It 'runs single platform analysis when shadow scans disabled'
+      export RUN_SHADOW_SCANS="false"
+      export SONAR_PLATFORM="next"
+      export PROJECT_VERSION="1.2.3-42"
+      When call run_sonar_analysis "-Dsonar.test=value"
+      The status should be success
+      The output should include "=== Running Sonar analysis on selected platform: next ==="
+      The output should include "Using Sonar platform: next"
+      The output should include "SonarQube scanner finished for platform: next.sonarqube.com"
+      The output should not include "shadow scan enabled"
+    End
+
+    It 'runs multi-platform analysis when shadow scans enabled'
+      export RUN_SHADOW_SCANS="true"
+      export SONAR_PLATFORM="next"
+      export PROJECT_VERSION="1.2.3-42"
+      When call run_sonar_analysis "-Dsonar.test=value"
+      The status should be success
+      The output should include "=== Running Sonar analysis on all platforms (shadow scan enabled) ==="
+      The output should include "--- Analyzing with platform: next ---"
+      The output should include "--- Analyzing with platform: sqc-us ---"
+      The output should include "--- Analyzing with platform: sqc-eu ---"
+      The output should include "=== Completed Sonar analysis on all platforms ==="
+    End
+  End
+
+  Describe 'Shadow scans deployment prevention'
+    It 'disables deployment when shadow scans enabled on main branch'
+      export GITHUB_REF_NAME="main"
+      export DEFAULT_BRANCH="main"
+      export GITHUB_EVENT_NAME="push"
+      export RUN_SHADOW_SCANS="true"
+      export CURRENT_VERSION="1.2.3-SNAPSHOT"
+      export PROJECT_VERSION="1.2.3-42"
+      export BUILD_NUMBER="42"
+      When call get_build_config
+      The status should be success
+      The output should include "======= Shadow scans enabled - disabling deployment to prevent duplicate artifacts ======="
+      The variable BUILD_ENABLE_DEPLOY should equal "false"
+      The variable BUILD_ENABLE_SONAR should equal "true"
+    End
+
+    It 'allows deployment when shadow scans disabled on main branch'
+      export GITHUB_REF_NAME="main"
+      export DEFAULT_BRANCH="main"
+      export GITHUB_EVENT_NAME="push"
+      export RUN_SHADOW_SCANS="false"
+      export CURRENT_VERSION="1.2.3-SNAPSHOT"
+      export PROJECT_VERSION="1.2.3-42"
+      export BUILD_NUMBER="42"
+      When call get_build_config
+      The status should be success
+      The output should not include "shadow scans enabled"
+      The variable BUILD_ENABLE_DEPLOY should equal "true"
+      The variable BUILD_ENABLE_SONAR should equal "true"
+    End
+  End
+
+  Describe 'Full build with shadow scans'
+    It 'displays shadow scan information in build output'
+      export GITHUB_REF_NAME="main"
+      export DEFAULT_BRANCH="main"
+      export GITHUB_EVENT_NAME="push"
+      export RUN_SHADOW_SCANS="true"
+      export SONAR_PLATFORM="next"
+      export PROJECT="test-project"
+      export BUILD_NUMBER="42"
+      When call build_npm
+      The status should be success
+      The output should include "Run Shadow Scans: true"
+      The output should include "Sonar Platform: next"
+      The output should include "shadow scan enabled"
+      The output should not include "DEBUG: JFrog operations"
+    End
   End
 
   Describe 'Main function execution'
