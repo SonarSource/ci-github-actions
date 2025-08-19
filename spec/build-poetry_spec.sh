@@ -473,4 +473,28 @@ Describe 'build_poetry()'
     The line 25 should equal '=== Completed Sonar analysis on all platforms ==='
     The status should be success
   End
+
+  It 'skips sonar analysis when sonar-platform is none'
+    export PULL_REQUEST=""
+    export GITHUB_REF_NAME="main"
+    export SONAR_PLATFORM="none"
+
+    When call build_poetry
+    The line 1 should equal '=== Poetry Build, Deploy, and Analyze ==='
+    The line 2 should equal 'Branch: main'
+    The line 3 should equal 'Pull Request: '
+    The line 4 should equal 'Deploy Pull Request: false'
+    The line 5 should equal '======= Building main branch ======='
+    The line 8 should equal 'poetry build'
+    The line 9 should equal '=== Running Sonar analysis on selected platform: none ==='
+    The line 10 should equal 'Sonar platform set to '"'"'none'"'"'. Skipping sonar analysis.'
+    The line 11 should equal 'jf config remove repox'
+    The line 12 should equal 'jf config add repox --artifactory-url https://dummy.repox --access-token <deploy token>'
+    The line 13 should include '/dist'
+    The line 14 should equal 'jf rt upload ./ <deploy repo>/poetry/1.0.0.42/ --module=poetry:1.0.0.42 --build-name=my-repo --build-number=42'
+    The line 16 should equal 'jf rt build-collect-env my-repo 42'
+    The line 17 should include 'jf rt build-publish my-repo 42'
+    The line 18 should equal '=== Build completed successfully ==='
+    The status should be success
+  End
 End
