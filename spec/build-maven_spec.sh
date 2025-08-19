@@ -131,9 +131,7 @@ Describe 'run_sonar_scanner()'
   export PROJECT_VERSION="1.2.3.42"
   export SONAR_HOST_URL="https://test.sonarqube.com"
   export SONAR_TOKEN="test-token"
-  # Source COMMON_MVN_FLAGS for the run_sonar_scanner tests
-  # shellcheck source=build-maven/maven-flags.sh
-  source build-maven/maven-flags.sh
+  # COMMON_MVN_FLAGS is now defined in build.sh, no need to redefine it here
 
   It 'runs sonar scanner with basic properties'
     When call run_sonar_scanner

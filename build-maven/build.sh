@@ -70,6 +70,19 @@ fi
 : "${SCANNER_VERSION:=5.1.0.4751}"
 readonly SONAR_GOAL="org.sonarsource.scanner.maven:sonar-maven-plugin:${SCANNER_VERSION}:sonar"
 
+# Common Maven flags used across build and analysis operations, exclude from coverage
+# LCOV_EXCL_START
+readonly COMMON_MVN_FLAGS=(
+  "-Dmaven.test.redirectTestOutputToFile=false"
+  "--settings" "$MAVEN_SETTINGS"
+  "--batch-mode"
+  "--no-transfer-progress"
+  "--errors"
+  "--fail-at-end"
+  "--show-version"
+)
+# LCOV_EXCL_STOP
+
 # Check if a command is available and runs it, typically: 'some_tool --version'
 check_tool() {
   if ! command -v "$1"; then
@@ -228,10 +241,6 @@ build_maven() {
   git_fetch_unshallow
 
   set_project_version
-
-  # Source common Maven flags (made global for use in run_sonar_scanner)
-  # shellcheck source=maven-flags.sh
-  source "$(dirname "${BASH_SOURCE[0]}")/maven-flags.sh"
 
   local maven_command_args
   local enable_sonar=false
