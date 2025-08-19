@@ -208,10 +208,6 @@ build_maven() {
 
   set_project_version
 
-  # Source common Maven flags (made global for use in run_sonar_scanner)
-  # shellcheck source=maven-flags.sh
-  source "$(dirname "${BASH_SOURCE[0]}")/maven-flags.sh"
-
   local maven_command_args
   local enable_sonar=false
   local sonar_args=()
