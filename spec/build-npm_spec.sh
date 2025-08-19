@@ -46,7 +46,7 @@ End
 
 Mock npx
   if [[ "$*" =~ sonarqube-scanner ]]; then
-    echo "SonarQube scanner completed"
+    echo "npx $*"
   else
     echo "npx $*"
   fi
@@ -94,6 +94,9 @@ echo '{}' > "$GITHUB_EVENT_PATH"
 
 # Create mock package.json
 echo '{"version": "1.2.3-SNAPSHOT", "name": "test-project"}' > package.json
+
+# Source shared functions before including build script
+Include shared/common-functions.sh
 
 Describe 'build-npm/build.sh'
   Include build-npm/build.sh
@@ -252,7 +255,7 @@ End
       The output should include "======= Building main branch ======="
       The output should include "Current version: 1.2.3-SNAPSHOT"
       The output should include "Installing npm dependencies..."
-      The output should include "SonarQube scanner completed"
+      The output should include "npx sonarqube-scanner"
       The output should include "Building project..."
     End
 
@@ -293,7 +296,7 @@ End
       The output should include "======= Building pull request ======="
       The output should include "======= no deploy ======="
       The output should include "Installing npm dependencies..."
-      The output should include "SonarQube scanner completed"
+      The output should include "npx sonarqube-scanner"
       The output should not include "DEBUG: JFrog operations"
     End
 
@@ -331,7 +334,7 @@ End
       The status should be success
       The output should include "======= Build long-lived feature branch ======="
       The output should include "Installing npm dependencies..."
-      The output should include "SonarQube scanner completed"
+      The output should include "npx sonarqube-scanner"
       The output should not include "DEBUG: JFrog operations"
     End
 
@@ -403,6 +406,59 @@ End
       When run set_sonar_platform_vars "invalid"
       The status should be failure
       The stderr should include "ERROR: Invalid Sonar platform 'invalid'. Must be one of: next, sqc-us, sqc-eu"
+    End
+  End
+
+  Describe 'Sonar scanner functionality'
+    It 'runs sonar scanner with base parameters'
+      export SONAR_HOST_URL="https://sonar.example.com"
+      export SONAR_TOKEN="test-token"
+      export BUILD_NUMBER="42"
+      export GITHUB_RUN_ID="12345"
+      export GITHUB_SHA="abc123"
+      export GITHUB_REPOSITORY="test/repo"
+      export PROJECT_VERSION="1.2.3-42"
+      When call run_sonar_scanner
+      The status should be success
+      The output should include "npx sonarqube-scanner -X"
+      The output should include "-Dsonar.host.url=https://sonar.example.com"
+      The output should include "-Dsonar.token=test-token"
+      The output should include "-Dsonar.analysis.buildNumber=42"
+      The output should include "-Dsonar.analysis.pipeline=12345"
+      The output should include "-Dsonar.analysis.sha1=abc123"
+      The output should include "-Dsonar.analysis.repository=test/repo"
+      The output should include "-Dsonar.projectVersion=1.2.3-42"
+      The output should include "-Dsonar.scm.revision=abc123"
+      The output should include "SonarQube scanner finished for platform: sonar.example.com"
+    End
+
+    It 'runs sonar scanner with region parameter for sqc-us'
+      export SONAR_HOST_URL="https://sonarqube-us.example.com"
+      export SONAR_TOKEN="us-token"
+      export SONAR_REGION="us"
+      export BUILD_NUMBER="42"
+      export GITHUB_RUN_ID="12345"
+      export GITHUB_SHA="abc123"
+      export GITHUB_REPOSITORY="test/repo"
+      export PROJECT_VERSION="1.2.3-42"
+      When call run_sonar_scanner
+      The status should be success
+      The output should include "-Dsonar.region=us"
+      The output should include "SonarQube scanner finished for platform: sonarqube-us.example.com"
+    End
+
+    It 'runs sonar scanner with additional parameters'
+      export SONAR_HOST_URL="https://sonar.example.com"
+      export SONAR_TOKEN="test-token"
+      export BUILD_NUMBER="42"
+      export GITHUB_RUN_ID="12345"
+      export GITHUB_SHA="abc123"
+      export GITHUB_REPOSITORY="test/repo"
+      export PROJECT_VERSION="1.2.3-42"
+      When call run_sonar_scanner "-Dsonar.pullrequest.key=123" "-Dsonar.branch.name=feature"
+      The status should be success
+      The output should include "-Dsonar.pullrequest.key=123"
+      The output should include "-Dsonar.branch.name=feature"
     End
   End
 

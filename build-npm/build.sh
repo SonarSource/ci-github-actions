@@ -36,6 +36,10 @@
 
 set -euo pipefail
 
+# Source common functions shared across build scripts
+# shellcheck source=../shared/common-functions.sh
+source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
+
 : "${ARTIFACTORY_URL:?}"
 : "${ARTIFACTORY_ACCESS_TOKEN:?}" "${ARTIFACTORY_DEPLOY_REPO:?}" "${ARTIFACTORY_DEPLOY_ACCESS_TOKEN:?}"
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_RUN_ID:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}" "${GITHUB_SHA:?}"
@@ -143,82 +147,32 @@ check_version_format() {
   fi
 }
 
-set_sonar_platform_vars() {
-  local platform="${1:?}"
-
-  case "$platform" in
-    "next")
-      export SONAR_HOST_URL="$NEXT_URL"
-      export SONAR_TOKEN="$NEXT_TOKEN"
-      ;;
-    "sqc-us")
-      export SONAR_HOST_URL="$SQC_US_URL"
-      export SONAR_TOKEN="$SQC_US_TOKEN"
-      export SONAR_REGION="us"
-      ;;
-    "sqc-eu")
-      export SONAR_HOST_URL="$SQC_EU_URL"
-      export SONAR_TOKEN="$SQC_EU_TOKEN"
-      ;;
-    *)
-      echo "ERROR: Invalid Sonar platform '$platform'. Must be one of: next, sqc-us, sqc-eu" >&2
-      return 1
-      ;;
-  esac
-
-  if [ -n "${SONAR_REGION:-}" ]; then
-    echo "Using Sonar platform: $platform (URL: $SONAR_HOST_URL, Region: $SONAR_REGION)"
-  else
-    echo "Using Sonar platform: $platform (URL: $SONAR_HOST_URL)"
-  fi
-}
 
 run_sonar_scanner() {
     local additional_params=("$@")
 
     # Build base scanner arguments
-    local scanner_args=(
-        "-Dsonar.host.url=${SONAR_HOST_URL}"
-        "-Dsonar.token=${SONAR_TOKEN}"
-        "-Dsonar.analysis.buildNumber=${BUILD_NUMBER}"
-        "-Dsonar.analysis.pipeline=${GITHUB_RUN_ID}"
-        "-Dsonar.analysis.sha1=${GITHUB_SHA}"
-        "-Dsonar.analysis.repository=${GITHUB_REPOSITORY}"
-        "-Dsonar.projectVersion=${PROJECT_VERSION}"
-        "-Dsonar.scm.revision=${GITHUB_SHA}"
-    )
+    local scanner_args=()
+    scanner_args+=("-Dsonar.host.url=${SONAR_HOST_URL}")
+    scanner_args+=("-Dsonar.token=${SONAR_TOKEN}")
+    scanner_args+=("-Dsonar.analysis.buildNumber=${BUILD_NUMBER}")
+    scanner_args+=("-Dsonar.analysis.pipeline=${GITHUB_RUN_ID}")
+    scanner_args+=("-Dsonar.analysis.sha1=${GITHUB_SHA}")
+    scanner_args+=("-Dsonar.analysis.repository=${GITHUB_REPOSITORY}")
+    scanner_args+=("-Dsonar.projectVersion=${PROJECT_VERSION}")
+    scanner_args+=("-Dsonar.scm.revision=${GITHUB_SHA}")
 
     # Add region parameter only for sqc-us platform
     if [ -n "${SONAR_REGION:-}" ]; then
         scanner_args+=("-Dsonar.region=${SONAR_REGION}")
     fi
 
-    scanner_args+=("${additional_params[@]}")
+    scanner_args+=("${additional_params[@]+\"${additional_params[@]}\"}")
 
     npx sonarqube-scanner -X "${scanner_args[@]}"
     echo "SonarQube scanner finished for platform: $(basename "$SONAR_HOST_URL")"
 }
 
-run_sonar_analysis() {
-  local sonar_args=("$@")
-
-  if [ "${RUN_SHADOW_SCANS}" = "true" ]; then
-      echo "=== Running Sonar analysis on all platforms (shadow scan enabled) ==="
-      local platforms=("next" "sqc-eu" "sqc-us")
-
-      for platform in "${platforms[@]}"; do
-          echo "--- Analyzing with platform: $platform ---"
-          set_sonar_platform_vars "$platform"
-          run_sonar_scanner "${sonar_args[@]}"
-      done
-
-      echo "=== Completed Sonar analysis on all platforms ==="
-  else
-      echo "=== Running Sonar analysis on selected platform: $SONAR_PLATFORM ==="
-      set_sonar_platform_vars "$SONAR_PLATFORM"
-      run_sonar_scanner "${sonar_args[@]}"
-  fi
-}
 
 jfrog_npm_publish() {
   if [ -z "${ARTIFACTORY_URL:-}" ] || [ -z "${ARTIFACTORY_DEPLOY_ACCESS_TOKEN:-}" ]; then
