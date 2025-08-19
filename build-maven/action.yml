@@ -42,8 +42,8 @@ inputs:
     description: Relative path under github.workspace to execute the build in
     default: .
   run-shadow-scans:
-    description: If true, run sonar scanner on all 3 platforms using the provided URL and token.
-     If false, run on the platform provided by SONAR_PLATFORM.
+    description: If true, run SonarQube analysis on all three platforms (next, sqc-eu, sqc-us).
+      If false, run analysis on the platform specified with sonar-platform.
     default: 'false'
 
 runs:
