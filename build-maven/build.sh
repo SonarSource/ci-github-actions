@@ -42,6 +42,10 @@
 
 set -euo pipefail
 
+# Source common functions shared across build scripts
+# shellcheck source=../shared/common-functions.sh
+source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
+
 : "${ARTIFACTORY_URL:?}"
 # Required by maven-enforcer-plugin in SonarSource parent POM
 : "${ARTIFACTORY_DEPLOY_REPO:?}" "${ARTIFACTORY_DEPLOY_USERNAME:?}" "${ARTIFACTORY_DEPLOY_PASSWORD:?}" "${ARTIFACTORY_ACCESS_TOKEN:?}"
@@ -92,31 +96,6 @@ check_tool() {
   "$@"
 }
 
-set_sonar_platform_vars() {
-  local platform="$1"
-
-  case "$platform" in
-    "next")
-      export SONAR_HOST_URL="$NEXT_URL"
-      export SONAR_TOKEN="$NEXT_TOKEN"
-      ;;
-    "sqc-us")
-      export SONAR_HOST_URL="$SQC_US_URL"
-      export SONAR_TOKEN="$SQC_US_TOKEN"
-      ;;
-    "sqc-eu")
-      export SONAR_HOST_URL="$SQC_EU_URL"
-      export SONAR_TOKEN="$SQC_EU_TOKEN"
-      ;;
-    *)
-      echo "ERROR: Unknown sonar platform '$platform'. Expected: next, sqc-us, or sqc-eu" >&2
-      return 1
-      ;;
-  esac
-
-  echo "Using Sonar platform: $platform (URL: $SONAR_HOST_URL)"
-}
-
 run_sonar_scanner() {
     local additional_params=("$@")
 
@@ -126,27 +105,6 @@ run_sonar_scanner() {
 
     mvn "${COMMON_MVN_FLAGS[@]}" "$SONAR_GOAL" "${sonar_props[@]}"
     echo "SonarQube scanner finished for platform: $(basename "$SONAR_HOST_URL")"
-}
-
-run_sonar_analysis() {
-  local sonar_args=("$@")
-
-  if [ "${RUN_SHADOW_SCANS}" = "true" ]; then
-      echo "=== Running Sonar analysis on all platforms (shadow scan enabled) ==="
-      local platforms=("next" "sqc-us" "sqc-eu")
-
-      for platform in "${platforms[@]}"; do
-          echo "--- Analyzing with platform: $platform ---"
-          set_sonar_platform_vars "$platform"
-          run_sonar_scanner "${sonar_args[@]}"
-      done
-
-      echo "=== Completed Sonar analysis on all platforms ==="
-  else
-      echo "=== Running Sonar analysis on selected platform: $SONAR_PLATFORM ==="
-      set_sonar_platform_vars "$SONAR_PLATFORM"
-      run_sonar_scanner "${sonar_args[@]}"
-  fi
 }
 
 is_default_branch() {

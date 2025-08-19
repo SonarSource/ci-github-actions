@@ -54,6 +54,8 @@ MAVEN_SETTINGS="$(mktemp)"
 touch "$MAVEN_SETTINGS"
 export MAVEN_SETTINGS
 
+# Source shared functions before including build script
+Include shared/common-functions.sh
 Include build-maven/build.sh
 
 Describe 'build.sh'
@@ -120,7 +122,7 @@ Describe 'set_sonar_platform_vars()'
   It 'fails with unknown platform'
     When call set_sonar_platform_vars "unknown"
     The status should be failure
-    The error should include "ERROR: Unknown sonar platform 'unknown'"
+    The error should include "ERROR: Invalid Sonar platform 'unknown'"
   End
 End
 
