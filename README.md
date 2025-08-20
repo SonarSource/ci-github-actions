@@ -456,9 +456,13 @@ Build, test, analyze, and deploy a Yarn project with SonarQube integration and A
 
 #### Required Vault Permissions
 
-- `development/kv/data/next`, `development/kv/data/sonarcloud`, or `development/kv/data/sonarqube-us`: SonarQube credentials (based on sonar-platform)
+- `development/kv/data/next`: SonarQube credentials for next platform
+- `development/kv/data/sonarcloud`: SonarQube credentials for sqc-eu platform
+- `development/kv/data/sonarqube-us`: SonarQube credentials for sqc-us platform
 - `public-reader` or `private-reader`: Artifactory role for reading dependencies
 - `public-deployer` or `qa-deployer`: Artifactory role for deployment
+
+**Note**: Credentials for all three SonarQube platforms are always required, regardless of the `run-shadow-scans` setting.
 
 #### Other Dependencies
 
@@ -490,6 +494,11 @@ jobs:
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
       - uses: SonarSource/ci-github-actions/build-yarn@v1
+        with:
+          # Enable shadow scans for unified platform dogfooding (optional)
+          run-shadow-scans: 'true'
+          # Primary platform when shadow scans disabled (optional)
+          sonar-platform: 'next'
 ```
 
 ### Inputs
@@ -505,6 +514,7 @@ jobs:
 | `cache-yarn` | Whether to cache Yarn dependencies | `true` |
 | `repox-url` | URL for Repox | `https://repox.jfrog.io` |
 | `sonar-platform` | SonarQube primary platform - 'next', 'sqc-eu', or 'sqc-us' | `next` |
+| `run-shadow-scans` | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding) | `false` |
 
 ### Outputs
 
@@ -516,7 +526,9 @@ jobs:
 ### Features
 
 - Automated version management with build numbers and SNAPSHOT handling
-- SonarQube analysis for code quality
+- SonarQube analysis for code quality with multi-platform support
+- Unified platform dogfooding - analyze across all 3 SonarQube platforms (next, sqc-eu, sqc-us)
+- Automatic deployment prevention during shadow scans to avoid duplicate artifacts
 - Conditional deployment based on branch patterns
 - Yarn dependency caching for faster builds (configurable)
 - Pull request support with optional deployment
