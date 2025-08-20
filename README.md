@@ -422,7 +422,7 @@ jobs:
 
 - Automated version management with build numbers and SNAPSHOT handling
 - SonarQube analysis for code quality with multi-platform support
-- **Shadow Scans**: Unified platform dogfooding - analyze across all 3 SonarQube platforms (next, sqc-eu, sqc-us) simultaneously
+- Unified platform dogfooding - analyze across all 3 SonarQube platforms (next, sqc-eu, sqc-us)
 - Automatic deployment prevention during shadow scans to avoid duplicate artifacts
 - Conditional deployment based on branch patterns
 - NPM dependency caching for faster builds (configurable)
