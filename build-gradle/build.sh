@@ -4,8 +4,14 @@
 #
 # Required inputs (must be explicitly provided):
 # - BUILD_NUMBER: Build number for versioning
-# - SONAR_HOST_URL: URL of SonarQube server
-# - SONAR_TOKEN: Access token to send analysis reports to SonarQube
+# - SONAR_PLATFORM: SonarQube primary platform (next, sqc-eu, or sqc-us)
+# - NEXT_URL: URL of SonarQube server for next platform
+# - NEXT_TOKEN: Access token to send analysis reports to SonarQube for next platform
+# - SQC_US_URL: URL of SonarQube server for sqc-us platform
+# - SQC_US_TOKEN: Access token to send analysis reports to SonarQube for sqc-us platform
+# - SQC_EU_URL: URL of SonarQube server for sqc-eu platform
+# - SQC_EU_TOKEN: Access token to send analysis reports to SonarQube for sqc-eu platform
+# - RUN_SHADOW_SCANS: If true, run sonar scanner on all 3 platforms. If false, run on the platform provided by SONAR_PLATFORM.
 # - ARTIFACTORY_URL: URL to Artifactory repository
 # - ARTIFACTORY_DEPLOY_REPO: Name of deployment repository
 # - ARTIFACTORY_DEPLOY_USERNAME: Username to deploy to Artifactory
@@ -37,12 +43,17 @@
 
 set -euo pipefail
 
+# Source common functions shared across build scripts
+# shellcheck source=../shared/common-functions.sh
+source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
+
 : "${ARTIFACTORY_URL:?}"
 : "${ARTIFACTORY_DEPLOY_REPO:?}" "${ARTIFACTORY_DEPLOY_USERNAME:?}" "${ARTIFACTORY_DEPLOY_PASSWORD:?}"
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_RUN_ID:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}" "${GITHUB_SHA:?}"
 : "${GITHUB_OUTPUT:?}"
 : "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}"
-: "${SONAR_HOST_URL:?}" "${SONAR_TOKEN:?}"
+: "${SONAR_PLATFORM:?}" "${RUN_SHADOW_SCANS:?}"
+: "${NEXT_URL:?}" "${NEXT_TOKEN:?}" "${SQC_US_URL:?}" "${SQC_US_TOKEN:?}" "${SQC_EU_URL:?}" "${SQC_EU_TOKEN:?}"
 : "${ORG_GRADLE_PROJECT_signingKey:?}" "${ORG_GRADLE_PROJECT_signingPassword:?}" "${ORG_GRADLE_PROJECT_signingKeyId:?}"
 : "${DEPLOY_PULL_REQUEST:=false}" "${SKIP_TESTS:=false}"
 export ARTIFACTORY_URL DEPLOY_PULL_REQUEST
@@ -102,7 +113,6 @@ build_gradle_args() {
     echo "Skipping tests as requested"
   fi
 
-  # SonarQube analysis
   if [[ -n "${SONAR_HOST_URL:-}" && -n "${SONAR_TOKEN:-}" ]]; then
     args+=("sonar")
     args+=("-Dsonar.host.url=$SONAR_HOST_URL")
@@ -110,17 +120,17 @@ build_gradle_args() {
     args+=("-Dsonar.analysis.buildNumber=$BUILD_NUMBER")
     args+=("-Dsonar.analysis.pipeline=$GITHUB_RUN_ID")
     args+=("-Dsonar.analysis.repository=$GITHUB_REPOSITORY")
+    args+=("-Dsonar.projectVersion=$PROJECT_VERSION")
+    args+=("-Dsonar.scm.revision=$GITHUB_SHA")
 
     # Add branch-specific sonar arguments
     if is_default_branch && ! is_pull_request; then
       # Master branch analysis
-      args+=("-Dsonar.projectVersion=$PROJECT_VERSION")
       args+=("-Dsonar.analysis.sha1=$GITHUB_SHA")
 
     elif is_maintenance_branch && ! is_pull_request; then
       # Maintenance branch analysis
       args+=("-Dsonar.branch.name=$GITHUB_REF_NAME")
-      args+=("-Dsonar.projectVersion=$PROJECT_VERSION")
       args+=("-Dsonar.analysis.sha1=$GITHUB_SHA")
 
     elif is_pull_request; then
@@ -135,7 +145,6 @@ build_gradle_args() {
     fi
   fi
 
-  # Artifactory deployment
   if should_deploy; then
     args+=("artifactoryPublish")
   fi
@@ -153,6 +162,11 @@ build_gradle_args() {
 }
 
 should_deploy() {
+  # Disable deployment when shadow scans are enabled to prevent duplicate artifacts
+  if [[ "${RUN_SHADOW_SCANS}" == "true" ]]; then
+    return 1
+  fi
+
   if is_pull_request; then
     # For pull requests, deploy only if explicitly enabled
     [[ "$DEPLOY_PULL_REQUEST" == "true" ]]
@@ -202,28 +216,68 @@ is_long_lived_feature_branch() {
 
 set_gradle_cmd() {
   if [[ -f "./gradlew" ]]; then
-    GRADLE_CMD="./gradlew"
+    export GRADLE_CMD="./gradlew"
   elif command_exists gradle; then
-    GRADLE_CMD="gradle"
+    export GRADLE_CMD="gradle"
   else
     echo "Neither ./gradlew nor gradle command found!" >&2
     exit 1
   fi
 }
 
+
+# Run Gradle build with SonarQube analysis
+run_gradle_with_sonar() {
+  local platform="$1"
+  local gradle_args
+
+  echo "Running Gradle build with SonarQube analysis for platform: $platform"
+  set_sonar_platform_vars "$platform"
+
+  read -ra gradle_args <<< "$(build_gradle_args)"
+  echo "Gradle command: $GRADLE_CMD ${gradle_args[*]}"
+  "$GRADLE_CMD" "${gradle_args[@]}"
+
+  echo "SonarQube analysis finished for platform: $(basename "$SONAR_HOST_URL")"
+}
+
+# Run SonarQube analysis with shadow scan support
+run_sonar_analysis_gradle() {
+  if [[ "${RUN_SHADOW_SCANS}" == "true" ]]; then
+    echo "=== Running Sonar analysis on all platforms (shadow scan enabled) ==="
+    local platforms=("next" "sqc-us" "sqc-eu")
+
+    for platform in "${platforms[@]}"; do
+      echo "--- Analyzing with platform: $platform ---"
+      run_gradle_with_sonar "$platform"
+    done
+
+    echo "=== Completed Sonar analysis on all platforms ==="
+  else
+    echo "=== Running Sonar analysis on selected platform: $SONAR_PLATFORM ==="
+    run_gradle_with_sonar "$SONAR_PLATFORM"
+  fi
+}
+
 gradle_build() {
   local gradle_args
-  read -ra gradle_args <<< "$(build_gradle_args)"
-
   local build_type
   build_type=$(get_build_type)
-
   set_gradle_cmd
 
   echo "Starting $build_type build..."
-  echo "Gradle command: $GRADLE_CMD ${gradle_args[*]}"
+  echo "Sonar Platform: ${SONAR_PLATFORM}"
+  echo "Run Shadow Scans: ${RUN_SHADOW_SCANS}"
 
-  "$GRADLE_CMD" "${gradle_args[@]}"
+  # Always run SonarQube analysis - credentials are always available
+  if [[ "${RUN_SHADOW_SCANS}" == "true" ]]; then
+    run_sonar_analysis_gradle
+  else
+    set_sonar_platform_vars "${SONAR_PLATFORM}"
+    read -ra gradle_args <<< "$(build_gradle_args)"
+    echo "Gradle command: $GRADLE_CMD ${gradle_args[*]}"
+    "$GRADLE_CMD" "${gradle_args[@]}"
+  fi
 }
 
 main() {

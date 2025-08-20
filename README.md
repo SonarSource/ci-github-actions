@@ -261,11 +261,15 @@ Build and publish a Gradle project with SonarQube analysis and Artifactory deplo
 
 #### Required Vault Permissions
 
-- `development/kv/data/next`, `development/kv/data/sonarcloud`, or `development/kv/data/sonarqube-us`: SonarQube credentials (based on sonar-platform)
+- `development/kv/data/next`: SonarQube credentials for next platform
+- `development/kv/data/sonarcloud`: SonarQube credentials for sqc-eu platform
+- `development/kv/data/sonarqube-us`: SonarQube credentials for sqc-us platform
 - `development/kv/data/sign`: Artifact signing credentials (key, passphrase, and key_id)
 - `development/kv/data/develocity`: Develocity access token if `use-develocity: true`
 - `public-reader` or `private-reader`: Artifactory role for reading dependencies
 - `public-deployer` or `qa-deployer`: Artifactory role for deployment
+
+**Note**: Credentials for all three SonarQube platforms are always required, regardless of the `run-shadow-scans` setting.
 
 #### Other Dependencies
 
@@ -302,6 +306,11 @@ jobs:
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
       - uses: SonarSource/ci-github-actions/build-gradle@v1
+        with:
+          # Enable shadow scans for unified platform dogfooding (optional)
+          run-shadow-scans: 'true'
+          # Primary platform when shadow scans disabled (optional)
+          sonar-platform: 'next'
 ```
 
 ### Inputs
@@ -319,6 +328,7 @@ jobs:
 | `develocity-url` | URL for Develocity | `https://develocity.sonar.build/` |
 | `repox-url` | URL for Repox | `https://repox.jfrog.io` |
 | `sonar-platform` | SonarQube variant - 'next', 'sqc-eu', or 'sqc-us' | `next` |
+| `run-shadow-scans` | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding) | `false` |
 
 ### Outputs
 
@@ -330,7 +340,9 @@ jobs:
 
 - Uses the gradle wrapper (`./gradlew`) by default and falls back to the `gradle` binary in case it is not found
 - Automated version management with build numbers
-- SonarQube analysis for code quality
+- SonarQube analysis for code quality with multi-platform support
+- Unified platform dogfooding - analyze across all 3 SonarQube platforms (next, sqc-eu, sqc-us)
+- Automatic deployment prevention during shadow scans to avoid duplicate artifacts
 - Conditional deployment based on branch patterns
 - Automatic artifact signing with credentials from Vault
 - Pull request support with optional deployment

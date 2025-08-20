@@ -51,6 +51,15 @@ export SKIP_TESTS="false"
 export GRADLE_ARGS=""
 export GITHUB_EVENT_NAME="push"
 export GITHUB_OUTPUT=/dev/null
+# Required SonarQube platform variables
+export SONAR_PLATFORM="next"
+export RUN_SHADOW_SCANS="false"
+export NEXT_URL="https://next.sonarqube.com"
+export NEXT_TOKEN="next-token"
+export SQC_US_URL="https://sonarcloud.io"
+export SQC_US_TOKEN="sqc-us-token"
+export SQC_EU_URL="https://sonarcloud.io"
+export SQC_EU_TOKEN="sqc-eu-token"
 GITHUB_EVENT_PATH=$(mktemp)
 export GITHUB_EVENT_PATH
 echo '{}' > "$GITHUB_EVENT_PATH"
@@ -161,6 +170,14 @@ Describe 'should_deploy'
     export DEPLOY_PULL_REQUEST="true"
     When call should_deploy
     The status should be success
+  End
+
+  It 'does not deploy when shadow scans are enabled'
+    export GITHUB_REF_NAME="master"
+    export GITHUB_EVENT_NAME="push"
+    export RUN_SHADOW_SCANS="true"
+    When call should_deploy
+    The status should be failure
   End
 End
 
@@ -289,19 +306,105 @@ Describe 'get_build_type'
   End
 End
 
+Describe 'run_gradle_with_sonar'
+  It 'runs gradle with sonar for a platform'
+    export PROJECT_VERSION="1.0.0.42"
+    export GRADLE_ARGS=""
+    Mock set_sonar_platform_vars
+      echo "Platform set to $1"
+    End
+    Mock build_gradle_args
+      echo "--no-daemon build sonar"
+    End
+    Mock gradle
+      echo "gradle executed with args: $*"
+    End
+    export GRADLE_CMD="gradle"
+
+    When call run_gradle_with_sonar "next"
+    The output should include "Running Gradle build with SonarQube analysis for platform: next"
+    The output should include "Platform set to next"
+    The output should include "gradle executed with args: --no-daemon build sonar"
+  End
+End
+
+Describe 'run_sonar_analysis_gradle'
+  It 'runs analysis on single platform when shadow scans disabled'
+    export RUN_SHADOW_SCANS="false"
+    export SONAR_PLATFORM="next"
+    Mock run_gradle_with_sonar
+      echo "Analysis for $1"
+    End
+
+    When call run_sonar_analysis_gradle
+    The output should include "Running Sonar analysis on selected platform: next"
+    The output should include "Analysis for next"
+  End
+
+  It 'runs analysis on all platforms when shadow scans enabled'
+    export RUN_SHADOW_SCANS="true"
+    Mock run_gradle_with_sonar
+      echo "Analysis for $1"
+    End
+
+    When call run_sonar_analysis_gradle
+    The output should include "Running Sonar analysis on all platforms (shadow scan enabled)"
+    The output should include "Analysis for next"
+    The output should include "Analysis for sqc-us"
+    The output should include "Analysis for sqc-eu"
+    The output should include "Completed Sonar analysis on all platforms"
+  End
+End
+
 Describe 'gradle_build'
   It 'executes gradle build successfully'
     export PROJECT_VERSION="1.0.0.42"
     export GRADLE_ARGS=""
+    export RUN_SHADOW_SCANS="false"
+    export SONAR_PLATFORM="next"
+    export GRADLE_CMD="gradle"
     Mock command_exists
       echo "gradle $*"
     End
     Mock gradle
       echo "gradle executed"
     End
+    Mock set_sonar_platform_vars
+      echo "Platform set"
+    End
+    Mock build_gradle_args
+      echo "--no-daemon build"
+    End
+    Mock set_gradle_cmd
+      true
+    End
+    Mock get_build_type
+      echo "default branch"
+    End
 
     When call gradle_build
+    The output should include "Starting default branch build"
     The output should include "gradle executed"
+  End
+
+  It 'runs shadow scans when enabled'
+    export PROJECT_VERSION="1.0.0.42"
+    export RUN_SHADOW_SCANS="true"
+    export GRADLE_CMD="gradle"
+    Mock run_sonar_analysis_gradle
+      echo "Shadow scan analysis executed"
+    End
+    Mock set_gradle_cmd
+      true
+    End
+    Mock get_build_type
+      echo "default branch"
+    End
+
+    When call gradle_build
+    The output should include "Starting default branch build"
+    The output should include "Run Shadow Scans: true"
+    The output should include "Shadow scan analysis executed"
   End
 End
 
@@ -345,32 +448,24 @@ Describe 'set_gradle_cmd'
   End
 
   It 'fails when neither gradle nor gradlew are available'
-    # Create a test wrapper function that handles the exit
-    test_set_gradle_cmd_failure() {
-      # Mock command_exists within the function
-      # shellcheck disable=SC2317  # Function is called indirectly
-      command_exists() {
-        if [[ "$1" == "gradle" && $# -eq 1 ]]; then
-          # This is the availability check - fail with error message
-          echo "gradle is not installed." >&2
-          false
-        else
-          # Any other call should also fail
-          echo "$1 is not installed." >&2
-          false
-        fi
-      }
+    rm -f ./gradlew
 
-      # Ensure no gradlew exists
-      rm -f ./gradlew
+    # Mock command_exists to fail for gradle
+    Mock command_exists
+      if [[ "$1" == "gradle" ]]; then
+        echo "gradle is not installed." >&2
+        false
+      else
+        echo "$1 is not installed." >&2
+        false
+      fi
+    End
 
-      # Call set_gradle_cmd in a subshell to contain the exit
-      ( set_gradle_cmd )
-    }
-
-    When call test_set_gradle_cmd_failure
+    When run set_gradle_cmd
     The status should be failure
     The stderr should include "Neither ./gradlew nor gradle command found!"
+
+    rm -f ./gradlew
   End
 End
 
