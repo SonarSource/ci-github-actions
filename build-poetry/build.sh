@@ -45,7 +45,11 @@ set -euo pipefail
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}" "${GITHUB_EVENT_PATH:?}"
 : "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}"
 : "${GITHUB_ENV:?}" "${GITHUB_OUTPUT:?}" "${GITHUB_SHA:?}" "${GITHUB_RUN_ID:?}"
-: "${SONAR_PLATFORM:?}" "${NEXT_URL:?}" "${NEXT_TOKEN:?}" "${SQC_US_URL:?}" "${SQC_US_TOKEN:?}" "${SQC_EU_URL:?}" "${SQC_EU_TOKEN:?}"
+: "${SONAR_PLATFORM:?}"
+# Only validate sonar credentials if platform is not 'none'
+if [[ "${SONAR_PLATFORM}" != "none" ]]; then
+  : "${NEXT_URL:?}" "${NEXT_TOKEN:?}" "${SQC_US_URL:?}" "${SQC_US_TOKEN:?}" "${SQC_EU_URL:?}" "${SQC_EU_TOKEN:?}"
+fi
 : "${RUN_SHADOW_SCANS:?}"
 : "${DEPLOY_PULL_REQUEST:=false}"
 export ARTIFACTORY_URL DEPLOY_PULL_REQUEST
@@ -133,6 +137,10 @@ run_sonar_analysis() {
       echo "=== Completed Sonar analysis on all platforms ==="
   else
       echo "=== Running Sonar analysis on selected platform: $SONAR_PLATFORM ==="
+      if [ "$SONAR_PLATFORM" = "none" ]; then
+          echo "Sonar platform set to 'none'. Skipping sonar analysis."
+          return 0
+      fi
       set_sonar_platform_vars "$SONAR_PLATFORM"
       run_sonar_scanner "${sonar_args[@]}"
   fi
