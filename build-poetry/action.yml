@@ -33,6 +33,9 @@ inputs:
     description: If true, run sonar scanner on all 3 platforms using the provided URL and token.
      If false, run on the platform provided by sonar-platform. When enabled, the sonar-platform setting is ignored.
     default: 'false'
+  working-directory:
+    description: Relative path under github.workspace to execute the build in
+    default: .
 
 outputs:
   project-version:
@@ -108,4 +111,5 @@ runs:
         SONAR_PLATFORM: ${{ inputs.sonar-platform }}
         RUN_SHADOW_SCANS: ${{ inputs.run-shadow-scans }}
       run: |
+        cd "${{ inputs.working-directory }}"
         ${GITHUB_ACTION_PATH}/build.sh

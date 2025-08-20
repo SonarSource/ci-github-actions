@@ -1,0 +1,5 @@
+{
+    "sonarCloudOrganization": "sonarsource",
+    "projectKey": "SonarSource_ci-github-actions",
+    "region": "EU"
+}
