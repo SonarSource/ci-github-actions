@@ -41,6 +41,10 @@ inputs:
   working-directory:
     description: Relative path under github.workspace to execute the build in
     default: .
+  run-shadow-scans:
+    description: If true, run SonarQube analysis on all three platforms (next, sqc-eu, sqc-us).
+      If false, run analysis on the platform specified with sonar-platform.
+    default: 'false'
 
 runs:
   using: composite
@@ -69,11 +73,17 @@ runs:
       uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
       with:
         secrets: |
-          development/kv/data/${{ inputs.sonar-platform == 'sqc-eu' && 'sonarcloud' || (inputs.sonar-platform == 'sqc-us' && 'sonarqube-us' || 'next') }} url | SONAR_HOST_URL;
-          development/kv/data/${{ inputs.sonar-platform == 'sqc-eu' && 'sonarcloud' || (inputs.sonar-platform == 'sqc-us' && 'sonarqube-us' || 'next') }} token | SONAR_TOKEN;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} username | ARTIFACTORY_DEPLOY_USERNAME;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} access_token | ARTIFACTORY_DEPLOY_PASSWORD;
+
+          development/kv/data/next url | NEXT_URL;
+          development/kv/data/next token | NEXT_TOKEN;
+          development/kv/data/sonarqube-us url | SQC_US_URL;
+          development/kv/data/sonarqube-us token | SQC_US_TOKEN;
+          development/kv/data/sonarcloud url | SQC_EU_URL;
+          development/kv/data/sonarcloud token | SQC_EU_TOKEN;
+
           development/kv/data/sign key | SIGN_KEY;
           development/kv/data/sign passphrase | PGP_PASSPHRASE;
           ${{ inputs.use-develocity == 'true' && 'development/kv/data/develocity token | DEVELOCITY_TOKEN;' || '' }}
@@ -106,9 +116,17 @@ runs:
         ARTIFACTORY_DEPLOY_REPO: ${{ inputs.public == 'true' && 'sonarsource-public-qa' || 'sonarsource-private-qa' }}
         ARTIFACTORY_DEPLOY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_USERNAME }}
         ARTIFACTORY_DEPLOY_PASSWORD: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_PASSWORD }}
-        SONAR_HOST_URL: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_HOST_URL }}
-        SONAR_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_TOKEN }}
         SIGN_KEY: ${{ fromJSON(steps.secrets.outputs.vault).SIGN_KEY }}
+
+        # Vault secrets
+        SQC_EU_URL: ${{ fromJSON(steps.secrets.outputs.vault).SQC_EU_URL }}
+        SQC_US_URL: ${{ fromJSON(steps.secrets.outputs.vault).SQC_US_URL }}
+        NEXT_URL: ${{ fromJSON(steps.secrets.outputs.vault).NEXT_URL }}
+        NEXT_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).NEXT_TOKEN }}
+        SQC_EU_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SQC_EU_TOKEN }}
+        SQC_US_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SQC_US_TOKEN }}
+        SONAR_PLATFORM: ${{ inputs.sonar-platform }}
+        RUN_SHADOW_SCANS: ${{ inputs.run-shadow-scans }}
         PGP_PASSPHRASE: ${{ fromJSON(steps.secrets.outputs.vault).PGP_PASSPHRASE }}
         DEPLOY_PULL_REQUEST: ${{ inputs.deploy-pull-request }}
         PULL_REQUEST: ${{ github.event.pull_request.number || '' }}

@@ -4,8 +4,14 @@
 #
 # Required inputs (must be explicitly provided):
 # - BUILD_NUMBER: Build number for versioning
-# - SONAR_HOST_URL: URL of SonarQube server
-# - SONAR_TOKEN: Access token to send analysis reports to SonarQube
+# - SONAR_PLATFORM: SonarQube primary platform (next, sqc-eu, or sqc-us)
+# - NEXT_URL: URL of SonarQube server for next platform
+# - NEXT_TOKEN: Access token to send analysis reports to SonarQube for next platform
+# - SQC_US_URL: URL of SonarQube server for sqc-us platform
+# - SQC_US_TOKEN: Access token to send analysis reports to SonarQube for sqc-us platform
+# - SQC_EU_URL: URL of SonarQube server for sqc-eu platform
+# - SQC_EU_TOKEN: Access token to send analysis reports to SonarQube for sqc-eu platform
+# - RUN_SHADOW_SCANS: If true, run sonar scanner on all 3 platforms. If false, run on the platform provided by SONAR_PLATFORM.
 # - ARTIFACTORY_URL: Artifactory repository URL
 # - ARTIFACTORY_DEPLOY_REPO: Deployment repository name
 # - ARTIFACTORY_DEPLOY_PASSWORD: Access token to deploy to the repository
@@ -36,6 +42,10 @@
 
 set -euo pipefail
 
+# Source common functions shared across build scripts
+# shellcheck source=../shared/common-functions.sh
+source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
+
 : "${ARTIFACTORY_URL:?}"
 # Required by maven-enforcer-plugin in SonarSource parent POM
 : "${ARTIFACTORY_DEPLOY_REPO:?}" "${ARTIFACTORY_DEPLOY_USERNAME:?}" "${ARTIFACTORY_DEPLOY_PASSWORD:?}" "${ARTIFACTORY_ACCESS_TOKEN:?}"
@@ -44,7 +54,8 @@ set -euo pipefail
 : "${GITHUB_OUTPUT:?}"
 : "${RUNNER_OS:?}"
 : "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}"
-: "${SONAR_HOST_URL:?}" "${SONAR_TOKEN:?}"
+: "${SONAR_PLATFORM:?}" "${NEXT_URL:?}" "${NEXT_TOKEN:?}" "${SQC_US_URL:?}" "${SQC_US_TOKEN:?}" "${SQC_EU_URL:?}" "${SQC_EU_TOKEN:?}"
+: "${RUN_SHADOW_SCANS:?}"
 : "${MAVEN_LOCAL_REPOSITORY:=$HOME/.m2/repository}"
 : "${DEPLOY_PULL_REQUEST:=false}"
 export ARTIFACTORY_URL DEPLOY_PULL_REQUEST MAVEN_LOCAL_REPOSITORY
@@ -63,6 +74,19 @@ fi
 : "${SCANNER_VERSION:=5.1.0.4751}"
 readonly SONAR_GOAL="org.sonarsource.scanner.maven:sonar-maven-plugin:${SCANNER_VERSION}:sonar"
 
+# Common Maven flags used across build and analysis operations, exclude from coverage
+# LCOV_EXCL_START
+readonly COMMON_MVN_FLAGS=(
+  "-Dmaven.test.redirectTestOutputToFile=false"
+  "--settings" "$MAVEN_SETTINGS"
+  "--batch-mode"
+  "--no-transfer-progress"
+  "--errors"
+  "--fail-at-end"
+  "--show-version"
+)
+# LCOV_EXCL_STOP
+
 # Check if a command is available and runs it, typically: 'some_tool --version'
 check_tool() {
   if ! command -v "$1"; then
@@ -70,6 +94,17 @@ check_tool() {
     return 1
   fi
   "$@"
+}
+
+run_sonar_scanner() {
+    local additional_params=("$@")
+
+    local sonar_props=("-Dsonar.host.url=${SONAR_HOST_URL}" "-Dsonar.token=${SONAR_TOKEN}")
+    sonar_props+=("-Dsonar.projectVersion=$PROJECT_VERSION" "-Dsonar.scm.revision=$GITHUB_SHA")
+    sonar_props+=("${additional_params[@]+"${additional_params[@]}"}")
+
+    mvn "${COMMON_MVN_FLAGS[@]}" "$SONAR_GOAL" "${sonar_props[@]}"
+    echo "SonarQube scanner finished for platform: $(basename "$SONAR_HOST_URL")"
 }
 
 is_default_branch() {
@@ -166,26 +201,28 @@ build_maven() {
   set_project_version
 
   local maven_command_args
-  local sonar_props=("-Dsonar.host.url=${SONAR_HOST_URL}" "-Dsonar.token=${SONAR_TOKEN}")
-  sonar_props+=("-Dsonar.projectVersion=$PROJECT_VERSION" "-Dsonar.scm.revision=$GITHUB_SHA")
+  local enable_sonar=false
+  local sonar_args=()
 
   if is_default_branch || is_maintenance_branch; then
     echo "======= Build, deploy and analyze $GITHUB_REF_NAME ======="
-    maven_command_args=("deploy" "$SONAR_GOAL" "-Pcoverage,deploy-sonarsource,release,sign" "${sonar_props[@]}")
+    maven_command_args=("deploy" "-Pcoverage,deploy-sonarsource,release,sign")
+    enable_sonar=true
 
   elif is_pull_request; then
     echo "======= Build and analyze pull request $PULL_REQUEST ($GITHUB_HEAD_REF) ======="
-    sonar_props+=("-Dsonar.pullrequest.key=$PULL_REQUEST")
-    sonar_props+=("-Dsonar.pullrequest.branch=$GITHUB_HEAD_REF")
-    sonar_props+=("-Dsonar.pullrequest.base=$GITHUB_BASE_REF")
+    sonar_args+=("-Dsonar.pullrequest.key=$PULL_REQUEST")
+    sonar_args+=("-Dsonar.pullrequest.branch=$GITHUB_HEAD_REF")
+    sonar_args+=("-Dsonar.pullrequest.base=$GITHUB_BASE_REF")
 
     if [[ "$DEPLOY_PULL_REQUEST" == "true" ]]; then
       echo "======= with deploy ======="
-      maven_command_args=("deploy" "$SONAR_GOAL" "-Pcoverage,deploy-sonarsource" "${sonar_props[@]}")
+      maven_command_args=("deploy" "-Pcoverage,deploy-sonarsource")
     else
       echo "======= no deploy ======="
-      maven_command_args=("verify" "$SONAR_GOAL" "-Pcoverage" "${sonar_props[@]}")
+      maven_command_args=("verify" "-Pcoverage")
     fi
+    enable_sonar=true
 
   elif is_dogfood_branch; then
     echo "======= Build, and deploy dogfood branch $GITHUB_REF_NAME ======="
@@ -193,24 +230,38 @@ build_maven() {
 
   elif is_long_lived_feature_branch; then
     echo "======= Build and analyze long lived feature branch $GITHUB_REF_NAME ======="
-    maven_command_args=("verify" "$SONAR_GOAL" "-Pcoverage" "${sonar_props[@]}")
+    maven_command_args=("verify" "-Pcoverage")
+    enable_sonar=true
 
   else
     echo "======= Build, no analysis, no deploy $GITHUB_REF_NAME ======="
     maven_command_args=("verify")
   fi
 
-  readonly COMMON_MVN_FLAGS=(
-    "-Dmaven.test.redirectTestOutputToFile=false"
-    "--settings" "$MAVEN_SETTINGS"
-    "--batch-mode"
-    "--no-transfer-progress"
-    "--errors"
-    "--fail-at-end"
-    "--show-version"
-  )
+  # Disable deployment when running shadow scans
+  if [ "${RUN_SHADOW_SCANS}" = "true" ]; then
+    echo "Shadow scans enabled - disabling deployment"
+    # Replace deploy with verify to disable deployment
+    if [[ "${maven_command_args[0]}" == "deploy" ]]; then
+      maven_command_args[0]="verify"
+      # Remove deploy-specific profiles but keep others
+      for i in "${!maven_command_args[@]}"; do
+        if [[ "${maven_command_args[$i]}" == *"deploy-sonarsource"* ]]; then
+          # Remove deploy-sonarsource from profiles
+          maven_command_args[i]=$(echo "${maven_command_args[i]}" | sed 's/,deploy-sonarsource//g' | sed 's/deploy-sonarsource,//g' | sed 's/deploy-sonarsource//g')
+        fi
+      done
+    fi
+  fi
+
+  # Execute the main Maven build
   echo "Maven command: mvn ${maven_command_args[*]} ${COMMON_MVN_FLAGS[*]} $*"
   mvn "${maven_command_args[@]}" "${COMMON_MVN_FLAGS[@]}" "$@"
+
+  # Execute SonarQube analysis if enabled
+  if [ "$enable_sonar" = true ]; then
+    run_sonar_analysis "${sonar_args[@]+"${sonar_args[@]}"}"
+  fi
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

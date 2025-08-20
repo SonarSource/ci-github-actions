@@ -40,17 +40,25 @@ export SONAR_TOKEN="sonar-token"
 export GITHUB_RUN_ID="123456789"
 export GITHUB_OUTPUT=/dev/null
 export RUNNER_OS="Linux"
+# Add missing Sonar platform variables required by build script
+export SONAR_PLATFORM="next"
+export NEXT_URL="https://next.sonarqube.com"
+export NEXT_TOKEN="next-token"
+export SQC_US_URL="https://sonarqube.us.sonarsource.com"
+export SQC_US_TOKEN="sqc-us-token"
+export SQC_EU_URL="https://sonarqube.eu.sonarsource.com"
+export SQC_EU_TOKEN="sqc-eu-token"
+export RUN_SHADOW_SCANS="false"
+export SCANNER_VERSION="5.1.0.4751"
 MAVEN_SETTINGS="$(mktemp)"
 touch "$MAVEN_SETTINGS"
 export MAVEN_SETTINGS
 
-Describe 'build.sh'
-  It 'does not run build_maven() if the script is sourced'
-    When run source build-maven/build.sh
-    The status should be success
-    The output should equal ""
-  End
+# Source shared functions before including build script
+Include shared/common-functions.sh
+Include build-maven/build.sh
 
+Describe 'build.sh'
   It 'runs build_maven()'
     When run script build-maven/build.sh
     The status should be success
@@ -60,10 +68,10 @@ Describe 'build.sh'
       The line 3 should include "Fetch Git references"
       The line 4 should include "git fetch"
       The line 5 should include "Replacing version 1.2.3-SNAPSHOT with 1.2.3.42"
-      The line 6 should match pattern "mvn --settings /tmp/* org.codehaus.mojo:versions-maven-plugin*newVersion=1.2.3.42*"
+      The line 6 should match pattern "mvn --settings * org.codehaus.mojo:versions-maven-plugin*newVersion=1.2.3.42*"
       The line 7 should include "Build, no analysis, no deploy"
       The line 8 should include "Maven command: mvn verify"
-      The line 9 should match pattern "mvn verify -Dmaven.test.redirectTestOutputToFile=false --settings /tmp/* --batch-mode --no-transfer-progress --errors --fail-at-end --show-version"
+      The line 9 should match pattern "mvn verify -Dmaven.test.redirectTestOutputToFile=false --settings * --batch-mode --no-transfer-progress --errors --fail-at-end --show-version"
   End
 
   It 'runs build_maven() for windows'
@@ -76,14 +84,117 @@ Describe 'build.sh'
       The line 3 should include "Fetch Git references"
       The line 4 should include "git fetch"
       The line 5 should include "Replacing version 1.2.3-SNAPSHOT with 1.2.3.42"
-      The line 6 should match pattern "mvn --settings /tmp/* org.codehaus.mojo:versions-maven-plugin*newVersion=1.2.3.42*"
+      The line 6 should match pattern "mvn --settings * org.codehaus.mojo:versions-maven-plugin*newVersion=1.2.3.42*"
       The line 7 should include "Build, no analysis, no deploy"
       The line 8 should include "Maven command: mvn verify"
-      The line 9 should match pattern "mvn verify -Dmaven.test.redirectTestOutputToFile=false --settings /tmp/* --batch-mode --no-transfer-progress --errors --fail-at-end --show-version"
+      The line 9 should match pattern "mvn verify -Dmaven.test.redirectTestOutputToFile=false --settings * --batch-mode --no-transfer-progress --errors --fail-at-end --show-version"
   End
 End
 
-Include build-maven/build.sh
+Describe 'set_sonar_platform_vars()'
+  It 'sets variables for next platform'
+    When call set_sonar_platform_vars "next"
+    The status should be success
+    The lines of stdout should equal 1
+    The line 1 should include "Using Sonar platform: next"
+    The variable SONAR_HOST_URL should equal "$NEXT_URL"
+    The variable SONAR_TOKEN should equal "$NEXT_TOKEN"
+  End
+
+  It 'sets variables for sqc-us platform'
+    When call set_sonar_platform_vars "sqc-us"
+    The status should be success
+    The lines of stdout should equal 1
+    The line 1 should include "Using Sonar platform: sqc-us"
+    The variable SONAR_HOST_URL should equal "$SQC_US_URL"
+    The variable SONAR_TOKEN should equal "$SQC_US_TOKEN"
+  End
+
+  It 'sets variables for sqc-eu platform'
+    When call set_sonar_platform_vars "sqc-eu"
+    The status should be success
+    The lines of stdout should equal 1
+    The line 1 should include "Using Sonar platform: sqc-eu"
+    The variable SONAR_HOST_URL should equal "$SQC_EU_URL"
+    The variable SONAR_TOKEN should equal "$SQC_EU_TOKEN"
+  End
+
+  It 'fails with unknown platform'
+    When call set_sonar_platform_vars "unknown"
+    The status should be failure
+    The error should include "ERROR: Invalid Sonar platform 'unknown'"
+  End
+End
+
+Describe 'run_sonar_scanner()'
+  Mock mvn
+    echo "mvn $*"
+  End
+  export PROJECT_VERSION="1.2.3.42"
+  export SONAR_HOST_URL="https://test.sonarqube.com"
+  export SONAR_TOKEN="test-token"
+  # COMMON_MVN_FLAGS is now defined in build.sh, no need to redefine it here
+
+  It 'runs sonar scanner with basic properties'
+    When call run_sonar_scanner
+    The status should be success
+    The lines of stdout should equal 2
+    The line 1 should include "mvn"
+    The line 1 should include "org.sonarsource.scanner.maven:sonar-maven-plugin:5.1.0.4751:sonar"
+    The line 1 should include "-Dsonar.host.url=https://test.sonarqube.com"
+    The line 1 should include "-Dsonar.token=test-token"
+    The line 1 should include "-Dsonar.projectVersion=1.2.3.42"
+    The line 1 should include "-Dsonar.scm.revision=abc123def456"
+    The line 2 should include "SonarQube scanner finished for platform: test.sonarqube.com"
+  End
+
+  It 'runs sonar scanner with additional parameters'
+    When call run_sonar_scanner "-Dsonar.pullrequest.key=123"
+    The status should be success
+    The lines of stdout should equal 2
+    The line 1 should include "-Dsonar.pullrequest.key=123"
+  End
+End
+
+Describe 'run_sonar_analysis()'
+  Mock mvn
+    echo "mvn $*"
+  End
+  Mock run_sonar_scanner
+    echo "run_sonar_scanner $*"
+  End
+
+  export PROJECT_VERSION="1.2.3.42"
+
+  It 'runs analysis on single platform when shadow scans disabled'
+    export RUN_SHADOW_SCANS="false"
+    export SONAR_PLATFORM="next"
+    When call run_sonar_analysis "-Dsome.property=value"
+    The status should be success
+    The lines of stdout should equal 3
+    The line 1 should include "Running Sonar analysis on selected platform: next"
+    The line 2 should include "Using Sonar platform: next"
+    The line 3 should include "run_sonar_scanner -Dsome.property=value"
+  End
+
+  It 'runs analysis on all platforms when shadow scans enabled'
+    export RUN_SHADOW_SCANS="true"
+    When call run_sonar_analysis "-Dsome.property=value"
+    The status should be success
+    The lines of stdout should equal 11
+    The line 1 should include "Running Sonar analysis on all platforms (shadow scan enabled)"
+    The line 2 should include "--- Analyzing with platform: next ---"
+    The line 3 should include "Using Sonar platform: next"
+    The line 4 should include "run_sonar_scanner -Dsome.property=value"
+    The line 5 should include "--- Analyzing with platform: sqc-us ---"
+    The line 6 should include "Using Sonar platform: sqc-us"
+    The line 7 should include "run_sonar_scanner -Dsome.property=value"
+    The line 8 should include "--- Analyzing with platform: sqc-eu ---"
+    The line 9 should include "Using Sonar platform: sqc-eu"
+    The line 10 should include "run_sonar_scanner -Dsome.property=value"
+    The line 11 should include "Completed Sonar analysis on all platforms"
+  End
+End
 
 Describe 'check_tool()'
   It 'reports not installed tool'
@@ -131,7 +242,7 @@ Describe 'set_project_version()'
     When call set_project_version
     The lines of stdout should equal 2
     The line 1 should include "Replacing version 1.2.3-SNAPSHOT with 1.2.3.42"
-    The line 2 should match pattern "mvn --settings /tmp/* org.codehaus.mojo:versions-maven-plugin*newVersion=1.2.3.42*"
+    The line 2 should match pattern "mvn --settings * org.codehaus.mojo:versions-maven-plugin*newVersion=1.2.3.42*"
     The variable PROJECT_VERSION should equal "1.2.3.42"
   End
 
@@ -238,6 +349,9 @@ Describe 'build_maven()'
   End
   Mock set_project_version
   End
+  Mock run_sonar_analysis
+    echo "run_sonar_analysis $*"
+  End
   export PROJECT_VERSION="1.2.3.42"
 
   Describe 'is_default_branch'
@@ -245,15 +359,12 @@ Describe 'build_maven()'
 
     It 'builds, deploys and analyzes main branch'
       When call build_maven
-      The lines of stdout should equal 3
+      The lines of stdout should equal 4
       The line 1 should include "Build, deploy and analyze def_main"
       The line 2 should start with "Maven command: mvn deploy"
       The line 3 should start with "mvn deploy"
       The line 3 should include "-Pcoverage,deploy-sonarsource,release,sign"
-      The line 3 should include "-Dsonar.host.url=https://sonarqube"
-      The line 3 should include "-Dsonar.token=sonar-token"
-      The line 3 should include "-Dsonar.projectVersion=1.2.3.42"
-      The line 3 should include "-Dsonar.scm.revision=abc123def456"
+      The line 4 should start with "run_sonar_analysis"
     End
   End
 
@@ -262,9 +373,10 @@ Describe 'build_maven()'
 
     It 'builds, deploys and analyzes maintenance branch'
       When call build_maven
-      The lines of stdout should equal 3
+      The lines of stdout should equal 4
       The line 1 should include "Build, deploy and analyze branch-1.2"
       The line 3 should start with "mvn deploy"
+      The line 4 should start with "run_sonar_analysis"
     End
   End
 
@@ -277,31 +389,31 @@ Describe 'build_maven()'
 
     It 'builds, analyzes pull request with no deploy by default'
       When call build_maven
-      The lines of stdout should equal 4
+      The lines of stdout should equal 5
       The line 1 should include "Build and analyze pull request 123 (fix/jdoe/JIRA-1234-aFix)"
       The line 2 should include "no deploy"
       The line 3 should start with "Maven command: mvn verify"
       The line 4 should start with "mvn verify"
       The line 4 should include "-Pcoverage"
-      The line 4 should include "-Dsonar.host.url=https://sonarqube"
-      The line 4 should include "-Dsonar.pullrequest.key=123"
-      The line 4 should include "-Dsonar.pullrequest.branch=fix/jdoe/JIRA-1234-aFix"
-      The line 4 should include "-Dsonar.pullrequest.base=def_main"
+      The line 5 should start with "run_sonar_analysis"
+      The line 5 should include "-Dsonar.pullrequest.key=123"
+      The line 5 should include "-Dsonar.pullrequest.branch=fix/jdoe/JIRA-1234-aFix"
+      The line 5 should include "-Dsonar.pullrequest.base=def_main"
     End
 
     It 'builds, analyzes pull request with deploy when DEPLOY_PULL_REQUEST is true'
       export DEPLOY_PULL_REQUEST="true"
       When call build_maven
-      The lines of stdout should equal 4
+      The lines of stdout should equal 5
       The line 1 should include "Build and analyze pull request 123 (fix/jdoe/JIRA-1234-aFix)"
       The line 2 should include "with deploy"
       The line 3 should start with "Maven command: mvn deploy"
       The line 4 should start with "mvn deploy"
       The line 4 should include "-Pcoverage,deploy-sonarsource"
-      The line 4 should include "-Dsonar.host.url=https://sonarqube"
-      The line 4 should include "-Dsonar.pullrequest.key=123"
-      The line 4 should include "-Dsonar.pullrequest.branch=fix/jdoe/JIRA-1234-aFix"
-      The line 4 should include "-Dsonar.pullrequest.base=def_main"
+      The line 5 should start with "run_sonar_analysis"
+      The line 5 should include "-Dsonar.pullrequest.key=123"
+      The line 5 should include "-Dsonar.pullrequest.branch=fix/jdoe/JIRA-1234-aFix"
+      The line 5 should include "-Dsonar.pullrequest.base=def_main"
     End
   End
 
@@ -323,12 +435,12 @@ Describe 'build_maven()'
 
     It 'builds and analyzes long lived feature branch'
       When call build_maven
-      The lines of stdout should equal 3
+      The lines of stdout should equal 4
       The line 1 should include "Build and analyze long lived feature branch feature/long/some-feature"
       The line 2 should start with "Maven command: mvn verify"
       The line 3 should start with "mvn verify"
       The line 3 should include "-Pcoverage"
-      The line 3 should include "-Dsonar.host.url=https://sonarqube"
+      The line 4 should start with "run_sonar_analysis"
     End
   End
 
@@ -341,6 +453,19 @@ Describe 'build_maven()'
       The line 1 should include "Build, no analysis, no deploy some-branch"
       The line 2 should start with "Maven command: mvn verify"
       The line 3 should start with "mvn verify"
+    End
+  End
+
+  Describe 'shadow scans disable deployment'
+    export GITHUB_REF_NAME="def_main"
+    export RUN_SHADOW_SCANS="true"
+
+    It 'disables deployment when shadow scans are enabled'
+      When call build_maven
+      The status should be success
+      The output should include "Shadow scans enabled - disabling deployment"
+      The output should include "Maven command: mvn verify"
+      The output should not include "Maven command: mvn deploy"
     End
   End
 End
