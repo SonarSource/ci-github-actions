@@ -418,7 +418,7 @@ End
       export GITHUB_SHA="abc123"
       export GITHUB_REPOSITORY="test/repo"
       export PROJECT_VERSION="1.2.3-42"
-      When call run_sonar_scanner
+      When call sonar_scanner_implementation
       The status should be success
       The output should include "npx sonarqube-scanner -X"
       The output should include "-Dsonar.host.url=https://sonar.example.com"
@@ -441,7 +441,7 @@ End
       export GITHUB_SHA="abc123"
       export GITHUB_REPOSITORY="test/repo"
       export PROJECT_VERSION="1.2.3-42"
-      When call run_sonar_scanner
+      When call sonar_scanner_implementation
       The status should be success
       The output should include "-Dsonar.region=us"
       The output should include "SonarQube scanner finished for platform: sonarqube-us.example.com"
@@ -455,7 +455,7 @@ End
       export GITHUB_SHA="abc123"
       export GITHUB_REPOSITORY="test/repo"
       export PROJECT_VERSION="1.2.3-42"
-      When call run_sonar_scanner "-Dsonar.pullrequest.key=123" "-Dsonar.branch.name=feature"
+      When call sonar_scanner_implementation "-Dsonar.pullrequest.key=123" "-Dsonar.branch.name=feature"
       The status should be success
       The output should include "-Dsonar.pullrequest.key=123"
       The output should include "-Dsonar.branch.name=feature"
@@ -467,9 +467,9 @@ End
       export RUN_SHADOW_SCANS="false"
       export SONAR_PLATFORM="next"
       export PROJECT_VERSION="1.2.3-42"
-      When call run_sonar_analysis "-Dsonar.test=value"
+      When call orchestrate_sonar_platforms "-Dsonar.test=value"
       The status should be success
-      The output should include "=== Running Sonar analysis on selected platform: next ==="
+      The output should include "=== ORCHESTRATOR: Running Sonar analysis on selected platform: next ==="
       The output should include "Using Sonar platform: next"
       The output should include "SonarQube scanner finished for platform: next.sonarqube.com"
       The output should not include "shadow scan enabled"
@@ -479,13 +479,13 @@ End
       export RUN_SHADOW_SCANS="true"
       export SONAR_PLATFORM="next"
       export PROJECT_VERSION="1.2.3-42"
-      When call run_sonar_analysis "-Dsonar.test=value"
+      When call orchestrate_sonar_platforms "-Dsonar.test=value"
       The status should be success
-      The output should include "=== Running Sonar analysis on all platforms (shadow scan enabled) ==="
-      The output should include "--- Analyzing with platform: next ---"
-      The output should include "--- Analyzing with platform: sqc-us ---"
-      The output should include "--- Analyzing with platform: sqc-eu ---"
-      The output should include "=== Completed Sonar analysis on all platforms ==="
+      The output should include "=== ORCHESTRATOR: Running Sonar analysis on all platforms (shadow scan enabled) ==="
+      The output should include "--- ORCHESTRATOR: Analyzing with platform: next ---"
+      The output should include "--- ORCHESTRATOR: Analyzing with platform: sqc-us ---"
+      The output should include "--- ORCHESTRATOR: Analyzing with platform: sqc-eu ---"
+      The output should include "=== ORCHESTRATOR: Completed Sonar analysis on all platforms ==="
     End
   End
 

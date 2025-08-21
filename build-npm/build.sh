@@ -148,10 +148,16 @@ check_version_format() {
 }
 
 
-run_sonar_scanner() {
+# CALLBACK IMPLEMENTATION: SonarQube scanner execution
+#
+# This function is called BY THE ORCHESTRATOR (orchestrate_sonar_platforms)
+# The orchestrator will:
+# 1. Set SONAR_HOST_URL and SONAR_TOKEN for the current platform
+# 2. Call this function to execute the actual scanner
+# 3. Repeat for each platform (if shadow scanning enabled)
+sonar_scanner_implementation() {
     local additional_params=("$@")
-
-    # Build base scanner arguments
+    # Build base scanner arguments (using orchestrator-provided SONAR_HOST_URL/SONAR_TOKEN)
     local scanner_args=()
     scanner_args+=("-Dsonar.host.url=${SONAR_HOST_URL}")
     scanner_args+=("-Dsonar.token=${SONAR_TOKEN}")
@@ -314,7 +320,8 @@ run_standard_pipeline() {
 
   if [ "${BUILD_ENABLE_SONAR}" = "true" ]; then
     read -ra sonar_args <<< "$BUILD_SONAR_ARGS"
-    run_sonar_analysis "${sonar_args[@]}"
+    # This will call back to shared sonar_scanner_implementation() function
+    orchestrate_sonar_platforms "${sonar_args[@]}"
   fi
 
   echo "Building project..."

@@ -96,9 +96,17 @@ check_tool() {
   "$@"
 }
 
-run_sonar_scanner() {
+# CALLBACK IMPLEMENTATION: SonarQube scanner execution
+#
+# This function is called BY THE ORCHESTRATOR (orchestrate_sonar_platforms)
+# INVERSION OF CONTROL: We implement this interface, orchestrator calls us
+# The orchestrator will:
+# 1. Set SONAR_HOST_URL and SONAR_TOKEN for the current platform
+# 2. Call this function to execute the actual scanner
+# 3. Repeat for each platform (if shadow scanning enabled)
+sonar_scanner_implementation() {
     local additional_params=("$@")
-
+    # Build sonar properties (using orchestrator-provided SONAR_HOST_URL/SONAR_TOKEN)
     local sonar_props=("-Dsonar.host.url=${SONAR_HOST_URL}" "-Dsonar.token=${SONAR_TOKEN}")
     sonar_props+=("-Dsonar.projectVersion=$PROJECT_VERSION" "-Dsonar.scm.revision=$GITHUB_SHA")
     sonar_props+=("${additional_params[@]+"${additional_params[@]}"}")
@@ -260,7 +268,8 @@ build_maven() {
 
   # Execute SonarQube analysis if enabled
   if [ "$enable_sonar" = true ]; then
-    run_sonar_analysis "${sonar_args[@]+"${sonar_args[@]}"}"
+    # This will call back to shared sonar_scanner_implementation() function
+    orchestrate_sonar_platforms "${sonar_args[@]+"${sonar_args[@]}"}"
   fi
 }
 
