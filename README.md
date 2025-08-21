@@ -22,7 +22,7 @@ for details on how to use it.
 - [`build-npm`](#build-npm)
 - [`build-yarn`](#build-yarn)
 - [`promote`](#promote)
-- [`pr-cleanup`](#pr-cleanup)
+- [`pr_cleanup`](#pr_cleanup)
 - [`cache`](#cache)
 
 ## `get-build-number`
@@ -147,6 +147,7 @@ jobs:
 | `repox-url` | URL for Repox | `https://repox.jfrog.io` |
 | `develocity-url` | URL for Develocity | `https://develocity.sonar.build/` |
 | `sonar-platform` | SonarQube primary platform - 'next', 'sqc-eu', or 'sqc-us' | `next` |
+| `working-directory` | Relative path under github.workspace to execute the build in | `.` |
 | `run-shadow-scans` | If true, run SonarQube analysis on all 3 platforms (next, sqc-eu, sqc-us); if false, only on the selected `sonar-platform` | `false` |
 
 ### Outputs
@@ -239,7 +240,9 @@ jobs:
 | `poetry-virtualenvs-path` | Path to the Poetry virtual environments, relative to GitHub workspace | `.cache/pypoetry/virtualenvs` |
 | `poetry-cache-dir` | Path to the Poetry cache directory, relative to GitHub workspace | `.cache/pypoetry` |
 | `repox-url` | URL for Repox | `https://repox.jfrog.io` |
-| `sonar-platform` | SonarQube primary platform - 'next', 'sqc-eu', or 'sqc-us' | `next` |
+| `sonar-platform` | SonarQube primary platform - 'next', 'sqc-eu', sqc-us, or 'none'. Use 'none' to skip sonar scans | `next` |
+| `run-shadow-scans` | If true, run sonar scanner on all 3 platforms using the provided URL and token. If false, run on the platform provided by sonar-platform. When enabled, the sonar-platform setting is ignored | `false` |
+| `working-directory` | Relative path under github.workspace to execute the build in | `.` |
 
 ### Outputs
 
@@ -311,6 +314,7 @@ jobs:
 | `artifactory-deployer-role` | Suffix for the Artifactory deployer role in Vault | `qa-deployer` for private repos, `public-deployer` for public repos |
 | `deploy-pull-request` | Whether to deploy pull request artifacts | `false` |
 | `skip-tests` | Whether to skip running tests | `false` |
+| `use-develocity` | Whether to use Develocity for build tracking | `false` |
 | `gradle-args` | Additional arguments to pass to Gradle | (optional) |
 | `develocity-url` | URL for Develocity | `https://develocity.sonar.build/` |
 | `repox-url` | URL for Repox | `https://repox.jfrog.io` |
@@ -564,7 +568,7 @@ No outputs are provided by this action.
 
 ---
 
-## `pr-cleanup`
+## `pr_cleanup`
 
 Automatically clean up caches and artifacts associated with a pull request when it is closed.
 
