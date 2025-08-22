@@ -41,8 +41,14 @@ export GITHUB_REPOSITORY="my-org/my-repo"
 export ARTIFACTORY_DEPLOY_REPO="deploy-repo"
 export ARTIFACTORY_DEPLOY_USERNAME="deploy-user"
 export ARTIFACTORY_DEPLOY_PASSWORD="deploy-pass"
-export SONAR_HOST_URL="https://sonar.example.com"
-export SONAR_TOKEN="sonar-token"
+export SONAR_PLATFORM="next"
+export RUN_SHADOW_SCANS="false"
+export NEXT_URL="https://next.sonarqube.com"
+export NEXT_TOKEN="next-token"
+export SQC_US_URL="https://sonarcloud.io"
+export SQC_US_TOKEN="sqc-us-token"
+export SQC_EU_URL="https://sonarcloud.io"
+export SQC_EU_TOKEN="sqc-eu-token"
 export ORG_GRADLE_PROJECT_signingKey="signing-key"
 export ORG_GRADLE_PROJECT_signingPassword="signing-pass"
 export ORG_GRADLE_PROJECT_signingKeyId="signing-id"
@@ -51,6 +57,15 @@ export SKIP_TESTS="false"
 export GRADLE_ARGS=""
 export GITHUB_EVENT_NAME="push"
 export GITHUB_OUTPUT=/dev/null
+# Required SonarQube platform variables
+export SONAR_PLATFORM="next"
+export RUN_SHADOW_SCANS="false"
+export NEXT_URL="https://next.sonarqube.com"
+export NEXT_TOKEN="next-token"
+export SQC_US_URL="https://sonarcloud.io"
+export SQC_US_TOKEN="sqc-us-token"
+export SQC_EU_URL="https://sonarcloud.io"
+export SQC_EU_TOKEN="sqc-eu-token"
 GITHUB_EVENT_PATH=$(mktemp)
 export GITHUB_EVENT_PATH
 echo '{}' > "$GITHUB_EVENT_PATH"
@@ -162,6 +177,14 @@ Describe 'should_deploy'
     When call should_deploy
     The status should be success
   End
+
+  It 'does not deploy when shadow scans enabled'
+    export RUN_SHADOW_SCANS="true"
+    export GITHUB_EVENT_NAME="push"
+    export GITHUB_REF_NAME="master"
+    When call should_deploy
+    The status should be failure
+  End
 End
 
 Describe 'build_gradle_args'
@@ -176,6 +199,8 @@ Describe 'build_gradle_args'
   It 'includes sonar when configured'
     export GRADLE_ARGS=""
     export PROJECT_VERSION="1.0.0.42"
+    export SONAR_HOST_URL="https://sonar.example.com"
+    export SONAR_TOKEN="sonar-token"
     When call build_gradle_args
     The output should include "sonar"
     The output should include "-Dsonar.host.url=https://sonar.example.com"
@@ -203,6 +228,8 @@ Describe 'build_gradle_args'
     export PROJECT_VERSION="1.0.0.42"
     export GITHUB_REF_NAME="master"
     export GITHUB_EVENT_NAME="push"
+    export SONAR_HOST_URL="https://sonar.example.com"
+    export SONAR_TOKEN="sonar-token"
     When call build_gradle_args
     The output should include "-Dsonar.projectVersion=1.0.0.42"
     The output should include "-Dsonar.analysis.sha1=abc123def456"
@@ -213,6 +240,8 @@ Describe 'build_gradle_args'
     export PROJECT_VERSION="1.0.0.42"
     export GITHUB_REF_NAME="branch-1.0"
     export GITHUB_EVENT_NAME="push"
+    export SONAR_HOST_URL="https://sonar.example.com"
+    export SONAR_TOKEN="sonar-token"
     When call build_gradle_args
     The output should include "-Dsonar.branch.name=branch-1.0"
   End
@@ -223,6 +252,8 @@ Describe 'build_gradle_args'
     export GITHUB_EVENT_NAME="pull_request"
     export PULL_REQUEST="123"
     export PULL_REQUEST_SHA="base123"
+    export SONAR_HOST_URL="https://sonar.example.com"
+    export SONAR_TOKEN="sonar-token"
     When call build_gradle_args
     The output should include "-Dsonar.analysis.prNumber=123"
   End
@@ -232,6 +263,8 @@ Describe 'build_gradle_args'
     export PROJECT_VERSION="1.0.0.42"
     export GITHUB_REF_NAME="feature/long/my-feature"
     export GITHUB_EVENT_NAME="push"
+    export SONAR_HOST_URL="https://sonar.example.com"
+    export SONAR_TOKEN="sonar-token"
     When call build_gradle_args
     The output should include "-Dsonar.branch.name=feature/long/my-feature"
     The output should include "-Dsonar.analysis.sha1=abc123def456"
@@ -289,19 +322,88 @@ Describe 'get_build_type'
   End
 End
 
+
 Describe 'gradle_build'
   It 'executes gradle build successfully'
     export PROJECT_VERSION="1.0.0.42"
     export GRADLE_ARGS=""
-    Mock command_exists
-      echo "gradle $*"
+    export GRADLE_CMD="gradle"
+    Mock orchestrate_sonar_platforms
+      echo "orchestrator executed"
     End
-    Mock gradle
-      echo "gradle executed"
+    Mock set_gradle_cmd
+      true
+    End
+    Mock get_build_type
+      echo "default branch"
     End
 
     When call gradle_build
-    The output should include "gradle executed"
+    The output should include "Starting default branch build"
+    The output should include "Sonar Platform: next"
+    The output should include "Run Shadow Scans: false"
+    The output should include "orchestrator executed"
+  End
+End
+
+Describe 'sonar_scanner_implementation'
+  It 'runs gradle with sonar for current platform'
+    export PROJECT_VERSION="1.0.0.42"
+    export GRADLE_ARGS=""
+    export SONAR_HOST_URL="https://next.sonarqube.com"
+    export GRADLE_CMD="gradle"
+    Mock build_gradle_args
+      echo "--no-daemon build sonar"
+    End
+    Mock gradle
+      echo "gradle executed with args: $*"
+    End
+
+    When call sonar_scanner_implementation
+    The output should include "Running Gradle build with SonarQube analysis for platform: next.sonarqube.com"
+    The output should include "gradle executed with args: --no-daemon build sonar"
+    The output should include "SonarQube analysis finished for platform: next.sonarqube.com"
+  End
+End
+
+Describe 'orchestrate_sonar_platforms integration'
+  It 'runs analysis on single platform when shadow scans disabled'
+    export RUN_SHADOW_SCANS="false"
+    export SONAR_PLATFORM="next"
+    export PROJECT_VERSION="1.0.0.42"
+    export GRADLE_ARGS=""
+    export GRADLE_CMD="gradle"
+    Mock build_gradle_args
+      echo "--no-daemon build sonar"
+    End
+    Mock gradle
+      echo "gradle executed with args: $*"
+    End
+
+    When call orchestrate_sonar_platforms
+    The output should include "=== ORCHESTRATOR: Running Sonar analysis on selected platform: next ==="
+    The output should include "Running Gradle build with SonarQube analysis for platform: next.sonarqube.com"
+  End
+
+  It 'runs analysis on all platforms when shadow scans enabled'
+    export RUN_SHADOW_SCANS="true"
+    export SONAR_PLATFORM="next"
+    export PROJECT_VERSION="1.0.0.42"
+    export GRADLE_ARGS=""
+    export GRADLE_CMD="gradle"
+    Mock build_gradle_args
+      echo "--no-daemon build sonar"
+    End
+    Mock gradle
+      echo "gradle executed with args: $*"
+    End
+
+    When call orchestrate_sonar_platforms
+    The output should include "=== ORCHESTRATOR: Running Sonar analysis on all platforms (shadow scan enabled) ==="
+    The output should include "--- ORCHESTRATOR: Analyzing with platform: next ---"
+    The output should include "--- ORCHESTRATOR: Analyzing with platform: sqc-us ---"
+    The output should include "--- ORCHESTRATOR: Analyzing with platform: sqc-eu ---"
+    The output should include "=== ORCHESTRATOR: Completed Sonar analysis on all platforms ==="
   End
 End
 
@@ -345,32 +447,24 @@ Describe 'set_gradle_cmd'
   End
 
   It 'fails when neither gradle nor gradlew are available'
-    # Create a test wrapper function that handles the exit
-    test_set_gradle_cmd_failure() {
-      # Mock command_exists within the function
-      # shellcheck disable=SC2317  # Function is called indirectly
-      command_exists() {
-        if [[ "$1" == "gradle" && $# -eq 1 ]]; then
-          # This is the availability check - fail with error message
-          echo "gradle is not installed." >&2
-          false
-        else
-          # Any other call should also fail
-          echo "$1 is not installed." >&2
-          false
-        fi
-      }
+    rm -f ./gradlew
 
-      # Ensure no gradlew exists
-      rm -f ./gradlew
+    # Mock command_exists to fail for gradle
+    Mock command_exists
+      if [[ "$1" == "gradle" ]]; then
+        echo "gradle is not installed." >&2
+        false
+      else
+        echo "$1 is not installed." >&2
+        false
+      fi
+    End
 
-      # Call set_gradle_cmd in a subshell to contain the exit
-      ( set_gradle_cmd )
-    }
-
-    When call test_set_gradle_cmd_failure
+    When run set_gradle_cmd
     The status should be failure
     The stderr should include "Neither ./gradlew nor gradle command found!"
+
+    rm -f ./gradlew
   End
 End
 

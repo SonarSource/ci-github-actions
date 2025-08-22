@@ -36,6 +36,10 @@ inputs:
   sonar-platform:
     description: SonarQube variant (next, sqc-eu, or sqc-us)
     default: next
+  run-shadow-scans:
+    description: If true, run sonar scanner on all 3 platforms using the provided URL and token.
+     If false, run on the platform provided by SONAR_PLATFORM.
+    default: 'false'
 
 outputs:
   project-version:
@@ -64,8 +68,12 @@ runs:
       with:
         # yamllint disable rule:line-length
         secrets: |
-          development/kv/data/${{ inputs.sonar-platform == 'sqc-eu' && 'sonarcloud' || (inputs.sonar-platform == 'sqc-us' && 'sonarqube-us' || 'next') }} url | SONAR_HOST_URL;
-          development/kv/data/${{ inputs.sonar-platform == 'sqc-eu' && 'sonarcloud' || (inputs.sonar-platform == 'sqc-us' && 'sonarqube-us' || 'next') }} token | SONAR_TOKEN;
+          development/kv/data/next url | NEXT_URL;
+          development/kv/data/next token | NEXT_TOKEN;
+          development/kv/data/sonarqube-us url | SQC_US_URL;
+          development/kv/data/sonarqube-us token | SQC_US_TOKEN;
+          development/kv/data/sonarcloud url | SQC_EU_URL;
+          development/kv/data/sonarcloud token | SQC_EU_TOKEN;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} username | ARTIFACTORY_DEPLOY_USERNAME;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} access_token | ARTIFACTORY_DEPLOY_PASSWORD;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_READER_USERNAME;
@@ -106,9 +114,15 @@ runs:
         SKIP_TESTS: ${{ inputs.skip-tests }}
         GRADLE_ARGS: ${{ inputs.gradle-args }}
 
-        # Vault secrets
-        SONAR_HOST_URL: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_HOST_URL }}
-        SONAR_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_TOKEN }}
+        # Vault secrets - always fetch all platforms
+        NEXT_URL: ${{ fromJSON(steps.secrets.outputs.vault).NEXT_URL }}
+        NEXT_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).NEXT_TOKEN }}
+        SQC_US_URL: ${{ fromJSON(steps.secrets.outputs.vault).SQC_US_URL }}
+        SQC_US_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SQC_US_TOKEN }}
+        SQC_EU_URL: ${{ fromJSON(steps.secrets.outputs.vault).SQC_EU_URL }}
+        SQC_EU_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SQC_EU_TOKEN }}
+        SONAR_PLATFORM: ${{ inputs.sonar-platform }}
+        RUN_SHADOW_SCANS: ${{ inputs.run-shadow-scans }}
         ORG_GRADLE_PROJECT_signingKey: ${{ fromJSON(steps.secrets.outputs.vault).SIGN_KEY }}
         ORG_GRADLE_PROJECT_signingPassword: ${{ fromJSON(steps.secrets.outputs.vault).PGP_PASSPHRASE }}
         ORG_GRADLE_PROJECT_signingKeyId: ${{ fromJSON(steps.secrets.outputs.vault).SIGN_KEY_ID }}
