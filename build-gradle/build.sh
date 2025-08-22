@@ -110,9 +110,9 @@ build_gradle_args() {
 
   if [[ "$SKIP_TESTS" == "true" ]]; then
     args+=("-x" "test")
-    echo "Skipping tests as requested"
   fi
 
+  # SonarQube analysis (orchestrator will provide SONAR_HOST_URL and SONAR_TOKEN)
   if [[ -n "${SONAR_HOST_URL:-}" && -n "${SONAR_TOKEN:-}" ]]; then
     args+=("sonar")
     args+=("-Dsonar.host.url=$SONAR_HOST_URL")
@@ -225,14 +225,18 @@ set_gradle_cmd() {
   fi
 }
 
-
-# Run Gradle build with SonarQube analysis
-run_gradle_with_sonar() {
-  local platform="$1"
+# CALLBACK IMPLEMENTATION: SonarQube scanner execution
+#
+# This function is called BY THE ORCHESTRATOR (orchestrate_sonar_platforms)
+# The orchestrator will:
+# 1. Set SONAR_HOST_URL and SONAR_TOKEN for the current platform
+# 2. Call this function to execute the actual scanner
+# 3. Repeat for each platform (if shadow scanning enabled)
+sonar_scanner_implementation() {
   local gradle_args
 
-  echo "Running Gradle build with SonarQube analysis for platform: $platform"
-  set_sonar_platform_vars "$platform"
+  echo "Running Gradle build with SonarQube analysis for platform: $(basename "$SONAR_HOST_URL")"
+
 
   read -ra gradle_args <<< "$(build_gradle_args)"
   echo "Gradle command: $GRADLE_CMD ${gradle_args[*]}"
@@ -241,26 +245,7 @@ run_gradle_with_sonar() {
   echo "SonarQube analysis finished for platform: $(basename "$SONAR_HOST_URL")"
 }
 
-# Run SonarQube analysis with shadow scan support
-run_sonar_analysis_gradle() {
-  if [[ "${RUN_SHADOW_SCANS}" == "true" ]]; then
-    echo "=== Running Sonar analysis on all platforms (shadow scan enabled) ==="
-    local platforms=("next" "sqc-us" "sqc-eu")
-
-    for platform in "${platforms[@]}"; do
-      echo "--- Analyzing with platform: $platform ---"
-      run_gradle_with_sonar "$platform"
-    done
-
-    echo "=== Completed Sonar analysis on all platforms ==="
-  else
-    echo "=== Running Sonar analysis on selected platform: $SONAR_PLATFORM ==="
-    run_gradle_with_sonar "$SONAR_PLATFORM"
-  fi
-}
-
 gradle_build() {
-  local gradle_args
   local build_type
   build_type=$(get_build_type)
   set_gradle_cmd
@@ -269,15 +254,11 @@ gradle_build() {
   echo "Sonar Platform: ${SONAR_PLATFORM}"
   echo "Run Shadow Scans: ${RUN_SHADOW_SCANS}"
 
-  # Always run SonarQube analysis - credentials are always available
-  if [[ "${RUN_SHADOW_SCANS}" == "true" ]]; then
-    run_sonar_analysis_gradle
-  else
-    set_sonar_platform_vars "${SONAR_PLATFORM}"
-    read -ra gradle_args <<< "$(build_gradle_args)"
-    echo "Gradle command: $GRADLE_CMD ${gradle_args[*]}"
-    "$GRADLE_CMD" "${gradle_args[@]}"
-  fi
+  # This will call back to sonar_scanner_implementation() function
+  # No additional arguments needed as branch-specific args are handled in build_gradle_args()
+  # TODO: Add support for sonar-platform=none to skip sonar analysis entirely
+  # shellcheck disable=SC2119
+  orchestrate_sonar_platforms
 }
 
 main() {
