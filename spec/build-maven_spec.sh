@@ -136,7 +136,7 @@ Describe 'run_sonar_scanner()'
   # COMMON_MVN_FLAGS is now defined in build.sh, no need to redefine it here
 
   It 'runs sonar scanner with basic properties'
-    When call run_sonar_scanner
+    When call sonar_scanner_implementation
     The status should be success
     The lines of stdout should equal 2
     The line 1 should include "mvn"
@@ -149,19 +149,19 @@ Describe 'run_sonar_scanner()'
   End
 
   It 'runs sonar scanner with additional parameters'
-    When call run_sonar_scanner "-Dsonar.pullrequest.key=123"
+    When call sonar_scanner_implementation "-Dsonar.pullrequest.key=123"
     The status should be success
     The lines of stdout should equal 2
     The line 1 should include "-Dsonar.pullrequest.key=123"
   End
 End
 
-Describe 'run_sonar_analysis()'
+Describe 'orchestrate_sonar_platforms()'
   Mock mvn
     echo "mvn $*"
   End
-  Mock run_sonar_scanner
-    echo "run_sonar_scanner $*"
+  Mock sonar_scanner_implementation
+    echo "sonar_scanner_implementation $*"
   End
 
   export PROJECT_VERSION="1.2.3.42"
@@ -169,30 +169,30 @@ Describe 'run_sonar_analysis()'
   It 'runs analysis on single platform when shadow scans disabled'
     export RUN_SHADOW_SCANS="false"
     export SONAR_PLATFORM="next"
-    When call run_sonar_analysis "-Dsome.property=value"
+    When call orchestrate_sonar_platforms "-Dsome.property=value"
     The status should be success
     The lines of stdout should equal 3
-    The line 1 should include "Running Sonar analysis on selected platform: next"
+    The line 1 should include "ORCHESTRATOR: Running Sonar analysis on selected platform: next"
     The line 2 should include "Using Sonar platform: next"
-    The line 3 should include "run_sonar_scanner -Dsome.property=value"
+    The line 3 should include "sonar_scanner_implementation -Dsome.property=value"
   End
 
   It 'runs analysis on all platforms when shadow scans enabled'
     export RUN_SHADOW_SCANS="true"
-    When call run_sonar_analysis "-Dsome.property=value"
+    When call orchestrate_sonar_platforms "-Dsome.property=value"
     The status should be success
     The lines of stdout should equal 11
-    The line 1 should include "Running Sonar analysis on all platforms (shadow scan enabled)"
-    The line 2 should include "--- Analyzing with platform: next ---"
+    The line 1 should include "ORCHESTRATOR: Running Sonar analysis on all platforms (shadow scan enabled)"
+    The line 2 should include "--- ORCHESTRATOR: Analyzing with platform: next ---"
     The line 3 should include "Using Sonar platform: next"
-    The line 4 should include "run_sonar_scanner -Dsome.property=value"
-    The line 5 should include "--- Analyzing with platform: sqc-us ---"
+    The line 4 should include "sonar_scanner_implementation -Dsome.property=value"
+    The line 5 should include "--- ORCHESTRATOR: Analyzing with platform: sqc-us ---"
     The line 6 should include "Using Sonar platform: sqc-us"
-    The line 7 should include "run_sonar_scanner -Dsome.property=value"
-    The line 8 should include "--- Analyzing with platform: sqc-eu ---"
+    The line 7 should include "sonar_scanner_implementation -Dsome.property=value"
+    The line 8 should include "--- ORCHESTRATOR: Analyzing with platform: sqc-eu ---"
     The line 9 should include "Using Sonar platform: sqc-eu"
-    The line 10 should include "run_sonar_scanner -Dsome.property=value"
-    The line 11 should include "Completed Sonar analysis on all platforms"
+    The line 10 should include "sonar_scanner_implementation -Dsome.property=value"
+    The line 11 should include "ORCHESTRATOR: Completed Sonar analysis on all platforms"
   End
 End
 
@@ -349,8 +349,8 @@ Describe 'build_maven()'
   End
   Mock set_project_version
   End
-  Mock run_sonar_analysis
-    echo "run_sonar_analysis $*"
+  Mock orchestrate_sonar_platforms
+    echo "orchestrate_sonar_platforms $*"
   End
   export PROJECT_VERSION="1.2.3.42"
 
@@ -364,7 +364,7 @@ Describe 'build_maven()'
       The line 2 should start with "Maven command: mvn deploy"
       The line 3 should start with "mvn deploy"
       The line 3 should include "-Pcoverage,deploy-sonarsource,release,sign"
-      The line 4 should start with "run_sonar_analysis"
+      The line 4 should start with "orchestrate_sonar_platforms"
     End
   End
 
@@ -376,7 +376,7 @@ Describe 'build_maven()'
       The lines of stdout should equal 4
       The line 1 should include "Build, deploy and analyze branch-1.2"
       The line 3 should start with "mvn deploy"
-      The line 4 should start with "run_sonar_analysis"
+      The line 4 should start with "orchestrate_sonar_platforms"
     End
   End
 
@@ -395,7 +395,7 @@ Describe 'build_maven()'
       The line 3 should start with "Maven command: mvn verify"
       The line 4 should start with "mvn verify"
       The line 4 should include "-Pcoverage"
-      The line 5 should start with "run_sonar_analysis"
+      The line 5 should start with "orchestrate_sonar_platforms"
       The line 5 should include "-Dsonar.pullrequest.key=123"
       The line 5 should include "-Dsonar.pullrequest.branch=fix/jdoe/JIRA-1234-aFix"
       The line 5 should include "-Dsonar.pullrequest.base=def_main"
@@ -410,7 +410,7 @@ Describe 'build_maven()'
       The line 3 should start with "Maven command: mvn deploy"
       The line 4 should start with "mvn deploy"
       The line 4 should include "-Pcoverage,deploy-sonarsource"
-      The line 5 should start with "run_sonar_analysis"
+      The line 5 should start with "orchestrate_sonar_platforms"
       The line 5 should include "-Dsonar.pullrequest.key=123"
       The line 5 should include "-Dsonar.pullrequest.branch=fix/jdoe/JIRA-1234-aFix"
       The line 5 should include "-Dsonar.pullrequest.base=def_main"
@@ -440,7 +440,7 @@ Describe 'build_maven()'
       The line 2 should start with "Maven command: mvn verify"
       The line 3 should start with "mvn verify"
       The line 3 should include "-Pcoverage"
-      The line 4 should start with "run_sonar_analysis"
+      The line 4 should start with "orchestrate_sonar_platforms"
     End
   End
 

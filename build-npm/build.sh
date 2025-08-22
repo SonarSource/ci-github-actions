@@ -4,8 +4,14 @@
 #
 # Required inputs (must be explicitly provided):
 # - BUILD_NUMBER: Build number for versioning
-# - SONAR_HOST_URL: URL of SonarQube server
-# - SONAR_TOKEN: Access token to send analysis reports to SonarQube
+# - SONAR_PLATFORM: SonarQube primary platform (next, sqc-eu, or sqc-us)
+# - NEXT_URL: URL of SonarQube server for next platform
+# - NEXT_TOKEN: Access token to send analysis reports to SonarQube for next platform
+# - SQC_US_URL: URL of SonarQube server for sqc-us platform
+# - SQC_US_TOKEN: Access token to send analysis reports to SonarQube for sqc-us platform
+# - SQC_EU_URL: URL of SonarQube server for sqc-eu platform
+# - SQC_EU_TOKEN: Access token to send analysis reports to SonarQube for sqc-eu platform
+# - RUN_SHADOW_SCANS: If true, run sonar scanner on all 3 platforms. If false, run on the platform provided by SONAR_PLATFORM.
 # - ARTIFACTORY_URL: URL to Artifactory repository
 # - ARTIFACTORY_ACCESS_TOKEN: Access token to access the repository
 # - ARTIFACTORY_DEPLOY_ACCESS_TOKEN: Access token to deploy to Artifactory
@@ -30,12 +36,17 @@
 
 set -euo pipefail
 
+# Source common functions shared across build scripts
+# shellcheck source=../shared/common-functions.sh
+source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
+
 : "${ARTIFACTORY_URL:?}"
 : "${ARTIFACTORY_ACCESS_TOKEN:?}" "${ARTIFACTORY_DEPLOY_REPO:?}" "${ARTIFACTORY_DEPLOY_ACCESS_TOKEN:?}"
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_RUN_ID:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}" "${GITHUB_SHA:?}"
 : "${GITHUB_OUTPUT:?}"
 : "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}"
-: "${SONAR_HOST_URL:?}" "${SONAR_TOKEN:?}"
+: "${SONAR_PLATFORM:?}" "${RUN_SHADOW_SCANS:?}"
+: "${NEXT_URL:?}" "${NEXT_TOKEN:?}" "${SQC_US_URL:?}" "${SQC_US_TOKEN:?}" "${SQC_EU_URL:?}" "${SQC_EU_TOKEN:?}"
 : "${DEPLOY_PULL_REQUEST:=false}" "${SKIP_TESTS:=false}"
 export ARTIFACTORY_URL DEPLOY_PULL_REQUEST SKIP_TESTS
 
@@ -136,19 +147,38 @@ check_version_format() {
   fi
 }
 
-run_sonar_scanner() {
-    local additional_params=("$@")
 
-    npx sonarqube-scanner -X \
-        -Dsonar.host.url="${SONAR_HOST_URL}" \
-        -Dsonar.token="${SONAR_TOKEN}" \
-        -Dsonar.analysis.buildNumber="${BUILD_NUMBER}" \
-        -Dsonar.analysis.pipeline="${GITHUB_RUN_ID}" \
-        -Dsonar.analysis.sha1="${GITHUB_SHA}" \
-        -Dsonar.analysis.repository="${GITHUB_REPOSITORY}" \
-        "${additional_params[@]}"
-    echo "SonarQube scanner finished"
+# CALLBACK IMPLEMENTATION: SonarQube scanner execution
+#
+# This function is called BY THE ORCHESTRATOR (orchestrate_sonar_platforms)
+# The orchestrator will:
+# 1. Set SONAR_HOST_URL and SONAR_TOKEN for the current platform
+# 2. Call this function to execute the actual scanner
+# 3. Repeat for each platform (if shadow scanning enabled)
+sonar_scanner_implementation() {
+    local additional_params=("$@")
+    # Build base scanner arguments (using orchestrator-provided SONAR_HOST_URL/SONAR_TOKEN)
+    local scanner_args=()
+    scanner_args+=("-Dsonar.host.url=${SONAR_HOST_URL}")
+    scanner_args+=("-Dsonar.token=${SONAR_TOKEN}")
+    scanner_args+=("-Dsonar.analysis.buildNumber=${BUILD_NUMBER}")
+    scanner_args+=("-Dsonar.analysis.pipeline=${GITHUB_RUN_ID}")
+    scanner_args+=("-Dsonar.analysis.sha1=${GITHUB_SHA}")
+    scanner_args+=("-Dsonar.analysis.repository=${GITHUB_REPOSITORY}")
+    scanner_args+=("-Dsonar.projectVersion=${PROJECT_VERSION}")
+    scanner_args+=("-Dsonar.scm.revision=${GITHUB_SHA}")
+
+    # Add region parameter only for sqc-us platform
+    if [ -n "${SONAR_REGION:-}" ]; then
+        scanner_args+=("-Dsonar.region=${SONAR_REGION}")
+    fi
+
+    scanner_args+=("${additional_params[@]+\"${additional_params[@]}\"}")
+
+    npx sonarqube-scanner -X "${scanner_args[@]}"
+    echo "SonarQube scanner finished for platform: $(basename "$SONAR_HOST_URL")"
 }
+
 
 jfrog_npm_publish() {
   if [ -z "${ARTIFACTORY_URL:-}" ] || [ -z "${ARTIFACTORY_DEPLOY_ACCESS_TOKEN:-}" ]; then
@@ -183,8 +213,6 @@ jfrog_npm_publish() {
     echo "build-info-url=$build_info_url" >> "$GITHUB_OUTPUT"
     echo "::debug::Build info URL saved: $build_info_url"
   fi
-
-  echo "::debug::JFrog operations completed successfully"
 }
 
 # Handle maintenance branch version logic
@@ -266,6 +294,12 @@ get_build_config() {
     enable_deploy=false
   fi
 
+  # Disable deployment when shadow scans are enabled to prevent duplicate artifacts
+  if [ "${RUN_SHADOW_SCANS}" = "true" ]; then
+    echo "======= Shadow scans enabled - disabling deployment to prevent duplicate artifacts ======="
+    enable_deploy=false
+  fi
+
   # Export the configuration for use by run_standard_pipeline
   export BUILD_ENABLE_SONAR="$enable_sonar"
   export BUILD_ENABLE_DEPLOY="$enable_deploy"
@@ -286,7 +320,8 @@ run_standard_pipeline() {
 
   if [ "${BUILD_ENABLE_SONAR}" = "true" ]; then
     read -ra sonar_args <<< "$BUILD_SONAR_ARGS"
-    run_sonar_scanner "${sonar_args[@]}"
+    # This will call back to shared sonar_scanner_implementation() function
+    orchestrate_sonar_platforms "${sonar_args[@]}"
   fi
 
   echo "Building project..."
@@ -303,6 +338,8 @@ build_npm() {
   echo "Pull Request: ${PULL_REQUEST}"
   echo "Deploy Pull Request: ${DEPLOY_PULL_REQUEST}"
   echo "Skip Tests: ${SKIP_TESTS}"
+  echo "Sonar Platform: ${SONAR_PLATFORM}"
+  echo "Run Shadow Scans: ${RUN_SHADOW_SCANS}"
 
   set_project_version
   get_build_config
