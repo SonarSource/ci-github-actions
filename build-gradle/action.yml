@@ -74,10 +74,10 @@ runs:
           development/kv/data/sonarqube-us token | SQC_US_TOKEN;
           development/kv/data/sonarcloud url | SQC_EU_URL;
           development/kv/data/sonarcloud token | SQC_EU_TOKEN;
+          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
+          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} username | ARTIFACTORY_DEPLOY_USERNAME;
-          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} access_token | ARTIFACTORY_DEPLOY_PASSWORD;
-          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_READER_USERNAME;
-          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_READER_PASSWORD;
+          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;
           development/kv/data/sign key | SIGN_KEY;
           development/kv/data/sign passphrase | PGP_PASSPHRASE;
           development/kv/data/sign key_id | SIGN_KEY_ID;
@@ -92,6 +92,13 @@ runs:
          ${{ inputs.use-develocity == 'true' &&
          fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN || '' }}
         develocity-injection-enabled: ${{ inputs.use-develocity == 'true' }}
+    # $GRADLE_USER_HOME is typically set to ~/.gradle/ by gradle/actions/setup-gradle
+    - name: Configure Gradle Authentication
+      shell: bash
+      run: |
+        GRADLE_INIT_DIR="$GRADLE_USER_HOME/init.d"
+        mkdir -p "$GRADLE_INIT_DIR"
+        cp "${GITHUB_ACTION_PATH}/resources/repoxAuth.init.gradle.kts" "$GRADLE_INIT_DIR/"
 
     - name: Build, analyze and deploy
       id: build
@@ -104,12 +111,15 @@ runs:
 
         # Action inputs
         ARTIFACTORY_URL: ${{ inputs.repox-url }}/artifactory
+        ARTIFACTORY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME }} # unused; present for backward compliance
+        ARTIFACTORY_ACCESS_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME }} # deprecated, backward compliance
+        ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
+        ARTIFACTORY_PASSWORD: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }} # deprecated, backward compliance
         ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo != '' && inputs.artifactory-deploy-repo ||
           (inputs.public == 'true' && 'sonarsource-public-qa' || 'sonarsource-private-qa') }}
         ARTIFACTORY_DEPLOY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_USERNAME }}
-        ARTIFACTORY_DEPLOY_PASSWORD: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_PASSWORD }}
-        ARTIFACTORY_PRIVATE_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_READER_PASSWORD }}
-        ARTIFACTORY_PRIVATE_PASSWORD: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_READER_USERNAME }}
+        ARTIFACTORY_DEPLOY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN }}
+        ARTIFACTORY_DEPLOY_PASSWORD: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN }} # used in parent POM
         DEPLOY_PULL_REQUEST: ${{ inputs.deploy-pull-request }}
         SKIP_TESTS: ${{ inputs.skip-tests }}
         GRADLE_ARGS: ${{ inputs.gradle-args }}
@@ -127,7 +137,15 @@ runs:
         ORG_GRADLE_PROJECT_signingPassword: ${{ fromJSON(steps.secrets.outputs.vault).PGP_PASSPHRASE }}
         ORG_GRADLE_PROJECT_signingKeyId: ${{ fromJSON(steps.secrets.outputs.vault).SIGN_KEY_ID }}
       run: |
-        ${{ github.action_path }}/build.sh
+        ${GITHUB_ACTION_PATH}/build.sh
+
+    - name: Archive problems report
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      with:
+        name: problems-report
+        path: build/reports/problems/problems-report.html
+        if-no-files-found: ignore
 
     - name: Generate workflow summary
       if: always()
@@ -140,7 +158,7 @@ runs:
         echo "### 📋 Build Information" >> $GITHUB_STEP_SUMMARY
         echo "- **Project**: ${GITHUB_REPOSITORY#*/}" >> $GITHUB_STEP_SUMMARY
         echo "- **Version**: ${{ steps.build.outputs.project-version || 'Unknown' }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Build Number**: ${{ env.BUILD_NUMBER }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Build Number**: $BUILD_NUMBER" >> $GITHUB_STEP_SUMMARY
         echo "- **Commit**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 

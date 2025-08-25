@@ -6,7 +6,7 @@
 # - BUILD_NUMBER: Build number for versioning
 # - ARTIFACTORY_URL: URL to Artifactory repository
 # - ARTIFACTORY_PYPI_REPO: Repository to install dependencies from
-# - ARTIFACTORY_ACCESS_TOKEN: Access token to access the repository
+# - ARTIFACTORY_ACCESS_TOKEN: Access token to read Repox repositories
 # - ARTIFACTORY_DEPLOY_REPO: Deployment repository name
 # - ARTIFACTORY_DEPLOY_ACCESS_TOKEN: Access token to deploy to the repository
 # - DEFAULT_BRANCH: Default branch name (e.g. main)

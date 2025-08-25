@@ -13,7 +13,7 @@
 # - SQC_EU_TOKEN: Access token to send analysis reports to SonarQube for sqc-eu platform
 # - RUN_SHADOW_SCANS: If true, run sonar scanner on all 3 platforms. If false, run on the platform provided by SONAR_PLATFORM.
 # - ARTIFACTORY_URL: URL to Artifactory repository
-# - ARTIFACTORY_ACCESS_TOKEN: Access token to access the repository
+# - ARTIFACTORY_ACCESS_TOKEN: Access token to read Repox repositories
 # - ARTIFACTORY_DEPLOY_ACCESS_TOKEN: Access token to deploy to Artifactory
 # - ARTIFACTORY_DEPLOY_REPO: Name of deployment repository
 # - DEFAULT_BRANCH: Default branch name (e.g. main)

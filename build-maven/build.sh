@@ -13,10 +13,10 @@
 # - SQC_EU_TOKEN: Access token to send analysis reports to SonarQube for sqc-eu platform
 # - RUN_SHADOW_SCANS: If true, run sonar scanner on all 3 platforms. If false, run on the platform provided by SONAR_PLATFORM.
 # - ARTIFACTORY_URL: Artifactory repository URL
+# - ARTIFACTORY_ACCESS_TOKEN: Access token to read Repox repositories
 # - ARTIFACTORY_DEPLOY_REPO: Deployment repository name
-# - ARTIFACTORY_DEPLOY_PASSWORD: Access token to deploy to the repository
-# - ARTIFACTORY_ACCESS_TOKEN: Access token to access the private repository
 # - ARTIFACTORY_DEPLOY_USERNAME: Username used by artifactory-maven-plugin
+# - ARTIFACTORY_DEPLOY_PASSWORD: Access token to deploy to the repository
 # - DEFAULT_BRANCH: Default branch name (e.g. main)
 # - PULL_REQUEST: Pull request number (e.g. 1234) or empty string
 #
