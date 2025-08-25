@@ -27,7 +27,7 @@ GH_API_VERSION_HEADER="X-GitHub-Api-Version: 2022-11-28"
 BUILD_INFO_FILE=$(mktemp)
 rm -f "$BUILD_INFO_FILE"
 
-: "${MULTI_REPO_PROMOTE:=false}" "${ARTIFACTORY_DEPLOY_REPO:=}" "${ARTIFACTORY_TARGET_REPO:=}"
+: "${MULTI_REPO_PROMOTE:=false}" "${ARTIFACTORY_DEPLOY_REPO:=}" "${ARTIFACTORY_TARGET_REPO:=}" "${PROMOTE_PULL_REQUEST:=false}"
 MULTI_REPO_SRC_PRIVATE=sonarsource-private-qa
 MULTI_REPO_SRC_PUBLIC=sonarsource-public-qa
 
@@ -72,6 +72,12 @@ check_branch() {
     echo "Github merge queue detected: promotion skipped."
     exit 0
   fi
+
+  if is_pull_request && [[ "${PROMOTE_PULL_REQUEST}" != "true" ]]; then
+    echo "Pull request promotion is disabled (promote-pull-request=${PROMOTE_PULL_REQUEST}): promotion skipped."
+    exit 0
+  fi
+
   if ! (is_pull_request || is_main_branch || is_maintenance_branch || is_dogfood_branch); then
     echo "Promotion is only available for pull requests, main branch, maintenance branches, or dogfood branches." >&2
     echo "Current branch: ${GITHUB_REF_NAME} (GITHUB_EVENT_NAME: ${GITHUB_EVENT_NAME})" >&2

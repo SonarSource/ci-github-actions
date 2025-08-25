@@ -237,7 +237,6 @@ sonar_scanner_implementation() {
 
   echo "Running Gradle build with SonarQube analysis for platform: $(basename "$SONAR_HOST_URL")"
 
-
   read -ra gradle_args <<< "$(build_gradle_args)"
   echo "Gradle command: $GRADLE_CMD ${gradle_args[*]}"
   "$GRADLE_CMD" "${gradle_args[@]}"
