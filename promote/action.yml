@@ -18,12 +18,10 @@ runs:
     - name: Get build number
       uses: SonarSource/ci-github-actions/get-build-number@master
     - name: Set build parameters
-      if: ${{ inputs.promote-pull-request == 'true' }}
       shell: bash
       run: |
         cp ${GITHUB_ACTION_PATH}/mise.local.toml mise.local.toml
     - name: Vault
-      if: ${{ inputs.promote-pull-request == 'true' }}
       id: secrets
       uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
       with:
@@ -31,20 +29,17 @@ runs:
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-promoter access_token | ARTIFACTORY_PROMOTE_ACCESS_TOKEN;
           development/github/token/{REPO_OWNER_NAME_DASH}-promotion token | GITHUB_TOKEN;
     - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
-      if: ${{ inputs.promote-pull-request == 'true' }}
       with:
         version: 2025.7.12
     - name: Promote artifacts
-      if: ${{ inputs.promote-pull-request == 'true' }}
       shell: bash
       env:
-        ARTIFACTORY_PROMOTE_ACCESS_TOKEN: ${{ inputs.promote-pull-request == 'true' &&
-          fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_PROMOTE_ACCESS_TOKEN || '' }}
-        GITHUB_TOKEN: ${{ inputs.promote-pull-request == 'true' &&
-          fromJSON(steps.secrets.outputs.vault).GITHUB_TOKEN || '' }}
+        ARTIFACTORY_PROMOTE_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_PROMOTE_ACCESS_TOKEN }}
+        GITHUB_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).GITHUB_TOKEN }}
         DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         MULTI_REPO_PROMOTE: ${{ inputs.multi-repo }}
         ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo }}
         ARTIFACTORY_TARGET_REPO: ${{ inputs.artifactory-target-repo }}
+        PROMOTE_PULL_REQUEST: ${{ inputs.promote-pull-request }}
       run: |
         ${GITHUB_ACTION_PATH}/promote.sh
