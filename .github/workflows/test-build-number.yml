@@ -11,7 +11,7 @@ on:
 
 jobs:
   test-build-number-generation:
-    runs-on: ubuntu-24.04-large
+    runs-on: github-ubuntu-latest-s
     permissions:
       id-token: write
       contents: read
@@ -30,7 +30,7 @@ jobs:
 
   test-build-number-reuse:
     needs: test-build-number-generation
-    runs-on: ubuntu-24.04-large
+    runs-on: github-ubuntu-latest-s
     permissions:
       id-token: write
       contents: read
