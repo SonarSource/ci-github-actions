@@ -39,7 +39,7 @@ When updating this migration guide:
 # Upload Artifacts
 - name: Upload coverage reports
   if: always() && ! canceled()
-  uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
+  uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
   with:
     name: coverage-reports
     path: path/to/coverage.xml
@@ -72,7 +72,7 @@ Update this section when newer versions are released:
 #### Core GitHub Actions
 
 - [ ] `actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0`
-- [ ] `actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0`
+- [ ] `actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2`
 - [ ] `actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8`
 
 #### Build Tools

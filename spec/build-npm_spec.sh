@@ -381,7 +381,7 @@ End
     It 'sets sonar variables for next platform'
       When call set_sonar_platform_vars "next"
       The status should be success
-      The output should include "Using Sonar platform: next (URL: https://next.sonarqube.com)"
+      The line 1 should equal "Using Sonar platform: next (URL: next.sonarqube.com, Region: none)"
       The variable SONAR_HOST_URL should equal "https://next.sonarqube.com"
       The variable SONAR_TOKEN should equal "next-token"
     End
@@ -389,7 +389,7 @@ End
     It 'sets sonar variables for sqc-us platform'
       When call set_sonar_platform_vars "sqc-us"
       The status should be success
-      The output should include "Using Sonar platform: sqc-us (URL: https://sonarqube-us.example.com, Region: us)"
+      The line 1 should equal "Using Sonar platform: sqc-us (URL: sonarqube-us.example.com, Region: us)"
       The variable SONAR_HOST_URL should equal "https://sonarqube-us.example.com"
       The variable SONAR_TOKEN should equal "sqc-us-token"
     End
@@ -397,7 +397,7 @@ End
     It 'sets sonar variables for sqc-eu platform'
       When call set_sonar_platform_vars "sqc-eu"
       The status should be success
-      The output should include "Using Sonar platform: sqc-eu (URL: https://sonarcloud.io)"
+      The line 1 should equal "Using Sonar platform: sqc-eu (URL: sonarcloud.io, Region: none)"
       The variable SONAR_HOST_URL should equal "https://sonarcloud.io"
       The variable SONAR_TOKEN should equal "sqc-eu-token"
     End

@@ -38,9 +38,10 @@ export BUILD_NUMBER="42"
 export GITHUB_RUN_ID="123456"
 export GITHUB_SHA="abc123def456"
 export GITHUB_REPOSITORY="my-org/my-repo"
+export ARTIFACTORY_ACCESS_TOKEN="artifactory-access-token"
 export ARTIFACTORY_DEPLOY_REPO="deploy-repo"
 export ARTIFACTORY_DEPLOY_USERNAME="deploy-user"
-export ARTIFACTORY_DEPLOY_PASSWORD="deploy-pass"
+export ARTIFACTORY_DEPLOY_ACCESS_TOKEN="deploy-access-token"
 export SONAR_PLATFORM="next"
 export RUN_SHADOW_SCANS="false"
 export NEXT_URL="https://next.sonarqube.com"
@@ -69,6 +70,7 @@ export SQC_EU_TOKEN="sqc-eu-token"
 GITHUB_EVENT_PATH=$(mktemp)
 export GITHUB_EVENT_PATH
 echo '{}' > "$GITHUB_EVENT_PATH"
+export GRADLE_CMD="gradle"
 
 Describe 'build-gradle/build.sh'
   It 'does not run main when sourced'
@@ -327,12 +329,8 @@ Describe 'gradle_build'
   It 'executes gradle build successfully'
     export PROJECT_VERSION="1.0.0.42"
     export GRADLE_ARGS=""
-    export GRADLE_CMD="gradle"
     Mock orchestrate_sonar_platforms
       echo "orchestrator executed"
-    End
-    Mock set_gradle_cmd
-      true
     End
     Mock get_build_type
       echo "default branch"
@@ -351,17 +349,13 @@ Describe 'sonar_scanner_implementation'
     export PROJECT_VERSION="1.0.0.42"
     export GRADLE_ARGS=""
     export SONAR_HOST_URL="https://next.sonarqube.com"
-    export GRADLE_CMD="gradle"
     Mock build_gradle_args
       echo "--no-daemon build sonar"
-    End
-    Mock gradle
-      echo "gradle executed with args: $*"
     End
 
     When call sonar_scanner_implementation
     The output should include "Running Gradle build with SonarQube analysis for platform: next.sonarqube.com"
-    The output should include "gradle executed with args: --no-daemon build sonar"
+    The output should include "gradle --no-daemon build sonar"
     The output should include "SonarQube analysis finished for platform: next.sonarqube.com"
   End
 End
@@ -372,12 +366,8 @@ Describe 'orchestrate_sonar_platforms integration'
     export SONAR_PLATFORM="next"
     export PROJECT_VERSION="1.0.0.42"
     export GRADLE_ARGS=""
-    export GRADLE_CMD="gradle"
     Mock build_gradle_args
       echo "--no-daemon build sonar"
-    End
-    Mock gradle
-      echo "gradle executed with args: $*"
     End
 
     When call orchestrate_sonar_platforms
@@ -390,12 +380,8 @@ Describe 'orchestrate_sonar_platforms integration'
     export SONAR_PLATFORM="next"
     export PROJECT_VERSION="1.0.0.42"
     export GRADLE_ARGS=""
-    export GRADLE_CMD="gradle"
     Mock build_gradle_args
       echo "--no-daemon build sonar"
-    End
-    Mock gradle
-      echo "gradle executed with args: $*"
     End
 
     When call orchestrate_sonar_platforms
@@ -409,6 +395,7 @@ End
 
 Describe 'set_gradle_cmd'
   It 'uses gradlew when available'
+    unset GRADLE_CMD
     Mock command_exists
       # For ./gradlew -version call
       if [[ "$1" == "./gradlew" && "$2" == "-version" ]]; then
@@ -426,6 +413,7 @@ Describe 'set_gradle_cmd'
   End
 
   It 'uses gradle when gradlew not found'
+    unset GRADLE_CMD
     Mock command_exists
       if [[ "$1" == "gradle" && $# -eq 1 ]]; then
         # This is the availability check - return success silently
@@ -447,6 +435,7 @@ Describe 'set_gradle_cmd'
   End
 
   It 'fails when neither gradle nor gradlew are available'
+    unset GRADLE_CMD
     rm -f ./gradlew
 
     # Mock command_exists to fail for gradle
@@ -470,6 +459,7 @@ End
 
 Describe 'main function'
   It 'executes full sequence'
+    unset GRADLE_CMD
     Mock command_exists
       case "$1" in
         java) echo "java ok" ;;
@@ -489,9 +479,10 @@ Describe 'main function'
     When call main
     The status should be success
     The line 1 should equal "java ok"
-    The line 2 should equal "env set"
-    The line 3 should equal "version set"
-    The line 4 should equal "build done"
+    The line 2 should equal "gradle ok"
+    The line 3 should equal "env set"
+    The line 4 should equal "version set"
+    The line 5 should equal "build done"
   End
 End
 

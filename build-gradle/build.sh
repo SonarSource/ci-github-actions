@@ -13,9 +13,10 @@
 # - SQC_EU_TOKEN: Access token to send analysis reports to SonarQube for sqc-eu platform
 # - RUN_SHADOW_SCANS: If true, run sonar scanner on all 3 platforms. If false, run on the platform provided by SONAR_PLATFORM.
 # - ARTIFACTORY_URL: URL to Artifactory repository
+# - ARTIFACTORY_ACCESS_TOKEN: Access token to read Repox repositories
 # - ARTIFACTORY_DEPLOY_REPO: Name of deployment repository
 # - ARTIFACTORY_DEPLOY_USERNAME: Username to deploy to Artifactory
-# - ARTIFACTORY_DEPLOY_PASSWORD: Password to deploy to Artifactory
+# - ARTIFACTORY_DEPLOY_ACCESS_TOKEN: Access token to deploy to Artifactory
 # - ORG_GRADLE_PROJECT_signingKey: OpenPGP key for signing artifacts (private key content)
 # - ORG_GRADLE_PROJECT_signingPassword: Passphrase of the signing key
 # - ORG_GRADLE_PROJECT_signingKeyId: OpenPGP subkey id
@@ -48,7 +49,7 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 
 : "${ARTIFACTORY_URL:?}"
-: "${ARTIFACTORY_DEPLOY_REPO:?}" "${ARTIFACTORY_DEPLOY_USERNAME:?}" "${ARTIFACTORY_DEPLOY_PASSWORD:?}"
+: "${ARTIFACTORY_ACCESS_TOKEN:?}" "${ARTIFACTORY_DEPLOY_REPO:?}" "${ARTIFACTORY_DEPLOY_USERNAME:?}" "${ARTIFACTORY_DEPLOY_ACCESS_TOKEN:?}"
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_RUN_ID:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}" "${GITHUB_SHA:?}"
 : "${GITHUB_OUTPUT:?}"
 : "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}"
@@ -85,8 +86,6 @@ set_build_env() {
 }
 
 set_project_version() {
-  set_gradle_cmd
-
   current_version=$($GRADLE_CMD properties --no-scan | grep 'version:' | tr -d "[:space:]" | cut -d ":" -f 2)
   release_version="${current_version/-SNAPSHOT/}"
   if [[ "${release_version}" =~ ^[0-9]+\.[0-9]+$ ]]; then
@@ -247,8 +246,6 @@ sonar_scanner_implementation() {
 gradle_build() {
   local build_type
   build_type=$(get_build_type)
-  set_gradle_cmd
-
   echo "Starting $build_type build..."
   echo "Sonar Platform: ${SONAR_PLATFORM}"
   echo "Run Shadow Scans: ${RUN_SHADOW_SCANS}"
@@ -262,6 +259,7 @@ gradle_build() {
 
 main() {
   command_exists java -version
+  set_gradle_cmd
   set_build_env
   set_project_version
   gradle_build

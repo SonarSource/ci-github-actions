@@ -38,12 +38,7 @@ set_sonar_platform_vars() {
       return 1
       ;;
   esac
-
-  if [ -n "${SONAR_REGION:-}" ]; then
-    echo "Using Sonar platform: $platform (URL: $SONAR_HOST_URL, Region: $SONAR_REGION)"
-  else
-    echo "Using Sonar platform: $platform (URL: $SONAR_HOST_URL)"
-  fi
+  echo "Using Sonar platform: $platform (URL: ${SONAR_HOST_URL#*//}, Region: ${SONAR_REGION:-none})"
 }
 
 # ORCHESTRATOR FUNCTION: Multi-platform SonarQube analysis coordinator
