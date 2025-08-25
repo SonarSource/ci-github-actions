@@ -88,9 +88,6 @@ runs:
     - name: Configure Gradle
       uses: gradle/actions/setup-gradle@017a9effdb900e5b5b2fddfb590a105619dca3c3 # v4.4.2
       with:
-        develocity-access-key: >-
-         ${{ inputs.use-develocity == 'true' &&
-         fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN || '' }}
         develocity-injection-enabled: ${{ inputs.use-develocity == 'true' }}
 
     - name: Build, analyze and deploy
@@ -126,6 +123,8 @@ runs:
         ORG_GRADLE_PROJECT_signingKey: ${{ fromJSON(steps.secrets.outputs.vault).SIGN_KEY }}
         ORG_GRADLE_PROJECT_signingPassword: ${{ fromJSON(steps.secrets.outputs.vault).PGP_PASSPHRASE }}
         ORG_GRADLE_PROJECT_signingKeyId: ${{ fromJSON(steps.secrets.outputs.vault).SIGN_KEY_ID }}
+        DEVELOCITY_ACCESS_KEY: ${{ inputs.use-develocity == 'true' &&
+          fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN || '' }}
       run: |
         ${{ github.action_path }}/build.sh
 
