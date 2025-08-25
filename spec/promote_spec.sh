@@ -51,6 +51,7 @@ export GITHUB_SHA="abc123"
 export PROJECT_VERSION="1.2.3"
 export DEFAULT_BRANCH="main"
 export PROJECT="dummy-project"
+export PROMOTE_PULL_REQUEST="false"
 
 Describe 'promote/promote.sh'
   It 'does not run promote() if the script is sourced'
@@ -73,9 +74,10 @@ Describe 'promote/promote.sh'
     The error should start with "Promotion is only available for"
   End
 
-  It 'runs promote() on pull_request'
+  It 'runs promote() on pull_request when promotion is enabled'
     export ARTIFACTORY_TARGET_REPO="artifactory-target"
     export GITHUB_EVENT_NAME="pull_request"
+    export PROMOTE_PULL_REQUEST="true"
     When run script promote/promote.sh
     The status should be success
     The lines of stdout should equal 12
@@ -91,6 +93,14 @@ Describe 'promote/promote.sh'
     The line 10 should equal "Promote $PROJECT/$BUILD_NUMBER build artifacts to $ARTIFACTORY_TARGET_REPO"
     The line 11 should equal "jf rt bpr --status it-passed-pr $PROJECT $BUILD_NUMBER $ARTIFACTORY_TARGET_REPO"
     The line 12 should include "gh api -X POST"
+  End
+
+  It 'skips promotion on pull_request when promotion is disabled'
+    export GITHUB_EVENT_NAME="pull_request"
+    export PROMOTE_PULL_REQUEST="false"
+    When run script promote/promote.sh
+    The status should be success
+    The output should include "Pull request promotion is disabled"
   End
 End
 
@@ -116,11 +126,13 @@ End
 
 Describe 'check_branch()'
   # merge queue branches use case is handled in promote.sh, due to the exit 0 in check_branch
-  It 'allows pull requests'
+  It 'allows pull requests when promotion is enabled'
     export GITHUB_EVENT_NAME="pull_request"
+    export PROMOTE_PULL_REQUEST="true"
     When call check_branch
     The status should be success
   End
+
 
   It 'allows main branch'
     export GITHUB_REF_NAME="main"
