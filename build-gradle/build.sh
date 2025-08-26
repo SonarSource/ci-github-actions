@@ -87,16 +87,17 @@ set_build_env() {
 
 set_project_version() {
   current_version=$($GRADLE_CMD properties --no-scan | grep 'version:' | tr -d "[:space:]" | cut -d ":" -f 2)
+  export CURRENT_VERSION=$current_version
+
   release_version="${current_version/-SNAPSHOT/}"
   if [[ "${release_version}" =~ ^[0-9]+\.[0-9]+$ ]]; then
     release_version="${release_version}.0"
   fi
   release_version="${release_version}.${BUILD_NUMBER}"
-
   echo "Replacing version $current_version with $release_version"
   sed -i.bak "s/$current_version/$release_version/g" gradle.properties
-  export PROJECT_VERSION=$release_version
   echo "project-version=$release_version" >> "$GITHUB_OUTPUT"
+  export PROJECT_VERSION=$release_version
 }
 
 build_gradle_args() {
@@ -119,7 +120,7 @@ build_gradle_args() {
     args+=("-Dsonar.analysis.buildNumber=$BUILD_NUMBER")
     args+=("-Dsonar.analysis.pipeline=$GITHUB_RUN_ID")
     args+=("-Dsonar.analysis.repository=$GITHUB_REPOSITORY")
-    args+=("-Dsonar.projectVersion=$PROJECT_VERSION")
+    args+=("-Dsonar.projectVersion=${CURRENT_VERSION}")
     args+=("-Dsonar.scm.revision=$GITHUB_SHA")
 
     # Add branch-specific sonar arguments
@@ -233,14 +234,9 @@ set_gradle_cmd() {
 # 3. Repeat for each platform (if shadow scanning enabled)
 sonar_scanner_implementation() {
   local gradle_args
-
-  echo "Running Gradle build with SonarQube analysis for platform: $(basename "$SONAR_HOST_URL")"
-
   read -ra gradle_args <<< "$(build_gradle_args)"
   echo "Gradle command: $GRADLE_CMD ${gradle_args[*]}"
   "$GRADLE_CMD" "${gradle_args[@]}"
-
-  echo "SonarQube analysis finished for platform: $(basename "$SONAR_HOST_URL")"
 }
 
 gradle_build() {

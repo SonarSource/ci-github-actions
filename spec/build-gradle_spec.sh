@@ -128,6 +128,7 @@ Describe 'set_project_version'
     echo "version=1.0-SNAPSHOT" > gradle.properties
     When call set_project_version
     The output should include "Replacing version 1.2.3-SNAPSHOT with 1.2.3.42"
+    The variable CURRENT_VERSION should equal "1.2.3-SNAPSHOT"
     The variable PROJECT_VERSION should equal "1.2.3.42"
     rm -f gradle.properties gradle.properties.bak
   End
@@ -139,6 +140,7 @@ Describe 'set_project_version'
     End
     When call set_project_version
     The output should include "Replacing version 1.2-SNAPSHOT with 1.2.0.42"
+    The variable CURRENT_VERSION should equal "1.2-SNAPSHOT"
     The variable PROJECT_VERSION should equal "1.2.0.42"
     rm -f gradle.properties gradle.properties.bak
   End
@@ -190,9 +192,10 @@ Describe 'should_deploy'
 End
 
 Describe 'build_gradle_args'
+  export CURRENT_VERSION="1.0.0-SNAPSHOT"
+
   It 'includes base arguments'
     export GRADLE_ARGS=""
-    export PROJECT_VERSION="1.0.0.42"
     When call build_gradle_args
     The output should include "--no-daemon"
     The output should include "build"
@@ -200,7 +203,6 @@ Describe 'build_gradle_args'
 
   It 'includes sonar when configured'
     export GRADLE_ARGS=""
-    export PROJECT_VERSION="1.0.0.42"
     export SONAR_HOST_URL="https://sonar.example.com"
     export SONAR_TOKEN="sonar-token"
     When call build_gradle_args
@@ -210,7 +212,6 @@ Describe 'build_gradle_args'
 
   It 'includes deployment for master'
     export GRADLE_ARGS=""
-    export PROJECT_VERSION="1.0.0.42"
     export GITHUB_REF_NAME="master"
     export GITHUB_EVENT_NAME="push"
     When call build_gradle_args
@@ -219,7 +220,6 @@ Describe 'build_gradle_args'
 
   It 'skips tests when SKIP_TESTS is true'
     export GRADLE_ARGS=""
-    export PROJECT_VERSION="1.0.0.42"
     export SKIP_TESTS="true"
     When call build_gradle_args
     The output should include "-x test"
@@ -227,19 +227,17 @@ Describe 'build_gradle_args'
 
   It 'includes sonar args for master branch'
     export GRADLE_ARGS=""
-    export PROJECT_VERSION="1.0.0.42"
     export GITHUB_REF_NAME="master"
     export GITHUB_EVENT_NAME="push"
     export SONAR_HOST_URL="https://sonar.example.com"
     export SONAR_TOKEN="sonar-token"
     When call build_gradle_args
-    The output should include "-Dsonar.projectVersion=1.0.0.42"
+    The output should include "-Dsonar.projectVersion=1.0.0-SNAPSHOT"
     The output should include "-Dsonar.analysis.sha1=abc123def456"
   End
 
   It 'includes sonar args for maintenance branch'
     export GRADLE_ARGS=""
-    export PROJECT_VERSION="1.0.0.42"
     export GITHUB_REF_NAME="branch-1.0"
     export GITHUB_EVENT_NAME="push"
     export SONAR_HOST_URL="https://sonar.example.com"
@@ -250,7 +248,6 @@ Describe 'build_gradle_args'
 
   It 'includes sonar args for PR'
     export GRADLE_ARGS=""
-    export PROJECT_VERSION="1.0.0.42"
     export GITHUB_EVENT_NAME="pull_request"
     export PULL_REQUEST="123"
     export PULL_REQUEST_SHA="base123"
@@ -262,7 +259,6 @@ Describe 'build_gradle_args'
 
   It 'includes sonar args for long-lived feature branch'
     export GRADLE_ARGS=""
-    export PROJECT_VERSION="1.0.0.42"
     export GITHUB_REF_NAME="feature/long/my-feature"
     export GITHUB_EVENT_NAME="push"
     export SONAR_HOST_URL="https://sonar.example.com"
@@ -273,7 +269,6 @@ Describe 'build_gradle_args'
   End
 
   It 'includes additional gradle args'
-    export PROJECT_VERSION="1.0.0.42"
     export GRADLE_ARGS="--parallel --max-workers=4"
     When call build_gradle_args
     The output should include "--parallel"
@@ -327,7 +322,6 @@ End
 
 Describe 'gradle_build'
   It 'executes gradle build successfully'
-    export PROJECT_VERSION="1.0.0.42"
     export GRADLE_ARGS=""
     Mock orchestrate_sonar_platforms
       echo "orchestrator executed"
@@ -344,9 +338,8 @@ Describe 'gradle_build'
   End
 End
 
-Describe 'sonar_scanner_implementation'
+Describe 'sonar_scanner_implementation()'
   It 'runs gradle with sonar for current platform'
-    export PROJECT_VERSION="1.0.0.42"
     export GRADLE_ARGS=""
     export SONAR_HOST_URL="https://next.sonarqube.com"
     Mock build_gradle_args
@@ -354,31 +347,30 @@ Describe 'sonar_scanner_implementation'
     End
 
     When call sonar_scanner_implementation
-    The output should include "Running Gradle build with SonarQube analysis for platform: next.sonarqube.com"
-    The output should include "gradle --no-daemon build sonar"
-    The output should include "SonarQube analysis finished for platform: next.sonarqube.com"
+    The line 2 should include "gradle --no-daemon build sonar"
+    The lines of stdout should equal 2
   End
 End
 
-Describe 'orchestrate_sonar_platforms integration'
+Describe 'orchestrate_sonar_platforms integration()'
   It 'runs analysis on single platform when shadow scans disabled'
     export RUN_SHADOW_SCANS="false"
     export SONAR_PLATFORM="next"
-    export PROJECT_VERSION="1.0.0.42"
     export GRADLE_ARGS=""
     Mock build_gradle_args
       echo "--no-daemon build sonar"
     End
 
     When call orchestrate_sonar_platforms
-    The output should include "=== ORCHESTRATOR: Running Sonar analysis on selected platform: next ==="
-    The output should include "Running Gradle build with SonarQube analysis for platform: next.sonarqube.com"
+    The line 1 should include "=== ORCHESTRATOR: Running Sonar analysis on selected platform: next ==="
+    The line 2 should equal "Using Sonar platform: next (URL: next.sonarqube.com, Region: none)"
+    The line 4 should equal "gradle --no-daemon build sonar"
+    The lines of stdout should equal 4
   End
 
   It 'runs analysis on all platforms when shadow scans enabled'
     export RUN_SHADOW_SCANS="true"
     export SONAR_PLATFORM="next"
-    export PROJECT_VERSION="1.0.0.42"
     export GRADLE_ARGS=""
     Mock build_gradle_args
       echo "--no-daemon build sonar"
@@ -393,7 +385,7 @@ Describe 'orchestrate_sonar_platforms integration'
   End
 End
 
-Describe 'set_gradle_cmd'
+Describe 'set_gradle_cmd()'
   It 'uses gradlew when available'
     unset GRADLE_CMD
     Mock command_exists

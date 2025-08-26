@@ -109,7 +109,13 @@ run_sonar_scanner() {
 
     # Install pysonar into Poetry's virtual environment without modifying project files
     poetry run pip install pysonar
-
+    echo "Poetry command: poetry run pysonar ..." \
+        "-Dsonar.host.url=${SONAR_HOST_URL}" \
+        "-Dsonar.analysis.buildNumber=${BUILD_NUMBER}" \
+        "-Dsonar.analysis.pipeline=${GITHUB_RUN_ID}" \
+        "-Dsonar.analysis.sha1=${GITHUB_SHA}" \
+        "-Dsonar.analysis.repository=${GITHUB_REPOSITORY}" \
+        "${additional_params[*]}"
     poetry run pysonar \
         -Dsonar.host.url="${SONAR_HOST_URL}" \
         -Dsonar.token="${SONAR_TOKEN}" \
@@ -118,31 +124,34 @@ run_sonar_scanner() {
         -Dsonar.analysis.sha1="${GITHUB_SHA}" \
         -Dsonar.analysis.repository="${GITHUB_REPOSITORY}" \
         "${additional_params[@]}"
-    echo "SonarQube scanner finished for platform: $(basename "$SONAR_HOST_URL")"
 }
 
 run_sonar_analysis() {
   local sonar_args=("$@")
-
+  echo "run_sonar_analysis()"
   if [ "${RUN_SHADOW_SCANS}" = "true" ]; then
       echo "=== Running Sonar analysis on all platforms (shadow scan enabled) ==="
       local platforms=("next" "sqc-us" "sqc-eu")
 
       for platform in "${platforms[@]}"; do
-          echo "--- Analyzing with platform: $platform ---"
+          echo "::group::Sonar analysis on $platform"
+          echo "--- ORCHESTRATOR: Analyzing with platform: $platform ---"
           set_sonar_platform_vars "$platform"
           run_sonar_scanner "${sonar_args[@]}"
+          echo "::endgroup::"
       done
 
       echo "=== Completed Sonar analysis on all platforms ==="
   else
-      echo "=== Running Sonar analysis on selected platform: $SONAR_PLATFORM ==="
       if [ "$SONAR_PLATFORM" = "none" ]; then
-          echo "Sonar platform set to 'none'. Skipping sonar analysis."
+          echo "=== Sonar platform set to 'none'. Skipping Sonar analysis."
           return 0
       fi
+      echo "=== Running Sonar analysis on selected platform: $SONAR_PLATFORM ==="
+      echo "::group::Sonar analysis on $SONAR_PLATFORM"
       set_sonar_platform_vars "$SONAR_PLATFORM"
       run_sonar_scanner "${sonar_args[@]}"
+      echo "::endgroup::"
   fi
 }
 
@@ -185,6 +194,7 @@ set_project_version() {
     echo "$current_version" >&2
     return 1
   fi
+  export CURRENT_VERSION=$current_version
 
   release_version=${current_version%".dev"*}
   # In case of 2 digits, we need to add a '0' as the 3rd digit.
@@ -196,12 +206,12 @@ set_project_version() {
     release_version="${BASH_REMATCH[0]}"
     echo "WARN: version was truncated to $release_version because it had more than 3 digits"
   fi
-  new_version="$release_version.${BUILD_NUMBER}"
+  release_version="$release_version.${BUILD_NUMBER}"
 
-  echo "Replacing version $current_version with $new_version"
-  poetry version "$new_version"
-  export PROJECT_VERSION=$new_version
-  echo "PROJECT_VERSION=$PROJECT_VERSION" >> "$GITHUB_ENV"
+  echo "Replacing version $current_version with $release_version"
+  poetry version "$release_version"
+  echo "project-version=$release_version" >> "$GITHUB_OUTPUT"
+  export PROJECT_VERSION=$release_version
 }
 
 # Determine build configuration based on branch type
