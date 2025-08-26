@@ -56,12 +56,18 @@ orchestrate_sonar_platforms() {
       local platforms=("next" "sqc-us" "sqc-eu")
 
       for platform in "${platforms[@]}"; do
+          echo "::group::Sonar analysis on $platform"
+          # if is_pull_request and platform == SONAR_PLATFORM then continue
+          if is_pull_request && [ "$platform" = "$SONAR_PLATFORM" ]; then
+              echo "--- ORCHESTRATOR: Skipping platform $platform (already analyzed in PR) ---"
+              continue
+          fi
           echo "--- ORCHESTRATOR: Analyzing with platform: $platform ---"
           set_sonar_platform_vars "$platform"
           # CALLBACK: Hand control back to build script's implementation
           sonar_scanner_implementation "$@"
+          echo "::endgroup::"
       done
-
       echo "=== ORCHESTRATOR: Completed Sonar analysis on all platforms ==="
   else
       echo "=== ORCHESTRATOR: Running Sonar analysis on selected platform: $SONAR_PLATFORM ==="

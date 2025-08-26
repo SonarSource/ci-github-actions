@@ -46,7 +46,7 @@ inputs:
 
 outputs:
   project-version:
-    description: The project version from gradle.properties
+    description: The release version set as Gradle project version in gradle.properties
     value: ${{ steps.build.outputs.project-version }}
 
 runs:

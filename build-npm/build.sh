@@ -104,41 +104,6 @@ is_merge_queue_branch() {
 # Version utility functions (from npm_version_utils and version_util)
 PACKAGE_JSON="package.json"
 
-set_project_version() {
-  local current_version release_version digit_count
-
-  current_version=$(jq -r .version "$PACKAGE_JSON")
-  if [ -z "${current_version}" ] || [ "${current_version}" == "null" ]; then
-    echo "Could not get version from ${PACKAGE_JSON}" >&2
-    exit 1
-  fi
-
-  export CURRENT_VERSION="${current_version}"
-
-  # Set version with build ID for most branch types
-  # (maintenance branch handles this differently based on SNAPSHOT vs RELEASE)
-  if ! is_maintenance_branch || is_pull_request; then
-    release_version="${current_version%"-SNAPSHOT"}"
-
-    # In case of 2 digits, we need to add the 3rd digit (0 obviously)
-    # Mandatory in order to compare versions (patch VS non patch)
-    digit_count=$(echo "${release_version//./ }" | wc -w)
-    if [ "${digit_count}" -lt 3 ]; then
-        release_version="${release_version}.0"
-    fi
-    PROJECT_VERSION="${release_version}-${BUILD_NUMBER}"
-
-    echo "Replacing version ${current_version} with ${PROJECT_VERSION}"
-    npm version --no-git-tag-version --allow-same-version "${PROJECT_VERSION}"
-  else
-    # For maintenance branches, keep original version initially
-    PROJECT_VERSION="${current_version}"
-  fi
-
-  export PROJECT_VERSION
-  echo "project-version=${PROJECT_VERSION}" >> "${GITHUB_OUTPUT}"
-}
-
 check_version_format() {
   local version="$1"
   # Check if version follows semantic versioning pattern (X.Y.Z or X.Y.Z-something)
@@ -147,6 +112,35 @@ check_version_format() {
   fi
 }
 
+set_project_version() {
+  local current_version release_version digit_count
+
+  current_version=$(jq -r .version "$PACKAGE_JSON")
+  if [ -z "${current_version}" ] || [ "${current_version}" == "null" ]; then
+    echo "Could not get version from ${PACKAGE_JSON}" >&2
+    exit 1
+  fi
+  export CURRENT_VERSION=$current_version
+
+  release_version="${current_version}"
+  if ! is_pull_request; then
+    if is_maintenance_branch && [[ ! ${current_version} =~ "-SNAPSHOT" ]]; then
+      echo "Found RELEASE version on maintenance branch, skipping version update."
+    else
+      release_version="${current_version%"-SNAPSHOT"}"
+      digit_count=$(echo "${release_version//./ }" | wc -w)
+      if [ "${digit_count}" -lt 3 ]; then
+          release_version="${release_version}.0"
+      fi
+      release_version="${release_version}-${BUILD_NUMBER}"
+      echo "Replacing version ${current_version} with ${release_version}"
+      npm version --no-git-tag-version --allow-same-version "${release_version}"
+    fi
+  fi
+  check_version_format "${release_version}"
+  echo "project-version=${release_version}" >> "${GITHUB_OUTPUT}"
+  export PROJECT_VERSION=$release_version
+}
 
 # CALLBACK IMPLEMENTATION: SonarQube scanner execution
 #
@@ -165,7 +159,7 @@ sonar_scanner_implementation() {
     scanner_args+=("-Dsonar.analysis.pipeline=${GITHUB_RUN_ID}")
     scanner_args+=("-Dsonar.analysis.sha1=${GITHUB_SHA}")
     scanner_args+=("-Dsonar.analysis.repository=${GITHUB_REPOSITORY}")
-    scanner_args+=("-Dsonar.projectVersion=${PROJECT_VERSION}")
+    scanner_args+=("-Dsonar.projectVersion=${CURRENT_VERSION}")
     scanner_args+=("-Dsonar.scm.revision=${GITHUB_SHA}")
 
     # Add region parameter only for sqc-us platform
@@ -175,8 +169,8 @@ sonar_scanner_implementation() {
 
     scanner_args+=("${additional_params[@]+\"${additional_params[@]}\"}")
 
+    echo "npx command: npx sonarqube-scanner -X ${scanner_args[*]}"
     npx sonarqube-scanner -X "${scanner_args[@]}"
-    echo "SonarQube scanner finished for platform: $(basename "$SONAR_HOST_URL")"
 }
 
 
@@ -215,29 +209,6 @@ jfrog_npm_publish() {
   fi
 }
 
-# Handle maintenance branch version logic
-handle_maintenance_branch_version() {
-  if [[ ${CURRENT_VERSION} =~ "-SNAPSHOT" ]]; then
-    echo "======= Found SNAPSHOT version ======="
-    echo "Set npm version with build ID: ${BUILD_NUMBER}."
-    # For maintenance branch SNAPSHOT, also set version with build number
-    local release_version="${CURRENT_VERSION%"-SNAPSHOT"}"
-    local digit_count
-    digit_count=$(echo "${release_version//./ }" | wc -w)
-    if [ "${digit_count}" -lt 3 ]; then
-        release_version="${release_version}.0"
-    fi
-    PROJECT_VERSION="${release_version}-${BUILD_NUMBER}"
-    echo "Replacing version ${CURRENT_VERSION} with ${PROJECT_VERSION}"
-    npm version --no-git-tag-version --allow-same-version "${PROJECT_VERSION}"
-    check_version_format "${PROJECT_VERSION}"
-  else
-    echo "======= Found RELEASE version ======="
-    echo "======= Deploy ${CURRENT_VERSION} ======="
-    check_version_format "${CURRENT_VERSION}"
-  fi
-}
-
 # Determine build configuration based on branch type
 get_build_config() {
   local enable_sonar enable_deploy
@@ -245,31 +216,22 @@ get_build_config() {
 
   if is_default_branch && ! is_pull_request; then
     echo "======= Building main branch ======="
-    echo "Current version: ${CURRENT_VERSION}"
-    check_version_format "${PROJECT_VERSION}"
-    echo "Checked version format: ${PROJECT_VERSION}."
-
     enable_sonar=true
     enable_deploy=true
-    sonar_args=("-Dsonar.projectVersion=${CURRENT_VERSION}")
 
   elif is_maintenance_branch && ! is_pull_request; then
     echo "======= Building maintenance branch ======="
-    handle_maintenance_branch_version
-
     enable_sonar=true
     enable_deploy=true
     sonar_args=("-Dsonar.branch.name=${GITHUB_REF_NAME}")
 
   elif is_pull_request; then
     echo "======= Building pull request ======="
-
     enable_sonar=true
     sonar_args=("-Dsonar.analysis.prNumber=${PULL_REQUEST}")
 
     if [ "${DEPLOY_PULL_REQUEST:-false}" == "true" ]; then
       echo "======= with deploy ======="
-      check_version_format "${PROJECT_VERSION}"
       enable_deploy=true
     else
       echo "======= no deploy ======="
@@ -278,7 +240,6 @@ get_build_config() {
 
   elif is_dogfood_branch && ! is_pull_request; then
     echo "======= Build dogfood branch ======="
-    check_version_format "${PROJECT_VERSION}"
     enable_sonar=false
     enable_deploy=true
 
