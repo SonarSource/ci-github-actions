@@ -108,11 +108,11 @@ sonar_scanner_implementation() {
     local additional_params=("$@")
     # Build sonar properties (using orchestrator-provided SONAR_HOST_URL/SONAR_TOKEN)
     local sonar_props=("-Dsonar.host.url=${SONAR_HOST_URL}" "-Dsonar.token=${SONAR_TOKEN}")
-    sonar_props+=("-Dsonar.projectVersion=$PROJECT_VERSION" "-Dsonar.scm.revision=$GITHUB_SHA")
+    sonar_props+=("-Dsonar.projectVersion=${CURRENT_VERSION}" "-Dsonar.scm.revision=$GITHUB_SHA")
     sonar_props+=("${additional_params[@]+"${additional_params[@]}"}")
 
+    echo "Maven command: mvn ${COMMON_MVN_FLAGS[*]} $SONAR_GOAL ${sonar_props[*]}"
     mvn "${COMMON_MVN_FLAGS[@]}" "$SONAR_GOAL" "${sonar_props[@]}"
-    echo "SonarQube scanner finished for platform: $(basename "$SONAR_HOST_URL")"
 }
 
 is_default_branch() {
@@ -169,6 +169,7 @@ set_project_version() {
     echo -e "::error file=pom.xml,title=Maven project version::Could not get 'project.version' from Maven project\nERROR: $current_version"
     return 1
   fi
+  export CURRENT_VERSION=$current_version
 
   local release_version="${current_version%"-SNAPSHOT"}"
   local digits="${release_version//[^.]/}"
@@ -176,13 +177,12 @@ set_project_version() {
 
   # shellcheck disable=SC2035
   if is_maintenance_branch && [[ "$current_version" != *"-SNAPSHOT" ]]; then
-    echo "Found RELEASE version on maintenance branch: $current_version"
     if [[ "$digit_count" -ne 3 ]]; then
       echo "::error file=pom.xml,title=Maven project version::Unsupported version '$current_version' with $((digit_count + 1)) digits."
       return 1
     fi
-    echo "Skipping version update."
-    export PROJECT_VERSION=$current_version
+    echo "Found RELEASE version on maintenance branch: ${current_version}. Skipping version update."
+    export PROJECT_VERSION=$release_version
     return 0
   fi
 
@@ -194,12 +194,12 @@ set_project_version() {
     echo "::error file=pom.xml,title=Maven project version::Unsupported version '$current_version' with $((digit_count + 1)) digits."
     return 1
   fi
-  local new_version="${release_version}.${BUILD_NUMBER}"
+  release_version="${release_version}.${BUILD_NUMBER}"
 
-  echo "Replacing version $current_version with $new_version"
-  mvn --settings "$MAVEN_SETTINGS" org.codehaus.mojo:versions-maven-plugin:2.7:set -DnewVersion="$new_version" -DgenerateBackupPoms=false -B -e
-  export PROJECT_VERSION=$new_version
-  echo "project-version=$PROJECT_VERSION" >> "$GITHUB_OUTPUT"
+  echo "Replacing version $current_version with $release_version"
+  mvn --settings "$MAVEN_SETTINGS" org.codehaus.mojo:versions-maven-plugin:2.7:set -DnewVersion="$release_version" -DgenerateBackupPoms=false -B -e
+  echo "project-version=$release_version" >> "$GITHUB_OUTPUT"
+  export PROJECT_VERSION=$release_version
 }
 
 build_maven() {

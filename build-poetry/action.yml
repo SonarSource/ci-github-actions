@@ -43,7 +43,7 @@ inputs:
 outputs:
   project-version:
     description: The project version from pyproject.toml with BUILD_NUMBER
-    value: ${{ env.PROJECT_VERSION }}
+    value: ${{ steps.build.outputs.project-version }}
 
 runs:
   using: composite
@@ -87,6 +87,7 @@ runs:
           development/kv/data/sonarcloud token | SQC_EU_TOKEN;
       # yamllint enable rule:line-length
     - name: Build, Analyze and deploy
+      id: build
       shell: bash
       env:
         # GitHub context
