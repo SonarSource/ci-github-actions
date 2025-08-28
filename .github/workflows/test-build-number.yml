@@ -11,7 +11,7 @@ on:
 
 jobs:
   test-build-number-generation:
-    runs-on: ubuntu-24.04-large
+    runs-on: github-ubuntu-latest-s
     permissions:
       id-token: write
       contents: read
@@ -22,6 +22,7 @@ jobs:
         with:
           sparse-checkout: get-build-number
       - uses: ./get-build-number
+      - uses: ./get-build-number
         id: get_build_number
       - name: Check build number generation
         run: |
@@ -30,7 +31,7 @@ jobs:
 
   test-build-number-reuse:
     needs: test-build-number-generation
-    runs-on: ubuntu-24.04-large
+    runs-on: github-ubuntu-latest-s
     permissions:
       id-token: write
       contents: read
@@ -43,7 +44,28 @@ jobs:
         run: |
           echo "Build number: ${BUILD_NUMBER}"
           if [[ "${BUILD_NUMBER}" != "${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}" ]]; then
-            echo -e "::warning title=test-build-number-reuse::Build number '${BUILD_NUMBER}' does not match the previous job build number" \
+            echo -e "::error title=test-build-number-reuse::Build number '${BUILD_NUMBER}' does not match the previous job build number" \
               "'${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}' despite it is the same workflow run.\n" \
               "Prefer using the output from SonarSource/ci-github-actions/get-build-number instead of calling it twice."
+          fi
+
+  test-build-number-reuse-windows:
+    needs: test-build-number-generation
+    runs-on: github-windows-latest-s
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        with:
+          sparse-checkout: get-build-number
+      - uses: ./get-build-number
+      - name: Check build number was reused
+        shell: bash
+        run: |
+          echo "Build number: ${BUILD_NUMBER}"
+          if [[ "${BUILD_NUMBER}" != "${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}" ]]; then
+            echo -e "::error title=test-build-number-reuse::Build number '${BUILD_NUMBER}' does not match the previous job build number" \
+              "'${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}' despite it is the same workflow run."
+            exit 1
           fi
