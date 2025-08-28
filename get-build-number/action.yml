@@ -16,6 +16,7 @@ runs:
       with:
         path: build_number.txt
         key: build-number-${{ github.run_id }}
+        enableCrossOsArchive: true
 
     # Otherwise, increment the build number
     - name: Get secrets from Vault
@@ -46,3 +47,4 @@ runs:
       with:
         path: build_number.txt
         key: build-number-${{ github.run_id }}
+        enableCrossOsArchive: true
