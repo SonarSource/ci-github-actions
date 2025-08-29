@@ -33,6 +33,9 @@ inputs:
   repox-url:
     description: URL for Repox
     default: https://repox.jfrog.io
+  repox-artifactory-url:
+    description: URL for Repox Artifactory API (overrides repox-url/artifactory if provided)
+    default: ''
   sonar-platform:
     description: SonarQube variant (next, sqc-eu, or sqc-us)
     default: next
@@ -113,7 +116,8 @@ runs:
         DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
 
         # Action inputs
-        ARTIFACTORY_URL: ${{ inputs.repox-url }}/artifactory
+        ARTIFACTORY_URL: ${{ inputs.repox-artifactory-url != '' && inputs.repox-artifactory-url ||
+          format('{0}/artifactory', inputs.repox-url) }}
         ARTIFACTORY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME }} # unused; present for backward compliance
         ARTIFACTORY_ACCESS_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME }} # deprecated, backward compliance
         ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}

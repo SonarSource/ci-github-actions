@@ -32,6 +32,9 @@ inputs:
   repox-url:
     description: URL for Repox
     default: https://repox.jfrog.io
+  repox-artifactory-url:
+    description: URL for Repox Artifactory API (overrides repox-url/artifactory if provided)
+    default: ''
   develocity-url:
     description: URL for Develocity
     default: https://develocity.sonar.build/
@@ -136,7 +139,8 @@ runs:
         DEPLOY_PULL_REQUEST: ${{ inputs.deploy-pull-request }}
         PULL_REQUEST: ${{ github.event.pull_request.number || '' }}
         PULL_REQUEST_SHA: ${{ github.event.pull_request.base.sha || '' }}
-        ARTIFACTORY_URL: ${{ inputs.repox-url }}/artifactory
+        ARTIFACTORY_URL: ${{ inputs.repox-artifactory-url != '' && inputs.repox-artifactory-url ||
+          format('{0}/artifactory', inputs.repox-url) }}
         DEVELOCITY_ACCESS_KEY: ${{ inputs.use-develocity == 'true' &&
           format('develocity.sonar.build={0}', fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN) || '' }}
         USER_MAVEN_OPTS: ${{ inputs.maven-opts }}
