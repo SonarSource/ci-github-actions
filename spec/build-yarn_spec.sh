@@ -32,7 +32,6 @@ End
 Mock npm
   case "$*" in
     "--version") echo "10.2.4" ;;
-    "version"*) echo "npm version completed" ;;
     *) echo "npm $*" ;;
   esac
 End
@@ -68,8 +67,11 @@ export SQC_EU_TOKEN="sqc-eu-token"
 export DEPLOY_PULL_REQUEST="false" SKIP_TESTS="false" DEFAULT_BRANCH="main" PULL_REQUEST=""
 
 # Create mock files
-echo '{"version": "1.2.3-SNAPSHOT", "name": "test-project"}' > package.json
-touch yarn.lock
+setup() {
+  echo '{"version": "1.2.3-SNAPSHOT", "name": "test-project"}' > package.json
+  touch yarn.lock
+}
+Before "setup"
 
 # Source shared functions before including build script
 Include shared/common-functions.sh
@@ -85,7 +87,7 @@ Describe 'build-yarn/build.sh'
     End
 
     It 'fails when tool missing'
-      When run check_tool nonexistent --version
+      When call check_tool nonexistent --version
       The status should be failure
       The stderr should include "nonexistent is not installed."
     End
@@ -161,20 +163,31 @@ Describe 'build-yarn/build.sh'
   Describe 'set_project_version()'
     It 'sets version with build number'
       When call set_project_version
-      The variable PROJECT_VERSION should equal "1.2.3-42"
       The variable CURRENT_VERSION should equal "1.2.3-SNAPSHOT"
+      The variable PROJECT_VERSION should equal "1.2.3-42"
+      The lines of output should equal 2
+      The line 1 should equal "Replacing version 1.2.3-SNAPSHOT with 1.2.3-42"
+      The line 2 should start with "npm version"
     End
 
     It 'handles 1-digit versions'
       export MOCK_VERSION="1-SNAPSHOT"
       When call set_project_version
+      The variable CURRENT_VERSION should equal "1-SNAPSHOT"
       The variable PROJECT_VERSION should equal "1.0.0-42"
+      The lines of output should equal 2
+      The line 1 should equal "Replacing version 1-SNAPSHOT with 1.0.0-42"
+      The line 2 should start with "npm version"
     End
 
     It 'handles 2-digit versions'
       export MOCK_VERSION="1.2-SNAPSHOT"
       When call set_project_version
+      The variable CURRENT_VERSION should equal "1.2-SNAPSHOT"
       The variable PROJECT_VERSION should equal "1.2.0-42"
+      The lines of output should equal 2
+      The line 1 should equal "Replacing version 1.2-SNAPSHOT with 1.2.0-42"
+      The line 2 should start with "npm version"
     End
 
     It 'fails on invalid version (null)'
@@ -182,23 +195,27 @@ Describe 'build-yarn/build.sh'
       When run set_project_version
       The status should be failure
       The stderr should include "Could not get version from package.json"
+      The variable CURRENT_VERSION should be undefined
+      The variable PROJECT_VERSION should be undefined
     End
 
     It 'fails on version with more than 3 digits'
       export MOCK_VERSION="1.2.3.4-SNAPSHOT"
-      When run set_project_version
+      When call set_project_version
       The status should be failure
       The stderr should include "Unsupported version"
+      The variable CURRENT_VERSION should equal "1.2.3.4-SNAPSHOT"
+      The variable PROJECT_VERSION should be undefined
     End
   End
 
   Describe 'run_standard_pipeline()'
     It 'runs full pipeline'
-      export PROJECT="test" PROJECT_VERSION="1.2.3-42"
+      export PROJECT="test"
+      export CURRENT_VERSION="1.2.3"
       export BUILD_ENABLE_SONAR="true" BUILD_ENABLE_DEPLOY="true" BUILD_SONAR_ARGS="-Dsonar.branch.name=main"
       When call run_standard_pipeline
       The output should include "Installing yarn dependencies..."
-      The output should include "Setting project version to 1.2.3-42..."
       The output should include "Running tests..."
       The output should include "npx sonarqube-scanner"
       The output should include "Building project..."
@@ -206,7 +223,8 @@ Describe 'build-yarn/build.sh'
     End
 
     It 'skips tests when SKIP_TESTS=true'
-      export SKIP_TESTS="true" PROJECT="test" PROJECT_VERSION="1.2.3-42"
+      export SKIP_TESTS="true" PROJECT="test"
+      export CURRENT_VERSION="1.2.3"
       export BUILD_ENABLE_SONAR="false" BUILD_ENABLE_DEPLOY="false" BUILD_SONAR_ARGS=""
       When call run_standard_pipeline
       The output should include "Skipping tests (SKIP_TESTS=true)"
@@ -270,7 +288,7 @@ Describe 'build-yarn/build.sh'
     End
 
     It 'fails with invalid platform'
-      When run set_sonar_platform_vars "invalid"
+      When call set_sonar_platform_vars "invalid"
       The status should be failure
       The stderr should include "ERROR: Invalid Sonar platform 'invalid'. Must be one of: next, sqc-us, sqc-eu"
     End
@@ -284,7 +302,7 @@ Describe 'build-yarn/build.sh'
       export GITHUB_RUN_ID="12345"
       export GITHUB_SHA="abc123"
       export GITHUB_REPOSITORY="test/repo"
-      export PROJECT_VERSION="1.2.3-42"
+      export CURRENT_VERSION="1.2.3"
       When call sonar_scanner_implementation
       The status should be success
       The output should include "npx sonarqube-scanner -X"
@@ -294,9 +312,8 @@ Describe 'build-yarn/build.sh'
       The output should include "-Dsonar.analysis.pipeline=12345"
       The output should include "-Dsonar.analysis.sha1=abc123"
       The output should include "-Dsonar.analysis.repository=test/repo"
-      The output should include "-Dsonar.projectVersion=1.2.3-42"
+      The output should include "-Dsonar.projectVersion=1.2.3"
       The output should include "-Dsonar.scm.revision=abc123"
-      The output should include "SonarQube scanner finished for platform: sonar.example.com"
     End
 
     It 'runs sonar scanner with region parameter for sqc-us'
@@ -307,11 +324,10 @@ Describe 'build-yarn/build.sh'
       export GITHUB_RUN_ID="12345"
       export GITHUB_SHA="abc123"
       export GITHUB_REPOSITORY="test/repo"
-      export PROJECT_VERSION="1.2.3-42"
+      export CURRENT_VERSION="1.2.3"
       When call sonar_scanner_implementation
       The status should be success
       The output should include "-Dsonar.region=us"
-      The output should include "SonarQube scanner finished for platform: sonarqube-us.example.com"
     End
 
     It 'runs sonar scanner with additional parameters'
@@ -321,7 +337,7 @@ Describe 'build-yarn/build.sh'
       export GITHUB_RUN_ID="12345"
       export GITHUB_SHA="abc123"
       export GITHUB_REPOSITORY="test/repo"
-      export PROJECT_VERSION="1.2.3-42"
+      export CURRENT_VERSION="1.2.3"
       When call sonar_scanner_implementation "-Dsonar.analysis.prNumber=123" "-Dsonar.branch.name=feature"
       The status should be success
       The output should include "-Dsonar.analysis.prNumber=123"
@@ -333,7 +349,7 @@ Describe 'build-yarn/build.sh'
     It 'runs single platform analysis when shadow scans disabled'
       export RUN_SHADOW_SCANS="false"
       export SONAR_PLATFORM="next"
-      export PROJECT_VERSION="1.2.3-42"
+      export CURRENT_VERSION="1.2.3"
       export NEXT_URL="https://next.sonarqube.com"
       export NEXT_TOKEN="next-token"
       export SQC_US_URL="https://sonarqube-us.sonarcloud.io"
@@ -348,14 +364,13 @@ Describe 'build-yarn/build.sh'
       The status should be success
       The output should include "=== ORCHESTRATOR: Running Sonar analysis on selected platform: next ==="
       The output should include "Using Sonar platform: next"
-      The output should include "SonarQube scanner finished for platform: next.sonarqube.com"
       The output should not include "shadow scan enabled"
     End
 
     It 'runs multi-platform analysis when shadow scans enabled'
       export RUN_SHADOW_SCANS="true"
       export SONAR_PLATFORM="next"
-      export PROJECT_VERSION="1.2.3-42"
+      export CURRENT_VERSION="1.2.3"
       export NEXT_URL="https://next.sonarqube.com"
       export NEXT_TOKEN="next-token"
       export SQC_US_URL="https://sonarqube-us.sonarcloud.io"
@@ -376,15 +391,16 @@ Describe 'build-yarn/build.sh'
     End
   End
 
-  Describe 'Shadow scans deployment prevention'
+  Describe 'get_build_config()'
+    export GITHUB_REF_NAME="main"
+    export DEFAULT_BRANCH="main"
+    export BUILD_NUMBER="42"
+    export GITHUB_EVENT_NAME="push"
+    export CURRENT_VERSION="1.2.3-SNAPSHOT"
+    export PROJECT_VERSION="1.2.3-42"
+
     It 'disables deployment when shadow scans enabled on main branch'
-      export GITHUB_REF_NAME="main"
-      export DEFAULT_BRANCH="main"
-      export GITHUB_EVENT_NAME="push"
       export RUN_SHADOW_SCANS="true"
-      export CURRENT_VERSION="1.2.3-SNAPSHOT"
-      export PROJECT_VERSION="1.2.3-42"
-      export BUILD_NUMBER="42"
       When call get_build_config
       The status should be success
       The output should include "======= Shadow scans enabled - disabling deployment to prevent duplicate artifacts ======="
@@ -393,13 +409,7 @@ Describe 'build-yarn/build.sh'
     End
 
     It 'allows deployment when shadow scans disabled on main branch'
-      export GITHUB_REF_NAME="main"
-      export DEFAULT_BRANCH="main"
-      export GITHUB_EVENT_NAME="push"
       export RUN_SHADOW_SCANS="false"
-      export CURRENT_VERSION="1.2.3-SNAPSHOT"
-      export PROJECT_VERSION="1.2.3-42"
-      export BUILD_NUMBER="42"
       When call get_build_config
       The status should be success
       The output should not include "shadow scans enabled"
@@ -469,7 +479,6 @@ Describe 'build-yarn/build.sh'
 
   Describe 'main()'
     It 'runs full build process'
-      BeforeCall 'echo "{\"version\": \"1.2.3-SNAPSHOT\"}" > package.json && touch yarn.lock'
       When run script build-yarn/build.sh
       The status should be success
       The output should include "=== Yarn Build, Deploy, and Analyze ==="

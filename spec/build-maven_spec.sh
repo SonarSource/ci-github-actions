@@ -130,7 +130,7 @@ Describe 'run_sonar_scanner()'
   Mock mvn
     echo "mvn $*"
   End
-  export PROJECT_VERSION="1.2.3.42"
+  export CURRENT_VERSION="1.2.3-SNAPSHOT"
   export SONAR_HOST_URL="https://test.sonarqube.com"
   export SONAR_TOKEN="test-token"
   # COMMON_MVN_FLAGS is now defined in build.sh, no need to redefine it here
@@ -138,21 +138,20 @@ Describe 'run_sonar_scanner()'
   It 'runs sonar scanner with basic properties'
     When call sonar_scanner_implementation
     The status should be success
+    The line 2 should include "mvn"
+    The line 2 should include "org.sonarsource.scanner.maven:sonar-maven-plugin:5.1.0.4751:sonar"
+    The line 2 should include "-Dsonar.host.url=https://test.sonarqube.com"
+    The line 2 should include "-Dsonar.token=test-token"
+    The line 2 should include "-Dsonar.projectVersion=1.2.3-SNAPSHOT"
+    The line 2 should include "-Dsonar.scm.revision=abc123def456"
     The lines of stdout should equal 2
-    The line 1 should include "mvn"
-    The line 1 should include "org.sonarsource.scanner.maven:sonar-maven-plugin:5.1.0.4751:sonar"
-    The line 1 should include "-Dsonar.host.url=https://test.sonarqube.com"
-    The line 1 should include "-Dsonar.token=test-token"
-    The line 1 should include "-Dsonar.projectVersion=1.2.3.42"
-    The line 1 should include "-Dsonar.scm.revision=abc123def456"
-    The line 2 should include "SonarQube scanner finished for platform: test.sonarqube.com"
   End
 
   It 'runs sonar scanner with additional parameters'
     When call sonar_scanner_implementation "-Dsonar.pullrequest.key=123"
     The status should be success
+    The line 2 should include "-Dsonar.pullrequest.key=123"
     The lines of stdout should equal 2
-    The line 1 should include "-Dsonar.pullrequest.key=123"
   End
 End
 
@@ -181,18 +180,18 @@ Describe 'orchestrate_sonar_platforms()'
     export RUN_SHADOW_SCANS="true"
     When call orchestrate_sonar_platforms "-Dsome.property=value"
     The status should be success
-    The lines of stdout should equal 11
+    The lines of stdout should equal 17
     The line 1 should include "ORCHESTRATOR: Running Sonar analysis on all platforms (shadow scan enabled)"
-    The line 2 should include "--- ORCHESTRATOR: Analyzing with platform: next ---"
-    The line 3 should include "Using Sonar platform: next"
-    The line 4 should include "sonar_scanner_implementation -Dsome.property=value"
-    The line 5 should include "--- ORCHESTRATOR: Analyzing with platform: sqc-us ---"
-    The line 6 should include "Using Sonar platform: sqc-us"
-    The line 7 should include "sonar_scanner_implementation -Dsome.property=value"
-    The line 8 should include "--- ORCHESTRATOR: Analyzing with platform: sqc-eu ---"
-    The line 9 should include "Using Sonar platform: sqc-eu"
+    The line 3 should include "--- ORCHESTRATOR: Analyzing with platform: next ---"
+    The line 4 should include "Using Sonar platform: next"
+    The line 5 should include "sonar_scanner_implementation -Dsome.property=value"
+    The line 8 should include "--- ORCHESTRATOR: Analyzing with platform: sqc-us ---"
+    The line 9 should include "Using Sonar platform: sqc-us"
     The line 10 should include "sonar_scanner_implementation -Dsome.property=value"
-    The line 11 should include "ORCHESTRATOR: Completed Sonar analysis on all platforms"
+    The line 13 should include "--- ORCHESTRATOR: Analyzing with platform: sqc-eu ---"
+    The line 14 should include "Using Sonar platform: sqc-eu"
+    The line 15 should include "sonar_scanner_implementation -Dsome.property=value"
+    The line 17 should include "ORCHESTRATOR: Completed Sonar analysis on all platforms"
   End
 End
 
@@ -243,6 +242,7 @@ Describe 'set_project_version()'
     The lines of stdout should equal 2
     The line 1 should include "Replacing version 1.2.3-SNAPSHOT with 1.2.3.42"
     The line 2 should match pattern "mvn --settings * org.codehaus.mojo:versions-maven-plugin*newVersion=1.2.3.42*"
+    The variable CURRENT_VERSION should equal "1.2.3-SNAPSHOT"
     The variable PROJECT_VERSION should equal "1.2.3.42"
   End
 
@@ -256,6 +256,7 @@ Describe 'set_project_version()'
     When call set_project_version
     The lines of stdout should equal 2
     The line 1 should include "Replacing version 1-SNAPSHOT with 1.0.0.42"
+    The variable CURRENT_VERSION should equal "1-SNAPSHOT"
     The variable PROJECT_VERSION should equal "1.0.0.42"
   End
 
@@ -269,6 +270,7 @@ Describe 'set_project_version()'
     When call set_project_version
     The lines of stdout should equal 2
     The line 1 should include "Replacing version 1.2-SNAPSHOT with 1.2.0.42"
+    The variable CURRENT_VERSION should equal "1.2-SNAPSHOT"
     The variable PROJECT_VERSION should equal "1.2.0.42"
   End
 
@@ -283,6 +285,7 @@ Describe 'set_project_version()'
     The status should be failure
     The lines of stdout should equal 1
     The line 1 should include "Unsupported version '1.2.3.4-SNAPSHOT' with 4 digits"
+    The variable CURRENT_VERSION should equal "1.2.3.4-SNAPSHOT"
     The variable PROJECT_VERSION should be undefined
   End
 
@@ -294,9 +297,9 @@ Describe 'set_project_version()'
       esac
     End
     When call set_project_version
-    The lines of stdout should equal 2
-    The line 1 should include "Found RELEASE version on maintenance branch"
-    The line 2 should include "Skipping version update"
+    The lines of stdout should equal 1
+    The line 1 should equal "Found RELEASE version on maintenance branch: 1.2.3.42. Skipping version update."
+    The variable CURRENT_VERSION should equal "1.2.3.42"
     The variable PROJECT_VERSION should equal "1.2.3.42"
   End
 
@@ -309,9 +312,9 @@ Describe 'set_project_version()'
     End
     When call set_project_version
     The status should be failure
-    The lines of stdout should equal 2
-    The line 1 should include "Found RELEASE version on maintenance branch"
-    The line 2 should include "Unsupported version '1.2.3' with 3 digits"
+    The lines of stdout should equal 1
+    The line 1 should include "Unsupported version '1.2.3' with 3 digits."
+    The variable CURRENT_VERSION should equal "1.2.3"
     The variable PROJECT_VERSION should be undefined
   End
 
@@ -329,6 +332,8 @@ Describe 'set_project_version()'
     The line 2 should equal "ERROR: Something went wrong"
     The line 3 should equal "Failed to evaluate Maven expression 'project.version'"
     The line 4 should equal "Something went wrong"
+    The variable CURRENT_VERSION should be undefined
+    The variable PROJECT_VERSION should be undefined
   End
 
   It 'fails when Maven settings.xml is missing'
@@ -337,6 +342,7 @@ Describe 'set_project_version()'
     The status should be failure
     The lines of stdout should equal 1
     The line 1 should include "Maven settings.xml file not found at $MAVEN_SETTINGS"
+    The variable CURRENT_VERSION should be undefined
     The variable PROJECT_VERSION should be undefined
     unset MAVEN_SETTINGS
   End

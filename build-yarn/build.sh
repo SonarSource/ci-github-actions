@@ -124,8 +124,7 @@ set_project_version() {
     echo "Could not get version from ${PACKAGE_JSON}" >&2
     exit 1
   fi
-
-  export CURRENT_VERSION="${current_version}"
+  export CURRENT_VERSION=$current_version
 
   # Calculate version with build ID for all branch types
   release_version="${current_version%"-SNAPSHOT"}"
@@ -140,10 +139,11 @@ set_project_version() {
     echo "ERROR: Unsupported version '$current_version' with $digit_count digits. Expected 1-3 digits (e.g., '1', '1.2', or '1.2.3')." >&2
     return 1
   fi
-  PROJECT_VERSION="${release_version}-${BUILD_NUMBER}"
-
-  export PROJECT_VERSION
-  echo "project-version=${PROJECT_VERSION}" >> "${GITHUB_OUTPUT}"
+  release_version="${release_version}-${BUILD_NUMBER}"
+  echo "Replacing version $current_version with $release_version"
+  npm version --no-git-tag-version --allow-same-version "${release_version}"
+  echo "project-version=${release_version}" >> "${GITHUB_OUTPUT}"
+  export PROJECT_VERSION=$release_version
 }
 
 # CALLBACK IMPLEMENTATION: SonarQube scanner execution
@@ -163,7 +163,7 @@ sonar_scanner_implementation() {
     scanner_args+=("-Dsonar.analysis.pipeline=${GITHUB_RUN_ID}")
     scanner_args+=("-Dsonar.analysis.sha1=${GITHUB_SHA}")
     scanner_args+=("-Dsonar.analysis.repository=${GITHUB_REPOSITORY}")
-    scanner_args+=("-Dsonar.projectVersion=${PROJECT_VERSION}")
+    scanner_args+=("-Dsonar.projectVersion=${CURRENT_VERSION}")
     scanner_args+=("-Dsonar.scm.revision=${GITHUB_SHA}")
 
     # Add region parameter only for sqc-us platform
@@ -173,8 +173,8 @@ sonar_scanner_implementation() {
 
     scanner_args+=("${additional_params[@]+\"${additional_params[@]}\"}")
 
+    echo "npx command: npx sonarqube-scanner -X ${scanner_args[*]}"
     npx sonarqube-scanner -X "${scanner_args[@]}"
-    echo "SonarQube scanner finished for platform: $(basename "$SONAR_HOST_URL")"
 }
 
 jfrog_yarn_publish() {
@@ -220,23 +220,17 @@ get_build_config() {
 
   if is_default_branch && ! is_pull_request; then
     echo "======= Building main branch ======="
-    echo "Current version: ${CURRENT_VERSION}"
-    echo "Checked version format: ${PROJECT_VERSION}."
-
     enable_sonar=true
     enable_deploy=true
-    sonar_args=("-Dsonar.projectVersion=${CURRENT_VERSION}")
 
   elif is_maintenance_branch && ! is_pull_request; then
     echo "======= Building maintenance branch ======="
-
     enable_sonar=true
     enable_deploy=true
     sonar_args=("-Dsonar.branch.name=${GITHUB_REF_NAME}")
 
   elif is_pull_request; then
     echo "======= Building pull request ======="
-
     enable_sonar=true
     sonar_args=("-Dsonar.analysis.prNumber=${PULL_REQUEST}")
 
@@ -281,9 +275,6 @@ get_build_config() {
 run_standard_pipeline() {
   echo "Installing yarn dependencies..."
   yarn install --immutable
-
-  echo "Setting project version to ${PROJECT_VERSION}..."
-  npm version --no-git-tag-version --allow-same-version "${PROJECT_VERSION}"
 
   if [ "$SKIP_TESTS" != "true" ]; then
     echo "Running tests..."
