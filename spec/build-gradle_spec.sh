@@ -6,7 +6,7 @@ Mock java
   echo "java $*"
 End
 Mock gradle
-  if [[ "$*" == "properties --no-scan" ]]; then
+  if [[ "$*" == "properties --no-scan --no-daemon --console plain" ]]; then
     echo "version: 1.2.3-SNAPSHOT"
   else
     echo "gradle $*"

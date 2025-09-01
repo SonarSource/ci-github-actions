@@ -86,9 +86,8 @@ set_build_env() {
 }
 
 set_project_version() {
-  current_version=$($GRADLE_CMD properties --no-scan | grep 'version:' | tr -d "[:space:]" | cut -d ":" -f 2)
+  current_version=$($GRADLE_CMD properties --no-scan --no-daemon --console plain | grep 'version:' | tr -d "[:space:]" | cut -d ":" -f 2)
   export CURRENT_VERSION=$current_version
-
   release_version="${current_version/-SNAPSHOT/}"
   if [[ "${release_version}" =~ ^[0-9]+\.[0-9]+$ ]]; then
     release_version="${release_version}.0"
@@ -254,6 +253,9 @@ gradle_build() {
 }
 
 main() {
+  # Unsetting JAVA_HOME fixes an issue on GitHub hosted Windows runners, where JAVA_HOME is set by default
+  # and Gradle prioritizes this JDK instead of using the JDK from the path.
+  unset JAVA_HOME
   command_exists java -version
   set_gradle_cmd
   set_build_env
