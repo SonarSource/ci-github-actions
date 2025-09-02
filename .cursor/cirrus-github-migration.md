@@ -90,20 +90,30 @@ Update this section when newer versions are released:
 
 - [ ] `version: 2025.7.12` parameter included
 
+### Workflow Configuration
+
+- [ ] **Concurrency**: Defined at workflow level (not job level)
+- [ ] **Standard triggers**: push, pull_request, workflow_dispatch
+- [ ] **Runner selection**: Correct runner based on **GitHub Actions Runner Selection** section
+
 ## Pre-Migration Checklist
 
 1. ✅ Identify the project type (Maven, Gradle, Poetry, etc.)
-2. ✅ **Check for cirrus-modules usage**: Look for `.cirrus.star` file - if present,
-   see [Cirrus-Modules Migration section](#migrating-repositories-using-cirrus-modules)
-3. ✅ Check existing `.github/workflows/` for conflicts
-4. ✅ Understand the current Cirrus CI configuration patterns
-5. ✅ **CRITICAL**: Verify repository visibility (public vs private)
+2. ✅ **CRITICAL**: Verify repository visibility (public vs private)
+    - **Auto-detection**: Repository visibility is automatically inferred from `ARTIFACTORY_DEPLOY_REPO` value:
+      - `sonarsource-private-qa` → Private repository configuration
+      - `sonarsource-public-qa` → Public repository configuration
     - Public repos → Use `ubuntu-24.04-large` runners for SonarSource custom actions
     - Private repos → Use `sonar-xs` runners (recommended)
+3. ✅ **Check for cirrus-modules usage**: Look for `.cirrus.star` file - if present,
+   see [Cirrus-Modules Migration section](#migrating-repositories-using-cirrus-modules)
+4. ✅ Check existing `.github/workflows/` for conflicts
+5. ✅ Understand the current Cirrus CI configuration patterns
 6. ✅ **SECURITY**: Review third-party actions and pin to commit SHAs
 7. Runner type selected (see  **GitHub Actions Runner Selection**)
 8. All required action versions copied from Action Versions Table
 9. Tool versions identified from existing configuration
+10. ✅ **Repository visibility detection**: Check `.cirrus.yml` for `ARTIFACTORY_DEPLOY_REPO` value
 
 ⚠️ **CRITICAL**: During migration, leave `.cirrus.yml` unchanged. Both Cirrus CI and GitHub Actions should coexist during the transition
 period.
@@ -234,13 +244,13 @@ Follow these security principles during migration:
 # Cirrus CI format
 SONAR_TOKEN: VAULT[development/kv/data/sonarcloud data.token]
 
-# GitHub Actions format - remove 'data.' prefix
+# GitHub Actions format - remove 'data.' prefix, used by vault-action-wrapper
 secrets: |
   development/kv/data/sonarcloud token | SONAR_TOKEN;
 ```
 
-**Key difference**: In GitHub Actions vault paths, use the field name directly (e.g., `token`, `url`) instead of
-the Cirrus CI format (`data.token`, `data.url`).
+**Key difference**: In GitHub Actions, the `vault-action-wrapper` uses the field name directly (e.g., `token`, `url`) instead of
+the Cirrus CI format (`data.token`, `data.url`). The `vault-action-wrapper` is automatically used by all SonarSource custom actions.
 
 ## Tool Setup with Mise
 
@@ -292,9 +302,6 @@ on:
 
 jobs:
   build:
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-      cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
     runs-on: sonar-xs  # For private repos; use ubuntu-24.04-large for public repos
     name: Build
     permissions:
@@ -311,9 +318,6 @@ jobs:
 
   promote:
     needs: [ build ]
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-      cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
     runs-on: sonar-xs
     name: Promote
     permissions:
@@ -336,6 +340,92 @@ jobs:
 [SonarSource/ci-github-actions](https://github.com/SonarSource/ci-github-actions/)
 repository is public and contains the most up-to-date documentation, examples, and usage
 instructions for all custom actions.
+
+### SonarSource Vault Integration
+
+All SonarSource custom actions use the `vault-action-wrapper` to securely fetch secrets from HashiCorp Vault using OIDC
+authentication. **You don't need to use this action directly** - it's automatically integrated into all build and promote actions.
+
+#### vault-action-wrapper
+
+Fetches secrets from HashiCorp Vault using GitHub OIDC authentication.
+
+```yaml
+- name: Vault
+  id: secrets
+  uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # v3.1.0
+  with:
+    secrets: |
+      development/artifactory/token/{REPO_OWNER_NAME_DASH}-private-reader access_token | ARTIFACTORY_ACCESS_TOKEN;
+      development/kv/data/next url | SONAR_HOST_URL;
+      development/kv/data/next token | SONAR_TOKEN;
+```
+
+**Key Features:**
+
+- **OIDC Authentication**: No stored secrets required - uses GitHub OIDC tokens
+- **Dynamic Path Resolution**: `{REPO_OWNER_NAME_DASH}` automatically replaced with repository path
+- **Multi-Secret Fetch**: Fetch multiple secrets in a single action call
+- **JSON Output**: Secrets available via `fromJSON(steps.secrets.outputs.vault).SECRET_NAME`
+- **Required permissions:** `id-token: write`
+
+**Vault Path Format Differences from Cirrus CI:**
+
+```yaml
+# Cirrus CI format
+SONAR_TOKEN: VAULT[development/kv/data/sonarcloud data.token]
+
+# GitHub Actions vault-wrapper format - remove 'data.' prefix
+secrets: |
+  development/kv/data/sonarcloud token | SONAR_TOKEN;
+```
+
+**Usage in Environment Variables:**
+
+```yaml
+- name: Build step
+  env:
+    SONAR_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_TOKEN }}
+    SONAR_HOST_URL: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_HOST_URL }}
+    ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
+  run: ./build.sh
+```
+
+**Common Vault Paths Used by SonarSource Actions:**
+
+| Secret Type | Vault Path | Usage |
+|-------------|------------|-------|
+| **Artifactory Reader** | `development/artifactory/token/{REPO_OWNER_NAME_DASH}-private-reader` | Reading dependencies |
+| **Artifactory Deployer** | `development/artifactory/token/{REPO_OWNER_NAME_DASH}-qa-deployer` | Deploying artifacts |
+| **Artifactory Promoter** | `development/artifactory/token/{REPO_OWNER_NAME_DASH}-promoter` | Promoting builds |
+| **SonarQube Next** | `development/kv/data/next` | Primary SonarQube platform |
+| **SonarCloud EU** | `development/kv/data/sonarcloud` | SonarCloud European platform |
+| **SonarQube US** | `development/kv/data/sonarqube-us` | SonarQube US platform |
+| **Code Signing** | `development/kv/data/sign` | JAR/artifact signing |
+| **GitHub Token** | `development/github/token/{REPO_OWNER_NAME_DASH}-promotion` | GitHub API operations |
+
+**❌ Manual Usage Not Recommended:**
+
+Since all SonarSource custom actions automatically handle vault secret fetching, you should **avoid using
+vault-action-wrapper manually** unless you have specific requirements not covered by the build actions.
+
+```yaml
+# ❌ AVOID - Manual vault usage when build actions are sufficient
+- name: Vault
+  id: secrets
+  uses: SonarSource/vault-action-wrapper@v3.1.0
+  with:
+    secrets: |
+      development/kv/data/next token | SONAR_TOKEN;
+- name: Manual build
+  env:
+    SONAR_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_TOKEN }}
+  run: mvn sonar:sonar
+
+# ✅ PREFERRED - Use integrated build action
+- uses: SonarSource/ci-github-actions/build-maven@v1
+  # Vault secrets handled automatically
+```
 
 ### Required Actions for All Projects
 
@@ -456,6 +546,33 @@ common when the repository content is public but the project needs access to pri
     repox-url: https://repox.jfrog.io                 # Repox URL
     sonar-platform: next                              # SonarQube platform: next/sqc-eu/sqc-us
 ```
+
+##### Migrating Gradle Parameters from regular_gradle_build_deploy_analyze
+
+When migrating from Cirrus CI, parameters passed to `regular_gradle_build_deploy_analyze` should be moved to the `gradle-args` parameter:
+
+**Cirrus CI Pattern**:
+
+```yaml
+# .cirrus.yml
+build_script:
+  - source cirrus-env BUILD-PRIVATE
+  - regular_gradle_build_deploy_analyze -PexecuteSpotless -Dscan.tag.CI
+```
+
+**GitHub Actions Migration**:
+
+```yaml
+- uses: SonarSource/ci-github-actions/build-gradle@v1
+  with:
+    gradle-args: "-PexecuteSpotless -Dscan.tag.CI"  # All parameters from regular_gradle_build_deploy_analyze
+```
+
+**Migration Steps**:
+
+1. Find `regular_gradle_build_deploy_analyze` call in `.cirrus.yml`
+2. Copy all parameters after the function name
+3. Add them to `gradle-args` parameter in GitHub Actions
 
 **Features:**
 
@@ -936,12 +1053,45 @@ promote:
 
 ### 4. Concurrency Control
 
-Always use this pattern to prevent conflicts:
+**RECOMMENDED**: Define concurrency at workflow level (cleaner and simpler):
 
 ```yaml
+name: Build
+on:
+  push:
+    branches: [master, branch-*, dogfood-*]
+  pull_request:
+  merge_group:
+  workflow_dispatch:
+
+# ✅ Workflow-level concurrency - RECOMMENDED
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
+
+jobs:
+  build:
+    # No job-level concurrency needed
+    runs-on: sonar-xs
+  promote:
+    # No job-level concurrency needed
+    needs: [build]
+    runs-on: sonar-xs
+```
+
+**Avoid**: Job-level concurrency duplication (more complex, error-prone):
+
+```yaml
+# ❌ Job-level concurrency - NOT RECOMMENDED
+jobs:
+  build:
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
+  promote:
+    concurrency:  # Duplicated configuration
+      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
 ```
 
 ### 5. Required Permissions
@@ -974,22 +1124,70 @@ env:
 
 ## Repository-Specific Configurations
 
-### Public vs Private Repositories
+### Repository Visibility Detection and Configuration
+
+Repository visibility is automatically detected using multiple indicators:
+
+1. **Primary Detection**: GitHub repository visibility (public/private)
+2. **Secondary Detection**: `ARTIFACTORY_DEPLOY_REPO` value in `.cirrus.yml`
+3. **Override Detection**: Specific vault patterns for artifactory roles
+
+#### Automatic Repository Visibility Detection
 
 ```yaml
-# Both private and public repositories - auto-detected behavior
+# Detection from ARTIFACTORY_DEPLOY_REPO in .cirrus.yml
+env:
+  ARTIFACTORY_DEPLOY_REPO: sonarsource-private-qa  # → Detected as private repository
+  # OR
+  ARTIFACTORY_DEPLOY_REPO: sonarsource-public-qa   # → Detected as public repository
+```
+
+#### Configuration Results by Repository Type
+
+**Private Repository** (`ARTIFACTORY_DEPLOY_REPO: sonarsource-private-qa`):
+
+```yaml
+# Auto-detected configuration - no overrides needed
 - uses: SonarSource/ci-github-actions/build-maven@v1
   with:
     deploy-pull-request: true
-    # public parameter auto-detected from repository visibility:
-    #   - Private repo → public: false (uses private-reader, qa-deployer roles)
-    #   - Public repo → public: true (uses public-reader, public-deployer roles)
-    # artifactory roles are also auto-detected based on repository visibility
+    # Automatically uses:
+    # - Runner: sonar-xs
+    # - Artifactory reader role: private-reader
+    # - Artifactory deployer role: qa-deployer
+    # - public: false
 ```
 
-**Key Point**: Repository visibility is automatically detected. The `public` parameter and
-Artifactory roles are determined based on whether your GitHub repository is public or private.
-Only override if you have specific requirements.
+**Public Repository** (`ARTIFACTORY_DEPLOY_REPO: sonarsource-public-qa`):
+
+```yaml
+# Auto-detected configuration - no overrides needed
+- uses: SonarSource/ci-github-actions/build-maven@v1
+  with:
+    deploy-pull-request: true
+    # Automatically uses:
+    # - Runner: ubuntu-24.04-large (for auth actions)
+    # - Artifactory reader role: public-reader
+    # - Artifactory deployer role: public-deployer
+    # - public: true
+```
+
+**Public Repository with Private Access** (Mixed configuration):
+
+```yaml
+# Manual override required when .cirrus.yml contains:
+# ARTIFACTORY_DEPLOY_REPO: sonarsource-private-qa (but repo is public)
+# ARTIFACTORY_PRIVATE_PASSWORD: VAULT[...private-reader...]
+- uses: SonarSource/ci-github-actions/build-maven@v1
+  with:
+    deploy-pull-request: true
+    artifactory-reader-role: private-reader    # Override auto-detection
+    artifactory-deployer-role: qa-deployer     # Override auto-detection
+```
+
+**Key Point**: Repository visibility is automatically detected from the `ARTIFACTORY_DEPLOY_REPO` value in `.cirrus.yml`.
+The `public` parameter and Artifactory roles are determined based on this value and GitHub repository visibility.
+Only override if you have specific requirements (e.g., public repo needing private Artifactory access).
 
 ## Migration Checklist
 
@@ -1012,7 +1210,10 @@ Only override if you have specific requirements.
 
 - [ ] Add standard triggers (push, PR, merge_group, workflow_dispatch)
 - [ ] Select appropriate runner type (sonar-xs for private repos)
-- [ ] Configure concurrency control
+- [ ] **Configure concurrency control**:
+  - [ ] **RECOMMENDED**: Add workflow-level concurrency (cleaner)
+  - [ ] **AVOID**: Job-level concurrency duplication
+  - [ ] Verify concurrency is defined only at workflow level, not job level
 - [ ] Add checkout, mise steps
 - [ ] Add appropriate build action (maven/gradle/poetry)
 - [ ] **Verify Overriding Artifactory Roles**:
@@ -1264,6 +1465,60 @@ This workflow automatically:
    manually - use the comprehensive SonarSource custom actions instead
 8. **Security**: Ensure third-party actions are pinned to commit SHA
 9. **Script injection**: Never use untrusted input directly in shell commands
+10. **Vault authentication**: Ensure `id-token: write` permission is set for OIDC authentication
+11. **Vault permissions**: Check that repository has required vault permissions in `re-terraform-aws-vault/orders`
+
+### Vault Troubleshooting
+
+**Common Vault Issues:**
+
+1. **Authentication Errors**:
+   ```yaml
+   Error: failed to authenticate: [403] permission denied
+   ```
+   **Solution**: Ensure `id-token: write` permission is set in job permissions
+
+2. **Missing Vault Permissions**:
+   ```yaml
+   Error: failed to read secret: [403] 1 error occurred: permission denied
+   ```
+   **Solution**: Verify repository has required vault permissions in `re-terraform-aws-vault/orders`
+
+3. **Vault Path Format Issues**:
+   ```yaml
+   # ❌ WRONG - Using Cirrus CI format
+   secrets: |
+     development/kv/data/next data.token | SONAR_TOKEN;
+
+   # ✅ CORRECT - GitHub Actions format
+   secrets: |
+     development/kv/data/next token | SONAR_TOKEN;
+   ```
+
+4. **Dynamic Path Resolution Errors**:
+   ```yaml
+   Error: failed to resolve path: {REPO_OWNER_NAME_DASH} not found
+   ```
+   **Solution**: Ensure path uses correct placeholder format and repository name matches vault configuration
+
+**Vault Permissions Verification:**
+
+Check your repository's vault configuration in `re-terraform-aws-vault/orders/your-repository.yml`:
+
+```yaml
+your-repository:
+  auth:
+    github: {}  # Required for OIDC authentication
+  secrets:
+    artifactory:
+      roles:
+        - *artifactory_private-reader    # For private repos
+        - *artifactory_qa-deployer       # For private repos
+        - *artifactory_promoter          # For promotion
+    kv_paths:
+      development/kv/data/next: {}       # For SonarQube analysis
+      development/kv/data/sign: {}       # For artifact signing
+```
 
 ### Security Troubleshooting
 
