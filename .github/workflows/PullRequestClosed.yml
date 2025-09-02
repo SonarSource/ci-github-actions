@@ -9,7 +9,7 @@ on:
 jobs:
   PullRequestClosed_job:
     name: Pull Request Closed
-    runs-on: ubuntu-24.04-large
+    runs-on: github-ubuntu-latest-s
     permissions:
       id-token: write
       pull-requests: read
