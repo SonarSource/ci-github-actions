@@ -15,12 +15,13 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Get build number
-      uses: SonarSource/ci-github-actions/get-build-number@master
     - name: Set build parameters
       shell: bash
       run: |
         cp ${GITHUB_ACTION_PATH}/mise.local.toml mise.local.toml
+        mkdir .actions/
+        ln -s "${GITHUB_ACTION_PATH}/../get-build-number" .actions/get-build-number
+    - uses: ./.actions/get-build-number
     - name: Vault
       id: secrets
       uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0

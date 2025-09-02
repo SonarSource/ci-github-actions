@@ -679,9 +679,8 @@ jobs:
           path: |
             ~/.cache/pip
             ~/.cache/maven
-          key: ${{ runner.os }}-cache-${{ hashFiles('**/requirements.txt', '**/pom.xml') }}
-          restore-keys: |
-            cache-${{ runner.os }}
+          key: cache-${{ runner.os }}-${{ hashFiles('**/requirements.txt', '**/pom.xml') }}
+          restore-keys: cache-${{ runner.os }}-
 ```
 
 ### Inputs

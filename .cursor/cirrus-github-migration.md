@@ -657,9 +657,8 @@ Adaptive cache action that automatically chooses the appropriate caching backend
     path: |
       ~/.m2/repository
       ~/.cache/pip
-    key: ${{ runner.os }}-cache-${{ hashFiles('**/pom.xml', '**/requirements.txt') }}
-    restore-keys: |
-      ${{ runner.os }}-cache
+    key: cache-${{ runner.os }}-${{ hashFiles('**/pom.xml', '**/requirements.txt') }}
+    restore-keys: cache-${{ runner.os }}-
     # Optional parameters
     upload-chunk-size: ""                           # Chunk size for large files (bytes)
     enableCrossOsArchive: false                     # Allow cross-platform cache restore
