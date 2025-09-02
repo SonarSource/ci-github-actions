@@ -50,8 +50,6 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Get build number
-      uses: SonarSource/ci-github-actions/get-build-number@master
     - name: Set build parameters
       shell: bash
       env:
@@ -62,25 +60,23 @@ runs:
       run: |
         echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_DEPLOYER_ROLE=${ARTIFACTORY_DEPLOYER_ROLE}" >> "$GITHUB_ENV"
-
-    - name: Setup build tools
-      shell: bash
-      run: |
         cp ${GITHUB_ACTION_PATH}/mise.local.toml mise.local.toml
-
+        mkdir .actions/
+        ln -s "${GITHUB_ACTION_PATH}/../get-build-number" .actions/get-build-number
+        ln -s "${GITHUB_ACTION_PATH}/../cache" .actions/cache
+    - uses: ./.actions/get-build-number
     - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
       with:
         version: 2025.7.12
 
     - name: Cache Yarn dependencies
       if: ${{ inputs.cache-yarn == 'true' }}
-      uses: SonarSource/ci-github-actions/cache@master
+      uses: ./.actions/cache
       with:
         path: |
           ~/.yarn
         key: yarn-${{ runner.os }}-${{ hashFiles('**/yarn.lock') }}
-        restore-keys: |
-          yarn-${{ runner.os }}-
+        restore-keys: yarn-${{ runner.os }}-
 
     - name: Vault
       # yamllint disable rule:line-length
