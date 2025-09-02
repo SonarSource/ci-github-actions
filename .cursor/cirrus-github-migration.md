@@ -58,8 +58,7 @@ When updating this migration guide:
     SONAR_HOST_URL: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_HOST_URL }}
 ```
 
-⚠️ CRITICAL - `sonarsource/sonarqube-scan-action` requires to be running on `sonar-runner-large` for private repository and
-`ubuntu-24.04-large` for public repositories.
+⚠️ CRITICAL - `sonarsource/sonarqube-scan-action` requires to be running on `github-ubuntu-latest-s` runner.
 
 ## ✅ VALIDATION CHECKLIST
 
@@ -103,8 +102,6 @@ Update this section when newer versions are released:
     - **Auto-detection**: Repository visibility is automatically inferred from `ARTIFACTORY_DEPLOY_REPO` value:
       - `sonarsource-private-qa` → Private repository configuration
       - `sonarsource-public-qa` → Public repository configuration
-    - Public repos → Use `ubuntu-24.04-large` runners for SonarSource custom actions
-    - Private repos → Use `sonar-xs` runners (recommended)
 3. ✅ **Check for cirrus-modules usage**: Look for `.cirrus.star` file - if present,
    see [Cirrus-Modules Migration section](#migrating-repositories-using-cirrus-modules)
 4. ✅ Check existing `.github/workflows/` for conflicts
@@ -300,9 +297,13 @@ on:
   merge_group:
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
-    runs-on: sonar-xs  # For private repos; use ubuntu-24.04-large for public repos
+    runs-on: sonar-xs  # For private repos; use github-ubuntu-latest-s for public repos
     name: Build
     permissions:
       id-token: write  # Required for Vault OIDC authentication
@@ -318,7 +319,7 @@ jobs:
 
   promote:
     needs: [ build ]
-    runs-on: sonar-xs
+    runs-on: sonar-xs  # Private repos default; use github-ubuntu-latest-s for public repos
     name: Promote
     permissions:
       id-token: write
@@ -388,7 +389,7 @@ secrets: |
     SONAR_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_TOKEN }}
     SONAR_HOST_URL: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_HOST_URL }}
     ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
-  run: ./build.sh
+  uses: SonarSource/ci-github-actions/build-maven@v1
 ```
 
 **Common Vault Paths Used by SonarSource Actions:**
@@ -413,14 +414,16 @@ vault-action-wrapper manually** unless you have specific requirements not covere
 # ❌ AVOID - Manual vault usage when build actions are sufficient
 - name: Vault
   id: secrets
-  uses: SonarSource/vault-action-wrapper@v3.1.0
+  uses: SonarSource/vault-action-wrapper@v3
   with:
     secrets: |
-      development/kv/data/next token | SONAR_TOKEN;
-- name: Manual build
+      development/artifactory/token/{REPO_OWNER_NAME_DASH}-private-reader username | ARTIFACTORY_USERNAME;
+      development/artifactory/token/{REPO_OWNER_NAME_DASH}-private-reader access_token | ARTIFACTORY_ACCESS_TOKEN;
+- name: Build
   env:
-    SONAR_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_TOKEN }}
-  run: mvn sonar:sonar
+    ARTIFACTORY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME }}
+    ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
+  uses: SonarSource/ci-github-actions/build-maven@v1
 
 # ✅ PREFERRED - Use integrated build action
 - uses: SonarSource/ci-github-actions/build-maven@v1
@@ -872,7 +875,7 @@ You don't need to specify any of these environment variables or vault secrets ma
 
 | Cirrus CI            | GitHub Actions           |
 |----------------------|--------------------------|
-| `eks_container`      | `runs-on: sonar-xs`      |
+| `eks_container`      | `runs-on: sonar-xs` (private) / `github-ubuntu-latest-s` (public) |
 | `cpu: 2, memory: 2G` | Runner handles resources |
 | Custom images        | Use mise for tools       |
 
@@ -888,29 +891,102 @@ eks_container:
 
 **GitHub Actions Runner Selection**:
 
-⚠️ **IMPORTANT**: Before selecting a runner, verify if your repository is **public** or **private**:
+⚠️ **IMPORTANT**: Before selecting a runner, verify if your repository is **public** or **private**, and whether you need
 
-- Check your GitHub repository settings → General → Repository visibility
-- Public repositories are visible to everyone on GitHub
-- Private repositories are only visible to you and people you share them with
+### Runner Decision Matrix
 
-| Runner Type               | OS         | Label                                                       | Usage                                            |
-|---------------------------|------------|-------------------------------------------------------------|--------------------------------------------------|
-| GitHub-Hosted             | Ubuntu     | `ubuntu-24.04`                                              | Public repos, no auth actions                    |
-| **GitHub-Hosted Large**   | **Ubuntu** | **`ubuntu-24.04-large`**                                    | **Public repos, auth actions, Docker-in-Docker** |
-| GitHub-Hosted Large       | Ubuntu ARM | `ubuntu-24.04-arm-large`                                    | Public repos, ARM builds                         |
-| GitHub-Hosted Large       | Windows    | `windows-latest-large`                                      | Public repos, Windows builds                     |
-| Self-Hosted Large         | Ubuntu     | `sonar-runner-large`                                        | Private repos, Docker-in-Docker                  |
-| Self-Hosted Large         | Ubuntu ARM | `sonar-runner-large-arm`                                    | Private repos, ARM builds                        |
-| **Self-Hosted On-Demand** | **Ubuntu** | **`sonar-xs`, `sonar-s`, `sonar-m`, `sonar-l`, `sonar-xl`** | **Recommended for private repos**                |
-| Self-Hosted Sidecar       | Ubuntu     | `sonar-se-xs`, `sonar-se-m`                                 | Private repos with Kubernetes sidecar            |
-| Self-Hosted ARM           | Ubuntu ARM | `sonar-arm-s`                                               | Private repos, ARM builds                        |
+| Repository | Docker-in-Docker? | Internal Tools? | Recommended Runner | Notes |
+|------------|-------------------|-----------------|-------------------|-------|
+| **Public** | Maybe | No | **GitHub-hosted** (`github-*`) | **Default for public repositories** |
+| **Public** | Maybe | Yes | **Public Self-hosted** (`sonar-*-public`) | Unified connectivity, access approval required |
+| **Private** | No | Maybe | **Self-hosted EKS** (`sonar-*`) | **Default for private repositories** |
+| **Private** | Yes | Maybe | **Custom GitHub-hosted** (`github-*`) | Required for DIND support |
 
-**Runner Selection Guide**:
+### Custom GitHub-Hosted Runners (for public repos and DIND)
 
-- **Public Repository + SonarSource Custom Actions**: Use `ubuntu-24.04-large`
-- **Private Repository**: Use `sonar-xs` (scale up as needed: `sonar-s`, `sonar-m`, etc.)
-- **Public Repository + No Auth Actions**: Use `ubuntu-24.04`
+**Used for**:
+
+- Public repositories
+- Private repositories that require Docker-in-Docker
+
+**Available sizes**:
+
+- `github-ubuntu-latest-s`
+- `github-ubuntu-24.04-arm-s`
+- `github-windows-latest-s`
+- `github-ubuntu-latest-m`
+- `github-ubuntu-24.04-arm-m`
+- `github-ubuntu-latest-l`
+
+**Example**:
+
+```yaml
+jobs:
+  build:
+    runs-on: github-ubuntu-latest-s
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "Custom GitHub-hosted runner"
+```
+
+### Public Self-Hosted Runners (for public repos needing internal tools)
+
+**Used for**:
+
+- Public repositories that need internal tools behind the firewall (e.g., Develocity, OpenShift)
+
+**⚠️ Access is restricted**: Contact the Engineering Experience Squad for repository approval on #ask-github-migration Slack channel.
+
+**Available sizes**:
+
+- `sonar-xs-public`
+- `sonar-s-public`
+- `sonar-m-public`
+- `sonar-l-public`
+- `sonar-xl-public`
+
+### Private Self-Hosted Runners (default for private repos)
+
+**Best for**:
+
+- Default for private repositories
+- Access to internal tools and private resources (unified connectivity)
+
+**Available sizes**:
+
+- `sonar-xs`
+- `sonar-s`
+- `sonar-m`
+- `sonar-l`
+- `sonar-xl`
+
+**Example**:
+
+```yaml
+jobs:
+  build:
+    runs-on: sonar-m
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "Private self-hosted (new generation)"
+```
+
+**Limitations**:
+
+- Docker-in-Docker is **not supported** (use Custom GitHub-hosted for DIND)
+
+### Quick Selection Guide
+
+**For Public Repositories**:
+
+- **Standard builds**: `github-ubuntu-latest-s`
+- **Need internal tools**: `sonar-s-public` (requires approval)
+- **Docker-in-Docker required**: `github-ubuntu-latest-s`
+
+**For Private Repositories**:
+
+- **Standard builds**: `sonar-xs` (default) → scale up as needed
+- **Large builds**: `sonar-s`, `sonar-m`, `sonar-l`, `sonar-xl`
 
 #### Job Dependencies
 
@@ -1067,7 +1143,7 @@ on:
 # ✅ Workflow-level concurrency - RECOMMENDED
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -1087,11 +1163,11 @@ jobs:
   build:
     concurrency:
       group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-      cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
+      cancel-in-progress: true
   promote:
     concurrency:  # Duplicated configuration
       group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-      cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
+      cancel-in-progress: true
 ```
 
 ### 5. Required Permissions
@@ -1166,7 +1242,7 @@ env:
   with:
     deploy-pull-request: true
     # Automatically uses:
-    # - Runner: ubuntu-24.04-large (for auth actions)
+    # - Runner: github-ubuntu-latest-s (for auth actions)
     # - Artifactory reader role: public-reader
     # - Artifactory deployer role: public-deployer
     # - public: true
@@ -1195,7 +1271,7 @@ Only override if you have specific requirements (e.g., public repo needing priva
 
 - [ ] **CRITICAL**: Check repository visibility (Settings → General → Repository visibility)
 - [ ] Select correct runner type based on repository visibility:
-  - [ ] Public repo → `ubuntu-24.04-large`
+  - [ ] Public repo → `github-ubuntu-latest-s`
   - [ ] Private repo → `sonar-xs`
 - [ ] **SECURITY**: Pin all third-party actions to commit SHA
 - [ ] **SECURITY**: Verify permissions follow least-privilege principle
@@ -1209,7 +1285,11 @@ Only override if you have specific requirements (e.g., public repo needing priva
 ### Phase 2: Build Job
 
 - [ ] Add standard triggers (push, PR, merge_group, workflow_dispatch)
-- [ ] Select appropriate runner type (sonar-xs for private repos)
+- [ ] **Select appropriate runner type**:
+  - [ ] Private repos: `sonar-xs`
+  - [ ] Public repos: `github-ubuntu-latest-s`
+  - [ ] Docker-in-Docker needed: `github-ubuntu-latest-s` (regardless of repo visibility)
+  - [ ] Public repos needing internal tools: `sonar-*-public` (requires approval)
 - [ ] **Configure concurrency control**:
   - [ ] **RECOMMENDED**: Add workflow-level concurrency (cleaner)
   - [ ] **AVOID**: Job-level concurrency duplication
@@ -1467,58 +1547,7 @@ This workflow automatically:
 9. **Script injection**: Never use untrusted input directly in shell commands
 10. **Vault authentication**: Ensure `id-token: write` permission is set for OIDC authentication
 11. **Vault permissions**: Check that repository has required vault permissions in `re-terraform-aws-vault/orders`
-
-### Vault Troubleshooting
-
-**Common Vault Issues:**
-
-1. **Authentication Errors**:
-   ```yaml
-   Error: failed to authenticate: [403] permission denied
-   ```
-   **Solution**: Ensure `id-token: write` permission is set in job permissions
-
-2. **Missing Vault Permissions**:
-   ```yaml
-   Error: failed to read secret: [403] 1 error occurred: permission denied
-   ```
-   **Solution**: Verify repository has required vault permissions in `re-terraform-aws-vault/orders`
-
-3. **Vault Path Format Issues**:
-   ```yaml
-   # ❌ WRONG - Using Cirrus CI format
-   secrets: |
-     development/kv/data/next data.token | SONAR_TOKEN;
-
-   # ✅ CORRECT - GitHub Actions format
-   secrets: |
-     development/kv/data/next token | SONAR_TOKEN;
-   ```
-
-4. **Dynamic Path Resolution Errors**:
-   ```yaml
-   Error: failed to resolve path: {REPO_OWNER_NAME_DASH} not found
-   ```
-   **Solution**: Ensure path uses correct placeholder format and repository name matches vault configuration
-
-**Vault Permissions Verification:**
-
-Check your repository's vault configuration in `re-terraform-aws-vault/orders/your-repository.yml`:
-
-```yaml
-your-repository:
-  auth:
-    github: {}  # Required for OIDC authentication
-  secrets:
-    artifactory:
-      roles:
-        - *artifactory_private-reader    # For private repos
-        - *artifactory_qa-deployer       # For private repos
-        - *artifactory_promoter          # For promotion
-    kv_paths:
-      development/kv/data/next: {}       # For SonarQube analysis
-      development/kv/data/sign: {}       # For artifact signing
-```
+12. **Runner selection**: Ensure you're using current runner names (see **GitHub Actions Runner Selection** section)
 
 ### Security Troubleshooting
 
@@ -1767,8 +1796,8 @@ jobs:
   build:
     concurrency:
       group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-      cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
-    runs-on: sonar-xs
+      cancel-in-progress: true
+    runs-on: sonar-xs  # Private repos default; use github-ubuntu-latest-s for public repos
     name: Build
     permissions:
       id-token: write
@@ -1786,8 +1815,8 @@ jobs:
     needs: [build]
     concurrency:
       group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-      cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
-    runs-on: sonar-xs
+      cancel-in-progress: true
+    runs-on: sonar-xs  # Private repos default; use github-ubuntu-latest-s for public repos
     name: Promote
     permissions:
       id-token: write
