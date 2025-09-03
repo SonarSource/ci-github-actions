@@ -370,27 +370,72 @@ Fetches secrets from HashiCorp Vault using GitHub OIDC authentication.
 - **JSON Output**: Secrets available via `fromJSON(steps.secrets.outputs.vault).SECRET_NAME`
 - **Required permissions:** `id-token: write`
 
-**Vault Path Format Differences from Cirrus CI:**
+## Complete Vault Migration Example from Cirrus CI to GitHub Actions
+
+**BEFORE (Cirrus CI):**
 
 ```yaml
-# Cirrus CI format
-SONAR_TOKEN: VAULT[development/kv/data/sonarcloud data.token]
-
-# GitHub Actions vault-wrapper format - remove 'data.' prefix
-secrets: |
-  development/kv/data/sonarcloud token | SONAR_TOKEN;
-```
-
-**Usage in Environment Variables:**
-
-```yaml
-- name: Build step
+build_task:
+  name: Build
   env:
-    SONAR_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_TOKEN }}
-    SONAR_HOST_URL: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_HOST_URL }}
-    ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
-  uses: SonarSource/ci-github-actions/build-maven@v1
+    # Direct vault references in environment
+    ARTIFACTORY_DEPLOY_USERNAME: VAULT[development/artifactory/token/${CIRRUS_REPO_OWNER}-${CIRRUS_REPO_NAME}-qa-deployer username]
+    ARTIFACTORY_DEPLOY_PASSWORD: VAULT[development/artifactory/token/${CIRRUS_REPO_OWNER}-${CIRRUS_REPO_NAME}-qa-deployer access_token]
+    ARTIFACTORY_USERNAME: VAULT[development/artifactory/token/${CIRRUS_REPO_OWNER}-${CIRRUS_REPO_NAME}-private-reader username]
+    ARTIFACTORY_PASSWORD: VAULT[development/artifactory/token/${CIRRUS_REPO_OWNER}-${CIRRUS_REPO_NAME}-private-reader access_token]
+  build_script:
+    - source cirrus-env BUILD
+    - regular_gradle_build_deploy_analyze
 ```
+
+**AFTER (GitHub Actions):**
+
+```yaml
+jobs:
+  build:
+    steps:
+      - uses: actions/checkout@v4
+
+      # Step 1: Retrieve secrets from Vault
+      - name: Vault
+        id: secrets
+        uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
+        with:
+          secrets: |
+            development/artifactory/token/{REPO_OWNER_NAME_DASH}-qa-deployer username | ARTIFACTORY_DEPLOY_USERNAME;
+            development/artifactory/token/{REPO_OWNER_NAME_DASH}-qa-deployer access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;
+            development/artifactory/token/{REPO_OWNER_NAME_DASH}-private-reader username | ARTIFACTORY_USERNAME;
+            development/artifactory/token/{REPO_OWNER_NAME_DASH}-private-reader access_token | ARTIFACTORY_ACCESS_TOKEN;
+      # Step 2: Use secrets in build action
+      - name: Build, Analyze and deploy
+        id: build
+        uses: SonarSource/ci-github-actions/build-gradle@v1
+        with:
+          artifactory-deploy-repo: "sonarsource-private-qa"
+          deploy-pull-request: true
+        env:
+          # Reference vault outputs using fromJSON
+          ARTIFACTORY_DEPLOY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_USERNAME }}
+          ARTIFACTORY_DEPLOY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN }}
+          ARTIFACTORY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME }}
+          ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
+```
+
+**Variable Transformation Rules:**
+
+| Cirrus CI | GitHub Actions | Notes |
+|-----------|----------------|-------|
+| `${CIRRUS_REPO_OWNER}` | `{REPO_OWNER_NAME_DASH}` | Automatically replaced by vault-action-wrapper |
+| `${CIRRUS_REPO_NAME}` | *(removed)* | Now included in `{REPO_OWNER_NAME_DASH}` |
+| `VAULT[path field]` | `path field \| OUTPUT_NAME;` | New syntax with pipe separator |
+| Direct env reference | `fromJSON(steps.secrets.outputs.vault).OUTPUT_NAME` | Must use fromJSON to parse vault output |
+
+**Key Differences:**
+
+1. **Two-step process**: Vault retrieval → Build execution
+2. **JSON output**: Secrets are returned as JSON and must be parsed with `fromJSON()`
+3. **Step references**: Use `steps.{step-id}.outputs.vault` to reference vault step
+4. **Repository naming**: `{REPO_OWNER_NAME_DASH}` combines owner and repo with dashes
 
 **Common Vault Paths Used by SonarSource Actions:**
 
@@ -955,8 +1000,6 @@ jobs:
 **For Public Repositories**:
 
 - **Standard builds**: `github-ubuntu-latest-s`
-- **Need internal tools**: `sonar-s-public` (requires approval)
-- **Docker-in-Docker required**: `github-ubuntu-latest-s`
 
 **For Private Repositories**:
 
