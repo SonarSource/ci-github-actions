@@ -891,16 +891,7 @@ eks_container:
 
 **GitHub Actions Runner Selection**:
 
-⚠️ **IMPORTANT**: Before selecting a runner, verify if your repository is **public** or **private**, and whether you need
-
-### Runner Decision Matrix
-
-| Repository | Docker-in-Docker? | Internal Tools? | Recommended Runner | Notes |
-|------------|-------------------|-----------------|-------------------|-------|
-| **Public** | Maybe | No | **GitHub-hosted** (`github-*`) | **Default for public repositories** |
-| **Public** | Maybe | Yes | **Public Self-hosted** (`sonar-*-public`) | Unified connectivity, access approval required |
-| **Private** | No | Maybe | **Self-hosted EKS** (`sonar-*`) | **Default for private repositories** |
-| **Private** | Yes | Maybe | **Custom GitHub-hosted** (`github-*`) | Required for DIND support |
+⚠️ **IMPORTANT**: Before selecting a runner, verify if your repository is **public** or **private**.
 
 ### Custom GitHub-Hosted Runners (for public repos and DIND)
 
@@ -929,23 +920,7 @@ jobs:
       - run: echo "Custom GitHub-hosted runner"
 ```
 
-### Public Self-Hosted Runners (for public repos needing internal tools)
-
-**Used for**:
-
-- Public repositories that need internal tools behind the firewall (e.g., Develocity, OpenShift)
-
-**⚠️ Access is restricted**: Contact the Engineering Experience Squad for repository approval on #ask-github-migration Slack channel.
-
-**Available sizes**:
-
-- `sonar-xs-public`
-- `sonar-s-public`
-- `sonar-m-public`
-- `sonar-l-public`
-- `sonar-xl-public`
-
-### Private Self-Hosted Runners (default for private repos)
+Self-Hosted Runners (default for private repos)
 
 **Best for**:
 
