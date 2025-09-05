@@ -63,6 +63,7 @@ check_tool() {
   "$@"
 }
 
+# Unshallow and fetch all commit history for SonarQube analysis and issue assignment
 git_fetch_unshallow() {
   if git rev-parse --is-shallow-repository --quiet >/dev/null 2>&1; then
     echo "Fetch Git references for SonarQube analysis..."
