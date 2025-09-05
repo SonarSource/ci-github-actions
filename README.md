@@ -708,3 +708,98 @@ jobs:
 - Seamless API compatibility with standard GitHub Actions cache
 - Supports all standard cache inputs and outputs
 - Automatic repository visibility detection
+
+## DigiCert Software Trust Manager Code Signing - smctl
+
+Integration with [DigiCert's Software Trust Manager](https://github.com/marketplace/actions/code-signing-with-software-trust-manager)
+for code signing.
+
+### Required Environment Variables
+
+DigiCert Software Trust Manager requires these environment variables to be set:
+
+- `SM_HOST` - DigiCert Software Trust Manager host
+- `SM_API_KEY` - DigiCert ONE API key
+- `SM_CLIENT_CERT_FILE` - Path to client authentication certificate (.p12 file)
+- `SM_CLIENT_CERT_PASSWORD` - Password for client certificate
+- `SM_CODE_SIGNING_CERT_SHA1_HASH` - SHA1 hash of code signing certificate (optional, for specific cert selection)
+
+### Linux/Ubuntu Example
+
+```yaml
+- name: Vault
+  id: secrets
+  uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
+  with:
+    secrets: |
+      development/kv/data/sign/2023-2025 apikey | SM_API_KEY;
+      development/kv/data/sign/2023-2025 client_cert_file_base64 | SM_CLIENT_CERT_FILE_B64;
+      development/kv/data/sign/2023-2025 cert_fp | SM_CODE_SIGNING_CERT_SHA1_HASH;
+      development/kv/data/sign/2023-2025 client_cert_password | SM_CLIENT_CERT_PASSWORD;
+      development/kv/data/sign/2023-2025 host | SM_HOST;
+
+- name: Setup DigiCert Client Tools
+  uses: digicert/ssm-code-signing@fb61e357690ad6aaa11c372000c37fb74d35c000 # v1.1.1
+
+- name: Setup certificate
+  run: |
+    echo "${{ fromJSON(steps.secrets.outputs.vault).SM_CLIENT_CERT_FILE_B64 }}" | base64 --decode > Certificate_pkcs12.p12
+
+- name: Set variables
+  run: |
+    echo "SM_HOST=${{ fromJSON(steps.secrets.outputs.vault).SM_HOST }}" >> "$GITHUB_ENV"
+    echo "SM_API_KEY=${{ fromJSON(steps.secrets.outputs.vault).SM_API_KEY }}" >> "$GITHUB_ENV"
+    echo "SM_CLIENT_CERT_FILE=${PWD}/Certificate_pkcs12.p12" >> "$GITHUB_ENV"
+    echo "SM_CLIENT_CERT_PASSWORD=${{ fromJSON(steps.secrets.outputs.vault).SM_CLIENT_CERT_PASSWORD }}" >> "$GITHUB_ENV"
+    echo "SM_CODE_SIGNING_CERT_SHA1_HASH=${{ fromJSON(steps.secrets.outputs.vault).SM_CODE_SIGNING_CERT_SHA1_HASH }}" >> "$GITHUB_ENV"
+
+- name: Sign JAR files
+  # typically, you want to have smctl command running in your build scripts before artifacts get published to Artifactory,
+  # this is for demonstration purposes
+  run: |
+    smctl sign --fingerprint ${SM_CODE_SIGNING_CERT_SHA1_HASH} --input target/*.jar
+
+- name: Cleanup certificate
+  if: always()
+  run: rm -f Certificate_pkcs12.p12
+```
+
+### Windows Example
+
+```yaml
+- name: Vault
+  id: secrets
+  uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
+  with:
+    secrets: |
+      development/kv/data/sign/2023-2025 apikey | SM_API_KEY;
+      development/kv/data/sign/2023-2025 client_cert_file_base64 | SM_CLIENT_CERT_FILE_B64;
+      development/kv/data/sign/2023-2025 cert_fp | SM_CODE_SIGNING_CERT_SHA1_HASH;
+      development/kv/data/sign/2023-2025 client_cert_password | SM_CLIENT_CERT_PASSWORD;
+      development/kv/data/sign/2023-2025 host | SM_HOST;
+
+- name: Setup DigiCert Client Tools
+  uses: digicert/ssm-code-signing@fb61e357690ad6aaa11c372000c37fb74d35c000 # v1.1.1
+
+- name: Setup certificate and variables
+  run: |
+    echo '${{ fromJSON(steps.secrets.outputs.vault).SM_CLIENT_CERT_FILE_B64 }}' | base64 --decode > D:\Certificate_pkcs12.p12
+    echo "SM_HOST=${{ fromJSON(steps.secrets.outputs.vault).SM_HOST }}" >> "$GITHUB_ENV"
+    echo "SM_API_KEY=${{ fromJSON(steps.secrets.outputs.vault).SM_API_KEY }}" >> "$GITHUB_ENV"
+    echo "SM_CLIENT_CERT_FILE=D:\\Certificate_pkcs12.p12" >> "$GITHUB_ENV"
+    echo "SM_CLIENT_CERT_PASSWORD=${{ fromJSON(steps.secrets.outputs.vault).SM_CLIENT_CERT_PASSWORD }}" >> "$GITHUB_ENV"
+    echo "SM_CODE_SIGNING_CERT_SHA1_HASH=${{ fromJSON(steps.secrets.outputs.vault).SM_CODE_SIGNING_CERT_SHA1_HASH }}" >> "$GITHUB_ENV"
+  shell: bash
+
+- name: Sign JAR files
+  # typically, you want to have smctl command running in your build scripts before artifacts get published to Artifactory,
+  # this is for demonstration purposes
+  run: |
+    smctl sign --fingerprint $env:SM_CODE_SIGNING_CERT_SHA1_HASH --input target/*.jar
+  shell: powershell
+
+- name: Cleanup certificate
+  if: always()
+  run: Remove-Item -Path D:\Certificate_pkcs12.p12 -Force
+  shell: powershell
+```
