@@ -43,6 +43,12 @@ inputs:
     description: If true, run sonar scanner on all 3 platforms using the provided URL and token.
      If false, run on the platform provided by SONAR_PLATFORM.
     default: 'false'
+  cache-paths:
+    description: Additional cache paths to include (multiline, one path per line)
+    default: ''
+  disable-caching:
+    description: Whether to disable Gradle caching entirely
+    default: 'false'
 
 outputs:
   project-version:
@@ -92,7 +98,37 @@ runs:
       uses: gradle/actions/setup-gradle@017a9effdb900e5b5b2fddfb590a105619dca3c3 # v4.4.2
       with:
         develocity-injection-enabled: ${{ inputs.use-develocity == 'true' }}
+        cache-disabled: true
         develocity-plugin-version: '4.0'
+
+    - name: Generate Gradle Cache Key
+      if: ${{ inputs.disable-caching != 'true' }}
+      shell: bash
+      run: |
+        # Generate cache key from all Gradle files
+        find . \( -name '*.gradle' -o -name '*.gradle.kts' \) -type f -exec md5sum {} \; | sort > gradle-md5-sums.txt
+        md5sum gradle/libs.versions.toml gradle/wrapper/gradle-wrapper.properties 2>/dev/null >> gradle-md5-sums.txt || true
+
+        GRADLE_CACHE_KEY=$(md5sum gradle-md5-sums.txt | awk '{ print $1 }')
+
+        echo "🔑 Generated cache key: ${GRADLE_CACHE_KEY}"
+        echo "GRADLE_CACHE_KEY=${GRADLE_CACHE_KEY}" >> "$GITHUB_ENV"
+
+        rm -f gradle-md5-sums.txt
+
+    - name: Restore Gradle Cache
+      if: ${{ inputs.disable-caching != 'true' }}
+      uses: SonarSource/gh-action_cache@master
+      id: gradle-cache-restore
+      with:
+        path: |
+          ${{ env.GRADLE_USER_HOME }}/caches
+          ${{ env.GRADLE_USER_HOME }}/wrapper
+          ${{ inputs.cache-paths }}
+        key: gradle-${{ runner.os }}-${{ github.workflow }}-${{ env.GRADLE_CACHE_KEY }}
+        restore-keys: |
+          gradle-${{ runner.os }}-${{ github.workflow }}-
+
     # $GRADLE_USER_HOME is typically set to ~/.gradle/ by gradle/actions/setup-gradle
     - name: Configure Gradle Authentication
       shell: bash
