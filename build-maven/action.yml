@@ -48,6 +48,10 @@ inputs:
     description: If true, run SonarQube analysis on all three platforms (next, sqc-eu, sqc-us).
       If false, run analysis on the platform specified with sonar-platform.
     default: 'false'
+outputs:
+  BUILD_NUMBER:
+    description: The build number, incremented or reused if already cached
+    value: ${{ steps.get_build_number.outputs.BUILD_NUMBER }}
 
 runs:
   using: composite
@@ -66,6 +70,7 @@ runs:
         ln -s "${GITHUB_ACTION_PATH}/../get-build-number" .actions/get-build-number
         ln -s "${GITHUB_ACTION_PATH}/../cache" .actions/cache
     - uses: ./.actions/get-build-number
+      id: get_build_number
     - name: Cache local Maven repository
       uses: ./.actions/cache
       with:

@@ -46,7 +46,7 @@ jobs:
           if [[ "${BUILD_NUMBER}" != "${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}" ]]; then
             echo -e "::error title=test-build-number-reuse::Build number '${BUILD_NUMBER}' does not match the previous job build number" \
               "'${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}' despite it is the same workflow run.\n" \
-              "Prefer using the output from SonarSource/ci-github-actions/get-build-number instead of calling it twice."
+              "Prefer using the output from SonarSource/ci-github-actions/get-build-number instead of calling it from distinct jobs."
           fi
 
   test-build-number-reuse-windows:
@@ -66,6 +66,6 @@ jobs:
           echo "Build number: ${BUILD_NUMBER}"
           if [[ "${BUILD_NUMBER}" != "${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}" ]]; then
             echo -e "::error title=test-build-number-reuse::Build number '${BUILD_NUMBER}' does not match the previous job build number" \
-              "'${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}' despite it is the same workflow run."
-            exit 1
+              "'${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}' despite it is the same workflow run.\n" \
+              "Prefer using the output from SonarSource/ci-github-actions/get-build-number instead of calling it from distinct jobs."
           fi
