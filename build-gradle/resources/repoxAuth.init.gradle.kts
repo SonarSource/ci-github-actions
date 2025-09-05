@@ -99,7 +99,7 @@ fun RepositoryHandler.addBearerAuthForRepoxRepositories(token: (String) -> Provi
     }
 }
 
-fun <T> Provider<T>.orElse(vararg providers: Provider<T>) =
+fun <T: Any> Provider<T>.orElse(vararg providers: Provider<T>) =
         listOf(this, *providers).reduce { p1, p2 ->
             p1.orElse(p2)
         }
