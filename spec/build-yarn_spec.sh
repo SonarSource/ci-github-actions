@@ -126,14 +126,14 @@ Describe 'build-yarn/build.sh'
       unset GITHUB_BASE_REF
       When call git_fetch_unshallow
       The output should include "Fetch Git references for SonarQube analysis..."
-      The output should include "git fetch --unshallow --filter=blob:none"
+      The output should include "git fetch --unshallow"
     End
 
     It 'fetches base ref for PR'
       export GITHUB_BASE_REF="main"
       When call git_fetch_unshallow
       The output should include "Fetch main for SonarQube analysis..."
-      The output should include "git fetch --filter=blob:none origin main"
+      The output should include "git fetch origin main"
     End
   End
 

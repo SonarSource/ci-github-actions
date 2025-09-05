@@ -208,7 +208,7 @@ Describe 'git_fetch_unshallow()'
     When call git_fetch_unshallow
     The lines of stdout should equal 2
     The line 1 should start with "Fetch Git references"
-    The line 2 should equal "git fetch --unshallow --filter=blob:none"
+    The line 2 should equal "git fetch --unshallow"
   End
 
   It 'fallbacks and fetches base branch for pull request'
@@ -223,7 +223,7 @@ Describe 'git_fetch_unshallow()'
     When call git_fetch_unshallow
     The lines of stdout should equal 2
     The line 1 should start with "Fetch def_main"
-    The line 2 should equal "git fetch --filter=blob:none origin def_main"
+    The line 2 should equal "git fetch origin def_main"
   End
 End
 
