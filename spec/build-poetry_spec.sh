@@ -71,7 +71,7 @@ Describe 'build-poetry/build.sh'
       The line 8 should include "jf"
       The line 9 should equal "PROJECT: my-repo"
       The line 10 should equal "Fetch Git references for SonarQube analysis..."
-      The line 11 should equal "git fetch --unshallow --filter=blob:none"
+      The line 11 should equal "git fetch --unshallow"
       The line 12 should equal "=== Poetry Build, Deploy, and Analyze ==="
       The line 13 should equal "Branch: any-branch"
       The line 14 should equal "Pull Request: "

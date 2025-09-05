@@ -137,13 +137,12 @@ is_long_lived_feature_branch() {
 
 # Unshallow and fetch all commit history for SonarQube analysis and issue assignment
 git_fetch_unshallow() {
-  # The --filter=blob:none flag significantly speeds up the download
   if git rev-parse --is-shallow-repository --quiet >/dev/null 2>&1; then
     echo "Fetch Git references for SonarQube analysis..."
-    git fetch --unshallow --filter=blob:none
+    git fetch --unshallow
   elif is_pull_request; then
     echo "Fetch ${GITHUB_BASE_REF:?} for SonarQube analysis..."
-    git fetch --filter=blob:none origin "${GITHUB_BASE_REF}"
+    git fetch origin "${GITHUB_BASE_REF}"
   fi
 }
 

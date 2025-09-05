@@ -60,13 +60,12 @@ check_tool() {
 }
 
 git_fetch_unshallow() {
-  # The --filter=blob:none flag significantly speeds up the download
   if git rev-parse --is-shallow-repository --quiet >/dev/null 2>&1; then
     echo "Fetch Git references for SonarQube analysis..."
-    git fetch --unshallow --filter=blob:none
+    git fetch --unshallow
   elif [ -n "${GITHUB_BASE_REF:-}" ]; then
     echo "Fetch ${GITHUB_BASE_REF} for SonarQube analysis..."
-    git fetch --filter=blob:none origin "${GITHUB_BASE_REF}"
+    git fetch origin "${GITHUB_BASE_REF}"
   fi
 }
 

@@ -131,7 +131,7 @@ Describe 'build-npm/build.sh'
       When call git_fetch_unshallow
       The status should be success
       The output should include "Fetch main for SonarQube analysis..."
-      The output should include "git fetch --filter=blob:none origin main"
+      The output should include "git fetch origin main"
     End
   End
 End
@@ -149,7 +149,7 @@ Describe 'git_fetch_unshallow()'
     When call git_fetch_unshallow
     The lines of stdout should equal 2
     The line 1 should equal "Fetch Git references for SonarQube analysis..."
-    The line 2 should equal "git fetch --unshallow --filter=blob:none"
+    The line 2 should equal "git fetch --unshallow"
   End
 
   It 'fallbacks and fetches base branch for pull request'
@@ -164,7 +164,7 @@ Describe 'git_fetch_unshallow()'
     When call git_fetch_unshallow
     The lines of stdout should equal 2
     The line 1 should start with "Fetch def_main"
-    The line 2 should equal "git fetch --filter=blob:none origin def_main"
+    The line 2 should equal "git fetch origin def_main"
   End
 End
 
