@@ -22,6 +22,8 @@ runs:
         mkdir .actions/
         ln -s "${GITHUB_ACTION_PATH}/../get-build-number" .actions/get-build-number
     - uses: ./.actions/get-build-number
+      if: env.BUILD_NUMBER == ''
+      id: get_build_number
     - name: Vault
       id: secrets
       uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
