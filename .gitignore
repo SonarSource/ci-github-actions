@@ -8,3 +8,4 @@ package.json
 yarn.lock
 CLAUDE.md
 .claude/
+.serena/
