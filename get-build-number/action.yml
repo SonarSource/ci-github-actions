@@ -9,8 +9,19 @@ outputs:
 runs:
   using: composite
   steps:
+    # Reuse build number from environment if provided (e.g. from a parent workflow)
+    - name: Save build number from environment to file
+      id: from-env
+      if: env.BUILD_NUMBER != ''
+      shell: bash
+      run: |
+        echo "BUILD_NUMBER ${BUILD_NUMBER} provided from environment, skipping both increment and save to cache."
+        echo "${BUILD_NUMBER}" > build_number.txt
+        echo "skip=true" >> $GITHUB_OUTPUT
+
     # Reuse current build number in case of rerun
     - name: Get cached build number
+      if: steps.from-env.outputs.skip != 'true'
       uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
       id: current-build-number
       with:
@@ -21,16 +32,16 @@ runs:
     # Otherwise, increment the build number
     - name: Get secrets from Vault
       id: secrets
-      if: steps.current-build-number.outputs.cache-hit != 'true'
+      if: steps.from-env.outputs.skip != 'true' && steps.current-build-number.outputs.cache-hit != 'true'
       uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
       with:
         secrets: development/github/token/{REPO_OWNER_NAME_DASH}-build-number token | github_token;
     - name: Get new build number
-      if: steps.current-build-number.outputs.cache-hit != 'true'
+      if: steps.from-env.outputs.skip != 'true' && steps.current-build-number.outputs.cache-hit != 'true'
       shell: bash
       env:
-        GITHUB_TOKEN: ${{ steps.current-build-number.outputs.cache-hit != 'true' && fromJSON(steps.secrets.outputs.vault).github_token
-          || '' }}
+        GITHUB_TOKEN: ${{ steps.current-build-number.outputs.cache-hit != 'true' &&
+          steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).github_token || '' }}
       run: ${GITHUB_ACTION_PATH}/get_build_number.sh
 
     - name: Export build number
@@ -41,9 +52,10 @@ runs:
         echo "BUILD_NUMBER: ${BUILD_NUMBER}"
         echo "BUILD_NUMBER=${BUILD_NUMBER}" >> "$GITHUB_ENV"
         echo "BUILD_NUMBER=${BUILD_NUMBER}" >> "$GITHUB_OUTPUT"
+
     - name: Save build number to cache
       uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
-      if: steps.current-build-number.outputs.cache-hit != 'true'
+      if: steps.from-env.outputs.skip != 'true' && steps.current-build-number.outputs.cache-hit != 'true'
       with:
         path: build_number.txt
         key: build-number-${{ github.run_id }}

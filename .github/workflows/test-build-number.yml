@@ -22,14 +22,26 @@ jobs:
         with:
           sparse-checkout: get-build-number
       - uses: ./get-build-number
-      - uses: ./get-build-number
         id: get_build_number
       - name: Check build number generation
         run: |
-          echo "Build number: ${BUILD_NUMBER}"
+          echo "BUILD_NUMBER: ${BUILD_NUMBER}"
           [[ "${BUILD_NUMBER}" =~ ^[0-9]+$ ]]
 
-  test-build-number-reuse:
+      - uses: ./get-build-number
+        id: get_build_number_second_call
+      - name: Check build number is stable across calls
+        env:
+          BUILD_NUMBER_FROM_FIRST_CALL: ${{ steps.get_build_number.outputs.BUILD_NUMBER }}
+          BUILD_NUMBER_FROM_SECOND_CALL: ${{ steps.get_build_number_second_call.outputs.BUILD_NUMBER }}
+        run: |
+          if [[ "${BUILD_NUMBER_FROM_FIRST_CALL}" != "${BUILD_NUMBER_FROM_SECOND_CALL}" ]]; then
+              echo -e "::error title=test-build-number-generation::Build number '${BUILD_NUMBER_FROM_FIRST_CALL}' from first call" \
+              "does not match the build number from second call '${BUILD_NUMBER_FROM_SECOND_CALL}'."
+              exit 1
+          fi
+
+  test-build-number-reuse-from-cache:
     needs: test-build-number-generation
     runs-on: github-ubuntu-latest-s
     permissions:
@@ -42,14 +54,14 @@ jobs:
       - uses: ./get-build-number
       - name: Check build number was reused
         run: |
-          echo "Build number: ${BUILD_NUMBER}"
+          echo "BUILD_NUMBER: ${BUILD_NUMBER}"
           if [[ "${BUILD_NUMBER}" != "${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}" ]]; then
             echo -e "::error title=test-build-number-reuse::Build number '${BUILD_NUMBER}' does not match the previous job build number" \
               "'${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}' despite it is the same workflow run.\n" \
               "Prefer using the output from SonarSource/ci-github-actions/get-build-number instead of calling it from distinct jobs."
           fi
 
-  test-build-number-reuse-windows:
+  test-build-number-reuse-from-cache-windows:
     needs: test-build-number-generation
     runs-on: github-windows-latest-s
     permissions:
@@ -63,9 +75,48 @@ jobs:
       - name: Check build number was reused
         shell: bash
         run: |
-          echo "Build number: ${BUILD_NUMBER}"
+          echo "BUILD_NUMBER: ${BUILD_NUMBER}"
           if [[ "${BUILD_NUMBER}" != "${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}" ]]; then
-            echo -e "::error title=test-build-number-reuse::Build number '${BUILD_NUMBER}' does not match the previous job build number" \
-              "'${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}' despite it is the same workflow run.\n" \
+            echo -e "::error title=test-build-number-reuse-from-cache-windows::Build number '${BUILD_NUMBER}' does not match the previous" \
+              "job build number '${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}' despite it is the same workflow run.\n" \
               "Prefer using the output from SonarSource/ci-github-actions/get-build-number instead of calling it from distinct jobs."
           fi
+
+  test-build-number-reuse-from-env:
+    needs: test-build-number-generation
+    runs-on: github-ubuntu-latest-s
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        with:
+          sparse-checkout: get-build-number
+      - uses: ./get-build-number
+        id: get_build_number
+        env:
+          BUILD_NUMBER: ${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}
+      - name: Check build number was reused
+        env:
+          BUILD_NUMBER_FROM_ENV: ${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}
+          BUILD_NUMBER_RETURNED: ${{ steps.get_build_number.outputs.BUILD_NUMBER }}
+        run: |
+          echo "BUILD_NUMBER: ${BUILD_NUMBER}"
+          if [[ "${BUILD_NUMBER_FROM_ENV}" != "${BUILD_NUMBER_RETURNED}" ]]; then
+            echo -e "::error title=test-build-number-reuse-from-env::Build number returned by get-build-number '${BUILD_NUMBER_RETURNED}'" \
+              "does not match the build number passed by env ${BUILD_NUMBER_FROM_ENV}."
+            exit 1
+          fi
+
+  test-build-number-reuse:
+    if: always()
+    needs:
+      - test-build-number-generation
+      - test-build-number-reuse-from-cache
+      - test-build-number-reuse-from-cache-windows
+      - test-build-number-reuse-from-env
+    runs-on: github-ubuntu-latest-s
+    steps:
+      - uses: re-actors/alls-green@05ac9388f0aebcb5727afa17fcccfecd6f8ec5fe # v1.2.2
+        with:
+          jobs: ${{ toJSON(needs) }}
