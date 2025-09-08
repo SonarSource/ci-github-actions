@@ -58,6 +58,10 @@ jobs:
       - uses: SonarSource/ci-github-actions/get-build-number@v1
 ```
 
+### Environment variables
+
+If `BUILD_NUMBER` is present in the environment, it will be reused as the build number.
+
 ### Inputs
 
 No inputs are required for this action.
