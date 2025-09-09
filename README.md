@@ -24,6 +24,7 @@ for details on how to use it.
 - [`promote`](#promote)
 - [`pr_cleanup`](#pr_cleanup)
 - [`cache`](#cache)
+- [`code-signing`](#code-signing)
 
 ## `get-build-number`
 
@@ -712,3 +713,69 @@ jobs:
 - Seamless API compatibility with standard GitHub Actions cache
 - Supports all standard cache inputs and outputs
 - Automatic repository visibility detection
+
+## `code-signing`
+
+Install and configure DigiCert smctl and jsign tools for code signing with caching support.
+
+This action provides a complete setup for DigiCert's SigningManager tools (smctl) and jsign with intelligent caching
+to avoid re-downloading tools on every run. It handles all DigiCert authentication setup and environment configuration.
+
+### Requirements
+
+#### Required GitHub Permissions
+
+- `id-token: write`
+- `contents: read`
+
+#### Required Vault Permissions
+
+- `development/kv/data/sign/2023-2025`: DigiCert signing credentials including:
+  - `apikey`: DigiCert API key for downloading tools
+  - `client_cert_file_base64`: Base64-encoded client certificate
+  - `cert_fp`: Certificate fingerprint (SHA1 hash)
+  - `client_cert_password`: Client certificate password
+  - `host`: DigiCert SigningManager host URL
+
+#### Other Dependencies
+
+- Linux runner
+- Java installed
+
+### Usage
+
+```yaml
+    steps:
+      - build:
+        # Build artifacts
+
+      - name: Sign artifacts
+        run: |
+          # smctl and jsign are now available and configured, use them in run block or in your custom scripts
+          smctl sign --keypair-alias=key_525594307 --config-file "${SMTOOLS_PATH}/pkcs11properties.cfg" --input ${fileToSign}.dll --tool jsign
+```
+
+### Inputs
+
+| Input                 | Description                                                | Default |
+|-----------------------|------------------------------------------------------------|---------|
+| `jsign-version`       | Version of jsign to install                               | `7.2`   |
+| `force-download-tools`| Force download both DigiCert and jsign tools (disables caching) | `false` |
+
+### Environment Variables Set
+
+After running this action, the following environment variables are available:
+
+- `SM_HOST`: DigiCert SigningManager host URL
+- `SM_API_KEY`: DigiCert API key
+- `SM_CLIENT_CERT_FILE`: Path to the decoded client certificate file
+- `SM_CLIENT_CERT_PASSWORD`: Client certificate password
+- `SM_CODE_SIGNING_CERT_SHA1_HASH`: Certificate fingerprint for signing
+- `SMTOOLS_PATH`: Path where SMTools are installed, certificate and `.cfg` file is stored.
+
+### Features
+
+- **Official DigiCert Integration**: Uses the official DigiCert `ssm-code-signing` action for reliable smctl installation
+- **Unified Caching Strategy**: Single cache key for both smctl and jsign tools to optimize cache efficiency
+- **Smart Cache Management**: Caches smctl installation directory and jsign .deb package for faster subsequent runs
+- **Automatic Setup**: Handles all DigiCert authentication and environment configuration
