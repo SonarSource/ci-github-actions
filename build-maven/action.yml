@@ -69,7 +69,20 @@ runs:
       run: |
         echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_DEPLOYER_ROLE=${ARTIFACTORY_DEPLOYER_ROLE}" >> "$GITHUB_ENV"
-    - uses: SonarSource/ci-github-actions/get-build-number@v1
+        mkdir .actions/
+        ln -s "${GITHUB_ACTION_PATH}/../get-build-number" .actions/get-build-number
+        ln -s "${GITHUB_ACTION_PATH}/../cache" .actions/cache
+        echo "DEBUG BUILD-9058"
+        pwd
+        ls -lad .actions/get-build-number .actions/cache
+        env | sort | grep -E "ACTION_PATH|WORKSPACE|runner/work"
+        {
+          ls -la /home/
+          ls -la /home/runner/
+          ls -lad /home/runner/work/sonar-dummy/sonar-dummy/
+          ls -lad /home/runner/work/sonar-dummy/sonar-dummy/.actions/
+        } || true
+    - uses: ./.actions/get-build-number
       id: get_build_number
     - name: Cache local Maven repository
       uses: SonarSource/ci-github-actions/cache@v1
