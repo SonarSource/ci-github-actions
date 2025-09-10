@@ -662,7 +662,6 @@ build_script:
     deploy-pull-request: false                        # Deploy pull request artifacts
     # All parameters below are optional
     artifactory-deploy-repo: ""                       # Artifactory repository name
-    artifactory-deploy-access-token: ""               # Artifactory access token
     skip-tests: false                                  # Skip running tests
     cache-npm: true                                    # Cache NPM dependencies
     repox-url: https://repox.jfrog.io                 # Repox URL
@@ -687,7 +686,6 @@ build_script:
     deploy-pull-request: false                        # Deploy pull request artifacts
     # All parameters below are optional
     artifactory-deploy-repo: ""                       # Artifactory repository name
-    artifactory-deploy-access-token: ""               # Artifactory access token
     skip-tests: false                                  # Skip running tests
     cache-yarn: true                                   # Cache Yarn dependencies
     repox-url: https://repox.jfrog.io                 # Repox URL

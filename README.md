@@ -150,7 +150,7 @@ jobs:
 | `scanner-java-opts`           | Additional Java options for the Sonar scanner (`SONAR_SCANNER_JAVA_OPTS`)                                                  | `-Xmx512m`                                                           |
 | `use-develocity`              | Whether to use Develocity for build tracking                                                                               | `false`                                                              |
 | `repox-url`                   | URL for Repox                                                                                                              | `https://repox.jfrog.io`                                             |
-| `repox-artifactory-url`       | URL for Repox Artifactory API (overrides repox-url/artifactory if provided)                                               | (optional)                                                           |
+| `repox-artifactory-url`       | URL for Repox Artifactory API (overrides repox-url/artifactory if provided)                                                | (optional)                                                           |
 | `develocity-url`              | URL for Develocity                                                                                                         | `https://develocity.sonar.build/`                                    |
 | `sonar-platform`              | SonarQube primary platform - 'next', 'sqc-eu', or 'sqc-us'                                                                 | `next`                                                               |
 | `working-directory`           | Relative path under github.workspace to execute the build in                                                               | `.`                                                                  |
@@ -334,7 +334,7 @@ jobs:
 | `gradle-args`               | Additional arguments to pass to Gradle                                         | (optional)                                                           |
 | `develocity-url`            | URL for Develocity                                                             | `https://develocity.sonar.build/`                                    |
 | `repox-url`                 | URL for Repox                                                                  | `https://repox.jfrog.io`                                             |
-| `repox-artifactory-url`     | URL for Repox Artifactory API (overrides repox-url/artifactory if provided)   | (optional)                                                           |
+| `repox-artifactory-url`     | URL for Repox Artifactory API (overrides repox-url/artifactory if provided)    | (optional)                                                           |
 | `sonar-platform`            | SonarQube variant - 'next', 'sqc-eu', or 'sqc-us'                              | `next`                                                               |
 | `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding) | `false`                                                              |
 
@@ -422,13 +422,12 @@ jobs:
 | `public`                          | Whether to build and deploy with/to public repositories                        | Auto-detected from repository visibility                             |
 | `artifactory-reader-role`         | Suffix for the Artifactory reader role in Vault                                | `private-reader` for private repos, `public-reader` for public repos |
 | `artifactory-deployer-role`       | Suffix for the Artifactory deployer role in Vault                              | `qa-deployer` for private repos, `public-deployer` for public repos  |
-| `artifactory-deploy-repo`         | Name of deployment repository                                                  | (optional)                                                           |
-| `artifactory-deploy-access-token` | Access token to deploy to Artifactory                                          | (optional)                                                           |
+| `artifactory-deploy-repo`         | Name of deployment repository                                                  | Auto-detected based on repository visibility                         |
 | `deploy-pull-request`             | Whether to deploy pull request artifacts                                       | `false`                                                              |
 | `skip-tests`                      | Whether to skip running tests                                                  | `false`                                                              |
 | `cache-npm`                       | Whether to cache NPM dependencies                                              | `true`                                                               |
 | `repox-url`                       | URL for Repox                                                                  | `https://repox.jfrog.io`                                             |
-| `repox-artifactory-url`           | URL for Repox Artifactory API (overrides repox-url/artifactory if provided)   | (optional)                                                           |
+| `repox-artifactory-url`           | URL for Repox Artifactory API (overrides repox-url/artifactory if provided)    | (optional)                                                           |
 | `sonar-platform`                  | SonarQube primary platform - 'next', 'sqc-eu', or 'sqc-us'                     | `next`                                                               |
 | `run-shadow-scans`                | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding) | `false`                                                              |
 
@@ -522,7 +521,7 @@ jobs:
 | `skip-tests`                | Whether to skip running tests                                                  | `false`                                                              |
 | `cache-yarn`                | Whether to cache Yarn dependencies                                             | `true`                                                               |
 | `repox-url`                 | URL for Repox                                                                  | `https://repox.jfrog.io`                                             |
-| `repox-artifactory-url`     | URL for Repox Artifactory API (overrides repox-url/artifactory if provided)   | (optional)                                                           |
+| `repox-artifactory-url`     | URL for Repox Artifactory API (overrides repox-url/artifactory if provided)    | (optional)                                                           |
 | `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', or 'sqc-us'                     | `next`                                                               |
 | `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding) | `false`                                                              |
 

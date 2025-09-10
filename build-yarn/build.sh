@@ -74,19 +74,25 @@ git_fetch_unshallow() {
 set_build_env() {
   export PROJECT="${GITHUB_REPOSITORY#*/}"
   echo "PROJECT: ${PROJECT}"
+  git_fetch_unshallow
 
   # Validate required files exist
   if [ ! -f "package.json" ]; then
     echo "ERROR: package.json file not found in current directory." >&2
     exit 1
   fi
-
   if [ ! -f "yarn.lock" ]; then
     echo "ERROR: yarn.lock file not found. This is required for yarn --immutable installs." >&2
     exit 1
   fi
 
-  git_fetch_unshallow
+  echo "::debug::Configuring JFrog and NPM repositories..."
+  npm config set registry "$ARTIFACTORY_URL/api/npm/npm"
+  npm config set "${ARTIFACTORY_URL//https:}/api/npm/:_authToken=$ARTIFACTORY_ACCESS_TOKEN"
+  jf config remove repox > /dev/null 2>&1 || true # Do not log if the repox config were not present
+  jf config add repox --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_ACCESS_TOKEN"
+  jf config use repox
+  jf npm-config --repo-resolve "npm"
 }
 
 is_default_branch() {
@@ -177,18 +183,9 @@ sonar_scanner_implementation() {
 }
 
 jfrog_yarn_publish() {
-  if [ -z "${ARTIFACTORY_URL:-}" ] || [ -z "${ARTIFACTORY_DEPLOY_ACCESS_TOKEN:-}" ]; then
-    echo "ERROR: Deployment requires ARTIFACTORY_URL and ARTIFACTORY_DEPLOY_ACCESS_TOKEN to be set" >&2
-    exit 1
-  fi
-
-  echo "::debug::Removing existing JFrog config..."
+  echo "::debug::Configuring JFrog and NPM repositories..."
   jf config remove repox > /dev/null 2>&1 || true # Do not log if the repox config were not present
-
-  echo "::debug::Adding JFrog config..."
   jf config add repox --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_DEPLOY_ACCESS_TOKEN"
-
-  echo "::debug::Configuring Yarn repositories..."
   jf npm-config --repo-resolve "npm" --repo-deploy "$ARTIFACTORY_DEPLOY_REPO"
 
   echo "::debug::Publishing Yarn package..."
@@ -199,7 +196,6 @@ jfrog_yarn_publish() {
   echo "::debug::Publishing build info..."
   local build_publish_output
   build_publish_output=$(jf rt build-publish "$PROJECT" "$BUILD_NUMBER")
-
   echo "::debug::Build publish output: ${build_publish_output}"
 
   # Extract build info URL
