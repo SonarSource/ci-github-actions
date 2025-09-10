@@ -69,19 +69,27 @@ runs:
       run: |
         echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_DEPLOYER_ROLE=${ARTIFACTORY_DEPLOYER_ROLE}" >> "$GITHUB_ENV"
-        mkdir .actions/
-        ln -s "${GITHUB_ACTION_PATH}/../get-build-number" .actions/get-build-number
-        ln -s "${GITHUB_ACTION_PATH}/../cache" .actions/cache
+        mkdir "$GITHUB_WORKSPACE/.actions"
+        ln -s "${GITHUB_ACTION_PATH}/../get-build-number" "$GITHUB_WORKSPACE/.actions/get-build-number"
+        ln -s "${GITHUB_ACTION_PATH}/../cache" "$GITHUB_WORKSPACE/.actions/cache"
+        ls -lad "$GITHUB_WORKSPACE/.actions/get-build-number"
         echo "DEBUG BUILD-9058"
-        pwd
-        ls -lad .actions/get-build-number .actions/cache
-        env | sort | grep -E "ACTION_PATH|WORKSPACE|runner/work"
-        {
-          ls -la /home/
-          ls -la /home/runner/
-          ls -lad /home/runner/work/sonar-dummy/sonar-dummy/
-          ls -lad /home/runner/work/sonar-dummy/sonar-dummy/.actions/
-        } || true
+        echo "github.workspace: ${{ github.workspace }}"
+        echo "GITHUB_WORKSPACE: ${GITHUB_WORKSPACE}"
+        echo "github.action_path: ${{ github.action_path }}"
+        echo "GITHUB_ACTION_PATH: ${GITHUB_ACTION_PATH}"
+        echo
+        echo "Content of github.workspace:"
+        ls -la "${{ github.workspace }}" || true
+        echo "Content of GITHUB_WORKSPACE:"
+        ls -la "${GITHUB_WORKSPACE}" || true
+        echo "Content of github.action_path:"
+        ls -la "${{ github.action_path }}" || true
+        echo "Content of GITHUB_ACTION_PATH:"
+        ls -la "${GITHUB_ACTION_PATH}" || true
+        echo "${{ github.workspace }}/get-build-number:"
+        echo
+        ls -la ${{ github.workspace }}/.actions/get-build-number ${{ github.workspace }}/.actions/get-build-number/ || true
     - uses: ./.actions/get-build-number
       id: get_build_number
     - name: Cache local Maven repository
