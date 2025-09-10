@@ -66,13 +66,10 @@ runs:
       run: |
         echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_DEPLOYER_ROLE=${ARTIFACTORY_DEPLOYER_ROLE}" >> "$GITHUB_ENV"
-        mkdir .actions/
-        ln -s "${GITHUB_ACTION_PATH}/../get-build-number" .actions/get-build-number
-        ln -s "${GITHUB_ACTION_PATH}/../cache" .actions/cache
-    - uses: ./.actions/get-build-number
+    - uses: SonarSource/ci-github-actions/get-build-number@v1
       id: get_build_number
     - name: Cache local Maven repository
-      uses: ./.actions/cache
+      uses: SonarSource/ci-github-actions/cache@v1
       with:
         path: ~/${{ inputs.maven-local-repository-path }}
         key: maven-${{ runner.os }}-${{ github.workflow }}-${{ hashFiles('**/pom.xml') }}
