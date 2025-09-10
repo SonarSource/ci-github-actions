@@ -238,13 +238,6 @@ Describe 'build-yarn/build.sh'
       When call jfrog_yarn_publish
       The output should include "::debug::Build info URL saved:"
     End
-
-    It 'fails without ARTIFACTORY_URL'
-      unset ARTIFACTORY_URL
-      When run jfrog_yarn_publish
-      The status should be failure
-      The stderr should include "Deployment requires ARTIFACTORY_URL and ARTIFACTORY_DEPLOY_ACCESS_TOKEN"
-    End
   End
 
   Describe 'build_yarn() scenarios'

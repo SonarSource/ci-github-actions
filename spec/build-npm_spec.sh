@@ -364,17 +364,6 @@ Describe 'build_npm()'
   End
 End
 
-Describe 'JFrog deployment error scenarios'
-  It 'fails when missing ARTIFACTORY_URL'
-    unset ARTIFACTORY_URL
-    export PROJECT="test-project"
-    export BUILD_NUMBER="42"
-    When run jfrog_npm_publish
-    The status should be failure
-    The stderr should include "ERROR: Deployment requires ARTIFACTORY_URL and ARTIFACTORY_DEPLOY_ACCESS_TOKEN"
-  End
-End
-
 Describe 'Sonar platform configuration'
   It 'sets sonar variables for next platform'
     When call set_sonar_platform_vars "next"

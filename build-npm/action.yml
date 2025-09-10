@@ -16,9 +16,6 @@ inputs:
   artifactory-deploy-repo:
     description: Name of deployment repository
     default: ''
-  artifactory-deploy-access-token:
-    description: Access token to deploy to Artifactory
-    default: ''
   deploy-pull-request:
     description: Whether to deploy pull request artifacts
     default: 'false'
@@ -29,7 +26,7 @@ inputs:
     description: Whether to cache NPM dependencies
     default: 'true'
   repox-url:
-    description: URL for Repox
+    description: URL for Repox Platform
     default: https://repox.jfrog.io
   repox-artifactory-url:
     description: URL for Repox Artifactory API (overrides repox-url/artifactory if provided)
@@ -108,7 +105,8 @@ runs:
         # Action inputs
         ARTIFACTORY_URL: ${{ inputs.repox-artifactory-url != '' && inputs.repox-artifactory-url ||
           format('{0}/artifactory', inputs.repox-url) }}
-        ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo }}
+        ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo != '' && inputs.artifactory-deploy-repo ||
+          (inputs.public == 'true' && 'sonarsource-npm-public-qa' || 'sonarsource-npm-private-qa') }}
         ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
         ARTIFACTORY_DEPLOY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN }}
         DEPLOY_PULL_REQUEST: ${{ inputs.deploy-pull-request }}
@@ -125,6 +123,14 @@ runs:
         RUN_SHADOW_SCANS: ${{ inputs.run-shadow-scans }}
       run: |
         ${GITHUB_ACTION_PATH}/build.sh
+
+    - name: Archive logs
+      if: failure()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      with:
+        name: npm-logs-${{ github.job }}
+        path: ~/.npm/_logs/
+        if-no-files-found: ignore
 
     - name: Generate workflow summary
       if: always()
