@@ -88,14 +88,14 @@ jobs:
     permissions:
       id-token: write
       contents: read
+    env:
+      BUILD_NUMBER: ${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
         with:
           sparse-checkout: get-build-number
       - uses: ./get-build-number
         id: get_build_number
-        env:
-          BUILD_NUMBER: ${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}
       - name: Check build number was reused
         env:
           BUILD_NUMBER_FROM_ENV: ${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}
