@@ -1,0 +1,114 @@
+---
+name: Setup DigiCert Code Signing Tools
+description: Install and configure DigiCert smctl and jsign tools with caching support
+inputs:
+  jsign-version:
+    description: Version of jsign to install
+    default: 7.2
+  force-download-tools:
+    description: Force download both DigiCert and jsign tools (disables caching)
+    default: false
+
+runs:
+  using: composite
+  steps:
+    - name: Set versions and cache keys
+      shell: bash
+      run: |
+        echo "JSIGN_VERSION=${{ inputs.jsign-version }}" >> "$GITHUB_ENV"
+        echo "JSIGN_CACHE_KEY=jsign-${{ inputs.jsign-version }}-${{ runner.os }}" >> "$GITHUB_ENV"
+        echo "SMTOOLS_CACHE_KEY=smtools-linux-x64-${{ runner.os }}" >> "$GITHUB_ENV"
+        echo "SMTOOLS_PATH=/tmp/DigiCert One Signing Manager Tools/smtools-linux-x64" >> "$GITHUB_ENV"
+        echo "JSIGN_CACHE_PATH=/tmp/jsign-cache" >> "$GITHUB_ENV"
+
+    - name: Cache code signing tools
+      uses: SonarSource/gh-action_cache@v1
+      id: tools-cache
+      with:
+        path: |
+          /tmp/DigiCert One Signing Manager Tools/smtools-linux-x64
+          /tmp/jsign-cache
+        key: tools-${{ env.SMTOOLS_CACHE_KEY }}-${{ env.JSIGN_CACHE_KEY }}
+
+    - name: Get DigiCert secrets from Vault
+      id: secrets
+      uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
+      with:
+        secrets: |
+          development/kv/data/sign/2023-2025 apikey | SM_API_KEY;
+          development/kv/data/sign/2023-2025 client_cert_file_base64 | SM_CLIENT_CERT_FILE_B64;
+          development/kv/data/sign/2023-2025 cert_fp | SM_CODE_SIGNING_CERT_SHA1_HASH;
+          development/kv/data/sign/2023-2025 client_cert_password | SM_CLIENT_CERT_PASSWORD;
+          development/kv/data/sign/2023-2025 host | SM_HOST;
+
+    - name: Setup DigiCert Client Tools
+      if: steps.tools-cache.outputs.cache-hit != 'true' || inputs.force-download-tools == 'true'
+      uses: digicert/ssm-code-signing@fb61e357690ad6aaa11c372000c37fb74d35c000 # v1.1.1
+      with:
+        force-download-tools: ${{ inputs.force-download-tools }}
+
+    - name: Add smctl to PATH (when using cache)
+      if: steps.tools-cache.outputs.cache-hit == 'true' && inputs.force-download-tools != 'true'
+      shell: bash
+      run: |
+        echo "Using cached smctl from ${SMTOOLS_PATH}"
+        echo "${SMTOOLS_PATH}" >> "$GITHUB_PATH"
+
+    - name: Setup jsign
+      shell: bash
+      run: |
+        echo "Setting up jsign version ${JSIGN_VERSION}..."
+        java --version
+
+        # Install required Java package for jsign
+        sudo apt-get update -q
+        sudo apt-get install -y default-jre-headless
+
+        if [[ "${{ steps.tools-cache.outputs.cache-hit }}" == "true" && "${{ inputs.force-download-tools }}" != "true" &&
+        -f "${JSIGN_CACHE_PATH}/jsign_${JSIGN_VERSION}_all.deb" ]]; then
+          echo "Installing jsign from cache..."
+          sudo dpkg --install "${JSIGN_CACHE_PATH}/jsign_${JSIGN_VERSION}_all.deb"
+        else
+          echo "Downloading jsign..."
+          mkdir -p "${JSIGN_CACHE_PATH}"
+          JSIGN_URL="https://github.com/ebourg/jsign/releases/download/${JSIGN_VERSION}/jsign_${JSIGN_VERSION}_all.deb"
+          curl -L --fail --silent --show-error "${JSIGN_URL}" --output "${JSIGN_CACHE_PATH}/jsign_${JSIGN_VERSION}_all.deb"
+          sudo dpkg --install "${JSIGN_CACHE_PATH}/jsign_${JSIGN_VERSION}_all.deb"
+        fi
+
+    - name: Setup certificate and environment variables
+      shell: bash
+      run: |
+        rm -f Certificate_pkcs12.p12
+        echo '${{ fromJSON(steps.secrets.outputs.vault).SM_CLIENT_CERT_FILE_B64 }}' | base64 --decode > Certificate_pkcs12.p12
+        echo "SM_HOST=${{ fromJSON(steps.secrets.outputs.vault).SM_HOST }}" >> "$GITHUB_ENV"
+        echo "SM_API_KEY=${{ fromJSON(steps.secrets.outputs.vault).SM_API_KEY }}" >> "$GITHUB_ENV"
+        echo "SM_CLIENT_CERT_FILE=${PWD}/Certificate_pkcs12.p12" >> "$GITHUB_ENV"
+        echo "SM_CLIENT_CERT_PASSWORD=${{ fromJSON(steps.secrets.outputs.vault).SM_CLIENT_CERT_PASSWORD }}" >> "$GITHUB_ENV"
+        echo "SM_CODE_SIGNING_CERT_SHA1_HASH=${{ fromJSON(steps.secrets.outputs.vault).SM_CODE_SIGNING_CERT_SHA1_HASH }}" >> "$GITHUB_ENV"
+
+
+    - name: Verify tool installations
+      shell: bash
+      run: |
+        echo "Verifying installed tools..."
+
+        # Check smctl
+        if command -v smctl >/dev/null 2>&1; then
+          echo "✅ smctl is available"
+          smctl --version || echo "smctl version command not supported"
+        else
+          echo "❌ smctl not found"
+          exit 1
+        fi
+
+        # Check jsign
+        if command -v jsign >/dev/null 2>&1; then
+          echo "✅ jsign is available"
+          jsign --help
+        else
+          echo "❌ jsign not found"
+          exit 1
+        fi
+
+        echo "All tools installed successfully!"
