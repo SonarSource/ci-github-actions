@@ -748,7 +748,8 @@ to avoid re-downloading tools on every run. It handles all DigiCert authenticati
     steps:
       - build:
         # Build artifacts
-
+      - name: Setup DigiCert Client Tools
+        uses: SonarSource/ci-github-actions/code-signing@v1
       - name: Sign artifacts
         run: |
           # smctl and jsign are now available and configured, use them in run block or in your custom scripts
