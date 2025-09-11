@@ -48,6 +48,9 @@ inputs:
     description: If true, run SonarQube analysis on all three platforms (next, sqc-eu, sqc-us).
       If false, run analysis on the platform specified with sonar-platform.
     default: 'false'
+  custom-run:
+    description: Custom run block to replace the call to build.sh
+    default: ''
 outputs:
   BUILD_NUMBER:
     description: The build number, incremented or reused if already cached
@@ -149,10 +152,8 @@ runs:
           format('develocity.sonar.build={0}', fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN) || '' }}
         USER_MAVEN_OPTS: ${{ inputs.maven-opts }}
         SONAR_SCANNER_JAVA_OPTS: ${{ inputs.scanner-java-opts }}
-      run: |
-        export MAVEN_OPTS="$USER_MAVEN_OPTS -Duser.home=$HOME"
-        cd "${{ inputs.working-directory }}"
-        ${GITHUB_ACTION_PATH}/build.sh
+      working-directory: ${{ inputs.working-directory }}
+      run: ${{ inputs.custom-run != '' && inputs.custom-run || '${GITHUB_ACTION_PATH}/build.sh' }}
     - name: Cleanup Maven repository before caching
       shell: bash
       run: |

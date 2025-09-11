@@ -56,10 +56,11 @@ source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 : "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}"
 : "${SONAR_PLATFORM:?}" "${NEXT_URL:?}" "${NEXT_TOKEN:?}" "${SQC_US_URL:?}" "${SQC_US_TOKEN:?}" "${SQC_EU_URL:?}" "${SQC_EU_TOKEN:?}"
 : "${RUN_SHADOW_SCANS:?}"
-: "${MAVEN_LOCAL_REPOSITORY:=$HOME/.m2/repository}"
+: "${MAVEN_LOCAL_REPOSITORY:=$HOME/.m2/repository}" "${USER_MAVEN_OPTS:=}"
 : "${DEPLOY_PULL_REQUEST:=false}"
 export ARTIFACTORY_URL DEPLOY_PULL_REQUEST MAVEN_LOCAL_REPOSITORY
 : "${MAVEN_SETTINGS:=$HOME/.m2/settings.xml}"
+export MAVEN_OPTS="$USER_MAVEN_OPTS -Duser.home=$HOME"
 
 # FIXME Workaround for SonarSource parent POM; it can be removed after releases of parent 73+ and parent-oss 84+
 export BUILD_ID=$BUILD_NUMBER

@@ -155,6 +155,7 @@ jobs:
 | `sonar-platform`              | SonarQube primary platform - 'next', 'sqc-eu', or 'sqc-us'                                                                 | `next`                                                               |
 | `working-directory`           | Relative path under github.workspace to execute the build in                                                               | `.`                                                                  |
 | `run-shadow-scans`            | If true, run SonarQube analysis on all 3 platforms (next, sqc-eu, sqc-us); if false, only on the selected `sonar-platform` | `false`                                                              |
+| `custom-run`                  | Custom run block to replace the call to build.sh. See sonar-dummy for an example.                                          | (optional)                                                           |
 
 ### Outputs
 
