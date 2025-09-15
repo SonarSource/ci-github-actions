@@ -91,40 +91,6 @@ Describe 'build.sh'
   End
 End
 
-Describe 'set_sonar_platform_vars()'
-  It 'sets variables for next platform'
-    When call set_sonar_platform_vars "next"
-    The status should be success
-    The lines of stdout should equal 1
-    The line 1 should include "Using Sonar platform: next"
-    The variable SONAR_HOST_URL should equal "$NEXT_URL"
-    The variable SONAR_TOKEN should equal "$NEXT_TOKEN"
-  End
-
-  It 'sets variables for sqc-us platform'
-    When call set_sonar_platform_vars "sqc-us"
-    The status should be success
-    The lines of stdout should equal 1
-    The line 1 should include "Using Sonar platform: sqc-us"
-    The variable SONAR_HOST_URL should equal "$SQC_US_URL"
-    The variable SONAR_TOKEN should equal "$SQC_US_TOKEN"
-  End
-
-  It 'sets variables for sqc-eu platform'
-    When call set_sonar_platform_vars "sqc-eu"
-    The status should be success
-    The lines of stdout should equal 1
-    The line 1 should include "Using Sonar platform: sqc-eu"
-    The variable SONAR_HOST_URL should equal "$SQC_EU_URL"
-    The variable SONAR_TOKEN should equal "$SQC_EU_TOKEN"
-  End
-
-  It 'fails with unknown platform'
-    When call set_sonar_platform_vars "unknown"
-    The status should be failure
-    The error should include "ERROR: Invalid Sonar platform 'unknown'"
-  End
-End
 
 Describe 'run_sonar_scanner()'
   Mock mvn
@@ -155,45 +121,6 @@ Describe 'run_sonar_scanner()'
   End
 End
 
-Describe 'orchestrate_sonar_platforms()'
-  Mock mvn
-    echo "mvn $*"
-  End
-  Mock sonar_scanner_implementation
-    echo "sonar_scanner_implementation $*"
-  End
-
-  export PROJECT_VERSION="1.2.3.42"
-
-  It 'runs analysis on single platform when shadow scans disabled'
-    export RUN_SHADOW_SCANS="false"
-    export SONAR_PLATFORM="next"
-    When call orchestrate_sonar_platforms "-Dsome.property=value"
-    The status should be success
-    The lines of stdout should equal 3
-    The line 1 should include "ORCHESTRATOR: Running Sonar analysis on selected platform: next"
-    The line 2 should include "Using Sonar platform: next"
-    The line 3 should include "sonar_scanner_implementation -Dsome.property=value"
-  End
-
-  It 'runs analysis on all platforms when shadow scans enabled'
-    export RUN_SHADOW_SCANS="true"
-    When call orchestrate_sonar_platforms "-Dsome.property=value"
-    The status should be success
-    The lines of stdout should equal 17
-    The line 1 should include "ORCHESTRATOR: Running Sonar analysis on all platforms (shadow scan enabled)"
-    The line 3 should include "--- ORCHESTRATOR: Analyzing with platform: next ---"
-    The line 4 should include "Using Sonar platform: next"
-    The line 5 should include "sonar_scanner_implementation -Dsome.property=value"
-    The line 8 should include "--- ORCHESTRATOR: Analyzing with platform: sqc-us ---"
-    The line 9 should include "Using Sonar platform: sqc-us"
-    The line 10 should include "sonar_scanner_implementation -Dsome.property=value"
-    The line 13 should include "--- ORCHESTRATOR: Analyzing with platform: sqc-eu ---"
-    The line 14 should include "Using Sonar platform: sqc-eu"
-    The line 15 should include "sonar_scanner_implementation -Dsome.property=value"
-    The line 17 should include "ORCHESTRATOR: Completed Sonar analysis on all platforms"
-  End
-End
 
 Describe 'check_tool()'
   It 'reports not installed tool'

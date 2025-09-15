@@ -65,6 +65,11 @@ check_tool() {
 
 # Unshallow and fetch all commit history for SonarQube analysis and issue assignment
 git_fetch_unshallow() {
+  if [ "$SONAR_PLATFORM" = "none" ]; then
+    echo "Skipping git fetch (sonar analysis disabled)"
+    return 0
+  fi
+
   if git rev-parse --is-shallow-repository --quiet >/dev/null 2>&1; then
     echo "Fetch Git references for SonarQube analysis..."
     git fetch --unshallow
@@ -95,8 +100,12 @@ set_sonar_platform_vars() {
       export SONAR_TOKEN="$SQC_EU_TOKEN"
       export SONAR_REGION=""
       ;;
+    "none")
+      echo "Sonar analysis disabled (platform: none)"
+      return 0
+      ;;
     *)
-      echo "ERROR: Unknown sonar platform '$platform'. Expected: next, sqc-us, or sqc-eu" >&2
+      echo "ERROR: Unknown sonar platform '$platform'. Expected: next, sqc-us, sqc-eu, or none" >&2
       return 1
       ;;
   esac
@@ -115,7 +124,7 @@ run_sonar_scanner() {
         "-Dsonar.analysis.pipeline=${GITHUB_RUN_ID}" \
         "-Dsonar.analysis.sha1=${GITHUB_SHA}" \
         "-Dsonar.analysis.repository=${GITHUB_REPOSITORY}" \
-        "${additional_params[*]}"
+        "${additional_params[@]+${additional_params[@]}}"
     poetry run pysonar \
         -Dsonar.host.url="${SONAR_HOST_URL}" \
         -Dsonar.token="${SONAR_TOKEN}" \
@@ -123,7 +132,7 @@ run_sonar_scanner() {
         -Dsonar.analysis.pipeline="${GITHUB_RUN_ID}" \
         -Dsonar.analysis.sha1="${GITHUB_SHA}" \
         -Dsonar.analysis.repository="${GITHUB_REPOSITORY}" \
-        "${additional_params[@]}"
+        "${additional_params[@]+${additional_params[@]}}"
 }
 
 run_sonar_analysis() {
@@ -137,7 +146,7 @@ run_sonar_analysis() {
           echo "::group::Sonar analysis on $platform"
           echo "--- ORCHESTRATOR: Analyzing with platform: $platform ---"
           set_sonar_platform_vars "$platform"
-          run_sonar_scanner "${sonar_args[@]}"
+          run_sonar_scanner "${sonar_args[@]+${sonar_args[@]}}"
           echo "::endgroup::"
       done
 
@@ -150,7 +159,7 @@ run_sonar_analysis() {
       echo "=== Running Sonar analysis on selected platform: $SONAR_PLATFORM ==="
       echo "::group::Sonar analysis on $SONAR_PLATFORM"
       set_sonar_platform_vars "$SONAR_PLATFORM"
-      run_sonar_scanner "${sonar_args[@]}"
+      run_sonar_scanner "${sonar_args[@]+${sonar_args[@]}}"
       echo "::endgroup::"
   fi
 }
@@ -307,7 +316,7 @@ build_poetry() {
 
   if [ "${BUILD_ENABLE_SONAR}" = "true" ]; then
     read -ra sonar_args <<< "$BUILD_SONAR_ARGS"
-    run_sonar_analysis "${sonar_args[@]}"
+    run_sonar_analysis "${sonar_args[@]+${sonar_args[@]}}"
   fi
 
   if [ "${BUILD_ENABLE_DEPLOY}" = "true" ]; then

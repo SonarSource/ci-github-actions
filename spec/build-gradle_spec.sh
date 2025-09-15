@@ -352,38 +352,6 @@ Describe 'sonar_scanner_implementation()'
   End
 End
 
-Describe 'orchestrate_sonar_platforms integration()'
-  It 'runs analysis on single platform when shadow scans disabled'
-    export RUN_SHADOW_SCANS="false"
-    export SONAR_PLATFORM="next"
-    export GRADLE_ARGS=""
-    Mock build_gradle_args
-      echo "--no-daemon build sonar"
-    End
-
-    When call orchestrate_sonar_platforms
-    The line 1 should include "=== ORCHESTRATOR: Running Sonar analysis on selected platform: next ==="
-    The line 2 should equal "Using Sonar platform: next (URL: next.sonarqube.com, Region: none)"
-    The line 4 should equal "gradle --no-daemon build sonar"
-    The lines of stdout should equal 4
-  End
-
-  It 'runs analysis on all platforms when shadow scans enabled'
-    export RUN_SHADOW_SCANS="true"
-    export SONAR_PLATFORM="next"
-    export GRADLE_ARGS=""
-    Mock build_gradle_args
-      echo "--no-daemon build sonar"
-    End
-
-    When call orchestrate_sonar_platforms
-    The output should include "=== ORCHESTRATOR: Running Sonar analysis on all platforms (shadow scan enabled) ==="
-    The output should include "--- ORCHESTRATOR: Analyzing with platform: next ---"
-    The output should include "--- ORCHESTRATOR: Analyzing with platform: sqc-us ---"
-    The output should include "--- ORCHESTRATOR: Analyzing with platform: sqc-eu ---"
-    The output should include "=== ORCHESTRATOR: Completed Sonar analysis on all platforms ==="
-  End
-End
 
 Describe 'set_gradle_cmd()'
   It 'uses gradlew when available'

@@ -522,7 +522,7 @@ jobs:
 | `cache-yarn`                | Whether to cache Yarn dependencies                                             | `true`                                                               |
 | `repox-url`                 | URL for Repox                                                                  | `https://repox.jfrog.io`                                             |
 | `repox-artifactory-url`     | URL for Repox Artifactory API (overrides repox-url/artifactory if provided)    | (optional)                                                           |
-| `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', or 'sqc-us'                     | `next`                                                               |
+| `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', 'sqc-us', or 'none'. Use 'none' to skip sonar scans | `next`                                                               |
 | `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding) | `false`                                                              |
 
 ### Outputs

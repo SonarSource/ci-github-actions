@@ -49,7 +49,9 @@ source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 : "${GITHUB_OUTPUT:?}"
 : "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}"
 : "${SONAR_PLATFORM:?}" "${RUN_SHADOW_SCANS:?}"
-: "${NEXT_URL:?}" "${NEXT_TOKEN:?}" "${SQC_US_URL:?}" "${SQC_US_TOKEN:?}" "${SQC_EU_URL:?}" "${SQC_EU_TOKEN:?}"
+if [[ "${SONAR_PLATFORM}" != "none" ]]; then
+  : "${NEXT_URL:?}" "${NEXT_TOKEN:?}" "${SQC_US_URL:?}" "${SQC_US_TOKEN:?}" "${SQC_EU_URL:?}" "${SQC_EU_TOKEN:?}"
+fi
 : "${DEPLOY_PULL_REQUEST:=false}" "${SKIP_TESTS:=false}"
 export ARTIFACTORY_URL DEPLOY_PULL_REQUEST SKIP_TESTS
 
@@ -62,6 +64,11 @@ check_tool() {
 }
 
 git_fetch_unshallow() {
+  if [ "$SONAR_PLATFORM" = "none" ]; then
+    echo "Skipping git fetch (Sonar analysis disabled)"
+    return 0
+  fi
+
   if git rev-parse --is-shallow-repository --quiet >/dev/null 2>&1; then
     echo "Fetch Git references for SonarQube analysis..."
     git fetch --unshallow
@@ -281,7 +288,7 @@ run_standard_pipeline() {
   if [ "${BUILD_ENABLE_SONAR}" = "true" ]; then
     read -ra sonar_args <<< "$BUILD_SONAR_ARGS"
     # This will call back to shared sonar_scanner_implementation() function
-    orchestrate_sonar_platforms "${sonar_args[@]}"
+    orchestrate_sonar_platforms "${sonar_args[@]+${sonar_args[@]}}"
   fi
 
   echo "Building project..."
