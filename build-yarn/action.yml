@@ -32,7 +32,7 @@ inputs:
     description: URL for Repox Artifactory API (overrides repox-url/artifactory if provided)
     default: ''
   sonar-platform:
-    description: SonarQube primary platform (next, sqc-eu, or sqc-us)
+    description: SonarQube primary platform (next, sqc-eu, sqc-us, or none). Use 'none' to skip sonar scans.
     default: next
   run-shadow-scans:
     description: If true, run sonar scanner on all 3 platforms using the provided URL and token.

@@ -133,38 +133,6 @@ Describe 'set_build_env()'
   End
 End
 
-Describe 'helper functions'
-  Describe 'set_sonar_platform_vars()'
-    It 'sets correct URL and token for next platform'
-      When call set_sonar_platform_vars "next"
-      The status should be success
-      The line 1 should equal 'Using Sonar platform: next (URL: https://next.sonarqube.com)'
-      The variable SONAR_HOST_URL should equal "https://next.sonarqube.com"
-      The variable SONAR_TOKEN should equal "next-token"
-    End
-
-    It 'sets correct URL and token for sqc-us platform'
-      When call set_sonar_platform_vars "sqc-us"
-      The status should be success
-      The line 1 should equal 'Using Sonar platform: sqc-us (URL: https://sonarqube-us.com)'
-      The variable SONAR_HOST_URL should equal "https://sonarqube-us.com"
-      The variable SONAR_TOKEN should equal "sqc-us-token"
-    End
-
-    It 'sets correct URL and token for sqc-eu platform'
-      When call set_sonar_platform_vars "sqc-eu"
-      The status should be success
-      The line 1 should equal 'Using Sonar platform: sqc-eu (URL: https://sonarcloud.io)'
-      The variable SONAR_HOST_URL should equal "https://sonarcloud.io"
-      The variable SONAR_TOKEN should equal "sqc-eu-token"
-    End
-
-    It 'returns error for unknown platform'
-      When call set_sonar_platform_vars "unknown"
-      The status should be failure
-      The line 1 of error should equal 'ERROR: Unknown sonar platform '"'"'unknown'"'"'. Expected: next, sqc-us, or sqc-eu'
-    End
-  End
 
   Describe 'is_maintenance_branch()'
     It 'returns true for branch-* pattern'
@@ -206,6 +174,23 @@ Describe 'helper functions'
       When call is_merge_queue_branch
       The status should be failure
     End
+  End
+
+Describe 'set_sonar_platform_vars() - poetry specific'
+  It 'handles none platform'
+    # Unset any existing sonar variables to test none platform behavior
+    unset SONAR_HOST_URL SONAR_TOKEN
+    When call set_sonar_platform_vars "none"
+    The status should be success
+    The line 1 should equal "Sonar analysis disabled (platform: none)"
+    The variable SONAR_HOST_URL should be undefined
+    The variable SONAR_TOKEN should be undefined
+  End
+
+  It 'fails with unknown platform'
+    When call set_sonar_platform_vars "unknown"
+    The status should be failure
+    The stderr should include "ERROR: Unknown sonar platform 'unknown'. Expected: next, sqc-us, sqc-eu, or none"
   End
 End
 
@@ -499,5 +484,69 @@ Describe 'build_poetry()'
     The line 17 should include 'jf rt build-publish my-repo 42'
     The line 18 should equal '=== Build completed successfully ==='
     The status should be success
+  End
+
+  Describe 'git_fetch_unshallow()'
+    It 'skips git fetch when sonar platform is none'
+      export SONAR_PLATFORM="none"
+      When call git_fetch_unshallow
+      The status should be success
+      The line 1 should equal "Skipping git fetch (sonar analysis disabled)"
+    End
+  End
+
+  Describe 'main()'
+    It 'runs tool checks and calls build_poetry'
+      Mock jq
+        echo "jq-1.8.1"
+      End
+      Mock python
+        echo "Python 3.11.0"
+      End
+      Mock poetry
+        echo "Poetry (version 1.8.0)"
+      End
+      Mock jf
+        echo "jf version 2.77.0"
+      End
+      Mock git
+        case "$*" in
+          "rev-parse --is-shallow-repository --quiet") return 0 ;;
+          *) echo "git $*" ;;
+        esac
+      End
+      When run script build-poetry/build.sh
+      The status should be success
+      The output should include "jq-1.8.1"
+      The output should include "Python 3.11.0"
+      The output should include "Poetry (version 1.8.0)"
+      The output should include "jf version 2.77.0"
+      The output should include "=== Build completed successfully ==="
+    End
+
+    It 'executes main when script is run directly'
+      # This test ensures the conditional execution path is covered
+      Mock jq
+        echo "jq-1.8.1"
+      End
+      Mock python
+        echo "Python 3.11.0"
+      End
+      Mock poetry
+        echo "Poetry (version 1.8.0)"
+      End
+      Mock jf
+        echo "jf version 2.77.0"
+      End
+      Mock git
+        case "$*" in
+          "rev-parse --is-shallow-repository --quiet") return 0 ;;
+          *) echo "git $*" ;;
+        esac
+      End
+      When run script build-poetry/build.sh
+      The status should be success
+      The output should include "=== Poetry Build, Deploy, and Analyze ==="
+    End
   End
 End

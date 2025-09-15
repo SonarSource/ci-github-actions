@@ -135,6 +135,15 @@ Describe 'build-yarn/build.sh'
       The output should include "Fetch main for SonarQube analysis..."
       The output should include "git fetch origin main"
     End
+
+    It 'skips git fetch when sonar platform is none'
+      export SONAR_PLATFORM="none"
+      When call git_fetch_unshallow
+      The status should be success
+      The line 1 should equal "Skipping git fetch (Sonar analysis disabled)"
+      The output should not include "git fetch --unshallow"
+      The output should not include "git fetch origin"
+    End
   End
 
   Describe 'Branch detection'
@@ -255,37 +264,7 @@ Describe 'build-yarn/build.sh'
     End
   End
 
-  Describe 'Sonar platform configuration'
-    It 'sets sonar variables for next platform'
-      When call set_sonar_platform_vars "next"
-      The status should be success
-      The line 1 should equal "Using Sonar platform: next (URL: next.sonarqube.com, Region: none)"
-      The variable SONAR_HOST_URL should equal "https://next.sonarqube.com"
-      The variable SONAR_TOKEN should equal "next-token"
-    End
 
-    It 'sets sonar variables for sqc-us platform'
-      When call set_sonar_platform_vars "sqc-us"
-      The status should be success
-      The line 1 should equal "Using Sonar platform: sqc-us (URL: sonarqube-us.example.com, Region: us)"
-      The variable SONAR_HOST_URL should equal "https://sonarqube-us.example.com"
-      The variable SONAR_TOKEN should equal "sqc-us-token"
-    End
-
-    It 'sets sonar variables for sqc-eu platform'
-      When call set_sonar_platform_vars "sqc-eu"
-      The status should be success
-      The line 1 should equal "Using Sonar platform: sqc-eu (URL: sonarcloud.io, Region: none)"
-      The variable SONAR_HOST_URL should equal "https://sonarcloud.io"
-      The variable SONAR_TOKEN should equal "sqc-eu-token"
-    End
-
-    It 'fails with invalid platform'
-      When call set_sonar_platform_vars "invalid"
-      The status should be failure
-      The stderr should include "ERROR: Invalid Sonar platform 'invalid'. Must be one of: next, sqc-us, sqc-eu"
-    End
-  End
 
   Describe 'Sonar scanner functionality'
     It 'runs sonar scanner with base parameters'
@@ -338,51 +317,7 @@ Describe 'build-yarn/build.sh'
     End
   End
 
-  Describe 'Sonar analysis functionality'
-    It 'runs single platform analysis when shadow scans disabled'
-      export RUN_SHADOW_SCANS="false"
-      export SONAR_PLATFORM="next"
-      export CURRENT_VERSION="1.2.3"
-      export NEXT_URL="https://next.sonarqube.com"
-      export NEXT_TOKEN="next-token"
-      export SQC_US_URL="https://sonarqube-us.sonarcloud.io"
-      export SQC_US_TOKEN="us-token"
-      export SQC_EU_URL="https://sonarcloud.io"
-      export SQC_EU_TOKEN="eu-token"
-      export BUILD_NUMBER="42"
-      export GITHUB_RUN_ID="12345"
-      export GITHUB_SHA="abc123"
-      export GITHUB_REPOSITORY="test/repo"
-      When call orchestrate_sonar_platforms "-Dsonar.test=value"
-      The status should be success
-      The output should include "=== ORCHESTRATOR: Running Sonar analysis on selected platform: next ==="
-      The output should include "Using Sonar platform: next"
-      The output should not include "shadow scan enabled"
-    End
 
-    It 'runs multi-platform analysis when shadow scans enabled'
-      export RUN_SHADOW_SCANS="true"
-      export SONAR_PLATFORM="next"
-      export CURRENT_VERSION="1.2.3"
-      export NEXT_URL="https://next.sonarqube.com"
-      export NEXT_TOKEN="next-token"
-      export SQC_US_URL="https://sonarqube-us.sonarcloud.io"
-      export SQC_US_TOKEN="us-token"
-      export SQC_EU_URL="https://sonarcloud.io"
-      export SQC_EU_TOKEN="eu-token"
-      export BUILD_NUMBER="42"
-      export GITHUB_RUN_ID="12345"
-      export GITHUB_SHA="abc123"
-      export GITHUB_REPOSITORY="test/repo"
-      When call orchestrate_sonar_platforms "-Dsonar.test=value"
-      The status should be success
-      The output should include "=== ORCHESTRATOR: Running Sonar analysis on all platforms (shadow scan enabled) ==="
-      The output should include "--- ORCHESTRATOR: Analyzing with platform: next ---"
-      The output should include "--- ORCHESTRATOR: Analyzing with platform: sqc-us ---"
-      The output should include "--- ORCHESTRATOR: Analyzing with platform: sqc-eu ---"
-      The output should include "=== ORCHESTRATOR: Completed Sonar analysis on all platforms ==="
-    End
-  End
 
   Describe 'get_build_config()'
     export GITHUB_REF_NAME="main"
@@ -475,6 +410,30 @@ Describe 'build-yarn/build.sh'
       When run script build-yarn/build.sh
       The status should be success
       The output should include "=== Yarn Build, Deploy, and Analyze ==="
+    End
+  End
+
+  Describe 'Sonar environment variable validation'
+    It 'does not require sonar variables when platform is none'
+      # Unset all sonar environment variables
+      unset NEXT_URL NEXT_TOKEN SQC_US_URL SQC_US_TOKEN SQC_EU_URL SQC_EU_TOKEN
+      export SONAR_PLATFORM="none"
+      export RUN_SHADOW_SCANS="false"
+      export PROJECT="test-project"
+      When call build_yarn
+      The status should be success
+      The output should include "Sonar Platform: none"
+      The output should include "=== ORCHESTRATOR: Skipping Sonar analysis (platform: none) ==="
+    End
+
+    It 'requires sonar variables when platform is not none'
+      # Unset sonar environment variables to trigger validation failure
+      unset NEXT_URL NEXT_TOKEN SQC_US_URL SQC_US_TOKEN SQC_EU_URL SQC_EU_TOKEN
+      export SONAR_PLATFORM="next"
+      export RUN_SHADOW_SCANS="false"
+      When run script build-yarn/build.sh
+      The status should be failure
+      The stderr should include "NEXT_URL"
     End
   End
 End

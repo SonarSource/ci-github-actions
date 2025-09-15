@@ -279,7 +279,7 @@ run_standard_pipeline() {
   if [ "${BUILD_ENABLE_SONAR}" = "true" ]; then
     read -ra sonar_args <<< "$BUILD_SONAR_ARGS"
     # This will call back to shared sonar_scanner_implementation() function
-    orchestrate_sonar_platforms "${sonar_args[@]}"
+    orchestrate_sonar_platforms "${sonar_args[@]+${sonar_args[@]}}"
   fi
 
   echo "Building project..."

@@ -33,8 +33,12 @@ set_sonar_platform_vars() {
       export SONAR_TOKEN="$SQC_EU_TOKEN"
       unset SONAR_REGION
       ;;
+    "none")
+      echo "Sonar analysis disabled (platform: none)"
+      return 0
+      ;;
     *)
-      echo "ERROR: Invalid Sonar platform '$platform'. Must be one of: next, sqc-us, sqc-eu" >&2
+      echo "ERROR: Invalid Sonar platform '$platform'. Must be one of: next, sqc-us, sqc-eu, none" >&2
       return 1
       ;;
   esac
@@ -51,6 +55,11 @@ set_sonar_platform_vars() {
 # CALLBACK DEPENDENCY:
 # Requires build script to implement sonar_scanner_implementation() function
 orchestrate_sonar_platforms() {
+  if [ "$SONAR_PLATFORM" = "none" ] && [ "${RUN_SHADOW_SCANS}" != "true" ]; then
+      echo "=== ORCHESTRATOR: Skipping Sonar analysis (platform: none) ==="
+      return 0
+  fi
+
   if [ "${RUN_SHADOW_SCANS}" = "true" ]; then
       echo "=== ORCHESTRATOR: Running Sonar analysis on all platforms (shadow scan enabled) ==="
       local platforms=("next" "sqc-us" "sqc-eu")
