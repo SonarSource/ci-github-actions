@@ -16,6 +16,7 @@ for details on how to use it.
 ## Actions provided in this repository
 
 - [`get-build-number`](#get-build-number)
+- [`config-maven`](#config-maven)
 - [`build-maven`](#build-maven)
 - [`build-poetry`](#build-poetry)
 - [`build-gradle`](#build-gradle)
@@ -80,18 +81,94 @@ No inputs are required for this action.
 - No increment on workflow reruns
 - Sets both environment variable and output variable
 
-## `build-maven`
+## `config-maven`
 
-Build and deploy a Maven project with SonarQube analysis and Artifactory deployment.
+Configure Maven build environment with build number, authentication, and default settings.
+
+This action sets up the complete Maven environment for SonarSource projects, including:
+
+- Build number management and project version configuration
+- Artifactory authentication and repository setup
+- Maven settings configuration for Repox
+- Maven local repository caching
+- Common Maven flags and JVM options
+- Sets the project version by replacing `-SNAPSHOT` with the build number
 
 ### Requirements
 
 #### Required GitHub Permissions
 
 - `id-token: write`
-- `contents: write`
+- `contents: read`
 
 #### Required Vault Permissions
+
+- `public-reader` or `private-reader`: Artifactory role for reading dependencies.
+
+#### Other Dependencies
+
+The Maven tool must be pre-installed. Use of `mise` is recommended.
+
+### Usage
+
+```yaml
+permissions:
+  id-token: write
+  contents: write
+steps:
+  - uses: actions/checkout@v5
+  - uses: SonarSource/ci-github-actions/config-maven@v1
+  - run: mvn verify
+```
+
+### Inputs
+
+| Input                     | Description                                                                 | Default                                                                                                                 |
+|---------------------------|-----------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------|
+| `working-directory`       | Relative path under github.workspace to execute the build in                | `.`                                                                                                                     |
+| `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault                             | `private-reader` for private repos, `public-reader` for public repos                                                    |
+| `common-mvn-flags`        | Maven flags for all subsequent mvn calls                                    | `--batch-mode --no-transfer-progress --errors --fail-at-end --show-version -Dmaven.test.redirectTestOutputToFile=false` |
+| `repox-url`               | URL for Repox                                                               | `https://repox.jfrog.io`                                                                                                |
+| `repox-artifactory-url`   | URL for Repox Artifactory API (overrides repox-url/artifactory if provided) | (optional)                                                                                                              |
+| `use-develocity`          | Whether to use Develocity for build tracking                                | `false`                                                                                                                 |
+| `develocity-url`          | URL for Develocity                                                          | `https://develocity.sonar.build/`                                                                                       |
+
+### Outputs
+
+| Output            | Description                                                                                                     |
+|-------------------|-----------------------------------------------------------------------------------------------------------------|
+| `BUILD_NUMBER`    | The current build number. Also set as environment variable `BUILD_NUMBER`                                       |
+| `current-version` | The project version set in the pom.xml (before replacement). Also set as environment variable `CURRENT_VERSION` |
+| `project-version` | The project version with build number (after replacement). Also set as environment variable `PROJECT_VERSION`   |
+
+### Environment Variables Set
+
+After running this action, the following environment variables are available:
+
+- `ARTIFACTORY_ACCESS_TOKEN`: Access token for Artifactory authentication
+- `ARTIFACTORY_ACCESS_USERNAME`: Deprecated alias for `ARTIFACTORY_USERNAME`
+- `ARTIFACTORY_PASSWORD`: Deprecated alias for `ARTIFACTORY_ACCESS_TOKEN`
+- `ARTIFACTORY_URL`: Artifactory (Repox) URL. E.x.: `https://repox.jfrog.io/artifactory`
+- `ARTIFACTORY_USERNAME`: Username for Artifactory authentication
+- `BASH_ENV`: Path to the bash profile with mvn function for adding common flags to Maven calls
+- `BUILD_NUMBER`: The current build number
+- `CURRENT_VERSION`: The original project version from pom.xml
+- `DEVELOCITY_ACCESS_KEY`: The Develocity access key when use-develicty is true
+- `MAVEN_OPTS`: JVM options for Maven execution. Defaults to `-Xmx1536m -Xms128m` by default
+- `PROJECT_VERSION`: The project version with build number appended
+- `SONARSOURCE_REPOSITORY_URL`: URL for SonarSource Artifactory root virtual repository (i.e.: sonarsource-qa for public builds or
+  sonarsource-qa for private builds)
+
+## `build-maven`
+
+Build and deploy a Maven project with SonarQube analysis and Artifactory deployment.
+
+### Required GitHub Permissions
+
+- `id-token: write`
+- `contents: write`
+
+### Required Vault Permissions
 
 - `public-reader` or `private-reader`: Artifactory role for reading dependencies.
 - `public-deployer` or `qa-deployer`: Artifactory role for deployment.
@@ -100,59 +177,36 @@ Build and deploy a Maven project with SonarQube analysis and Artifactory deploym
 - `development/kv/data/sign`: Artifact signing credentials (key and passphrase).
 - `development/kv/data/develocity`: Develocity access token (if using Develocity).
 
-#### Other Dependencies
+### Other Dependencies
 
-The Java and Maven tools must be pre-installed. Use of `mise` is recommended.
-
-Maven configuration is required:
-
-- JFrog Artifactory Maven plugin configuration for deployment
-- Maven profiles for different build contexts (`deploy-sonarsource`, `sign`, `coverage`)
-- Proper Maven settings.xml configuration for Artifactory authentication (provided by the action)
+- The Java and Maven tools must be pre-installed. Use of `mise` is recommended.
+- The "Sonar parent POM" (`[org|com].sonarsource.parent:parent`) must be used. There's a public POM (org) and a private POM (com),
+  respectively for public or private code.
 
 ### Usage
 
 ```yaml
-name: Build
-on:
-  push:
-    branches:
-      - master
-      - branch-*
-  pull_request:
-  merge_group:
-  workflow_dispatch:
-
-jobs:
-  build:
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-      cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
-    runs-on: github-ubuntu-latest-s
-    name: Build
-    permissions:
-      id-token: write
-      contents: write
-    steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
-      - uses: SonarSource/ci-github-actions/build-maven@v1
+permissions:
+  id-token: write
+  contents: write
+steps:
+  - uses: actions/checkout@v5
+  - uses: SonarSource/ci-github-actions/config-maven@v1
+  - uses: SonarSource/ci-github-actions/build-maven@v1
 ```
 
 ### Inputs
 
 | Input                         | Description                                                                                                                | Default                                                              |
 |-------------------------------|----------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------|
-| `public`                      | Whether to build and deploy with/to public repositories                                                                    | Auto-detected from repository visibility                             |
 | `artifactory-reader-role`     | Suffix for the Artifactory reader role in Vault                                                                            | `private-reader` for private repos, `public-reader` for public repos |
 | `artifactory-deployer-role`   | Suffix for the Artifactory deployer role in Vault                                                                          | `qa-deployer` for private repos, `public-deployer` for public repos  |
 | `deploy-pull-request`         | Whether to deploy pull request artifacts                                                                                   | `false`                                                              |
-| `maven-local-repository-path` | Path to the Maven cache directory, relative to the user home directory                                                     | `.m2/repository`                                                     |
-| `maven-opts`                  | Additional Maven options to pass to the build script (`MAVEN_OPTS`)                                                        | `-Xmx1536m -Xms128m`                                                 |
 | `maven-args`                  | Additional arguments to pass to Maven                                                                                      | (optional)                                                           |
 | `scanner-java-opts`           | Additional Java options for the Sonar scanner (`SONAR_SCANNER_JAVA_OPTS`)                                                  | `-Xmx512m`                                                           |
-| `use-develocity`              | Whether to use Develocity for build tracking                                                                               | `false`                                                              |
 | `repox-url`                   | URL for Repox                                                                                                              | `https://repox.jfrog.io`                                             |
 | `repox-artifactory-url`       | URL for Repox Artifactory API (overrides repox-url/artifactory if provided)                                                | (optional)                                                           |
+| `use-develocity`              | Whether to use Develocity for build tracking                                                                               | `false`                                                              |
 | `develocity-url`              | URL for Develocity                                                                                                         | `https://develocity.sonar.build/`                                    |
 | `sonar-platform`              | SonarQube primary platform - 'next', 'sqc-eu', or 'sqc-us'                                                                 | `next`                                                               |
 | `working-directory`           | Relative path under github.workspace to execute the build in                                                               | `.`                                                                  |
@@ -160,7 +214,9 @@ jobs:
 
 ### Outputs
 
-No outputs are provided by this action.
+| Output         | Description                                                               |
+|----------------|---------------------------------------------------------------------------|
+| `BUILD_NUMBER` | The current build number. Also set as environment variable `BUILD_NUMBER` |
 
 ### Features
 
@@ -168,7 +224,6 @@ No outputs are provided by this action.
 - SonarQube analysis with credentials from Vault
 - Artifact signing with GPG keys from Vault
 - Conditional deployment based on branch patterns
-- Maven local repository caching
 - Develocity integration for build optimization (optional)
 - Support for different branch types:
   - **master**: Deploy + SonarQube analysis with full profiles
