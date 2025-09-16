@@ -154,7 +154,7 @@ runs:
         USER_MAVEN_ARGS: ${{ inputs.maven-args }}
         SONAR_SCANNER_JAVA_OPTS: ${{ inputs.scanner-java-opts }}
       run: |
-        export MAVEN_OPTS="$USER_MAVEN_OPTS -Duser.home=$HOME"
+        export MAVEN_OPTS="$USER_MAVEN_OPTS"
         cd "${{ inputs.working-directory }}"
         if [ -z "${{ inputs.maven-args }}" ]; then
           ${GITHUB_ACTION_PATH}/build.sh
