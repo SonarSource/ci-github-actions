@@ -150,7 +150,7 @@ runs:
         USER_MAVEN_OPTS: ${{ inputs.maven-opts }}
         SONAR_SCANNER_JAVA_OPTS: ${{ inputs.scanner-java-opts }}
       run: |
-        export MAVEN_OPTS="$USER_MAVEN_OPTS -Duser.home=$HOME"
+        export MAVEN_OPTS="$USER_MAVEN_OPTS"
         cd "${{ inputs.working-directory }}"
         ${GITHUB_ACTION_PATH}/build.sh
     - name: Cleanup Maven repository before caching
