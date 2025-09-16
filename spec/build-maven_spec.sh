@@ -50,9 +50,7 @@ export SQC_EU_URL="https://sonarqube.eu.sonarsource.com"
 export SQC_EU_TOKEN="sqc-eu-token"
 export RUN_SHADOW_SCANS="false"
 export SCANNER_VERSION="5.1.0.4751"
-MAVEN_SETTINGS="$(mktemp)"
-touch "$MAVEN_SETTINGS"
-export MAVEN_SETTINGS
+touch "$HOME/.m2/settings.xml"
 
 # Source shared functions before including build script
 Include shared/common-functions.sh
@@ -272,14 +270,13 @@ Describe 'set_project_version()'
   End
 
   It 'fails when Maven settings.xml is missing'
-    export MAVEN_SETTINGS="missing-settings.xml"
+    rm "$HOME/.m2/settings.xml"
     When call set_project_version
     The status should be failure
     The lines of stdout should equal 1
     The line 1 should include "Maven settings.xml file not found at $MAVEN_SETTINGS"
     The variable CURRENT_VERSION should be undefined
     The variable PROJECT_VERSION should be undefined
-    unset MAVEN_SETTINGS
   End
 End
 
