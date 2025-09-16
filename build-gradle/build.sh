@@ -269,9 +269,6 @@ gradle_build() {
 }
 
 main() {
-  # Unsetting JAVA_HOME fixes an issue on GitHub hosted Windows runners, where JAVA_HOME is set by default
-  # and Gradle prioritizes this JDK instead of using the JDK from the path.
-  unset JAVA_HOME
   command_exists java -version
   set_gradle_cmd
   set_build_env
