@@ -12,7 +12,6 @@
 # - SQC_EU_URL: URL of SonarQube server for sqc-eu platform
 # - SQC_EU_TOKEN: Access token to send analysis reports to SonarQube for sqc-eu platform
 # - RUN_SHADOW_SCANS: If true, run sonar scanner on all 3 platforms. If false, run on the platform provided by SONAR_PLATFORM.
-# - ARTIFACTORY_URL: URL to Artifactory repository
 # - ARTIFACTORY_ACCESS_TOKEN: Access token to read Repox repositories
 # - ARTIFACTORY_DEPLOY_REPO: Name of deployment repository
 # - ARTIFACTORY_DEPLOY_USERNAME: Username to deploy to Artifactory
@@ -48,7 +47,6 @@ set -euo pipefail
 # shellcheck source=../shared/common-functions.sh
 source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 
-: "${ARTIFACTORY_URL:?}"
 : "${ARTIFACTORY_ACCESS_TOKEN:?}" "${ARTIFACTORY_DEPLOY_REPO:?}" "${ARTIFACTORY_DEPLOY_USERNAME:?}" "${ARTIFACTORY_DEPLOY_ACCESS_TOKEN:?}"
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_RUN_ID:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}" "${GITHUB_SHA:?}"
 : "${GITHUB_OUTPUT:?}"
@@ -59,7 +57,7 @@ if [[ "${SONAR_PLATFORM}" != "none" ]]; then
 fi
 : "${ORG_GRADLE_PROJECT_signingKey:?}" "${ORG_GRADLE_PROJECT_signingPassword:?}" "${ORG_GRADLE_PROJECT_signingKeyId:?}"
 : "${DEPLOY_PULL_REQUEST:=false}" "${SKIP_TESTS:=false}"
-export ARTIFACTORY_URL DEPLOY_PULL_REQUEST
+export DEPLOY_PULL_REQUEST
 : "${GRADLE_ARGS:=}"
 
 command_exists() {

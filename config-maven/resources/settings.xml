@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <settings xmlns="http://maven.apache.org/SETTINGS/1.2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.2.0 http://maven.apache.org/xsd/settings-1.2.0.xsd">
-  <localRepository>${env.MAVEN_LOCAL_REPOSITORY}</localRepository>
   <servers>
     <server>
       <id>sonarsource</id>
@@ -27,7 +26,7 @@
         <repository>
           <id>sonarsource</id>
           <name>SonarSource Central Repository</name>
-          <url>https://repox.jfrog.io/artifactory/sonarsource-qa</url>
+          <url>${env.SONARSOURCE_REPOSITORY_URL}</url>
           <releases>
             <enabled>true</enabled>
             <updatePolicy>interval:60</updatePolicy>
@@ -43,7 +42,7 @@
         <pluginRepository>
           <id>sonarsource</id>
           <name>SonarSource Central Repository</name>
-          <url>https://repox.jfrog.io/artifactory/sonarsource-qa</url>
+          <url>${env.SONARSOURCE_REPOSITORY_URL}</url>
           <releases>
             <enabled>true</enabled>
             <!-- no need to always check if new versions are available when executing a Maven plugin without specifying the version -->

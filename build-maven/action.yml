@@ -2,14 +2,6 @@
 name: Build Maven
 description: GitHub Action to build, analyze, and deploy a Maven project
 inputs:
-  public:
-    description: Whether to build and deploy with/to public repositories. Defaults to `true` for public repositories (OSS), and `false` for
-      private repositories.
-    default: ${{ github.event.repository.visibility == 'public' && 'true' || 'false' }}
-  artifactory-reader-role:
-    description: Suffix for the Artifactory reader role in Vault. Defaults to `private-reader` for private repositories, and `public-reader`
-      for public repositories.
-    default: ''
   artifactory-deployer-role:
     description: Suffix for the Artifactory deployer role in Vault. Defaults to `qa-deployer` for private repositories, and
       `public-deployer` for public repositories.
@@ -17,30 +9,12 @@ inputs:
   deploy-pull-request:
     description: Whether to deploy pull request artifacts.
     default: 'false'
-  maven-local-repository-path:
-    description: Path to the Maven cache directory, relative to the user home directory.
-    default: .m2/repository
-  maven-opts:
-    description: Additional Maven options to pass to the build script (`MAVEN_OPTS`).
-    default: -Xmx1536m -Xms128m
   maven-args:
     description: Additional Maven arguments to pass to the build script.
     default: ''
   scanner-java-opts:
     description: Additional Java options for the Sonar scanner (`SONAR_SCANNER_JAVA_OPTS`).
     default: -Xmx512m
-  use-develocity:
-    description: Whether to use Develocity for build tracking.
-    default: 'false'
-  repox-url:
-    description: URL for Repox
-    default: https://repox.jfrog.io
-  repox-artifactory-url:
-    description: URL for Repox Artifactory API (overrides repox-url/artifactory if provided)
-    default: ''
-  develocity-url:
-    description: URL for Develocity
-    default: https://develocity.sonar.build/
   sonar-platform:
     description: SonarQube primary platform (next, sqc-eu, sqc-us, or none). Use 'none' to skip sonar scans.
     default: next
@@ -51,40 +25,58 @@ inputs:
     description: If true, run SonarQube analysis on all three platforms (next, sqc-eu, sqc-us).
       If false, run analysis on the platform specified with sonar-platform.
     default: 'false'
+  # Inputs passed to config-maven
+  artifactory-reader-role:
+    description: Suffix for the Artifactory reader role in Vault.
+      Defaults to `private-reader` for private repositories, and `public-reader` for public repositories.
+    default: ''
+  common-mvn-flags:
+    description: Maven flags for all subsequent mvn calls
+    default: --batch-mode --no-transfer-progress --errors --fail-at-end --show-version -Dmaven.test.redirectTestOutputToFile=false
+  repox-url:
+    description: URL for Repox
+    default: https://repox.jfrog.io
+  repox-artifactory-url:
+    description: URL for Repox Artifactory API (overrides repox-url/artifactory if provided)
+    default: ''
+  use-develocity:
+    description: Whether to use Develocity for build tracking.
+    default: 'false'
+  develocity-url:
+    description: URL for Develocity
+    default: https://develocity.sonar.build/
 outputs:
   BUILD_NUMBER:
     description: The build number, incremented or reused if already cached
-    value: ${{ steps.get_build_number.outputs.BUILD_NUMBER }}
+    value: ${{ steps.config.outputs.BUILD_NUMBER }}
 
 runs:
   using: composite
   steps:
+    - uses: SonarSource/ci-github-actions/config-maven@master
+      id: config
+      if: ${{ env.CONFIG_MAVEN_COMPLETED != 'true' }}
+      with:
+        working-directory: ${{ inputs.working-directory }}
+        artifactory-reader-role: ${{ inputs.artifactory-reader-role }}
+        common-mvn-flags: ${{ inputs.common-mvn-flags }}
+        repox-url: ${{ inputs.repox-url }}
+        repox-artifactory-url: ${{ inputs.repox-artifactory-url }}
+        use-develocity: ${{ inputs.use-develocity }}
+        develocity-url: ${{ inputs.develocity-url }}
     - name: Set build parameters
       shell: bash
       env:
-        ARTIFACTORY_READER_ROLE: ${{ inputs.artifactory-reader-role != '' && inputs.artifactory-reader-role ||
-          (inputs.public == 'true' && 'public-reader' || 'private-reader') }}
         ARTIFACTORY_DEPLOYER_ROLE: ${{ inputs.artifactory-deployer-role != '' && inputs.artifactory-deployer-role ||
-          (inputs.public == 'true' && 'public-deployer' || 'qa-deployer') }}
+          (github.event.repository.visibility == 'public' && 'public-deployer' || 'qa-deployer') }}
       run: |
-        echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_DEPLOYER_ROLE=${ARTIFACTORY_DEPLOYER_ROLE}" >> "$GITHUB_ENV"
-    - uses: SonarSource/ci-github-actions/get-build-number@v1
-      id: get_build_number
-    - name: Cache local Maven repository
-      uses: SonarSource/ci-github-actions/cache@v1
-      with:
-        path: ~/${{ inputs.maven-local-repository-path }}
-        key: maven-${{ runner.os }}-${{ github.workflow }}-${{ hashFiles('**/pom.xml') }}
-        restore-keys: maven-${{ runner.os }}-${{ github.workflow }}-
     - name: Vault
       # yamllint disable rule:line-length
       id: secrets
       uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
       with:
         secrets: |
-          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
-          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} username | ARTIFACTORY_DEPLOY_USERNAME;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;
 
@@ -97,43 +89,18 @@ runs:
 
           development/kv/data/sign key | SIGN_KEY;
           development/kv/data/sign passphrase | PGP_PASSPHRASE;
-          ${{ inputs.use-develocity == 'true' && 'development/kv/data/develocity token | DEVELOCITY_TOKEN;' || '' }}
       # yamllint enable rule:line-length
-    - name: Maven configuration
-      shell: bash
-      env:
-        PUBLIC_BUILD: ${{ inputs.public }}
-      run: |
-        MAVEN_CONFIG="$HOME/.m2"
-        mkdir -p "$MAVEN_CONFIG"
-        echo "MAVEN_CONFIG=${MAVEN_CONFIG}" >> "$GITHUB_ENV"
-        if [[ "${PUBLIC_BUILD}" == "true" ]]; then
-          echo "Setting up public Maven settings $MAVEN_CONFIG/settings.xml"
-          cp "${GITHUB_ACTION_PATH}/resources/settings-public-auth.xml" "$MAVEN_CONFIG/settings.xml"
-        else
-          echo "Setting up private Maven settings $MAVEN_CONFIG/settings.xml"
-          cp "${GITHUB_ACTION_PATH}/resources/settings-private.xml" "$MAVEN_CONFIG/settings.xml"
-        fi
-        MAVEN_LOCAL_REPOSITORY="$HOME/${{ inputs.maven-local-repository-path }}"
-        mkdir -p "$MAVEN_LOCAL_REPOSITORY"
-        echo "MAVEN_LOCAL_REPOSITORY=${MAVEN_LOCAL_REPOSITORY}" >> "$GITHUB_ENV"
-        echo "MAVEN_SETTINGS=${MAVEN_CONFIG}/settings.xml" >> "$GITHUB_ENV"
     - name: Build, Analyze and deploy
       shell: bash
       id: build
       env:
         DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-        ARTIFACTORY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME }} # unused; present for backward compliance
-        ARTIFACTORY_ACCESS_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME }} # deprecated, backward compliance
-        ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
-        ARTIFACTORY_PASSWORD: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }} # deprecated, backward compliance
-        ARTIFACTORY_DEPLOY_REPO: ${{ inputs.public == 'true' && 'sonarsource-public-qa' || 'sonarsource-private-qa' }}
+        ARTIFACTORY_DEPLOY_REPO:
+          ${{ github.event.repository.visibility == 'public' && 'sonarsource-public-qa' || 'sonarsource-private-qa' }}
         ARTIFACTORY_DEPLOY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_USERNAME }}
         ARTIFACTORY_DEPLOY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN }}
         ARTIFACTORY_DEPLOY_PASSWORD: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN }} # used in parent POM
         SIGN_KEY: ${{ fromJSON(steps.secrets.outputs.vault).SIGN_KEY }}
-
-        # Vault secrets
         SQC_EU_URL: ${{ fromJSON(steps.secrets.outputs.vault).SQC_EU_URL }}
         SQC_US_URL: ${{ fromJSON(steps.secrets.outputs.vault).SQC_US_URL }}
         NEXT_URL: ${{ fromJSON(steps.secrets.outputs.vault).NEXT_URL }}
@@ -146,27 +113,17 @@ runs:
         DEPLOY_PULL_REQUEST: ${{ inputs.deploy-pull-request }}
         PULL_REQUEST: ${{ github.event.pull_request.number || '' }}
         PULL_REQUEST_SHA: ${{ github.event.pull_request.base.sha || '' }}
-        ARTIFACTORY_URL: ${{ inputs.repox-artifactory-url != '' && inputs.repox-artifactory-url ||
-          format('{0}/artifactory', inputs.repox-url) }}
-        DEVELOCITY_ACCESS_KEY: ${{ inputs.use-develocity == 'true' &&
-          format('develocity.sonar.build={0}', fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN) || '' }}
-        USER_MAVEN_OPTS: ${{ inputs.maven-opts }}
         USER_MAVEN_ARGS: ${{ inputs.maven-args }}
         SONAR_SCANNER_JAVA_OPTS: ${{ inputs.scanner-java-opts }}
-      run: |
-        export MAVEN_OPTS="$USER_MAVEN_OPTS"
-        cd "${{ inputs.working-directory }}"
-        if [ -z "${{ inputs.maven-args }}" ]; then
-          ${GITHUB_ACTION_PATH}/build.sh
-        else
-          ${GITHUB_ACTION_PATH}/build.sh $USER_MAVEN_ARGS
-        fi
+      working-directory: ${{ inputs.working-directory }}
+      run: ${GITHUB_ACTION_PATH}/build.sh $USER_MAVEN_ARGS
+
     - name: Cleanup Maven repository before caching
       shell: bash
       run: |
-        rm -rf "$MAVEN_LOCAL_REPOSITORY/org/sonarsource/"
-        rm -rf "$MAVEN_LOCAL_REPOSITORY/repository/com/sonarsource/"
-        /usr/bin/find "$MAVEN_LOCAL_REPOSITORY" -name resolver-status.properties -delete
+        rm -rf "$HOME/.m2/repository/org/sonarsource/"
+        rm -rf "$HOME/.m2/repository/repository/com/sonarsource/"
+        /usr/bin/find "$HOME/.m2/repository" -name resolver-status.properties -delete
 
     - name: Generate workflow summary
       if: always()
@@ -180,12 +137,12 @@ runs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "## **Details**" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "* **Project**: \`${GITHUB_REPOSITORY#*/}\`" >> $GITHUB_STEP_SUMMARY
-        echo "* **Version**: \`${{ steps.build.outputs.project-version || 'Unknown' }}\`" >> $GITHUB_STEP_SUMMARY
-        echo "- **Build Number**: ${{ env.BUILD_NUMBER }}" >> $GITHUB_STEP_SUMMARY
-        echo "* **Commit**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Project**: \`${GITHUB_REPOSITORY#*/}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Version**: \`${PROJECT_VERSION}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Build Number**: ${BUILD_NUMBER}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Commit**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
         ARTIFACTORY_BROWSE_URL="https://repox.jfrog.io/ui/builds/${GITHUB_REPOSITORY#*/}/$BUILD_NUMBER"
-        echo "* **Build**: [View in Artifactory](${ARTIFACTORY_BROWSE_URL})" >> $GITHUB_STEP_SUMMARY
+        echo "- **Build**: [View in Artifactory](${ARTIFACTORY_BROWSE_URL})" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "---" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
