@@ -26,6 +26,7 @@ set -euo pipefail
 GH_API_VERSION_HEADER="X-GitHub-Api-Version: 2022-11-28"
 BUILD_INFO_FILE=$(mktemp)
 rm -f "$BUILD_INFO_FILE"
+: "${BUILD_NAME:?}"
 
 : "${MULTI_REPO_PROMOTE:=false}" "${ARTIFACTORY_DEPLOY_REPO:=}" "${ARTIFACTORY_TARGET_REPO:=}" "${PROMOTE_PULL_REQUEST:=false}"
 MULTI_REPO_SRC_PRIVATE=sonarsource-private-qa
@@ -62,8 +63,6 @@ is_merge_queue_branch() {
 
 set_build_env() {
   DEFAULT_BRANCH=${DEFAULT_BRANCH:=$(gh repo view --json defaultBranchRef --jq ".defaultBranchRef.name")}
-  export PROJECT=${GITHUB_REPOSITORY#*/}
-  echo "PROJECT: $PROJECT"
   export DEFAULT_BRANCH
 }
 
@@ -107,11 +106,11 @@ get_target_repos() {
 get_build_info_property() {
   property="$1"
   if ! [[ -s "$BUILD_INFO_FILE" ]]; then
-    jf rt curl "api/build/$PROJECT/$BUILD_NUMBER" > "$BUILD_INFO_FILE"
+    jf rt curl "api/build/$BUILD_NAME/$BUILD_NUMBER" > "$BUILD_INFO_FILE"
   fi
   property_value=$(jq -r ".buildInfo.properties.\"buildInfo.env.$property\"" "$BUILD_INFO_FILE")
   if [[ "$property_value" == "null" || -z "$property_value" ]]; then
-    echo "Failed to retrieve $property from buildInfo for build ${PROJECT}/${BUILD_NUMBER}" >&2
+    echo "Failed to retrieve $property from buildInfo for build ${BUILD_NAME}/${BUILD_NUMBER}" >&2
     jq -r '.errors' "$BUILD_INFO_FILE" >&2
     return 1
   fi
@@ -137,9 +136,9 @@ get_target_repo() {
 
 promote_multi() {
   # Call to https://github.com/SonarSource/re-tooling/tree/main/artifactory-user-plugins/multiRepoPromote
-  echo "Promote $PROJECT/$BUILD_NUMBER build artifacts to $targetRepo1 and $targetRepo2"
+  echo "Promote $BUILD_NAME/$BUILD_NUMBER build artifacts to $targetRepo1 and $targetRepo2"
   local promoteUrl="api/plugins/execute/multiRepoPromote?"
-  promoteUrl+="params=buildName=$PROJECT;buildNumber=$BUILD_NUMBER;status=$status"
+  promoteUrl+="params=buildName=$BUILD_NAME;buildNumber=$BUILD_NUMBER;status=$status"
   promoteUrl+=";src1=$MULTI_REPO_SRC_PRIVATE;target1=$targetRepo1"
   promoteUrl+=";src2=$MULTI_REPO_SRC_PUBLIC;target2=$targetRepo2"
   jf rt curl "$promoteUrl"
@@ -147,8 +146,8 @@ promote_multi() {
 
 promote_mono() {
   # Promote JFrog Artifactory build
-  echo "Promote $PROJECT/$BUILD_NUMBER build artifacts to $targetRepo"
-  jf rt bpr --status "$status" "$PROJECT" "$BUILD_NUMBER" "$targetRepo"
+  echo "Promote $BUILD_NAME/$BUILD_NUMBER build artifacts to $targetRepo"
+  jf rt bpr --status "$status" "$BUILD_NAME" "$BUILD_NUMBER" "$targetRepo"
 }
 
 github_notify_promotion() {
@@ -156,7 +155,7 @@ github_notify_promotion() {
   project_version=$(get_build_info_property PROJECT_VERSION)
   longDescription="Latest promoted build of '${project_version}' from branch '${GITHUB_REF_NAME}'"
   shortDescription=${longDescription:0:140} # required for GH API endpoint (max 140 chars)
-  buildUrl="${ARTIFACTORY_URL}/ui/builds/${PROJECT}/${BUILD_NUMBER}/"
+  buildUrl="${ARTIFACTORY_URL}/ui/builds/${BUILD_NAME}/${BUILD_NUMBER}/"
   githubApiUrl="https://api.github.com/repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}"
   gh api -X POST -H "$GH_API_VERSION_HEADER" "$githubApiUrl" -H "Content-Type: application/json" --input - <<EOF
 {
