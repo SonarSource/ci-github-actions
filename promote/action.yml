@@ -11,6 +11,9 @@ inputs:
     description: Repository to deploy to. If not set, it will be retrieved from the build info.
   artifactory-target-repo:
     description: Target repository for the promotion. If not set, it will be determined based on the branch type and the deploy repository.
+  build-name:
+    description: Name of the build to promote. Defaults to the repository name.
+    default: ''
 
 runs:
   using: composite
@@ -40,5 +43,6 @@ runs:
         ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo }}
         ARTIFACTORY_TARGET_REPO: ${{ inputs.artifactory-target-repo }}
         PROMOTE_PULL_REQUEST: ${{ inputs.promote-pull-request }}
+        BUILD_NAME: ${{ inputs.build-name || github.event.repository.name }}
       run: |
         ${GITHUB_ACTION_PATH}/promote.sh

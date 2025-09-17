@@ -42,6 +42,7 @@ export ARTIFACTORY_PROMOTE_ACCESS_TOKEN="dummy promote token"
 export GITHUB_REF_NAME="dummy-branch"
 export BUILD_NUMBER="42"
 export GITHUB_REPOSITORY="SonarSource/dummy-project"
+export BUILD_NAME="dummy-project"
 export GITHUB_EVENT_NAME="push"
 GITHUB_EVENT_PATH=$(mktemp)
 export GITHUB_EVENT_PATH
@@ -50,7 +51,6 @@ export GITHUB_SHA="abc123"
 
 export PROJECT_VERSION="1.2.3"
 export DEFAULT_BRANCH="main"
-export PROJECT="dummy-project"
 export PROMOTE_PULL_REQUEST="false"
 
 Describe 'promote/promote.sh'
@@ -70,7 +70,12 @@ Describe 'promote/promote.sh'
   It 'fails on working branch'
     When run script promote/promote.sh
     The status should be failure
-    The output should include "PROJECT: $PROJECT"
+    The line 1 should include "gh"
+    The line 2 should include "gh"
+    The line 3 should include "jq"
+    The line 4 should include "jq"
+    The line 5 should include "jf"
+    The line 6 should include "jf"
     The error should start with "Promotion is only available for"
   End
 
@@ -80,19 +85,18 @@ Describe 'promote/promote.sh'
     export PROMOTE_PULL_REQUEST="true"
     When run script promote/promote.sh
     The status should be success
-    The lines of stdout should equal 12
+    The lines of stdout should equal 11
     The line 1 should include "gh"
     The line 2 should include "gh"
     The line 3 should include "jq"
     The line 4 should include "jq"
     The line 5 should include "jf"
     The line 6 should include "jf"
-    The line 7 should equal "PROJECT: $PROJECT"
-    The line 8 should equal "jf config remove repox"
-    The line 9 should equal "jf config add repox --artifactory-url https://dummy.repox --access-token dummy promote token"
-    The line 10 should equal "Promote $PROJECT/$BUILD_NUMBER build artifacts to $ARTIFACTORY_TARGET_REPO"
-    The line 11 should equal "jf rt bpr --status it-passed-pr $PROJECT $BUILD_NUMBER $ARTIFACTORY_TARGET_REPO"
-    The line 12 should include "gh api -X POST"
+    The line 7 should equal "jf config remove repox"
+    The line 8 should equal "jf config add repox --artifactory-url https://dummy.repox --access-token dummy promote token"
+    The line 9 should equal "Promote dummy-project/$BUILD_NUMBER build artifacts to $ARTIFACTORY_TARGET_REPO"
+    The line 10 should equal "jf rt bpr --status it-passed-pr dummy-project $BUILD_NUMBER $ARTIFACTORY_TARGET_REPO"
+    The line 11 should include "gh api -X POST"
   End
 
   It 'skips promotion on pull_request when promotion is disabled'
@@ -115,12 +119,10 @@ Describe 'check_tool()'
 End
 
 Describe 'set_build_env()'
-  It 'sets the default branch and project name'
-    unset PROJECT DEFAULT_BRANCH
+  It 'sets the default branch'
+    unset DEFAULT_BRANCH
     When call set_build_env
-    The line 1 should equal "PROJECT: $PROJECT"
     The variable DEFAULT_BRANCH should equal "default-branch"
-    The variable PROJECT should equal "$PROJECT"
   End
 End
 
@@ -208,7 +210,7 @@ Describe 'promote_multi()'
     export status='it-passed'
     get_target_repos
     When call promote_multi
-    The line 1 should equal "Promote $PROJECT/$BUILD_NUMBER build artifacts to sonarsource-private-builds and sonarsource-public-builds"
+    The line 1 should equal "Promote dummy-project/$BUILD_NUMBER build artifacts to sonarsource-private-builds and sonarsource-public-builds"
     The line 2 should match pattern "jf rt curl */multiRepoPromote?*;src1=*;target1=*;src2=*;target2=*"
   End
 End
@@ -223,7 +225,7 @@ Describe 'get_build_info_property()'
   It 'returns an error for a non-existing property'
     When call get_build_info_property "NON_EXISTING_PROPERTY"
     The status should be failure
-    The error should include "Failed to retrieve NON_EXISTING_PROPERTY from buildInfo for build $PROJECT/42"
+    The error should include "Failed to retrieve NON_EXISTING_PROPERTY from buildInfo for build dummy-project/42"
   End
 End
 
@@ -268,15 +270,15 @@ Describe 'jfrog_promote()'
     When call jfrog_promote
     The status should be success
     The line 1 should equal "ARTIFACTORY_DEPLOY_REPO=artifactory-deploy-repo-qa"
-    The line 2 should equal "Promote $PROJECT/$BUILD_NUMBER build artifacts to artifactory-deploy-repo-dev"
-    The line 3 should equal "jf rt bpr --status it-passed-pr $PROJECT $BUILD_NUMBER artifactory-deploy-repo-dev"
+    The line 2 should equal "Promote dummy-project/$BUILD_NUMBER build artifacts to artifactory-deploy-repo-dev"
+    The line 3 should equal "jf rt bpr --status it-passed-pr dummy-project $BUILD_NUMBER artifactory-deploy-repo-dev"
   End
 
   It 'promotes the build artifacts to the specified target'
     export ARTIFACTORY_TARGET_REPO="artifactory-target"
     When call jfrog_promote
-    The line 1 should equal "Promote $PROJECT/$BUILD_NUMBER build artifacts to artifactory-target"
-    The line 2 should equal "jf rt bpr --status it-passed $PROJECT $BUILD_NUMBER artifactory-target"
+    The line 1 should equal "Promote dummy-project/$BUILD_NUMBER build artifacts to artifactory-target"
+    The line 2 should equal "jf rt bpr --status it-passed dummy-project $BUILD_NUMBER artifactory-target"
   End
 
   It 'does multi-promotion when MULTI_REPO_PROMOTE is true'
@@ -284,7 +286,7 @@ Describe 'jfrog_promote()'
     export MULTI_REPO_PROMOTE="true"
     When call jfrog_promote
     The status should be success
-    The line 1 should equal "Promote $PROJECT/$BUILD_NUMBER build artifacts to sonarsource-private-builds and sonarsource-public-builds"
+    The line 1 should equal "Promote dummy-project/$BUILD_NUMBER build artifacts to sonarsource-private-builds and sonarsource-public-builds"
     The line 2 should match pattern "jf rt curl */multiRepoPromote?*;src1=*;target1=*;src2=*;target2=*"
   End
 
@@ -312,6 +314,16 @@ Describe 'promote()'
     When call promote
     The status should be success
     The line 1 should equal "ARTIFACTORY_DEPLOY_REPO=sonarsource-deploy-qa"
-    The line 2 should equal "Promote $PROJECT/$BUILD_NUMBER build artifacts to sonarsource-deploy-builds"
+    The line 2 should equal "Promote dummy-project/$BUILD_NUMBER build artifacts to sonarsource-deploy-builds"
+  End
+
+  It 'customizes the build name with BUILD_NAME not equal to the repository name'
+    export BUILD_NAME="dummy-project-abc"
+    export GITHUB_REF_NAME="main"
+    When call promote
+    The status should be success
+    The variable BUILD_NAME should equal "dummy-project-abc"
+    The line 2 should equal "Promote $BUILD_NAME/$BUILD_NUMBER build artifacts to sonarsource-deploy-builds"
+    The line 3 should equal "jf rt bpr --status it-passed dummy-project-abc 42 sonarsource-deploy-builds"
   End
 End
