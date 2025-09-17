@@ -55,7 +55,14 @@ Include build-maven/build.sh
 
 Describe 'build.sh'
   It 'runs build_maven()'
-    When run script build-maven/build.sh
+    Mock check_settings_xml
+      true
+    End
+    Mock git_fetch_unshallow
+      echo "Fetch Git references for SonarQube analysis..."
+      echo "git fetch --unshallow"
+    End
+    When call build_maven
     The status should be success
       The lines of stdout should equal 6
       The line 1 should include "mvn"
@@ -68,7 +75,14 @@ Describe 'build.sh'
 
   It 'runs build_maven() for windows'
     export RUNNER_OS="Windows"
-    When run script build-maven/build.sh
+    Mock check_settings_xml
+      true
+    End
+    Mock git_fetch_unshallow
+      echo "Fetch Git references for SonarQube analysis..."
+      echo "git fetch --unshallow"
+    End
+    When call build_maven
     The status should be success
       The lines of stdout should equal 6
       The line 1 should include "mvn"
@@ -156,6 +170,46 @@ Describe 'check_tool()'
   End
 End
 
+Describe 'check_settings_xml()'
+  It 'succeeds when settings.xml exists'
+    # Set up a temporary HOME directory
+    temp_home=$(mktemp -d)
+    export HOME="$temp_home"
+    mkdir -p "$HOME/.m2"
+    touch "$HOME/.m2/settings.xml"
+    When call check_settings_xml
+    The status should be success
+    The output should be blank
+    # Cleanup
+    rm -rf "$temp_home"
+  End
+
+  It 'fails when settings.xml does not exist'
+    # Set up a temporary HOME directory without settings.xml
+    temp_home=$(mktemp -d)
+    export HOME="$temp_home"
+    mkdir -p "$HOME/.m2"
+    When run check_settings_xml
+    The status should be failure
+    The stderr should include "Missing Maven settings.xml"
+    The stderr should include "Maven settings.xml file not found at $HOME/.m2/settings.xml"
+    # Cleanup
+    rm -rf "$temp_home"
+  End
+
+  It 'fails when .m2 directory does not exist'
+    # Set up a temporary HOME directory without .m2 directory
+    temp_home=$(mktemp -d)
+    export HOME="$temp_home"
+    When run check_settings_xml
+    The status should be failure
+    The stderr should include "Missing Maven settings.xml"
+    The stderr should include "Maven settings.xml file not found at $HOME/.m2/settings.xml"
+    # Cleanup
+    rm -rf "$temp_home"
+  End
+End
+
 Describe 'git_fetch_unshallow()'
   It 'fetches unshallow repository'
     When call git_fetch_unshallow
@@ -190,6 +244,9 @@ End
 
 Describe 'build_maven()'
   Mock check_tool
+  End
+  Mock check_settings_xml
+    true
   End
   Mock git_fetch_unshallow
   End

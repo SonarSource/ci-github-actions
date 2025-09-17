@@ -67,12 +67,6 @@ export BUILD_ID=$BUILD_NUMBER
 : "${SCANNER_VERSION:=5.1.0.4751}"
 readonly SONAR_GOAL="org.sonarsource.scanner.maven:sonar-maven-plugin:${SCANNER_VERSION}:sonar"
 
-# Verify that maven settings.xml is present
-if [ ! -f "$HOME/.m2/settings.xml" ]; then
-  echo "::error title=Missing Maven settings.xml::Maven settings.xml file not found at $HOME/.m2/settings.xml"
-  exit 1
-fi
-
 # CALLBACK IMPLEMENTATION: SonarQube scanner execution
 #
 # This function is called BY THE ORCHESTRATOR (orchestrate_sonar_platforms)
@@ -139,8 +133,16 @@ check_tool() {
   "$@"
 }
 
+check_settings_xml() {
+  if [ ! -f "$HOME/.m2/settings.xml" ]; then
+    echo "::error title=Missing Maven settings.xml::Maven settings.xml file not found at $HOME/.m2/settings.xml" >&2
+    exit 1
+  fi
+}
+
 build_maven() {
   check_tool mvn --version
+  check_settings_xml
   git_fetch_unshallow
 
   local maven_command_args
