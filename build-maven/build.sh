@@ -46,7 +46,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 : "${ARTIFACTORY_URL:?}"
 # Required by maven-enforcer-plugin in SonarSource parent POM
 : "${ARTIFACTORY_DEPLOY_REPO:?}" "${ARTIFACTORY_DEPLOY_USERNAME:?}" "${ARTIFACTORY_DEPLOY_PASSWORD:?}"
-: "${CURRENT_VERSION:?}"
+: "${SNAPSHOT_VERSION:?}"
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_RUN_ID:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}"
 : "${GITHUB_SHA:?}"
 : "${GITHUB_OUTPUT:?}"
@@ -85,7 +85,7 @@ sonar_scanner_implementation() {
     local additional_params=("$@")
     # Build sonar properties (using orchestrator-provided SONAR_HOST_URL/SONAR_TOKEN)
     local sonar_props=("-Dsonar.host.url=${SONAR_HOST_URL}" "-Dsonar.token=${SONAR_TOKEN}")
-    sonar_props+=("-Dsonar.projectVersion=${CURRENT_VERSION}" "-Dsonar.scm.revision=$GITHUB_SHA")
+    sonar_props+=("-Dsonar.projectVersion=${SNAPSHOT_VERSION}" "-Dsonar.scm.revision=$GITHUB_SHA")
     sonar_props+=("${additional_params[@]+"${additional_params[@]}"}")
 
     echo "Maven command: mvn $SONAR_GOAL ${sonar_props[*]}"

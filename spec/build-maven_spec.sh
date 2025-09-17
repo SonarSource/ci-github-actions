@@ -46,7 +46,7 @@ export SQC_EU_URL="https://sonarqube.eu.sonarsource.com"
 export SQC_EU_TOKEN="sqc-eu-token"
 export RUN_SHADOW_SCANS="false"
 export SCANNER_VERSION="5.1.0.4751"
-export CURRENT_VERSION="1.2.3-SNAPSHOT"
+export SNAPSHOT_VERSION="1.2.3-SNAPSHOT"
 export PROJECT_VERSION="1.2.3.42"
 
 # Source shared functions before including build script
