@@ -891,8 +891,6 @@ Complete mapping table for ci-common-scripts compatibility:
 
 **Additional Variables**:
 
-- `MAVEN_CONFIG`: Defaults to `$HOME/.m2`
-- `MAVEN_LOCAL_REPOSITORY`: Defaults to `$MAVEN_CONFIG/repository`
 - `SONARSOURCE_QA`: Set to `true` if not prefixed with BUILD (impacts Maven settings)
 
 #### Specific Environment Variable Mappings
