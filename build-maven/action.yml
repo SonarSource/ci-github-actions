@@ -23,6 +23,9 @@ inputs:
   maven-opts:
     description: Additional Maven options to pass to the build script (`MAVEN_OPTS`).
     default: -Xmx1536m -Xms128m
+  maven-args:
+    description: Additional Maven arguments to pass to the build script.
+    default: ''
   scanner-java-opts:
     description: Additional Java options for the Sonar scanner (`SONAR_SCANNER_JAVA_OPTS`).
     default: -Xmx512m
@@ -148,11 +151,12 @@ runs:
         DEVELOCITY_ACCESS_KEY: ${{ inputs.use-develocity == 'true' &&
           format('develocity.sonar.build={0}', fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN) || '' }}
         USER_MAVEN_OPTS: ${{ inputs.maven-opts }}
+        USER_MAVEN_ARGS: ${{ inputs.maven-args }}
         SONAR_SCANNER_JAVA_OPTS: ${{ inputs.scanner-java-opts }}
       run: |
         export MAVEN_OPTS="$USER_MAVEN_OPTS -Duser.home=$HOME"
         cd "${{ inputs.working-directory }}"
-        ${GITHUB_ACTION_PATH}/build.sh
+        ${GITHUB_ACTION_PATH}/build.sh "$USER_MAVEN_ARGS"
     - name: Cleanup Maven repository before caching
       shell: bash
       run: |
