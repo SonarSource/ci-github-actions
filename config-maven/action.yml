@@ -1,0 +1,105 @@
+---
+name: Config Maven
+description: GitHub Action to configure Maven build environment with build number, authentication, and default settings
+inputs:
+  working-directory:
+    description: Relative path under github.workspace to execute the build in
+    default: .
+  artifactory-reader-role:
+    description: Suffix for the Artifactory reader role in Vault.
+      Defaults to `private-reader` for private repositories, and `public-reader` for public repositories.
+    default: ''
+  common-mvn-flags:
+    description: Maven flags for all subsequent mvn calls
+    default: --batch-mode --no-transfer-progress --errors --fail-at-end --show-version -Dmaven.test.redirectTestOutputToFile=false
+  maven-opts:
+    description: Parameters for the JVM started for subsequent mvn calls
+    default: -Xmx1536m -Xms128m
+
+outputs:
+  build-number:
+    description: The current build number. Also set as environment variable BUILD_NUMBER
+    value: ${{ steps.get_build_number.outputs.BUILD_NUMBER }}
+  current-version:
+    description: The project version set in the pom.xml (before replacement). Also set as environment variable CURRENT_VERSION
+    value: ${{ steps.config.outputs.current-version }}
+  project-version:
+    description: The project version with build number (after replacement). Also set as environment variable PROJECT_VERSION
+    value: ${{ steps.config.outputs.project-version }}
+
+runs:
+  using: composite
+  steps:
+    - name: Get build number
+      id: get_build_number
+      uses: SonarSource/ci-github-actions/get-build-number@v1
+
+    - name: Set parameter for Vault
+      shell: bash --noprofile --norc -euo pipefail {0}
+      env:
+        ARTIFACTORY_READER_ROLE: ${{ inputs.artifactory-reader-role != '' && inputs.artifactory-reader-role ||
+          (github.event.repository.visibility == 'public' && 'public-reader' || 'private-reader') }}
+      run: |
+        echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
+
+    - name: Get secrets from Vault
+      id: vault
+      uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
+      with:
+        secrets: |
+          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
+          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
+
+    - name: Set environment variables for Artifactory authentication
+      shell: bash --noprofile --norc -euo pipefail {0}
+      env:
+        ARTIFACTORY_USERNAME: ${{ fromJSON(steps.vault.outputs.vault).ARTIFACTORY_USERNAME }}
+        ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.vault.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
+      run: |
+        echo "ARTIFACTORY_USERNAME=$ARTIFACTORY_USERNAME" >> "$GITHUB_ENV"
+        echo "ARTIFACTORY_ACCESS_USERNAME=$ARTIFACTORY_USERNAME" >> "$GITHUB_ENV"  # deprecated, backward compliance
+        echo "ARTIFACTORY_ACCESS_TOKEN=$ARTIFACTORY_ACCESS_TOKEN" >> "$GITHUB_ENV"
+        echo "ARTIFACTORY_PASSWORD=$ARTIFACTORY_ACCESS_TOKEN" >> "$GITHUB_ENV"  # deprecated, backward compliance
+
+    - name: Set Maven Options
+      shell: bash --noprofile --norc -euo pipefail {0}
+      env:
+        MAVEN_OPTS: ${{ inputs.maven-opts }}
+      run: |
+        echo "MAVEN_OPTS=$MAVEN_OPTS" >> "$GITHUB_ENV"
+        echo "maven-opts=$MAVEN_OPTS" >> "$GITHUB_OUTPUT"
+
+    - name: Create Maven command alias with common flags
+      shell: bash --noprofile --norc -euo pipefail {0}
+      env:
+        COMMON_MVN_FLAGS: ${{ inputs.common-mvn-flags }}
+      run: |
+        echo "alias mvn='mvn ${COMMON_MVN_FLAGS}'" >> "$HOME/.bash_aliases"
+        echo "BASH_ENV=$HOME/.bash_aliases" >> "$GITHUB_ENV"
+
+    - name: Configure Maven settings and set repository URL
+      shell: bash --noprofile --norc -euo pipefail {0}
+      env:
+        SONARSOURCE_REPOSITORY_URL: ${{ github.event.repository.visibility == 'private' &&
+          ('https://repox.jfrog.io/artifactory/sonarsource-qa' || 'https://repox.jfrog.io/artifactory/sonarsource') }}
+      run: |
+        MAVEN_CONFIG="$HOME/.m2"
+        mkdir -p "$MAVEN_CONFIG"
+        cp "${GITHUB_ACTION_PATH}/resources/settings.xml" "$MAVEN_CONFIG/settings.xml"
+        echo "Copied Maven settings from ${GITHUB_ACTION_PATH}/resources/settings.xml to $MAVEN_CONFIG/settings.xml"
+        echo "SONARSOURCE_REPOSITORY_URL=${SONARSOURCE_REPOSITORY_URL}" >> "$GITHUB_ENV"
+
+    - name: Cache local Maven repository
+      uses: SonarSource/ci-github-actions/cache@v1
+      with:
+        path: ~/.m2/repository
+        key: maven-${{ runner.os }}-${{ github.workflow }}-${{ hashFiles(format('{0}/**/pom.xml', inputs.working-directory)) }}
+        restore-keys: maven-${{ runner.os }}-${{ github.workflow }}-
+
+    - name: Update project version and set current-version and project-version variables
+      id: config
+      shell: bash
+      env:
+        BUILD_NUMBER: ${{ steps.get_build_number.outputs.BUILD_NUMBER }}
+      working-directory: ${{ inputs.working-directory }}
+      run: ${GITHUB_ACTION_PATH}/set_maven_project_version.sh
