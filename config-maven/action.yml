@@ -20,9 +20,9 @@ outputs:
   build-number:
     description: The current build number. Also set as environment variable BUILD_NUMBER
     value: ${{ steps.get_build_number.outputs.BUILD_NUMBER }}
-  current-version:
+  snapshot-version:
     description: The project version set in the pom.xml (before replacement). Also set as environment variable CURRENT_VERSION
-    value: ${{ steps.config.outputs.current-version }}
+    value: ${{ steps.config.outputs.snapshot-version }}
   project-version:
     description: The project version with build number (after replacement). Also set as environment variable PROJECT_VERSION
     value: ${{ steps.config.outputs.project-version }}
@@ -96,7 +96,7 @@ runs:
         key: maven-${{ runner.os }}-${{ github.workflow }}-${{ hashFiles(format('{0}/**/pom.xml', inputs.working-directory)) }}
         restore-keys: maven-${{ runner.os }}-${{ github.workflow }}-
 
-    - name: Update project version and set current-version and project-version variables
+    - name: Update project version and set snapshot-version and project-version variables
       id: config
       shell: bash
       env:
