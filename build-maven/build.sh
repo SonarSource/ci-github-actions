@@ -113,7 +113,7 @@ sonar_scanner_implementation() {
     local sonar_props=("-Dsonar.host.url=${SONAR_HOST_URL}" "-Dsonar.token=${SONAR_TOKEN}")
     sonar_props+=("-Dsonar.projectVersion=${CURRENT_VERSION}" "-Dsonar.scm.revision=$GITHUB_SHA")
     if [[ -n "${PROJECT_KEY:-}" ]]; then
-      sonar_props+=("-Dsonar.projectKey=${PROJECT_KEY}" "-Dsonar.organization=\"sonarsource\"")
+      sonar_props+=("-Dsonar.projectKey=${PROJECT_KEY}")
     fi
     sonar_props+=("${additional_params[@]+"${additional_params[@]}"}")
 
