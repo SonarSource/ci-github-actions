@@ -4,7 +4,7 @@
 #
 # Required inputs (must be explicitly provided):
 # - BUILD_NUMBER: Build number for versioning
-# - SONAR_PLATFORM: SonarQube primary platform (next, sqc-eu, or sqc-us)
+# - SONAR_PLATFORM: SonarQube primary platform (next, sqc-eu, sqc-us, or none). Use 'none' to skip sonar scans.
 # - NEXT_URL: URL of SonarQube server for next platform
 # - NEXT_TOKEN: Access token to send analysis reports to SonarQube for next platform
 # - SQC_US_URL: URL of SonarQube server for sqc-us platform
@@ -54,7 +54,9 @@ source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 : "${GITHUB_OUTPUT:?}"
 : "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}"
 : "${SONAR_PLATFORM:?}" "${RUN_SHADOW_SCANS:?}"
-: "${NEXT_URL:?}" "${NEXT_TOKEN:?}" "${SQC_US_URL:?}" "${SQC_US_TOKEN:?}" "${SQC_EU_URL:?}" "${SQC_EU_TOKEN:?}"
+if [[ "${SONAR_PLATFORM}" != "none" ]]; then
+  : "${NEXT_URL:?}" "${NEXT_TOKEN:?}" "${SQC_US_URL:?}" "${SQC_US_TOKEN:?}" "${SQC_EU_URL:?}" "${SQC_EU_TOKEN:?}"
+fi
 : "${ORG_GRADLE_PROJECT_signingKey:?}" "${ORG_GRADLE_PROJECT_signingPassword:?}" "${ORG_GRADLE_PROJECT_signingKeyId:?}"
 : "${DEPLOY_PULL_REQUEST:=false}" "${SKIP_TESTS:=false}"
 export ARTIFACTORY_URL DEPLOY_PULL_REQUEST
@@ -68,13 +70,11 @@ command_exists() {
   "$@"
 }
 
-set_build_env() {
-  # Set default values
-  : "${DEPLOY_PULL_REQUEST:=false}"
-  : "${SKIP_TESTS:=false}"
-  : "${GRADLE_ARGS:=}"
-  export PROJECT=${GITHUB_REPOSITORY#*/}
-  echo "PROJECT: $PROJECT"
+git_fetch_unshallow() {
+  if [ "$SONAR_PLATFORM" = "none" ]; then
+    echo "Skipping git fetch (Sonar analysis disabled)"
+    return 0
+  fi
 
   echo "Fetching commit history for SonarQube analysis..."
   git fetch --unshallow || true
@@ -83,6 +83,12 @@ set_build_env() {
     echo "Fetching base branch: $GITHUB_BASE_REF"
     git fetch origin "${GITHUB_BASE_REF}"
   fi
+}
+
+set_build_env() {
+  export PROJECT=${GITHUB_REPOSITORY#*/}
+  echo "PROJECT: $PROJECT"
+  git_fetch_unshallow
 }
 
 set_project_version() {
@@ -231,11 +237,18 @@ set_gradle_cmd() {
 # 1. Set SONAR_HOST_URL and SONAR_TOKEN for the current platform
 # 2. Call this function to execute the actual scanner
 # 3. Repeat for each platform (if shadow scanning enabled)
-sonar_scanner_implementation() {
+gradle_build_and_analyze() {
   local gradle_args
   read -ra gradle_args <<< "$(build_gradle_args)"
   echo "Gradle command: $GRADLE_CMD ${gradle_args[*]}"
   "$GRADLE_CMD" "${gradle_args[@]}"
+}
+
+# ORCHESTRATOR CONTRACT: Required callback function
+# This function must exist for orchestrate_sonar_platforms() to work
+# It delegates to the actual implementation
+sonar_scanner_implementation() {
+  gradle_build_and_analyze "$@"
 }
 
 gradle_build() {
@@ -245,11 +258,14 @@ gradle_build() {
   echo "Sonar Platform: ${SONAR_PLATFORM}"
   echo "Run Shadow Scans: ${RUN_SHADOW_SCANS}"
 
-  # This will call back to sonar_scanner_implementation() function
-  # No additional arguments needed as branch-specific args are handled in build_gradle_args()
-  # TODO: Add support for sonar-platform=none to skip sonar analysis entirely
-  # shellcheck disable=SC2119
-  orchestrate_sonar_platforms
+  if [[ "$SONAR_PLATFORM" == "none" ]]; then
+    # Build without sonar - call gradle_build_and_analyze directly
+    gradle_build_and_analyze
+  else
+    # Build with sonar analysis via orchestrator
+    # shellcheck disable=SC2119
+    orchestrate_sonar_platforms
+  fi
 }
 
 main() {
