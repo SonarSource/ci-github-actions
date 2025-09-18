@@ -152,6 +152,14 @@ Describe 'git_fetch_unshallow()'
     The line 1 should start with "Fetch def_main"
     The line 2 should equal "git fetch origin def_main"
   End
+
+  It 'skips git fetch when sonar platform is none'
+    export SONAR_PLATFORM="none"
+    When call git_fetch_unshallow
+    The status should be success
+    The lines of stdout should equal 1
+    The line 1 should equal "Skipping git fetch (Sonar analysis disabled)"
+  End
 End
 
 Describe 'maven_expression()'
