@@ -42,7 +42,7 @@ inputs:
     description: URL for Develocity
     default: https://develocity.sonar.build/
   sonar-platform:
-    description: SonarQube primary platform (next, sqc-eu, or sqc-us)
+    description: SonarQube primary platform (next, sqc-eu, sqc-us, or none). Use 'none' to skip sonar scans.
     default: next
   working-directory:
     description: Relative path under github.workspace to execute the build in
@@ -156,7 +156,11 @@ runs:
       run: |
         export MAVEN_OPTS="$USER_MAVEN_OPTS -Duser.home=$HOME"
         cd "${{ inputs.working-directory }}"
-        ${GITHUB_ACTION_PATH}/build.sh "$USER_MAVEN_ARGS"
+        if [ -z "${{ inputs.maven-args }}" ]; then
+          ${GITHUB_ACTION_PATH}/build.sh
+        else
+          ${GITHUB_ACTION_PATH}/build.sh $USER_MAVEN_ARGS
+        fi
     - name: Cleanup Maven repository before caching
       shell: bash
       run: |
