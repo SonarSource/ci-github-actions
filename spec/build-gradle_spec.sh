@@ -58,15 +58,7 @@ export SKIP_TESTS="false"
 export GRADLE_ARGS=""
 export GITHUB_EVENT_NAME="push"
 export GITHUB_OUTPUT=/dev/null
-# Required SonarQube platform variables
-export SONAR_PLATFORM="next"
-export RUN_SHADOW_SCANS="false"
-export NEXT_URL="https://next.sonarqube.com"
-export NEXT_TOKEN="next-token"
-export SQC_US_URL="https://sonarcloud.io"
-export SQC_US_TOKEN="sqc-us-token"
-export SQC_EU_URL="https://sonarcloud.io"
-export SQC_EU_TOKEN="sqc-eu-token"
+# Duplicate environment variables removed
 GITHUB_EVENT_PATH=$(mktemp)
 export GITHUB_EVENT_PATH
 echo '{}' > "$GITHUB_EVENT_PATH"
@@ -120,6 +112,14 @@ Describe 'set_build_env'
     export GITHUB_BASE_REF="main"
     When call set_build_env
     The output should include "Fetching base branch: main"
+  End
+
+  It 'skips git fetch when sonar platform is none'
+    export SONAR_PLATFORM="none"
+    When call set_build_env
+    The output should include "PROJECT: my-repo"
+    The output should include "Skipping git fetch (Sonar analysis disabled)"
+    The output should not include "Fetching commit history for SonarQube analysis..."
   End
 End
 
@@ -335,6 +335,32 @@ Describe 'gradle_build'
     The output should include "Sonar Platform: next"
     The output should include "Run Shadow Scans: false"
     The output should include "orchestrator executed"
+  End
+
+  It 'calls gradle_build_and_analyze directly when sonar platform is none'
+    export SONAR_PLATFORM="none"
+    export GRADLE_ARGS=""
+
+    # Create minimal gradle.properties and mock gradle command
+    echo "version=1.0-SNAPSHOT" > gradle.properties
+    echo '#!/bin/bash' > gradle-mock
+    echo 'echo "Gradle executed with: $*"' >> gradle-mock
+    chmod +x gradle-mock
+    export GRADLE_CMD="./gradle-mock"
+
+    Mock get_build_type
+      echo "regular build"
+    End
+
+    When call gradle_build
+    The output should include "Starting regular build build"
+    The output should include "Sonar Platform: none"
+    The output should include "Gradle command:"
+    The output should include "Gradle executed with:"
+    The output should not include "=== ORCHESTRATOR:"
+
+    # Cleanup
+    rm -f gradle-mock gradle.properties
   End
 End
 
