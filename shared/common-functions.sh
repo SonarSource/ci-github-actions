@@ -22,16 +22,19 @@ set_sonar_platform_vars() {
       export SONAR_HOST_URL="$NEXT_URL"
       export SONAR_TOKEN="$NEXT_TOKEN"
       unset SONAR_REGION
+      unset PROJECT_KEY
       ;;
     "sqc-us")
       export SONAR_HOST_URL="$SQC_US_URL"
       export SONAR_TOKEN="$SQC_US_TOKEN"
       export SONAR_REGION="us"
+      export PROJECT_KEY="$SQS_US_PROJECT_KEY"
       ;;
     "sqc-eu")
       export SONAR_HOST_URL="$SQC_EU_URL"
       export SONAR_TOKEN="$SQC_EU_TOKEN"
       unset SONAR_REGION
+      export PROJECT_KEY="$SQS_EU_PROJECT_KEY"
       ;;
     "none")
       echo "Sonar analysis disabled (platform: none)"

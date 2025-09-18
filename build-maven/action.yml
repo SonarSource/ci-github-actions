@@ -51,6 +51,10 @@ inputs:
     description: If true, run SonarQube analysis on all three platforms (next, sqc-eu, sqc-us).
       If false, run analysis on the platform specified with sonar-platform.
     default: 'false'
+  sqc-us-project-key:
+    description: If run-shadow-scans is true, override the SonarQube Cloud US project key for the shadow scan
+  sqc-eu-project-key:
+    description: If run-shadow-scans is true, override the SonarQube Cloud EU project key for the shadow scan
 outputs:
   BUILD_NUMBER:
     description: The build number, incremented or reused if already cached
@@ -153,6 +157,8 @@ runs:
         USER_MAVEN_OPTS: ${{ inputs.maven-opts }}
         USER_MAVEN_ARGS: ${{ inputs.maven-args }}
         SONAR_SCANNER_JAVA_OPTS: ${{ inputs.scanner-java-opts }}
+        SQS_US_PROJECT_KEY: ${{ inputs.sqc-us-project-key }}
+        SQS_EU_PROJECT_KEY: ${{ inputs.sqc-eu-project-key }}
       run: |
         export MAVEN_OPTS="$USER_MAVEN_OPTS -Duser.home=$HOME"
         cd "${{ inputs.working-directory }}"
