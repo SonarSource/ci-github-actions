@@ -82,6 +82,7 @@ runs:
         cache-paths: ${{ inputs.cache-paths }}
         disable-caching: ${{ inputs.disable-caching }}
     - name: Set build parameters
+      id: setup
       shell: bash
       env:
         ARTIFACTORY_DEPLOYER_ROLE: ${{ inputs.artifactory-deployer-role != '' && inputs.artifactory-deployer-role ||
@@ -89,27 +90,33 @@ runs:
       run: |
         echo "ARTIFACTORY_DEPLOYER_ROLE=${ARTIFACTORY_DEPLOYER_ROLE}" >> "$GITHUB_ENV"
         echo "SONARSOURCE_REPOSITORY_URL=${ARTIFACTORY_URL}/sonarsource" >> "$GITHUB_ENV"
-        mkdir "$GITHUB_WORKSPACE/.actions"
-        ln -s "${GITHUB_ACTION_PATH}/../get-build-number" "$GITHUB_WORKSPACE/.actions/get-build-number"
-        ln -s "${GITHUB_ACTION_PATH}/../cache" "$GITHUB_WORKSPACE/.actions/cache"
-        ls -lad "$GITHUB_WORKSPACE/.actions/get-build-number"
-        echo "DEBUG BUILD-9058"
+        mkdir ".actions"
+        host_action_path=`dirname $GITHUB_ACTION_PATH`
+        echo "host_action_path=$host_action_path" >> "$GITHUB_OUTPUT"
+        ln -s "${{github.action_path}}/../get-build-number" .actions/get-build-number
+        ln -s "${{github.action_path}}/../cache" .actions/cache
+        ls -la .actions/get-build-number .actions/cache
+
+        echo "DEBUG build-maven"
         echo "github.workspace: ${{ github.workspace }}"
         echo "GITHUB_WORKSPACE: ${GITHUB_WORKSPACE}"
         echo "github.action_path: ${{ github.action_path }}"
         echo "GITHUB_ACTION_PATH: ${GITHUB_ACTION_PATH}"
+        echo "PWD: $(pwd)"
         echo
-        echo "Content of github.workspace:"
-        ls -la "${{ github.workspace }}" || true
-        echo "Content of GITHUB_WORKSPACE:"
-        ls -la "${GITHUB_WORKSPACE}" || true
-        echo "Content of github.action_path:"
-        ls -la "${{ github.action_path }}" || true
-        echo "Content of GITHUB_ACTION_PATH:"
-        ls -la "${GITHUB_ACTION_PATH}" || true
-        echo "${{ github.workspace }}/get-build-number:"
-        echo
-        ls -la ${{ github.workspace }}/.actions/get-build-number ${{ github.workspace }}/.actions/get-build-number/ || true
+        echo "GITHUB_ACTION_PATH/remoteA.sh ${GITHUB_ACTION_PATH}/build.sh $([ -e "${GITHUB_ACTION_PATH}/build.sh" ] && echo 'OK' || echo 'KO')"
+        echo "github.action_path/remoteA.sh ${{github.action_path}}/build.sh $([ -e "${{github.action_path}}/build.sh" ] && echo 'OK' || echo 'KO')"
+        echo "GITHUB_ACTION_PATH/../localB/localB.sh ${GITHUB_ACTION_PATH}/../get-build-number/get_build_number.sh $([ -e "${GITHUB_ACTION_PATH}/../get-build-number/get_build_number.sh" ] && echo 'OK' || echo 'KO')"
+        echo "github.action_path/../localB/localB.sh ${{github.action_path}}/../get-build-number/get_build_number.sh $([ -e "${{github.action_path}}/../get-build-number/get_build_number.sh" ] && echo 'OK' || echo 'KO')"
+
+    - uses: ./.actions/get-build-number
+      name: TEST CALL get-build-number with SCRIPT_PATH
+      id: get_build_number
+      with:
+        SCRIPT_PATH: ${{ steps.setup.outputs.host_action_path }}
+    - uses: ./.actions/get-build-number
+      name: TEST CALL get-build-number without SCRIPT_PATH
+
     - name: Vault
       # yamllint disable rule:line-length
       id: secrets
