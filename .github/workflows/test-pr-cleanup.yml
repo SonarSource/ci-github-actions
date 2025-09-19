@@ -6,7 +6,7 @@ on:
 jobs:
   # Create a cache entry and an artifact when a PR is opened or updated
   test-resources:
-    runs-on: ubuntu-latest
+    runs-on: github-ubuntu-latest-s
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
       # Create test file and directory for cache
@@ -29,7 +29,7 @@ jobs:
           retention-days: 1
 
   test-cleanup:
-    runs-on: ubuntu-latest
+    runs-on: github-ubuntu-latest-s
     needs: test-resources
     permissions:
       actions: write  # Required for cache/artifact operations
