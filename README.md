@@ -144,6 +144,7 @@ After running this action, the following environment variables are available:
 - `BUILD_NUMBER`: The current build number
 - `SNAPSHOT_VERSION`: The original project version from pom.xml
 - `PROJECT_VERSION`: The project version with build number appended
+- `ARTIFACTORY_URL`: Artifactory (Repox) URL. E.x.: `https://repox.jfrog.io/artifactory`
 - `ARTIFACTORY_USERNAME`: Username for Artifactory authentication
 - `ARTIFACTORY_ACCESS_TOKEN`: Access token for Artifactory authentication
 - `ARTIFACTORY_PASSWORD`: Deprecated alias for `ARTIFACTORY_ACCESS_TOKEN`

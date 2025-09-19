@@ -15,6 +15,9 @@ inputs:
   maven-opts:
     description: Parameters for the JVM started for subsequent mvn calls
     default: -Xmx1536m -Xms128m
+  repox-url:
+    description: Artifactory (Repox) URL
+    default: https://repox.jfrog.io/artifactory
 
 outputs:
   build-number:
@@ -53,9 +56,11 @@ runs:
     - name: Set environment variables for Artifactory authentication
       shell: bash --noprofile --norc -euo pipefail {0}
       env:
+        ARTIFACTORY_URL: ${{ inputs.repox-url }}
         ARTIFACTORY_USERNAME: ${{ fromJSON(steps.vault.outputs.vault).ARTIFACTORY_USERNAME }}
         ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.vault.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
       run: |
+        echo "ARTIFACTORY_URL=$ARTIFACTORY_URL" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_USERNAME=$ARTIFACTORY_USERNAME" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_ACCESS_USERNAME=$ARTIFACTORY_USERNAME" >> "$GITHUB_ENV"  # deprecated, backward compliance
         echo "ARTIFACTORY_ACCESS_TOKEN=$ARTIFACTORY_ACCESS_TOKEN" >> "$GITHUB_ENV"
@@ -81,7 +86,7 @@ runs:
       shell: bash --noprofile --norc -euo pipefail {0}
       env:
         SONARSOURCE_REPOSITORY_URL: ${{ github.event.repository.visibility == 'private' &&
-          ('https://repox.jfrog.io/artifactory/sonarsource-qa' || 'https://repox.jfrog.io/artifactory/sonarsource') }}
+          'https://repox.jfrog.io/artifactory/sonarsource-qa' || 'https://repox.jfrog.io/artifactory/sonarsource' }}
       run: |
         MAVEN_CONFIG="$HOME/.m2"
         mkdir -p "$MAVEN_CONFIG"
