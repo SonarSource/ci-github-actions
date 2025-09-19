@@ -6,7 +6,7 @@ on:
 
 jobs:
   cleanup:
-    runs-on: ubuntu-24.04
+    runs-on: github-ubuntu-latest-s
     permissions:
       actions: write  # Required for deleting caches and artifacts
     steps:

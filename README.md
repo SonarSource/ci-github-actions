@@ -51,7 +51,7 @@ The build number is unique per workflow run ID. It is not incremented on workflo
 ```yaml
 jobs:
   get-build-number:
-    runs-on: ubuntu-24.04-large
+    runs-on: github-ubuntu-latest-s
     permissions:
       id-token: write
       contents: read
@@ -128,7 +128,7 @@ jobs:
     concurrency:
       group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
-    runs-on: ubuntu-24.04-large
+    runs-on: github-ubuntu-latest-s
     name: Build
     permissions:
       id-token: write
@@ -218,7 +218,7 @@ jobs:
     concurrency:
       group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
-    runs-on: ubuntu-24.04-large
+    runs-on: github-ubuntu-latest-s
     name: Build
     permissions:
       id-token: write
@@ -309,7 +309,7 @@ jobs:
     concurrency:
       group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
-    runs-on: ubuntu-24.04-large
+    runs-on: github-ubuntu-latest-s
     name: Build
     permissions:
       id-token: write
@@ -404,7 +404,7 @@ jobs:
     concurrency:
       group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
-    runs-on: ubuntu-24.04-large
+    runs-on: github-ubuntu-latest-s
     name: Build
     permissions:
       id-token: write
@@ -498,7 +498,7 @@ jobs:
     concurrency:
       group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
-    runs-on: ubuntu-24.04-large
+    runs-on: github-ubuntu-latest-s
     name: Build
     permissions:
       id-token: write
@@ -585,7 +585,7 @@ promote:
   concurrency:
     group: ${{ github.workflow }}-promote-${{ github.event.pull_request.number || github.ref }}
     cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
-  runs-on: ubuntu-24.04-large
+  runs-on: github-ubuntu-latest-s
   name: Promote
   permissions:
     id-token: write
@@ -639,7 +639,7 @@ on:
 
 jobs:
   cleanup:
-    runs-on: ubuntu-24.04
+    runs-on: github-ubuntu-latest-s
     permissions:
       actions: write
     steps:
@@ -681,7 +681,7 @@ The only requirement for the action is `jq` installed.
 ```yaml
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: github-ubuntu-latest-s
     steps:
       - uses: SonarSource/ci-github-actions/cache@v1
         with:
