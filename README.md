@@ -718,6 +718,11 @@ jobs:
 - Supports all standard cache inputs and outputs
 - Automatic repository visibility detection
 
+### Cleanup Policy
+
+The AWS S3 bucket lifecycle rules apply to delete the old files. The content from default branches expires in 60 days and for feature
+branches in 30 days.
+
 ## `code-signing`
 
 Install and configure DigiCert smctl and jsign tools for code signing with caching support.
