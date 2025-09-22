@@ -105,4 +105,50 @@ Describe 'shared/common-functions.sh'
       The output should not include "Skipping Sonar analysis"
     End
   End
+
+  Describe 'check_tool()'
+    It 'reports not installed tool'
+      When call check_tool some_tool
+      The status should be failure
+      The line 1 of error should equal "some_tool is not installed."
+    End
+    It 'executes existing command with arguments'
+      When call check_tool echo "test message"
+      The status should be success
+      The line 1 should include "echo"
+      The line 2 should equal "test message"
+    End
+  End
+
+  Describe 'Branch detection is_default_branch() is_maintenance_branch() is_dogfood_branch() is_long_lived_feature_branch()' \
+    'is_merge_queue_branch() is_pull_request()'
+    Parameters
+      "main" "is_default_branch" "success"
+      "other" "is_default_branch" "failure"
+
+      "branch-1.2" "is_maintenance_branch" "success"
+      "main" "is_maintenance_branch" "failure"
+
+      "dogfood-on-feature" "is_dogfood_branch" "success"
+      "main" "is_dogfood_branch" "failure"
+
+      "feature/long/test" "is_long_lived_feature_branch" "success"
+      "main" "is_long_lived_feature_branch" "failure"
+
+      "gh-readonly-queue/123" "is_merge_queue_branch" "success"
+      "main" "is_merge_queue_branch" "failure"
+    End
+
+    It "detects $1 branch with $2"
+      export GITHUB_REF_NAME="$1"
+      When call "$2"
+      The status should be "$3"
+    End
+
+    It 'detects pull request'
+      export GITHUB_EVENT_NAME="pull_request"
+      When call is_pull_request
+      The status should be success
+    End
+  End
 End

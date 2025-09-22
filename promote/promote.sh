@@ -19,6 +19,10 @@
 
 set -euo pipefail
 
+# Source common functions shared across build scripts
+# shellcheck source=../shared/common-functions.sh
+source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
+
 : "${ARTIFACTORY_URL:="https://repox.jfrog.io/artifactory"}"
 : "${ARTIFACTORY_PROMOTE_ACCESS_TOKEN:?}"
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}" "${GITHUB_EVENT_PATH:?}" "${GITHUB_TOKEN:?}"
@@ -31,35 +35,6 @@ rm -f "$BUILD_INFO_FILE"
 : "${MULTI_REPO_PROMOTE:=false}" "${ARTIFACTORY_DEPLOY_REPO:=}" "${ARTIFACTORY_TARGET_REPO:=}" "${PROMOTE_PULL_REQUEST:=false}"
 MULTI_REPO_SRC_PRIVATE=sonarsource-private-qa
 MULTI_REPO_SRC_PUBLIC=sonarsource-public-qa
-
-check_tool() {
-  # Check if a command is available and runs it, typically: 'some_tool --version'
-  if ! command -v "$1"; then
-    echo "$1 is not installed." >&2
-    return 1
-  fi
-  "$@"
-}
-
-is_main_branch() {
-  [[ "$GITHUB_REF_NAME" = "$DEFAULT_BRANCH" ]]
-}
-
-is_maintenance_branch() {
-  [[ "${GITHUB_REF_NAME}" == "branch-"* ]]
-}
-
-is_pull_request() {
-  [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]
-}
-
-is_dogfood_branch() {
-  [[ "${GITHUB_REF_NAME}" == "dogfood-on-"* ]]
-}
-
-is_merge_queue_branch() {
-  [[ "${GITHUB_REF_NAME}" == "gh-readonly-queue/"* ]]
-}
 
 set_build_env() {
   DEFAULT_BRANCH=${DEFAULT_BRANCH:=$(gh repo view --json defaultBranchRef --jq ".defaultBranchRef.name")}

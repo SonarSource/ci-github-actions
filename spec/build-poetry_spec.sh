@@ -90,21 +90,6 @@ End
 
 Include build-poetry/build.sh
 
-Describe 'check_tool()'
-  It 'reports not installed tool'
-    When call check_tool some_tool
-    The status should be failure
-    The line 1 of error should equal "some_tool is not installed."
-  End
-
-  It 'executes existing command with arguments'
-    When call check_tool echo "test message"
-    The status should be success
-    The line 1 should include "echo"
-    The line 2 should equal "test message"
-  End
-End
-
 Describe 'set_build_env()'
   It 'sets the project name and do git fetch'
     Mock git
@@ -132,49 +117,6 @@ Describe 'set_build_env()'
     The variable PROJECT should equal "my-repo"
   End
 End
-
-
-  Describe 'is_maintenance_branch()'
-    It 'returns true for branch-* pattern'
-      export GITHUB_REF_NAME="branch-1.2"
-      When call is_maintenance_branch
-      The status should be success
-    End
-
-    It 'returns false for non-maintenance branch'
-      export GITHUB_REF_NAME="main"
-      When call is_maintenance_branch
-      The status should be failure
-    End
-  End
-
-  Describe 'is_dogfood_branch()'
-    It 'returns true for dogfood-on-* pattern'
-      export GITHUB_REF_NAME="dogfood-on-main"
-      When call is_dogfood_branch
-      The status should be success
-    End
-
-    It 'returns false for non-dogfood branch'
-      export GITHUB_REF_NAME="main"
-      When call is_dogfood_branch
-      The status should be failure
-    End
-  End
-
-  Describe 'is_merge_queue_branch()'
-    It 'returns true for gh-readonly-queue/* pattern'
-      export GITHUB_REF_NAME="gh-readonly-queue/123"
-      When call is_merge_queue_branch
-      The status should be success
-    End
-
-    It 'returns false for non-mergequeue branch'
-      export GITHUB_REF_NAME="main"
-      When call is_merge_queue_branch
-      The status should be failure
-    End
-  End
 
 Describe 'set_sonar_platform_vars() - poetry specific'
   It 'handles none platform'

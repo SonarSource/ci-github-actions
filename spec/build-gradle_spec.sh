@@ -74,20 +74,6 @@ End
 
 Include build-gradle/build.sh
 
-Describe 'command_exists'
-  It 'reports missing tool'
-    When call command_exists nonexistent_tool
-    The status should be failure
-    The error should equal "nonexistent_tool is not installed."
-  End
-
-  It 'executes existing command'
-    When call command_exists echo "test"
-    The status should be success
-    The line 2 should equal "test"
-  End
-End
-
 Describe 'set_build_env'
   It 'sets project and default values'
     export PULL_REQUEST=""
@@ -382,7 +368,7 @@ End
 Describe 'set_gradle_cmd()'
   It 'uses gradlew when available'
     unset GRADLE_CMD
-    Mock command_exists
+    Mock check_tool
       # For ./gradlew -version call
       if [[ "$1" == "./gradlew" && "$2" == "-version" ]]; then
         echo "Gradle 7.0"
@@ -400,7 +386,7 @@ Describe 'set_gradle_cmd()'
 
   It 'uses gradle when gradlew not found'
     unset GRADLE_CMD
-    Mock command_exists
+    Mock check_tool
       if [[ "$1" == "gradle" && $# -eq 1 ]]; then
         # This is the availability check - return success silently
         true
@@ -424,8 +410,8 @@ Describe 'set_gradle_cmd()'
     unset GRADLE_CMD
     rm -f ./gradlew
 
-    # Mock command_exists to fail for gradle
-    Mock command_exists
+    # Mock check_tool to fail for gradle
+    Mock check_tool
       if [[ "$1" == "gradle" ]]; then
         echo "gradle is not installed." >&2
         false
@@ -446,7 +432,7 @@ End
 Describe 'main function'
   It 'executes full sequence'
     unset GRADLE_CMD
-    Mock command_exists
+    Mock check_tool
       case "$1" in
         java) echo "java ok" ;;
         gradle) echo "gradle ok" ;;

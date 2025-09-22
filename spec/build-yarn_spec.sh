@@ -79,20 +79,6 @@ Include shared/common-functions.sh
 Describe 'build-yarn/build.sh'
   Include build-yarn/build.sh
 
-  Describe 'check_tool()'
-    It 'succeeds when tool exists'
-      When call check_tool jq --version
-      The status should be success
-      The output should include "jq-1.8.1"
-    End
-
-    It 'fails when tool missing'
-      When call check_tool nonexistent --version
-      The status should be failure
-      The stderr should include "nonexistent is not installed."
-    End
-  End
-
   Describe 'set_build_env()'
     It 'sets PROJECT and validates files'
       When call set_build_env
@@ -143,29 +129,6 @@ Describe 'build-yarn/build.sh'
       The line 1 should equal "Skipping git fetch (Sonar analysis disabled)"
       The output should not include "git fetch --unshallow"
       The output should not include "git fetch origin"
-    End
-  End
-
-  Describe 'Branch detection'
-    Parameters
-      "main" "is_default_branch" "success"
-      "branch-1.2" "is_maintenance_branch" "success"
-      "dogfood-on-feature" "is_dogfood_branch" "success"
-      "feature/long/test" "is_long_lived_feature_branch" "success"
-      "gh-readonly-queue/main" "is_merge_queue_branch" "success"
-      "other" "is_default_branch" "failure"
-    End
-
-    It "detects $1 branch with $2"
-      export GITHUB_REF_NAME="$1"
-      When call "$2"
-      The status should be "$3"
-    End
-
-    It 'detects pull request'
-      export GITHUB_EVENT_NAME="pull_request"
-      When call is_pull_request
-      The status should be success
     End
   End
 

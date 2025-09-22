@@ -110,14 +110,6 @@ End
 
 Include promote/promote.sh
 
-Describe 'check_tool()'
-  It 'reports not installed tool'
-    When call check_tool some_tool
-    The status should be failure
-    The line 1 of error should equal "some_tool is not installed."
-  End
-End
-
 Describe 'set_build_env()'
   It 'sets the default branch'
     unset DEFAULT_BRANCH

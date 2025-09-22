@@ -95,26 +95,6 @@ sonar_scanner_implementation() {
     mvn "$SONAR_GOAL" "${sonar_props[@]}"
 }
 
-is_default_branch() {
-  [[ "$GITHUB_REF_NAME" == "$DEFAULT_BRANCH" ]]
-}
-
-is_maintenance_branch() {
-  [[ "${GITHUB_REF_NAME}" == branch-* ]]
-}
-
-is_pull_request() {
-  [[ "$GITHUB_EVENT_NAME" == pull_request ]]
-}
-
-is_dogfood_branch() {
-  [[ "${GITHUB_REF_NAME}" == dogfood-on-* ]]
-}
-
-is_long_lived_feature_branch() {
-  [[ "${GITHUB_REF_NAME}" == feature/long/* ]]
-}
-
 # Unshallow and fetch all commit history for SonarQube analysis and issue assignment
 git_fetch_unshallow() {
   if [ "$SONAR_PLATFORM" = "none" ]; then
