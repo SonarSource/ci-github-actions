@@ -60,14 +60,6 @@ fi
 export DEPLOY_PULL_REQUEST
 : "${GRADLE_ARGS:=}"
 
-command_exists() {
-  if ! command -v "$1"; then
-    echo "$1 is not installed." >&2
-    return 1
-  fi
-  "$@"
-}
-
 git_fetch_unshallow() {
   if [ "$SONAR_PLATFORM" = "none" ]; then
     echo "Skipping git fetch (Sonar analysis disabled)"
@@ -197,30 +189,10 @@ get_build_type() {
   fi
 }
 
-is_default_branch() {
-  [[ "$GITHUB_REF_NAME" == "$DEFAULT_BRANCH" ]]
-}
-
-is_maintenance_branch() {
-  [[ "${GITHUB_REF_NAME}" == "branch-"* ]]
-}
-
-is_pull_request() {
-  [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]
-}
-
-is_dogfood_branch() {
-  [[ "${GITHUB_REF_NAME}" == "dogfood-on-"* ]]
-}
-
-is_long_lived_feature_branch() {
-  [[ "${GITHUB_REF_NAME}" == "feature/long/"* ]]
-}
-
 set_gradle_cmd() {
   if [[ -f "./gradlew" ]]; then
     export GRADLE_CMD="./gradlew"
-  elif command_exists gradle; then
+  elif check_tool gradle; then
     export GRADLE_CMD="gradle"
   else
     echo "Neither ./gradlew nor gradle command found!" >&2
@@ -267,7 +239,7 @@ gradle_build() {
 }
 
 main() {
-  command_exists java -version
+  check_tool java -version
   set_gradle_cmd
   set_build_env
   set_project_version

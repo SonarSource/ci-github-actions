@@ -40,6 +40,10 @@
 
 set -euo pipefail
 
+# Source common functions shared across build scripts
+# shellcheck source=../shared/common-functions.sh
+source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
+
 : "${ARTIFACTORY_URL:?}"
 : "${ARTIFACTORY_PYPI_REPO:?}" "${ARTIFACTORY_ACCESS_TOKEN:?}" "${ARTIFACTORY_DEPLOY_REPO:?}" "${ARTIFACTORY_DEPLOY_ACCESS_TOKEN:?}"
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}" "${GITHUB_EVENT_PATH:?}"
@@ -53,15 +57,6 @@ fi
 : "${RUN_SHADOW_SCANS:?}"
 : "${DEPLOY_PULL_REQUEST:=false}"
 export ARTIFACTORY_URL DEPLOY_PULL_REQUEST
-
-# Check if a command is available and runs it, typically: 'some_tool --version'
-check_tool() {
-  if ! command -v "$1"; then
-    echo "$1 is not installed." >&2
-    return 1
-  fi
-  "$@"
-}
 
 # Unshallow and fetch all commit history for SonarQube analysis and issue assignment
 git_fetch_unshallow() {
@@ -169,30 +164,6 @@ set_build_env() {
   export PROJECT=${GITHUB_REPOSITORY#*/}
   echo "PROJECT: $PROJECT"
   git_fetch_unshallow
-}
-
-is_default_branch() {
-  [[ "$GITHUB_REF_NAME" == "$DEFAULT_BRANCH" ]]
-}
-
-is_maintenance_branch() {
-  [[ "${GITHUB_REF_NAME}" == "branch-"* ]]
-}
-
-is_pull_request() {
-  [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]
-}
-
-is_dogfood_branch() {
-  [[ "${GITHUB_REF_NAME}" == "dogfood-on-"* ]]
-}
-
-is_long_lived_feature_branch() {
-  [[ "${GITHUB_REF_NAME}" == "feature/long/"* ]]
-}
-
-is_merge_queue_branch() {
-  [[ "${GITHUB_REF_NAME}" == "gh-readonly-queue/"* ]]
 }
 
 set_project_version() {

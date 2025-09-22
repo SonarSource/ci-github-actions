@@ -80,3 +80,36 @@ orchestrate_sonar_platforms() {
       sonar_scanner_implementation "$@"
   fi
 }
+
+check_tool() {
+  # Check if a command is available and runs it, typically: 'some_tool --version'
+  if ! command -v "$1"; then
+    echo "$1 is not installed." >&2
+    return 1
+  fi
+  "$@"
+}
+
+is_default_branch() {
+  [[ "$GITHUB_REF_NAME" == "$DEFAULT_BRANCH" ]]
+}
+
+is_maintenance_branch() {
+  [[ "${GITHUB_REF_NAME}" == "branch-"* ]]
+}
+
+is_pull_request() {
+  [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]
+}
+
+is_dogfood_branch() {
+  [[ "${GITHUB_REF_NAME}" == "dogfood-on-"* ]]
+}
+
+is_long_lived_feature_branch() {
+  [[ "${GITHUB_REF_NAME}" == "feature/long/"* ]]
+}
+
+is_merge_queue_branch() {
+  [[ "${GITHUB_REF_NAME}" == "gh-readonly-queue/"* ]]
+}

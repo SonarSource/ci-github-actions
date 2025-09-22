@@ -36,7 +36,6 @@
 
 set -euo pipefail
 
-# Source common functions shared across build scripts
 # shellcheck source=../shared/common-functions.sh
 source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 
@@ -51,15 +50,6 @@ if [[ "${SONAR_PLATFORM}" != "none" ]]; then
 fi
 : "${DEPLOY_PULL_REQUEST:=false}" "${SKIP_TESTS:=false}"
 export ARTIFACTORY_URL DEPLOY_PULL_REQUEST SKIP_TESTS
-
-check_tool() {
-  # Check if a command is available and runs it, typically: 'some_tool --version'
-  if ! command -v "$1"; then
-    echo "$1 is not installed." >&2
-    return 1
-  fi
-  "$@"
-}
 
 git_fetch_unshallow() {
   if [ "$SONAR_PLATFORM" = "none" ]; then
@@ -79,8 +69,6 @@ git_fetch_unshallow() {
 set_build_env() {
   export PROJECT="${GITHUB_REPOSITORY#*/}"
   echo "PROJECT: ${PROJECT}"
-  echo "Fetching commit history for SonarQube analysis..."
-  git_fetch_unshallow
 
   echo "::debug::Configuring JFrog and NPM repositories..."
   npm config set registry "$ARTIFACTORY_URL/api/npm/npm"
@@ -89,30 +77,6 @@ set_build_env() {
   jf config add repox --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_ACCESS_TOKEN"
   jf config use repox
   jf npm-config --repo-resolve "npm"
-}
-
-is_default_branch() {
-  [[ "$GITHUB_REF_NAME" == "$DEFAULT_BRANCH" ]]
-}
-
-is_maintenance_branch() {
-  [[ "${GITHUB_REF_NAME}" == "branch-"* ]]
-}
-
-is_pull_request() {
-  [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]
-}
-
-is_dogfood_branch() {
-  [[ "${GITHUB_REF_NAME}" == "dogfood-on-"* ]]
-}
-
-is_long_lived_feature_branch() {
-  [[ "${GITHUB_REF_NAME}" == "feature/long/"* ]]
-}
-
-is_merge_queue_branch() {
-  [[ "${GITHUB_REF_NAME}" == "gh-readonly-queue/"* ]]
 }
 
 # Version utility functions (from npm_version_utils and version_util)
@@ -305,11 +269,8 @@ build_npm() {
   echo "Skip Tests: ${SKIP_TESTS}"
   echo "Sonar Platform: ${SONAR_PLATFORM}"
   echo "Run Shadow Scans: ${RUN_SHADOW_SCANS}"
-
-  set_project_version
   get_build_config
   run_standard_pipeline
-
   echo "=== Build completed successfully ==="
 }
 
@@ -317,7 +278,9 @@ main() {
   check_tool jq --version
   check_tool jf --version
   check_tool npm --version
+  git_fetch_unshallow
   set_build_env
+  set_project_version
   build_npm
 }
 

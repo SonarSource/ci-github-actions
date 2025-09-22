@@ -55,14 +55,6 @@ fi
 : "${DEPLOY_PULL_REQUEST:=false}" "${SKIP_TESTS:=false}"
 export ARTIFACTORY_URL DEPLOY_PULL_REQUEST SKIP_TESTS
 
-check_tool() {
-  if ! command -v "$1"; then
-    echo "$1 is not installed." >&2
-    return 1
-  fi
-  "$@"
-}
-
 git_fetch_unshallow() {
   if [ "$SONAR_PLATFORM" = "none" ]; then
     echo "Skipping git fetch (Sonar analysis disabled)"
@@ -100,30 +92,6 @@ set_build_env() {
   jf config add repox --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_ACCESS_TOKEN"
   jf config use repox
   jf npm-config --repo-resolve "npm"
-}
-
-is_default_branch() {
-  [[ "$GITHUB_REF_NAME" == "$DEFAULT_BRANCH" ]]
-}
-
-is_maintenance_branch() {
-  [[ "${GITHUB_REF_NAME}" == "branch-"* ]]
-}
-
-is_pull_request() {
-  [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]
-}
-
-is_dogfood_branch() {
-  [[ "${GITHUB_REF_NAME}" == "dogfood-on-"* ]]
-}
-
-is_long_lived_feature_branch() {
-  [[ "${GITHUB_REF_NAME}" == "feature/long/"* ]]
-}
-
-is_merge_queue_branch() {
-  [[ "${GITHUB_REF_NAME}" == "gh-readonly-queue/"* ]]
 }
 
 PACKAGE_JSON="package.json"

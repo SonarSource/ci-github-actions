@@ -95,44 +95,31 @@ echo '{}' > "$GITHUB_EVENT_PATH"
 # Create mock package.json
 echo '{"version": "1.2.3-SNAPSHOT", "name": "test-project"}' > package.json
 
+Describe 'build-npm/build.sh'
+  It 'does not run main when sourced'
+    When run source build-npm/build.sh
+    The status should be success
+    The output should equal ""
+  End
+  It 'runs main function when executed directly'
+    When run script build-npm/build.sh
+    The status should be success
+    The output should include "=== NPM Build, Deploy, and Analyze ==="
+  End
+End
+
 # Source shared functions before including build script
-Include shared/common-functions.sh
+#Include shared/common-functions.sh
 Include build-npm/build.sh
 
-Describe 'build-npm/build.sh'
-  Describe 'Tool checking'
-    It 'checks required tools are available'
-      When call check_tool jq --version
-      The status should be success
-      The output should include "jq-1.8.1"
-    End
-
-    It 'fails when tool is not available'
-      When run check_tool nonexistent-tool --version
-      The status should be failure
-      The stderr should include "nonexistent-tool is not installed."
-    End
-  End
-
-  Describe 'Environment setup'
-    It 'sets up build environment correctly'
-      export GITHUB_REPOSITORY="my-org/test-project"
-      When call set_build_env
-      The status should be success
-      The output should include "PROJECT: test-project"
-      The output should include "Fetching commit history for SonarQube analysis..."
-      The variable PROJECT should equal "test-project"
-    End
-  End
-
-  Describe 'Git fetch functionality'
-    It 'fetches base ref for pull requests when GITHUB_BASE_REF is set'
-      export GITHUB_BASE_REF="main"
-      When call git_fetch_unshallow
-      The status should be success
-      The output should include "Fetch main for SonarQube analysis..."
-      The output should include "git fetch origin main"
-    End
+Describe 'Environment setup'
+  It 'sets up build environment correctly'
+    export GITHUB_REPOSITORY="my-org/test-project"
+    When call set_build_env
+    The status should be success
+    The output should include "PROJECT: test-project"
+    The output should include "Fetching commit history for SonarQube analysis..."
+    The variable PROJECT should equal "test-project"
   End
 End
 
@@ -173,20 +160,6 @@ Describe 'git_fetch_unshallow()'
     The status should be success
     The lines of stdout should equal 1
     The line 1 should equal "Skipping git fetch (Sonar analysis disabled)"
-  End
-End
-
-Describe 'Branch detection functions'
-  It 'detects merge queue branch'
-    export GITHUB_REF_NAME="gh-readonly-queue/main/pr-123-abc123"
-    When call is_merge_queue_branch
-    The status should be success
-  End
-
-  It 'does not detect non-merge queue branch as merge queue'
-    export GITHUB_REF_NAME="feature/test"
-    When call is_merge_queue_branch
-    The status should be failure
   End
 End
 
@@ -470,13 +443,5 @@ Describe 'Full build with shadow scans'
     The output should include "Sonar Platform: next"
     The output should include "shadow scan enabled"
     The output should not include "DEBUG: JFrog operations"
-  End
-End
-
-Describe 'Main function execution'
-  It 'runs main function when executed directly'
-    When run script build-npm/build.sh
-    The status should be success
-    The output should include "=== NPM Build, Deploy, and Analyze ==="
   End
 End

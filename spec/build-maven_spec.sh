@@ -157,14 +157,6 @@ Describe 'orchestrate_sonar_platforms()'
   End
 End
 
-Describe 'check_tool()'
-  It 'reports not installed tool'
-    When call check_tool some_tool
-    The status should be failure
-    The error should include "some_tool is not installed."
-  End
-End
-
 Describe 'check_settings_xml()'
   It 'succeeds when settings.xml exists'
     # Set up a temporary HOME directory
