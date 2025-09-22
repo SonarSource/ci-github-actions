@@ -2,9 +2,9 @@
 name: Build NPM
 description: GitHub Action to build, analyze, and deploy an NPM project with SonarQube integration
 inputs:
-  public:
-    description: Whether to build and deploy with/to public repositories. Set to `true` for public repositories (OSS), `false` for private.
-    default: ${{ github.event.repository.visibility == 'public' && 'true' || 'false' }}
+  working-directory:
+    description: Relative path under github.workspace to execute the build in
+    default: .
   artifactory-reader-role:
     description: Suffix for the Artifactory reader role in Vault. Defaults to `private-reader` for private repositories, and `public-reader`
       for public repositories.
@@ -38,17 +38,23 @@ inputs:
     description: If true, run sonar scanner on all 3 platforms using the provided URL and token.
      If false, run on the platform provided by SONAR_PLATFORM.
     default: 'false'
+  build-name:
+    description: Name of the build to publish. Defaults to the repository name.
+    default: ''
 
 outputs:
+  BUILD_NUMBER:
+    description: The current build number. Also set as environment variable BUILD_NUMBER.
+    value: ${{ steps.config.outputs.BUILD_NUMBER }}
+  current-version:
+    description: The project version set in package.json (before replacement). Also set as environment variable CURRENT_VERSION.
+    value: ${{ steps.config.outputs.current-version }}
   project-version:
-    description: The project version from package.json
-    value: ${{ steps.build.outputs.project-version }}
+    description: The project version with build number (after replacement). Also set as environment variable PROJECT_VERSION.
+    value: ${{ steps.config.outputs.project-version }}
   build-info-url:
     description: The JFrog build info UI URL
     value: ${{ steps.build.outputs.BUILD_INFO_URL }}
-  BUILD_NUMBER:
-    description: The build number, incremented or reused if already cached
-    value: ${{ steps.get_build_number.outputs.BUILD_NUMBER }}
 
 runs:
   using: composite
@@ -57,26 +63,28 @@ runs:
       shell: bash
       env:
         ARTIFACTORY_READER_ROLE: ${{ inputs.artifactory-reader-role != '' && inputs.artifactory-reader-role ||
-          (inputs.public == 'true' && 'public-reader' || 'private-reader') }}
+          (github.event.repository.visibility == 'public' && 'public-reader' || 'private-reader') }}
         ARTIFACTORY_DEPLOYER_ROLE: ${{ inputs.artifactory-deployer-role != '' && inputs.artifactory-deployer-role ||
-          (inputs.public == 'true' && 'public-deployer' || 'qa-deployer') }}
+          (github.event.repository.visibility == 'public' && 'public-deployer' || 'qa-deployer') }}
       run: |
         echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_DEPLOYER_ROLE=${ARTIFACTORY_DEPLOYER_ROLE}" >> "$GITHUB_ENV"
         cp ${GITHUB_ACTION_PATH}/mise.local.toml mise.local.toml
-    - uses: SonarSource/ci-github-actions/get-build-number@v1
-      id: get_build_number
+        mkdir ".actions"
+        ln -s "${{github.action_path}}/../config-npm" .actions/config-npm
+
     - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
       with:
         version: 2025.7.12
 
-    - name: Cache NPM dependencies
-      if: ${{ inputs.cache-npm == 'true' }}
-      uses: SonarSource/ci-github-actions/cache@v1
+    - uses: ./.actions/config-npm # TODO BUILD-9094
+      id: config
       with:
-        path: ~/.npm
-        key: npm-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
-        restore-keys: npm-${{ runner.os }}-
+        artifactory-reader-role: ${{ env.ARTIFACTORY_READER_ROLE }}
+        repox-url: ${{ inputs.repox-url }}
+        repox-artifactory-url: ${{ inputs.repox-artifactory-url }}
+        working-directory: ${{ inputs.working-directory }}
+        cache-npm: ${{ inputs.cache-npm }}
 
     - name: Vault
       # yamllint disable rule:line-length
@@ -90,7 +98,6 @@ runs:
           development/kv/data/sonarqube-us token | SQC_US_TOKEN;
           development/kv/data/sonarcloud url | SQC_EU_URL;
           development/kv/data/sonarcloud token | SQC_EU_TOKEN;
-          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;
       # yamllint enable rule:line-length
     - name: Build, test, analyze and deploy
@@ -101,28 +108,26 @@ runs:
         PULL_REQUEST: ${{ github.event.pull_request.number || '' }}
         PULL_REQUEST_SHA: ${{ github.event.pull_request.base.sha || '' }}
         DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        BUILD_NAME: ${{ inputs.build-name || github.event.repository.name }}
 
-        # Action inputs
         ARTIFACTORY_URL: ${{ inputs.repox-artifactory-url != '' && inputs.repox-artifactory-url ||
           format('{0}/artifactory', inputs.repox-url) }}
         ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo != '' && inputs.artifactory-deploy-repo ||
-          (inputs.public == 'true' && 'sonarsource-npm-public-qa' || 'sonarsource-npm-private-qa') }}
-        ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
+          (github.event.repository.visibility == 'public' && 'sonarsource-npm-public-qa' || 'sonarsource-npm-private-qa') }}
         ARTIFACTORY_DEPLOY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN }}
         DEPLOY_PULL_REQUEST: ${{ inputs.deploy-pull-request }}
         SKIP_TESTS: ${{ inputs.skip-tests }}
 
-        # Vault secrets
-        SQC_EU_URL: ${{ fromJSON(steps.secrets.outputs.vault).SQC_EU_URL }}
-        SQC_US_URL: ${{ fromJSON(steps.secrets.outputs.vault).SQC_US_URL }}
+        RUN_SHADOW_SCANS: ${{ inputs.run-shadow-scans }}
+        SONAR_PLATFORM: ${{ inputs.sonar-platform }}
         NEXT_URL: ${{ fromJSON(steps.secrets.outputs.vault).NEXT_URL }}
         NEXT_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).NEXT_TOKEN }}
+        SQC_EU_URL: ${{ fromJSON(steps.secrets.outputs.vault).SQC_EU_URL }}
         SQC_EU_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SQC_EU_TOKEN }}
+        SQC_US_URL: ${{ fromJSON(steps.secrets.outputs.vault).SQC_US_URL }}
         SQC_US_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SQC_US_TOKEN }}
-        SONAR_PLATFORM: ${{ inputs.sonar-platform }}
-        RUN_SHADOW_SCANS: ${{ inputs.run-shadow-scans }}
-      run: |
-        ${GITHUB_ACTION_PATH}/build.sh
+      working-directory: ${{ inputs.working-directory }}
+      run: ${GITHUB_ACTION_PATH}/build.sh
 
     - name: Archive logs
       if: failure()
@@ -143,7 +148,7 @@ runs:
         echo "### 📋 Build Information" >> $GITHUB_STEP_SUMMARY
         echo "- **Project**: ${GITHUB_REPOSITORY#*/}" >> $GITHUB_STEP_SUMMARY
         echo "- **Version**: ${{ steps.build.outputs.project-version || 'Unknown' }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Build Number**: ${{ env.BUILD_NUMBER }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Build Number**: ${BUILD_NUMBER}" >> $GITHUB_STEP_SUMMARY
         echo "- **Commit**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 

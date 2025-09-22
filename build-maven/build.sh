@@ -39,7 +39,6 @@
 
 set -euo pipefail
 
-# Source common functions shared across build scripts
 # shellcheck source=../shared/common-functions.sh
 source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 
@@ -66,15 +65,6 @@ export BUILD_ID=$BUILD_NUMBER
 # SonarQube parameters
 : "${SCANNER_VERSION:=5.1.0.4751}"
 readonly SONAR_GOAL="org.sonarsource.scanner.maven:sonar-maven-plugin:${SCANNER_VERSION}:sonar"
-
-# Check if a command is available and runs it, typically: 'some_tool --version'
-check_tool() {
-  if ! command -v "$1"; then
-    echo "$1 is not installed." >&2
-    return 1
-  fi
-  "$@"
-}
 
 # CALLBACK IMPLEMENTATION: SonarQube scanner execution
 #

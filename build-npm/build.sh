@@ -2,8 +2,9 @@
 # Build script for SonarSource NPM projects.
 # Supports building, testing, SonarQube analysis, and JFrog Artifactory deployment.
 #
-# Required inputs (must be explicitly provided):
+# Required environment variables (must be explicitly provided):
 # - BUILD_NUMBER: Build number for versioning
+# - BUILD_NAME: Name of the JFrog Artifactory build (e.g. sonar-dummy)
 # - SONAR_PLATFORM: SonarQube primary platform (next, sqc-eu, sqc-us, or none). Use 'none' to skip sonar scans.
 # - NEXT_URL: URL of SonarQube server for next platform
 # - NEXT_TOKEN: Access token to send analysis reports to SonarQube for next platform
@@ -13,7 +14,6 @@
 # - SQC_EU_TOKEN: Access token to send analysis reports to SonarQube for sqc-eu platform
 # - RUN_SHADOW_SCANS: If true, run sonar scanner on all 3 platforms. If false, run on the platform provided by SONAR_PLATFORM.
 # - ARTIFACTORY_URL: URL to Artifactory repository
-# - ARTIFACTORY_ACCESS_TOKEN: Access token to read Repox repositories
 # - ARTIFACTORY_DEPLOY_ACCESS_TOKEN: Access token to deploy to Artifactory
 # - ARTIFACTORY_DEPLOY_REPO: Name of deployment repository
 # - DEFAULT_BRANCH: Default branch name (e.g. main)
@@ -32,6 +32,7 @@
 # Optional user customization:
 # - DEPLOY_PULL_REQUEST: Whether to deploy pull request artifacts (default: false)
 # - SKIP_TESTS: Whether to skip running tests (default: false)
+
 # shellcheck source-path=SCRIPTDIR
 
 set -euo pipefail
@@ -40,7 +41,7 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 
 : "${ARTIFACTORY_URL:?}"
-: "${ARTIFACTORY_ACCESS_TOKEN:?}" "${ARTIFACTORY_DEPLOY_REPO:?}" "${ARTIFACTORY_DEPLOY_ACCESS_TOKEN:?}"
+: "${ARTIFACTORY_DEPLOY_REPO:?}" "${ARTIFACTORY_DEPLOY_ACCESS_TOKEN:?}"
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_RUN_ID:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}" "${GITHUB_SHA:?}"
 : "${GITHUB_OUTPUT:?}"
 : "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}"
@@ -49,7 +50,8 @@ if [[ "${SONAR_PLATFORM}" != "none" ]]; then
   : "${NEXT_URL:?}" "${NEXT_TOKEN:?}" "${SQC_US_URL:?}" "${SQC_US_TOKEN:?}" "${SQC_EU_URL:?}" "${SQC_EU_TOKEN:?}"
 fi
 : "${DEPLOY_PULL_REQUEST:=false}" "${SKIP_TESTS:=false}"
-export ARTIFACTORY_URL DEPLOY_PULL_REQUEST SKIP_TESTS
+export DEPLOY_PULL_REQUEST SKIP_TESTS
+: "${BUILD_NAME:?}" "${PROJECT_VERSION:?}" "${CURRENT_VERSION:?}"
 
 git_fetch_unshallow() {
   if [ "$SONAR_PLATFORM" = "none" ]; then
@@ -64,60 +66,6 @@ git_fetch_unshallow() {
     echo "Fetch ${GITHUB_BASE_REF} for SonarQube analysis..."
     git fetch origin "${GITHUB_BASE_REF}"
   fi
-}
-
-set_build_env() {
-  export PROJECT="${GITHUB_REPOSITORY#*/}"
-  echo "PROJECT: ${PROJECT}"
-
-  echo "::debug::Configuring JFrog and NPM repositories..."
-  npm config set registry "$ARTIFACTORY_URL/api/npm/npm"
-  npm config set "${ARTIFACTORY_URL//https:}/api/npm/:_authToken=$ARTIFACTORY_ACCESS_TOKEN"
-  jf config remove repox > /dev/null 2>&1 || true # Do not log if the repox config were not present
-  jf config add repox --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_ACCESS_TOKEN"
-  jf config use repox
-  jf npm-config --repo-resolve "npm"
-}
-
-# Version utility functions (from npm_version_utils and version_util)
-PACKAGE_JSON="package.json"
-
-check_version_format() {
-  local version="$1"
-  # Check if version follows semantic versioning pattern (X.Y.Z or X.Y.Z-something)
-  if [[ ! $version =~ ^[0-9]+\.[0-9]+\.[0-9]+(-.*)?$ ]]; then
-    echo "WARN: Version '${version}' does not match semantic versioning format (e.g., '1.2.3' or '1.2.3-beta.1')." >&2
-  fi
-}
-
-set_project_version() {
-  local current_version release_version digit_count
-
-  current_version=$(jq -r .version "$PACKAGE_JSON")
-  if [ -z "${current_version}" ] || [ "${current_version}" == "null" ]; then
-    echo "Could not get version from ${PACKAGE_JSON}" >&2
-    exit 1
-  fi
-  export CURRENT_VERSION=$current_version
-
-  release_version="${current_version}"
-  if ! is_pull_request; then
-    if is_maintenance_branch && [[ ! ${current_version} =~ "-SNAPSHOT" ]]; then
-      echo "Found RELEASE version on maintenance branch, skipping version update."
-    else
-      release_version="${current_version%"-SNAPSHOT"}"
-      digit_count=$(echo "${release_version//./ }" | wc -w)
-      if [ "${digit_count}" -lt 3 ]; then
-          release_version="${release_version}.0"
-      fi
-      release_version="${release_version}-${BUILD_NUMBER}"
-      echo "Replacing version ${current_version} with ${release_version}"
-      npm version --no-git-tag-version --allow-same-version "${release_version}"
-    fi
-  fi
-  check_version_format "${release_version}"
-  echo "project-version=${release_version}" >> "${GITHUB_OUTPUT}"
-  export PROJECT_VERSION=$release_version
 }
 
 # CALLBACK IMPLEMENTATION: SonarQube scanner execution
@@ -151,19 +99,19 @@ sonar_scanner_implementation() {
     npx sonarqube-scanner -X "${scanner_args[@]}"
 }
 
-
 jfrog_npm_publish() {
-  echo "::debug::Configuring JFrog and NPM repositories..."
-  jf config remove repox > /dev/null 2>&1 || true # Do not log if the repox config were not present
+  echo "Configuring JFrog and NPM repositories..."
+  jf config remove repox > /dev/null 2>&1 || true # Ignore inexistent configuration
   jf config add repox --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_DEPLOY_ACCESS_TOKEN"
   jf npm-config --repo-resolve "npm" --repo-deploy "$ARTIFACTORY_DEPLOY_REPO"
 
-  echo "::debug::Publishing NPM package..."
+  export PROJECT="${GITHUB_REPOSITORY#*/}"
+  echo "PROJECT: ${PROJECT}"
+  echo "Publishing NPM package..."
   jf npm publish --build-name="$PROJECT" --build-number="$BUILD_NUMBER"
 
   jf rt build-collect-env "$PROJECT" "$BUILD_NUMBER"
-
-  echo "::debug::Publishing build info..."
+  echo "Publishing build info..."
   local build_publish_output
   build_publish_output=$(jf rt build-publish "$PROJECT" "$BUILD_NUMBER")
   echo "::debug::Build publish output: ${build_publish_output}"
@@ -275,13 +223,15 @@ build_npm() {
 }
 
 main() {
+  echo "::group::Check tools"
   check_tool jq --version
   check_tool jf --version
   check_tool npm --version
+  echo "::endgroup::"
   git_fetch_unshallow
-  set_build_env
-  set_project_version
+  echo "::group::Build"
   build_npm
+  echo "::endgroup::"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

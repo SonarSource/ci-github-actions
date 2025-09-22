@@ -1,0 +1,76 @@
+---
+name: Config NPM
+description: GitHub Action to configure NPM build environment with build number, authentication, and default settings
+inputs:
+  working-directory:
+    description: Relative path under github.workspace to execute the build in
+    default: .
+  artifactory-reader-role:
+    description: Suffix for the Artifactory reader role in Vault.
+      Defaults to `private-reader` for private repositories, and `public-reader` for public repositories.
+    default: ''
+  cache-npm:
+    description: Whether to cache NPM dependencies
+    default: 'true'
+  repox-url:
+    description: URL for Repox Platform
+    default: https://repox.jfrog.io
+  repox-artifactory-url:
+    description: URL for Repox Artifactory API (overrides repox-url/artifactory if provided)
+    default: ''
+
+outputs:
+  BUILD_NUMBER:
+    description: The current build number. Also set as environment variable BUILD_NUMBER.
+    value: ${{ steps.get_build_number.outputs.BUILD_NUMBER }}
+  current-version:
+    description: The project version set in package.json (before replacement). Also set as environment variable CURRENT_VERSION.
+    value: ${{ steps.config.outputs.current-version }}
+  project-version:
+    description: The project version with build number (after replacement). Also set as environment variable PROJECT_VERSION.
+    value: ${{ steps.config.outputs.project-version }}
+
+runs:
+  using: composite
+  steps:
+    - uses: SonarSource/ci-github-actions/get-build-number@v1
+      id: get_build_number
+    - name: Set parameters
+      shell: bash
+      env:
+        ARTIFACTORY_READER_ROLE: ${{ inputs.artifactory-reader-role != '' && inputs.artifactory-reader-role ||
+          (github.event.repository.visibility == 'public' && 'public-reader' || 'private-reader') }}
+      run: |
+        echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
+        cp ${GITHUB_ACTION_PATH}/mise.local.toml mise.local.toml
+    - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
+      with:
+        version: 2025.7.12
+
+    - name: Get secrets from Vault
+      id: vault
+      uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
+      with:
+        secrets: |
+          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
+          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
+
+    - name: Cache NPM dependencies
+      if: ${{ inputs.cache-npm == 'true' }}
+      uses: SonarSource/ci-github-actions/cache@v1
+      with:
+        path: ~/.npm
+        key: npm-${{ runner.os }}-${{ github.workflow }}-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: npm-${{ runner.os }}-${{ github.workflow }}-
+
+    - name: Update project version and set current-version and project-version variables
+      id: config
+      shell: bash
+      env:
+        DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        ARTIFACTORY_URL: ${{ inputs.repox-artifactory-url != '' && inputs.repox-artifactory-url ||
+          format('{0}/artifactory', inputs.repox-url) }}
+        ARTIFACTORY_USERNAME: ${{ fromJSON(steps.vault.outputs.vault).ARTIFACTORY_USERNAME }}
+        ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.vault.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
+      working-directory: ${{ inputs.working-directory }}
+      run: ${GITHUB_ACTION_PATH}/config.sh

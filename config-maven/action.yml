@@ -43,15 +43,23 @@ runs:
       id: get_build_number
       uses: SonarSource/ci-github-actions/get-build-number@v1
 
+    - id: from-env
+      if: env.CONFIG_MAVEN_COMPLETED != ''
+      shell: bash
+      run: |
+        echo "Action already called by $CONFIG_MAVEN_COMPLETED, execution skipped."
+        echo "skip=true" >> $GITHUB_OUTPUT
+
     - name: Set parameter for Vault
+      if: steps.from-env.outputs.skip != 'true'
       shell: bash
       env:
         ARTIFACTORY_READER_ROLE: ${{ inputs.artifactory-reader-role != '' && inputs.artifactory-reader-role ||
           (github.event.repository.visibility == 'public' && 'public-reader' || 'private-reader') }}
       run: |
         echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
-
     - name: Get secrets from Vault
+      if: steps.from-env.outputs.skip != 'true'
       id: vault
       uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
       with:
@@ -61,13 +69,14 @@ runs:
           ${{ inputs.use-develocity == 'true' && 'development/kv/data/develocity token | DEVELOCITY_TOKEN;' || '' }}
 
     - name: Set environment variables for Artifactory authentication
+      if: steps.from-env.outputs.skip != 'true'
       shell: bash
       env:
         ARTIFACTORY_URL: ${{ inputs.repox-artifactory-url != '' && inputs.repox-artifactory-url ||
           format('{0}/artifactory', inputs.repox-url) }}
-        ARTIFACTORY_USERNAME: ${{ fromJSON(steps.vault.outputs.vault).ARTIFACTORY_USERNAME }}
-        ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.vault.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
-        DEVELOCITY_ACCESS_KEY: ${{ inputs.use-develocity == 'true' &&
+        ARTIFACTORY_USERNAME: ${{ steps.vault.outputs.vault && fromJSON(steps.vault.outputs.vault).ARTIFACTORY_USERNAME || '' }}
+        ARTIFACTORY_ACCESS_TOKEN: ${{ steps.vault.outputs.vault && fromJSON(steps.vault.outputs.vault).ARTIFACTORY_ACCESS_TOKEN || '' }}
+        DEVELOCITY_ACCESS_KEY: ${{ inputs.use-develocity == 'true' && steps.vault.outputs.vault &&
           format('develocity.sonar.build={0}', fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN) || '' }}
       run: |
         echo "ARTIFACTORY_URL=$ARTIFACTORY_URL" >> "$GITHUB_ENV"
@@ -80,6 +89,7 @@ runs:
         fi
 
     - name: Configure Maven settings and set repository URL
+      if: steps.from-env.outputs.skip != 'true'
       shell: bash
       env:
         SONARSOURCE_REPOSITORY_URL: ${{ github.event.repository.visibility == 'private' &&
@@ -93,17 +103,20 @@ runs:
 
     - name: Cache local Maven repository
       uses: SonarSource/ci-github-actions/cache@v1
+      if: steps.from-env.outputs.skip != 'true'
       with:
         path: ~/.m2/repository
         key: maven-${{ runner.os }}-${{ github.workflow }}-${{ hashFiles(format('{0}/**/pom.xml', inputs.working-directory)) }}
         restore-keys: maven-${{ runner.os }}-${{ github.workflow }}-
 
     - name: Update project version and set current-version and project-version variables
+      if: steps.from-env.outputs.skip != 'true'
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       run: ${GITHUB_ACTION_PATH}/set_maven_project_version.sh
 
     - name: Create mvn wrapper function with common Maven flags and set MAVEN_OPTS
+      if: steps.from-env.outputs.skip != 'true'
       shell: bash
       env:
         COMMON_MVN_FLAGS: ${{ inputs.common-mvn-flags }}
@@ -112,4 +125,4 @@ runs:
         echo 'mvn() { command mvn ${{ env.COMMON_MVN_FLAGS }} "$@"; }' >> "$HOME/.bash_profile"
         echo "BASH_ENV=$HOME/.bash_profile" >> "$GITHUB_ENV"
         echo "MAVEN_OPTS=${MAVEN_OPTS:=-Xmx1536m -Xms128m}" >> "$GITHUB_ENV"
-        echo "CONFIG_MAVEN_COMPLETED=true" >> "$GITHUB_ENV"
+        echo "CONFIG_MAVEN_COMPLETED=$GITHUB_ACTION" >> "$GITHUB_ENV"

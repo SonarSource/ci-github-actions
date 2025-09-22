@@ -91,25 +91,25 @@ check_tool() {
 }
 
 is_default_branch() {
-  [[ "$GITHUB_REF_NAME" == "$DEFAULT_BRANCH" ]]
+  [[ "${GITHUB_REF_NAME:?}" == "${DEFAULT_BRANCH:?}" ]]
 }
 
 is_maintenance_branch() {
-  [[ "${GITHUB_REF_NAME}" == "branch-"* ]]
+  [[ "${GITHUB_REF_NAME:?}" == "branch-"* ]]
 }
 
 is_pull_request() {
-  [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]
+  [[ "${GITHUB_EVENT_NAME:?}" == "pull_request" ]]
 }
 
 is_dogfood_branch() {
-  [[ "${GITHUB_REF_NAME}" == "dogfood-on-"* ]]
+  [[ "${GITHUB_REF_NAME:?}" == "dogfood-on-"* ]]
 }
 
 is_long_lived_feature_branch() {
-  [[ "${GITHUB_REF_NAME}" == "feature/long/"* ]]
+  [[ "${GITHUB_REF_NAME:?}" == "feature/long/"* ]]
 }
 
 is_merge_queue_branch() {
-  [[ "${GITHUB_REF_NAME}" == "gh-readonly-queue/"* ]]
+  [[ "${GITHUB_REF_NAME:?}" == "gh-readonly-queue/"* ]]
 }

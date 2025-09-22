@@ -5,12 +5,6 @@ eval "$(shellspec - -c) exit 1"
 Mock jq
   if [[ "$*" == "--version" ]]; then
     echo "jq-1.8.1"
-  elif [[ "$*" == "-r .version package.json" ]]; then
-    if [[ "${MOCK_VERSION+set}" ]]; then
-      echo "${MOCK_VERSION}"
-    else
-      echo "1.2.3-SNAPSHOT"
-    fi
   elif [[ "$*" == "-r '.buildInfoUiUrl // empty'" ]]; then
     echo "https://repox.jfrog.io/ui/builds/test-project/42/123456/published"
   else
@@ -64,30 +58,32 @@ Mock git
   fi
 End
 
-# Set up environment variables
-export GITHUB_REPOSITORY="my-org/test-project"
-export GITHUB_REF_NAME="main"
-export GITHUB_EVENT_NAME="push"
+# Minimal environment variables
+export ARTIFACTORY_DEPLOY_ACCESS_TOKEN="deploy-token"
+export ARTIFACTORY_DEPLOY_REPO="test-repo"
+export ARTIFACTORY_URL="https://repox.jfrog.io/artifactory"
+export BUILD_NAME="dummy-project"
 export BUILD_NUMBER="42"
+export PROJECT_VERSION="1.2.3-42"
+export CURRENT_VERSION="1.2.3-SNAPSHOT"
+export DEFAULT_BRANCH="main"
+export DEPLOY_PULL_REQUEST="false"
+export GITHUB_EVENT_NAME="push"
+export GITHUB_OUTPUT=/dev/null
+export GITHUB_REF_NAME="main"
+export GITHUB_REPOSITORY="my-org/test-project"
 export GITHUB_RUN_ID="12345"
 export GITHUB_SHA="abc123"
-export GITHUB_OUTPUT=/dev/null
-export ARTIFACTORY_URL="https://repox.jfrog.io/artifactory"
-export ARTIFACTORY_ACCESS_TOKEN="reader-token"
-export ARTIFACTORY_DEPLOY_REPO="test-repo"
-export ARTIFACTORY_DEPLOY_ACCESS_TOKEN="deploy-token"
-export SONAR_PLATFORM="next"
-export RUN_SHADOW_SCANS="false"
-export NEXT_URL="https://next.sonarqube.com"
 export NEXT_TOKEN="next-token"
-export SQC_US_URL="https://sonarqube-us.example.com"
-export SQC_US_TOKEN="sqc-us-token"
-export SQC_EU_URL="https://sonarcloud.io"
-export SQC_EU_TOKEN="sqc-eu-token"
-export DEPLOY_PULL_REQUEST="false"
-export SKIP_TESTS="false"
-export DEFAULT_BRANCH="main"
+export NEXT_URL="https://next.sonarqube.com"
 export PULL_REQUEST="false"
+export RUN_SHADOW_SCANS="false"
+export SKIP_TESTS="false"
+export SONAR_PLATFORM="next"
+export SQC_EU_TOKEN="sqc-eu-token"
+export SQC_EU_URL="https://sonarcloud.io"
+export SQC_US_TOKEN="sqc-us-token"
+export SQC_US_URL="https://sonarqube-us.example.com"
 GITHUB_EVENT_PATH=$(mktemp)
 export GITHUB_EVENT_PATH
 echo '{}' > "$GITHUB_EVENT_PATH"
@@ -108,20 +104,7 @@ Describe 'build-npm/build.sh'
   End
 End
 
-# Source shared functions before including build script
-#Include shared/common-functions.sh
 Include build-npm/build.sh
-
-Describe 'Environment setup'
-  It 'sets up build environment correctly'
-    export GITHUB_REPOSITORY="my-org/test-project"
-    When call set_build_env
-    The status should be success
-    The output should include "PROJECT: test-project"
-    The output should include "Fetching commit history for SonarQube analysis..."
-    The variable PROJECT should equal "test-project"
-  End
-End
 
 Describe 'git_fetch_unshallow()'
   It 'fetches unshallow when repository is shallow'
@@ -163,58 +146,6 @@ Describe 'git_fetch_unshallow()'
   End
 End
 
-Describe 'Version format checking'
-  It 'warns about invalid version format'
-    When call check_version_format "invalid-version"
-    The status should be success
-    The stderr should include "WARN: Version 'invalid-version' does not match semantic versioning format"
-  End
-
-  It 'accepts valid semantic version without warning'
-    When call check_version_format "1.2.3-beta.1"
-    The status should be success
-    The stderr should be blank
-  End
-End
-
-Describe 'set_project_version()'
-  It 'exits with error when version cannot be read from package.json'
-    export MOCK_VERSION="null"
-    export BUILD_NUMBER="42"
-    export GITHUB_OUTPUT=/dev/null
-    export GITHUB_REF_NAME="main"
-    When run set_project_version
-    The status should be failure
-    The stderr should include "Could not get version from package.json"
-    The variable CURRENT_VERSION should be undefined
-    The variable PROJECT_VERSION should be undefined
-  End
-
-  It 'exits with error when version is empty'
-    export MOCK_VERSION=""
-    export BUILD_NUMBER="42"
-    export GITHUB_OUTPUT=/dev/null
-    export GITHUB_REF_NAME="main"
-    When run set_project_version
-    The status should be failure
-    The stderr should include "Could not get version from package.json"
-    The variable CURRENT_VERSION should be undefined
-    The variable PROJECT_VERSION should be undefined
-  End
-
-  It 'adds .0 to 2-digit version numbers'
-    export MOCK_VERSION="1.2-SNAPSHOT"
-    export BUILD_NUMBER="42"
-    export GITHUB_OUTPUT=/dev/null
-    export GITHUB_REF_NAME="main"
-    When call set_project_version
-    The status should be success
-    The output should include "Replacing version 1.2-SNAPSHOT with 1.2.0-42"
-    The variable CURRENT_VERSION should equal "1.2-SNAPSHOT"
-    The variable PROJECT_VERSION should equal "1.2.0-42"
-  End
-End
-
 Describe 'build_npm()'
   It 'builds main branch correctly'
     export GITHUB_REF_NAME="main"
@@ -237,20 +168,21 @@ Describe 'build_npm()'
     export BUILD_NUMBER="42"
     When call build_npm
     The status should be success
-    The output should include "======= Building maintenance branch ======="
-    The output should include "Replacing version 1.2.3-SNAPSHOT with 1.2.3-42"
+    The line 8 should equal "======= Building maintenance branch ======="
+    The line 16 should include "-Dsonar.projectVersion=1.2.3-SNAPSHOT"
   End
 
   It 'builds maintenance branch with RELEASE version'
-    export MOCK_VERSION="1.2.3"  # No SNAPSHOT suffix, valid semantic version
+    export CURRENT_VERSION="1.2.3"
+    export PROJECT_VERSION="1.2.3" # No SNAPSHOT suffix, valid semantic version
     export GITHUB_REF_NAME="branch-1.2"
     export GITHUB_EVENT_NAME="push"
     export PROJECT="test-project"
     export BUILD_NUMBER="42"
     When call build_npm
     The status should be success
-    The output should include "======= Building maintenance branch ======="
-    The output should include "Found RELEASE version on maintenance branch, skipping version update."
+    The line 8 should equal "======= Building maintenance branch ======="
+    The line 16 should include "-Dsonar.projectVersion=1.2.3"
   End
 
   It 'builds pull request without deploy'
@@ -332,22 +264,10 @@ Describe 'build_npm()'
     The output should include "Skipping tests (SKIP_TESTS=true)"
     The output should not include "Running tests..."
   End
-
-  It 'handles 2-digit version in maintenance branch SNAPSHOT'
-    export MOCK_VERSION="1.2-SNAPSHOT"
-    export GITHUB_REF_NAME="branch-1.2"
-    export GITHUB_EVENT_NAME="push"
-    export PROJECT="test-project"
-    export BUILD_NUMBER="42"
-    When call build_npm
-    The status should be success
-    The output should include "Replacing version 1.2-SNAPSHOT with 1.2.0-42"
-  End
 End
 
 
 Describe 'sonar_scanner_implementation()'
-  export CURRENT_VERSION="1.2.3"
   It 'runs sonar scanner with base parameters'
     export SONAR_HOST_URL="https://sonar.example.com"
     export SONAR_TOKEN="test-token"
@@ -357,7 +277,7 @@ Describe 'sonar_scanner_implementation()'
     export GITHUB_REPOSITORY="test/repo"
     When call sonar_scanner_implementation
     The status should be success
-    The output should include "npx sonarqube-scanner -X"
+    The output should include "npx sonarqube-scanner"
     The output should include "-Dsonar.host.url=https://sonar.example.com"
     The output should include "-Dsonar.token=test-token"
     The output should include "-Dsonar.analysis.buildNumber=42"
@@ -396,14 +316,12 @@ Describe 'sonar_scanner_implementation()'
 End
 
 
-Describe 'Shadow scans deployment prevention'
+Describe 'get_build_config()'
   It 'disables deployment when shadow scans enabled on main branch'
     export GITHUB_REF_NAME="main"
     export DEFAULT_BRANCH="main"
     export GITHUB_EVENT_NAME="push"
     export RUN_SHADOW_SCANS="true"
-    export CURRENT_VERSION="1.2.3-SNAPSHOT"
-    export PROJECT_VERSION="1.2.3-42"
     export BUILD_NUMBER="42"
     When call get_build_config
     The status should be success
@@ -417,8 +335,6 @@ Describe 'Shadow scans deployment prevention'
     export DEFAULT_BRANCH="main"
     export GITHUB_EVENT_NAME="push"
     export RUN_SHADOW_SCANS="false"
-    export CURRENT_VERSION="1.2.3-SNAPSHOT"
-    export PROJECT_VERSION="1.2.3-42"
     export BUILD_NUMBER="42"
     When call get_build_config
     The status should be success
@@ -428,8 +344,8 @@ Describe 'Shadow scans deployment prevention'
   End
 End
 
-Describe 'Full build with shadow scans'
-  It 'displays shadow scan information in build output'
+Describe 'build_npm()'
+  It 'Performs full build with shadow scans'
     export GITHUB_REF_NAME="main"
     export DEFAULT_BRANCH="main"
     export GITHUB_EVENT_NAME="push"

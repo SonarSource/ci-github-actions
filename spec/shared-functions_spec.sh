@@ -138,6 +138,7 @@ Describe 'shared/common-functions.sh'
       "gh-readonly-queue/123" "is_merge_queue_branch" "success"
       "main" "is_merge_queue_branch" "failure"
     End
+    export DEFAULT_BRANCH=main
 
     It "detects $1 branch with $2"
       export GITHUB_REF_NAME="$1"

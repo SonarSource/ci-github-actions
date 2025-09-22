@@ -73,9 +73,6 @@ setup() {
 }
 Before "setup"
 
-# Source shared functions before including build script
-Include shared/common-functions.sh
-
 Describe 'build-yarn/build.sh'
   Include build-yarn/build.sh
 

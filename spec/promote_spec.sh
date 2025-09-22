@@ -37,21 +37,20 @@ Mock jq
 End
 
 # Minimal environment variables
-export ARTIFACTORY_URL="https://dummy.repox"
 export ARTIFACTORY_PROMOTE_ACCESS_TOKEN="dummy promote token"
-export GITHUB_REF_NAME="dummy-branch"
-export BUILD_NUMBER="42"
-export GITHUB_REPOSITORY="SonarSource/dummy-project"
+export ARTIFACTORY_URL="https://dummy.repox"
 export BUILD_NAME="dummy-project"
+export BUILD_NUMBER="42"
+export DEFAULT_BRANCH="main"
 export GITHUB_EVENT_NAME="push"
+export GITHUB_REF_NAME="dummy-branch"
+export GITHUB_REPOSITORY="SonarSource/dummy-project"
+export GITHUB_SHA="abc123"
+export GITHUB_TOKEN="promotion token"
+export PROJECT_VERSION="1.2.3"
+export PROMOTE_PULL_REQUEST="false"
 GITHUB_EVENT_PATH=$(mktemp)
 export GITHUB_EVENT_PATH
-export GITHUB_TOKEN="promotion token"
-export GITHUB_SHA="abc123"
-
-export PROJECT_VERSION="1.2.3"
-export DEFAULT_BRANCH="main"
-export PROMOTE_PULL_REQUEST="false"
 
 Describe 'promote/promote.sh'
   It 'does not run promote() if the script is sourced'

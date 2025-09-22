@@ -1,25 +1,32 @@
 #!/bin/bash
 # Regular way to promote a project build: JFrog Artifactory build promotion, and GitHub status check update
-# Environment variables:
-# - ARTIFACTORY_URL: Repox URL.
+#
+# Required environment variables (must be explicitly provided):
 # - ARTIFACTORY_PROMOTE_ACCESS_TOKEN: Access token to promote builds
-# - GITHUB_REF_NAME: Short ref name of the branch or tag (e.g. main, branch-123, dogfood-on-123)
-# - DEFAULT_BRANCH: Default branch (e.g. main), defaults to the repository configuration
 # - BUILD_NUMBER: Build number (e.g. 42)
-# - GITHUB_REPOSITORY: Repository name (e.g. sonarsource/sonar-dummy-poetry)
+# - BUILD_NAME: Name of the JFrog Artifactory build (e.g. sonar-dummy)
+#
+# GitHub Actions auto-provided:
+# - GITHUB_REF_NAME: Short ref name of the branch or tag (e.g. main, branch-123, dogfood-on-123)
+# - GITHUB_REPOSITORY: Repository name (e.g. sonarsource/sonar-dummy)
 # - GITHUB_EVENT_NAME: Event name (e.g. push, pull_request)
 # - GITHUB_EVENT_PATH: Path to the event webhook payload file. For example, /github/workflow/event.json.
+#
+# Optional user customization:
+# - ARTIFACTORY_URL: Repox URL.
+# - DEFAULT_BRANCH: Default branch (e.g. main), defaults to the repository configuration
 # - MULTI_REPO_PROMOTE: If true, promotes to multiple repositories (default: false)
 # - ARTIFACTORY_DEPLOY_REPO: Repository to deploy to. If not set, it will be retrieved from the build info.
 # - ARTIFACTORY_TARGET_REPO: Target repository for the promotion. If not set, it will be determined based on the branch type.
-# Required properties in the build info:
+#
+# Required properties in the JFrog build info:
 # - buildInfo.env.ARTIFACTORY_DEPLOY_REPO: Repository to deploy to (e.g. sonarsource-deploy-qa)
 # - buildInfo.env.PROJECT_VERSION: Version of the project (e.g. 1.2.3)
+
 # shellcheck source-path=SCRIPTDIR
 
 set -euo pipefail
 
-# Source common functions shared across build scripts
 # shellcheck source=../shared/common-functions.sh
 source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 
@@ -52,7 +59,7 @@ check_branch() {
     exit 0
   fi
 
-  if ! (is_pull_request || is_main_branch || is_maintenance_branch || is_dogfood_branch); then
+  if ! (is_pull_request || is_default_branch || is_maintenance_branch || is_dogfood_branch); then
     echo "Promotion is only available for pull requests, main branch, maintenance branches, or dogfood branches." >&2
     echo "Current branch: ${GITHUB_REF_NAME} (GITHUB_EVENT_NAME: ${GITHUB_EVENT_NAME})" >&2
     return 1
@@ -69,7 +76,7 @@ get_target_repos() {
   if is_pull_request; then
     targetRepo1="sonarsource-private-dev"
     targetRepo2="sonarsource-public-dev"
-  elif is_main_branch || is_maintenance_branch; then
+  elif is_default_branch || is_maintenance_branch; then
     targetRepo1="sonarsource-private-builds"
     targetRepo2="sonarsource-public-builds"
   elif is_dogfood_branch; then
@@ -102,7 +109,7 @@ get_target_repo() {
   echo "ARTIFACTORY_DEPLOY_REPO=$ARTIFACTORY_DEPLOY_REPO"
   if is_pull_request; then
     targetRepo=${ARTIFACTORY_DEPLOY_REPO/%qa/dev}
-  elif is_main_branch || is_maintenance_branch; then
+  elif is_default_branch || is_maintenance_branch; then
     targetRepo=${ARTIFACTORY_DEPLOY_REPO/%qa/builds}
   elif is_dogfood_branch; then
     targetRepo=sonarsource-dogfood-builds
