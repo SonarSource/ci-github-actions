@@ -49,8 +49,30 @@ export SCANNER_VERSION="5.1.0.4751"
 export CURRENT_VERSION="1.2.3-SNAPSHOT"
 export PROJECT_VERSION="1.2.3.42"
 
-# Source shared functions before including build script
-Include shared/common-functions.sh
+Describe 'build-maven/build.sh'
+  It 'does not run main when sourced'
+    When run source build-maven/build.sh
+    The status should be success
+    The output should equal ""
+  End
+  It 'runs main function when executed directly'
+    HOME=$(mktemp -d)
+    export HOME
+    mkdir -p "$HOME/.m2"
+    touch "$HOME/.m2/settings.xml"
+    Mock git
+      echo "git $*"
+    End
+    Mock mvn
+      echo "mvn $*"
+    End
+    When run script build-maven/build.sh
+    Dump
+    The status should be success
+    The output should include "Maven command: mvn"
+  End
+End
+
 Include build-maven/build.sh
 
 Describe 'build.sh'

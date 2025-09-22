@@ -55,7 +55,6 @@ runs:
   steps:
     - uses: SonarSource/ci-github-actions/config-maven@master
       id: config
-      if: ${{ env.CONFIG_MAVEN_COMPLETED != 'true' }}
       with:
         working-directory: ${{ inputs.working-directory }}
         artifactory-reader-role: ${{ inputs.artifactory-reader-role }}

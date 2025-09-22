@@ -20,6 +20,7 @@ for details on how to use it.
 - [`build-maven`](#build-maven)
 - [`build-poetry`](#build-poetry)
 - [`build-gradle`](#build-gradle)
+- [`config-npm`](#config-npm)
 - [`build-npm`](#build-npm)
 - [`build-yarn`](#build-yarn)
 - [`promote`](#promote)
@@ -60,9 +61,11 @@ jobs:
       - uses: SonarSource/ci-github-actions/get-build-number@v1
 ```
 
-### Environment variables
+### Input Environment Variables
 
-If `BUILD_NUMBER` is present in the environment, it will be reused as the build number.
+| Environment Variable | Description                                                          |
+|----------------------|----------------------------------------------------------------------|
+| `BUILD_NUMBER`       | If present in the environment, it will be reused as the build number |
 
 ### Inputs
 
@@ -74,6 +77,12 @@ No inputs are required for this action.
 |----------------|--------------------------|
 | `BUILD_NUMBER` | The current build number |
 
+### Output Environment Variables
+
+| Environment Variable | Description              |
+|----------------------|--------------------------|
+| `BUILD_NUMBER`       | The current build number |
+
 ### Features
 
 - Automatic build number management with GitHub repository properties
@@ -82,6 +91,8 @@ No inputs are required for this action.
 - Sets both environment variable and output variable
 
 ## `config-maven`
+
+Call [`get-build-number`](#get-build-number).
 
 Configure Maven build environment with build number, authentication, and default settings.
 
@@ -121,6 +132,14 @@ steps:
   - run: mvn verify
 ```
 
+### Input Environment Variables
+
+| Environment Variable                    | Description                                                                       |
+|-----------------------------------------|-----------------------------------------------------------------------------------|
+| `CURRENT_VERSION` and `PROJECT_VERSION` | If both are set, they will be used as-is and no version update will be performed. |
+| `MAVEN_OPTS`                            | JVM options for Maven execution. Defaults to `-Xmx1536m -Xms128m` if not set.     |
+| `CONFIG_MAVEN_COMPLETED`                | For internal use. If set, the action is skipped                                   |
+
 ### Inputs
 
 | Input                     | Description                                                                 | Default                                                                                                                 |
@@ -141,6 +160,25 @@ steps:
 | `current-version` | The project version set in the pom.xml (before replacement). Also set as environment variable `CURRENT_VERSION` |
 | `project-version` | The project version with build number (after replacement). Also set as environment variable `PROJECT_VERSION`   |
 
+### Output Environment Variables
+
+| Environment Variable          | Description                                                                                                                               |
+|-------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------|
+| `ARTIFACTORY_ACCESS_TOKEN`    | Access token for Artifactory authentication                                                                                               |
+| `ARTIFACTORY_ACCESS_USERNAME` | Deprecated alias for `ARTIFACTORY_USERNAME`                                                                                               |
+| `ARTIFACTORY_USERNAME`        | Username for Artifactory authentication                                                                                                   |
+| `ARTIFACTORY_PASSWORD`        | Deprecated alias for `ARTIFACTORY_ACCESS_TOKEN`                                                                                           |
+| `ARTIFACTORY_URL`             | Artifactory (Repox) URL. E.x.: `https://repox.jfrog.io/artifactory`                                                                       |
+| `BASH_ENV`                    | Path to the bash profile with mvn function for adding common flags to Maven calls                                                         |
+| `CURRENT_VERSION`             | The original project version from pom.xml                                                                                                 |
+| `DEVELOCITY_ACCESS_KEY`       | The Develocity access key when `use-develicty` is true                                                                                    |
+| `MAVEN_OPTS`                  | JVM options for Maven execution.                                                                                                          |
+| `PROJECT_VERSION`             | The project version with build number (after replacement)                                                                                 |
+| `SONARSOURCE_REPOSITORY_URL`  | URL for SonarSource Artifactory root virtual repository (i.e.: `sonarsource-qa` for public builds or `sonarsource-qa` for private builds) |
+| `CONFIG_MAVEN_COMPLETED`      | For internal use. If set, the action is skipped                                                                                           |
+
+See also [`get-build-number`](#get-build-number) output environment variables.
+
 ### Environment Variables Set
 
 After running this action, the following environment variables are available:
@@ -160,6 +198,8 @@ After running this action, the following environment variables are available:
   sonarsource-qa for private builds)
 
 ## `build-maven`
+
+Call [`config-maven`](#config-maven).
 
 Build and deploy a Maven project with SonarQube analysis and Artifactory deployment.
 
@@ -195,6 +235,10 @@ steps:
   - uses: SonarSource/ci-github-actions/build-maven@v1
 ```
 
+### Input Environment Variables
+
+See also [`config-maven`](#config-maven) input environment variables.
+
 ### Inputs
 
 | Input                         | Description                                                                                                                | Default                                                              |
@@ -217,6 +261,10 @@ steps:
 | Output         | Description                                                               |
 |----------------|---------------------------------------------------------------------------|
 | `BUILD_NUMBER` | The current build number. Also set as environment variable `BUILD_NUMBER` |
+
+### Output Environment Variables
+
+See also [`config-maven`](#config-maven) output environment variables.
 
 ### Features
 
@@ -416,9 +464,88 @@ jobs:
 - Develocity integration for build scans
 - Comprehensive build logging and error handling
 
+## `config-npm`
+
+Call [`get-build-number`](#get-build-number).
+
+Configure NPM and JFrog build environment with build number, authentication, and settings.
+Set the project version in `package.json` with the build number.
+
+### Requirements
+
+#### Required GitHub Permissions
+
+- `id-token: write`
+- `contents: write`
+
+#### Required Vault Permissions
+
+- `public-reader` or `private-reader`: Artifactory role for reading dependencies
+
+#### Other Dependencies
+
+The Node.js and NPM tools must be pre-installed. Use of `mise` is recommended.
+
+### Usage
+
+```yaml
+config:
+  concurrency:
+    group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+    cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
+  runs-on: github-ubuntu-latest-s
+  name: Build
+  permissions:
+    id-token: write
+    contents: write
+  steps:
+    - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+    - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
+      with:
+        version: 2025.7.12
+    - uses: SonarSource/ci-github-actions/config-npm@v1
+```
+
+### Input Environment Variables
+
+| Environment Variable                    | Description                                                                       |
+|-----------------------------------------|-----------------------------------------------------------------------------------|
+| `CURRENT_VERSION` and `PROJECT_VERSION` | If both are set, they will be used as-is and no version update will be performed. |
+
+See also [`get-build-number`](#get-build-number) input environment variables.
+
+### Inputs
+
+| Input                     | Description                                                                 | Default                                                              |
+|---------------------------|-----------------------------------------------------------------------------|----------------------------------------------------------------------|
+| `working-directory`       | Relative path under github.workspace to execute the build in                | `.`                                                                  |
+| `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault                             | `private-reader` for private repos, `public-reader` for public repos |
+| `cache-npm`               | Whether to cache NPM dependencies                                           | `true`                                                               |
+| `repox-url`               | URL for Repox                                                               | `https://repox.jfrog.io`                                             |
+| `repox-artifactory-url`   | URL for Repox Artifactory API (overrides repox-url/artifactory if provided) | (optional)                                                           |
+
+### Outputs
+
+| Output            | Description                                               |
+|-------------------|-----------------------------------------------------------|
+| `current-version` | The project version from package.json                     |
+| `project-version` | The project version with build number (after replacement) |
+| `BUILD_NUMBER`    | The current build number                                  |
+
+### Output Environment Variables
+
+| Environment Variable | Description                                               |
+|----------------------|-----------------------------------------------------------|
+| `CURRENT_VERSION`    | The project version from package.json                     |
+| `PROJECT_VERSION`    | The project version with build number (after replacement) |
+
+See also [`get-build-number`](#get-build-number) output environment variables.
+
 ## `build-npm`
 
-Build, test, analyze, and deploy an NPM project with SonarQube integration and JFrog Artifactory deployment.
+Call [`config-npm`](#config-npm).
+
+Then build, test, analyze with SonarQube, and deploy an NPM project to JFrog Artifactory.
 
 ### Requirements
 
@@ -474,11 +601,20 @@ jobs:
           sonar-platform: 'next'
 ```
 
+### Input Environment Variables
+
+| Environment Variable                    | Description                                                                       | Default                               |
+|-----------------------------------------|-----------------------------------------------------------------------------------|---------------------------------------|
+| `CURRENT_VERSION` and `PROJECT_VERSION` | If both are set, they will be used as-is and no version update will be performed. | Generated by `config-npm` if not set. |
+| `SQ_SCANNER_VERSION`                    | SonarQube scanner version.                                                        | 'latest'                              |
+
+See also [`config-npm`](#config-npm) input environment variables.
+
 ### Inputs
 
 | Input                       | Description                                                                    | Default                                                              |
 |-----------------------------|--------------------------------------------------------------------------------|----------------------------------------------------------------------|
-| `public`                    | Whether to build and deploy with/to public repositories                        | Auto-detected from repository visibility                             |
+| `working-directory`         | Relative path under github.workspace to execute the build in                   | `.`                                                                  |
 | `artifactory-reader-role`   | Suffix for the Artifactory reader role in Vault                                | `private-reader` for private repos, `public-reader` for public repos |
 | `artifactory-deployer-role` | Suffix for the Artifactory deployer role in Vault                              | `qa-deployer` for private repos, `public-deployer` for public repos  |
 | `artifactory-deploy-repo`   | Name of deployment repository                                                  | Auto-detected based on repository visibility                         |
@@ -489,13 +625,24 @@ jobs:
 | `repox-artifactory-url`     | URL for Repox Artifactory API (overrides repox-url/artifactory if provided)    | (optional)                                                           |
 | `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', or 'sqc-us'                     | `next`                                                               |
 | `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding) | `false`                                                              |
+| `build-name`                | Name of the JFrog build to publish.                                            | `<Repository name>`                                                  |
 
 ### Outputs
 
-| Output            | Description                           |
-|-------------------|---------------------------------------|
-| `project-version` | The project version from package.json |
-| `build-info-url`  | The JFrog build info UI URL           |
+| Output            | Description                                               |
+|-------------------|-----------------------------------------------------------|
+| `current-version` | The project version from package.json                     |
+| `project-version` | The project version with build number (after replacement) |
+| `BUILD_NUMBER`    | The current build number                                  |
+| `build-info-url`  | The JFrog build info UI URL                               |
+
+### Output Environment Variables
+
+| Environment Variable | Description              |
+|----------------------|--------------------------|
+| `BUILD_NUMBER`       | The current build number |
+
+See also [`config-npm`](#config-npm) output environment variables.
 
 ### Features
 
@@ -661,7 +808,7 @@ promote:
 
 ### Outputs
 
-No outputs are provided by this action.
+This action does not provide any outputs.
 
 ### Features
 

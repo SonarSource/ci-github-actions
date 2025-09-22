@@ -39,8 +39,8 @@ jobs:
         if: steps.secrets.outcome == 'success'
         # FIXME BUILD-8337: improve usage of sonar-scanner-cli
         env:
-          SONAR_URL: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_URL }}
-          SONAR_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_TOKEN }}
+          SONAR_URL: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).SONAR_URL || '' }}
+          SONAR_TOKEN: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).SONAR_TOKEN || '' }}
           SONAR_SCANNER_CLI_VERSION: 6.1.0.4477
         run: |
           SCANNER_ZIP="sonar-scanner-cli-${SONAR_SCANNER_CLI_VERSION}-linux-x64.zip"

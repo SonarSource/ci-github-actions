@@ -39,7 +39,6 @@
 
 set -euo pipefail
 
-# Source common functions shared across build scripts
 # shellcheck source=../shared/common-functions.sh
 source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 
