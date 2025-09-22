@@ -503,7 +503,6 @@ Promotes builds in JFrog Artifactory and updates GitHub status checks.
     artifactory-reader-role: private-reader       # private-reader/public-reader
     artifactory-deployer-role: qa-deployer        # qa-deployer/public-deployer
     maven-local-repository-path: .m2/repository   # Maven cache path
-    maven-opts: -Xmx1536m -Xms128m                # JVM options for Maven
     scanner-java-opts: -Xmx512m                   # JVM options for SonarQube scanner
     use-develocity: false                          # Enable Develocity build tracking
 ```

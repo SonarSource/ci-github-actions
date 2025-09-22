@@ -46,7 +46,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 : "${ARTIFACTORY_URL:?}"
 # Required by maven-enforcer-plugin in SonarSource parent POM
 : "${ARTIFACTORY_DEPLOY_REPO:?}" "${ARTIFACTORY_DEPLOY_USERNAME:?}" "${ARTIFACTORY_DEPLOY_PASSWORD:?}"
-: "${SNAPSHOT_VERSION:?}"
+: "${CURRENT_VERSION:?}"
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_RUN_ID:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}"
 : "${GITHUB_SHA:?}"
 : "${GITHUB_OUTPUT:?}"
@@ -58,6 +58,7 @@ if [[ "${SONAR_PLATFORM}" != "none" ]]; then
 fi
 : "${RUN_SHADOW_SCANS:?}"
 : "${DEPLOY_PULL_REQUEST:=false}"
+: "${MAVEN_OPTS:=-Xmx1536m -Xms128m}"
 export ARTIFACTORY_URL DEPLOY_PULL_REQUEST
 
 # FIXME Workaround for SonarSource parent POM; it can be removed after releases of parent 73+ and parent-oss 84+
@@ -66,6 +67,15 @@ export BUILD_ID=$BUILD_NUMBER
 # SonarQube parameters
 : "${SCANNER_VERSION:=5.1.0.4751}"
 readonly SONAR_GOAL="org.sonarsource.scanner.maven:sonar-maven-plugin:${SCANNER_VERSION}:sonar"
+
+# Check if a command is available and runs it, typically: 'some_tool --version'
+check_tool() {
+  if ! command -v "$1"; then
+    echo "$1 is not installed." >&2
+    return 1
+  fi
+  "$@"
+}
 
 # CALLBACK IMPLEMENTATION: SonarQube scanner execution
 #
@@ -79,15 +89,12 @@ sonar_scanner_implementation() {
     local additional_params=("$@")
     # Build sonar properties (using orchestrator-provided SONAR_HOST_URL/SONAR_TOKEN)
     local sonar_props=("-Dsonar.host.url=${SONAR_HOST_URL}" "-Dsonar.token=${SONAR_TOKEN}")
-    sonar_props+=("-Dsonar.projectVersion=${SNAPSHOT_VERSION}" "-Dsonar.scm.revision=$GITHUB_SHA")
+    sonar_props+=("-Dsonar.projectVersion=${CURRENT_VERSION}" "-Dsonar.scm.revision=$GITHUB_SHA")
     sonar_props+=("${additional_params[@]+"${additional_params[@]}"}")
 
     echo "Maven command: mvn $SONAR_GOAL ${sonar_props[*]}"
     mvn "$SONAR_GOAL" "${sonar_props[@]}"
 }
-
-# Get project version from mvn project and compare that the build number is the same
-
 
 is_default_branch() {
   [[ "$GITHUB_REF_NAME" == "$DEFAULT_BRANCH" ]]
@@ -125,17 +132,9 @@ git_fetch_unshallow() {
   fi
 }
 
-check_tool() {
-  if ! command -v "$1" >/dev/null 2>&1; then
-    echo "::error title=Missing tool::$1 is not installed. Please see https://xtranet-sonarsource.atlassian.net/wiki/spaces/Platform/pages/4267245619/Preinstalling+Tools+with+Mise+and+Preinstalled+Tools+on+Runners+-+GitHub for installation instructions." >&2
-    return 1
-  fi
-  "$@"
-}
-
 check_settings_xml() {
   if [ ! -f "$HOME/.m2/settings.xml" ]; then
-    echo "::error title=Missing Maven settings.xml::Maven settings.xml file not found at $HOME/.m2/settings.xml" >&2
+    echo "::error title=Missing Maven settings.xml::Maven settings.xml file not found at $HOME/.m2/settings.xml"
     exit 1
   fi
 }

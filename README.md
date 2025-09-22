@@ -127,14 +127,13 @@ steps:
 | `working-directory`       | Relative path under github.workspace to execute the build in                                                               | `.`                                                                  |
 | `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault                                                                            | `private-reader` for private repos, `public-reader` for public repos |
 | `common-mvn-flags`        | Maven flags for all subsequent mvn calls                                                                                   | `--batch-mode --no-transfer-progress --errors --fail-at-end --show-version -Dmaven.test.redirectTestOutputToFile=false` |
-| `maven-opts`              | Parameters for the JVM started for subsequent mvn calls                                                                     | `-Xmx1536m -Xms128m`                                                |
 
 ### Outputs
 
 | Output             | Description                                                                                    |
 |--------------------|------------------------------------------------------------------------------------------------|
 | `build-number`     | The current build number. Also set as environment variable `BUILD_NUMBER`                     |
-| `snapshot-version` | The project version set in the pom.xml (before replacement). Also set as environment variable `CURRENT_VERSION` |
+| `current-version` | The project version set in the pom.xml (before replacement). Also set as environment variable `CURRENT_VERSION` |
 | `project-version`  | The project version with build number (after replacement). Also set as environment variable `PROJECT_VERSION` |
 
 ### Environment Variables Set
@@ -142,7 +141,7 @@ steps:
 After running this action, the following environment variables are available:
 
 - `BUILD_NUMBER`: The current build number
-- `SNAPSHOT_VERSION`: The original project version from pom.xml
+- `CURRENT_VERSION`: The original project version from pom.xml
 - `PROJECT_VERSION`: The project version with build number appended
 - `ARTIFACTORY_URL`: Artifactory (Repox) URL. E.x.: `https://repox.jfrog.io/artifactory`
 - `ARTIFACTORY_USERNAME`: Username for Artifactory authentication
@@ -150,33 +149,20 @@ After running this action, the following environment variables are available:
 - `ARTIFACTORY_PASSWORD`: Deprecated alias for `ARTIFACTORY_ACCESS_TOKEN`
 - `ARTIFACTORY_ACCESS_USERNAME`: Deprecated alias for `ARTIFACTORY_USERNAME`
 - `MAVEN_OPTS`: JVM options for Maven execution
-- `SONARSOURCE_REPOSITORY_URL`: URL for SonarSource Artifactory repository
+- `SONARSOURCE_REPOSITORY_URL`: URL for SonarSource Artifactory root virtual repository (i.e.: sonarsource-qa for public builds or
+  sonarsource-qa for private builds)
 - `BASH_ENV`: Path to bash aliases file with Maven command alias
-
-### Features
-
-- **Automatic Build Number Management**: Integrates with `get-build-number` action for consistent build numbering
-- **Project Version Configuration**: Automatically updates Maven project version with build number using format `<MAJOR>.<MINOR>.<PATCH>.<BUILD_NUMBER>`
-- **Artifactory Integration**: Sets up authentication and repository configuration for SonarSource Artifactory
-- **Maven Settings Management**: Provides pre-configured `settings.xml` with SonarSource repositories and authentication
-- **Maven Local Repository Caching**: Automatically caches `~/.m2/repository` for faster builds
-- **Common Maven Flags**: Sets up convenient Maven command alias with common flags for consistent execution
-- **Repository Visibility Detection**: Automatically configures appropriate Artifactory repositories based on repository visibility (public/private)
 
 ## `build-maven`
 
 Build and deploy a Maven project with SonarQube analysis and Artifactory deployment.
 
-### Requirements
-
-Required to run the [`config-maven`](#config-maven) action before running the `build-maven` action.
-
-#### Required GitHub Permissions
+### Required GitHub Permissions
 
 - `id-token: write`
 - `contents: write`
 
-#### Required Vault Permissions
+### Required Vault Permissions
 
 - `public-reader` or `private-reader`: Artifactory role for reading dependencies.
 - `public-deployer` or `qa-deployer`: Artifactory role for deployment.
@@ -185,10 +171,11 @@ Required to run the [`config-maven`](#config-maven) action before running the `b
 - `development/kv/data/sign`: Artifact signing credentials (key and passphrase).
 - `development/kv/data/develocity`: Develocity access token (if using Develocity).
 
-#### Other Dependencies
+### Other Dependencies
 
 - The Java and Maven tools must be pre-installed. Use of `mise` is recommended.
-- Required to use the `*.sonarsource.parent:parent` Maven parent.
+- The "Sonar parent POM" (`[org|com].sonarsource.parent:parent`) must be used. There's a public POM (org) and a private POM (com),
+  respectively for public or private code.
 
 ### Usage
 

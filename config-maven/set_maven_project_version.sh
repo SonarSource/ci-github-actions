@@ -6,9 +6,10 @@ set -euo pipefail
 : "${GITHUB_OUTPUT:?}"
 : "${GITHUB_ENV:?}"
 
+# Check if a command is available and runs it, typically: 'some_tool --version'
 check_tool() {
-  if ! command -v "$1" >/dev/null 2>&1; then
-    echo "::error title=Missing tool::$1 is not installed. Please see https://xtranet-sonarsource.atlassian.net/wiki/spaces/Platform/pages/4267245619/Preinstalling+Tools+with+Mise+and+Preinstalled+Tools+on+Runners+-+GitHub for installation instructions." >&2
+  if ! command -v "$1"; then
+    echo "$1 is not installed." >&2
     return 1
   fi
   "$@"
@@ -35,8 +36,8 @@ set_project_version() {
 
   # Saving the snapshot version to the output and environment variables
   # This is used by the sonar-scanner to set the value of sonar.projectVersion without the build number
-  echo "snapshot-version=$current_version" >> "$GITHUB_OUTPUT"
-  echo "SNAPSHOT_VERSION=$current_version" >> "$GITHUB_ENV"
+  echo "current-version=$current_version" >> "$GITHUB_OUTPUT"
+  echo "CURRENT_VERSION=$current_version" >> "$GITHUB_ENV"
 
   local release_version="${current_version%"-SNAPSHOT"}"
   local dots="${release_version//[^.]/}"

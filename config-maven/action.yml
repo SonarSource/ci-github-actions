@@ -12,20 +12,20 @@ inputs:
   common-mvn-flags:
     description: Maven flags for all subsequent mvn calls
     default: --batch-mode --no-transfer-progress --errors --fail-at-end --show-version -Dmaven.test.redirectTestOutputToFile=false
-  maven-opts:
-    description: Parameters for the JVM started for subsequent mvn calls
-    default: -Xmx1536m -Xms128m
   repox-url:
     description: Artifactory (Repox) URL
     default: https://repox.jfrog.io/artifactory
 
 outputs:
+  BUILD_NUMBER:
+    description: The current build number. Also set as environment variable BUILD_NUMBER
+    value: ${{ steps.get_build_number.outputs.BUILD_NUMBER }}
   build-number:
     description: The current build number. Also set as environment variable BUILD_NUMBER
     value: ${{ steps.get_build_number.outputs.BUILD_NUMBER }}
-  snapshot-version:
+  current-version:
     description: The project version set in the pom.xml (before replacement). Also set as environment variable CURRENT_VERSION
-    value: ${{ steps.config.outputs.snapshot-version }}
+    value: ${{ steps.config.outputs.current-version }}
   project-version:
     description: The project version with build number (after replacement). Also set as environment variable PROJECT_VERSION
     value: ${{ steps.config.outputs.project-version }}
@@ -38,7 +38,7 @@ runs:
       uses: SonarSource/ci-github-actions/get-build-number@v1
 
     - name: Set parameter for Vault
-      shell: bash --noprofile --norc -euo pipefail {0}
+      shell: bash
       env:
         ARTIFACTORY_READER_ROLE: ${{ inputs.artifactory-reader-role != '' && inputs.artifactory-reader-role ||
           (github.event.repository.visibility == 'public' && 'public-reader' || 'private-reader') }}
@@ -54,7 +54,7 @@ runs:
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
 
     - name: Set environment variables for Artifactory authentication
-      shell: bash --noprofile --norc -euo pipefail {0}
+      shell: bash
       env:
         ARTIFACTORY_URL: ${{ inputs.repox-url }}
         ARTIFACTORY_USERNAME: ${{ fromJSON(steps.vault.outputs.vault).ARTIFACTORY_USERNAME }}
@@ -66,16 +66,8 @@ runs:
         echo "ARTIFACTORY_ACCESS_TOKEN=$ARTIFACTORY_ACCESS_TOKEN" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_PASSWORD=$ARTIFACTORY_ACCESS_TOKEN" >> "$GITHUB_ENV"  # deprecated, backward compliance
 
-    - name: Set Maven Options
-      shell: bash --noprofile --norc -euo pipefail {0}
-      env:
-        MAVEN_OPTS: ${{ inputs.maven-opts }}
-      run: |
-        echo "MAVEN_OPTS=$MAVEN_OPTS" >> "$GITHUB_ENV"
-        echo "maven-opts=$MAVEN_OPTS" >> "$GITHUB_OUTPUT"
-
     - name: Create Maven command alias with common flags
-      shell: bash --noprofile --norc -euo pipefail {0}
+      shell: bash
       env:
         COMMON_MVN_FLAGS: ${{ inputs.common-mvn-flags }}
       run: |
@@ -83,7 +75,7 @@ runs:
         echo "BASH_ENV=$HOME/.bash_aliases" >> "$GITHUB_ENV"
 
     - name: Configure Maven settings and set repository URL
-      shell: bash --noprofile --norc -euo pipefail {0}
+      shell: bash
       env:
         SONARSOURCE_REPOSITORY_URL: ${{ github.event.repository.visibility == 'private' &&
           'https://repox.jfrog.io/artifactory/sonarsource-qa' || 'https://repox.jfrog.io/artifactory/sonarsource' }}
@@ -101,8 +93,7 @@ runs:
         key: maven-${{ runner.os }}-${{ github.workflow }}-${{ hashFiles(format('{0}/**/pom.xml', inputs.working-directory)) }}
         restore-keys: maven-${{ runner.os }}-${{ github.workflow }}-
 
-    - name: Update project version and set snapshot-version and project-version variables
-      id: config
+    - name: Update project version and set current-version and project-version variables
       shell: bash
       env:
         BUILD_NUMBER: ${{ steps.get_build_number.outputs.BUILD_NUMBER }}

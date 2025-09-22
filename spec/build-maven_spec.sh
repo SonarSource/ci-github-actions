@@ -46,7 +46,7 @@ export SQC_EU_URL="https://sonarqube.eu.sonarsource.com"
 export SQC_EU_TOKEN="sqc-eu-token"
 export RUN_SHADOW_SCANS="false"
 export SCANNER_VERSION="5.1.0.4751"
-export SNAPSHOT_VERSION="1.2.3-SNAPSHOT"
+export CURRENT_VERSION="1.2.3-SNAPSHOT"
 export PROJECT_VERSION="1.2.3.42"
 
 # Source shared functions before including build script
@@ -64,13 +64,14 @@ Describe 'build.sh'
     End
     When call build_maven
     The status should be success
-      The lines of stdout should equal 6
+      The lines of stdout should equal 7
       The line 1 should include "mvn"
-      The line 2 should include "Fetch Git references"
-      The line 3 should include "git fetch"
-      The line 4 should include "Build, no analysis, no deploy"
-      The line 5 should include "Maven command: mvn verify"
-      The line 6 should match pattern "mvn verify"
+      The line 2 should include "mvn --version"
+      The line 3 should include "Fetch Git references"
+      The line 4 should include "git fetch"
+      The line 5 should include "Build, no analysis, no deploy"
+      The line 6 should include "Maven command: mvn verify"
+      The line 7 should match pattern "mvn verify"
   End
 
   It 'runs build_maven() for windows'
@@ -84,21 +85,19 @@ Describe 'build.sh'
     End
     When call build_maven
     The status should be success
-      The lines of stdout should equal 6
+      The lines of stdout should equal 7
       The line 1 should include "mvn"
-      The line 2 should include "Fetch Git references"
-      The line 3 should include "git fetch"
-      The line 4 should include "Build, no analysis, no deploy"
-      The line 5 should include "Maven command: mvn verify"
-      The line 6 should match pattern "mvn verify"
+      The line 2 should include "mvn --version"
+      The line 3 should include "Fetch Git references"
+      The line 4 should include "git fetch"
+      The line 5 should include "Build, no analysis, no deploy"
+      The line 6 should include "Maven command: mvn verify"
+      The line 7 should match pattern "mvn verify"
   End
 End
 
 
 Describe 'run_sonar_scanner()'
-  Mock mvn
-    echo "mvn $*"
-  End
   export SONAR_HOST_URL="https://test.sonarqube.com"
   export SONAR_TOKEN="test-token"
   # COMMON_MVN_FLAGS is now defined in build.sh, no need to redefine it here
@@ -124,13 +123,9 @@ Describe 'run_sonar_scanner()'
 End
 
 Describe 'orchestrate_sonar_platforms()'
-  Mock mvn
-    echo "mvn $*"
-  End
   Mock sonar_scanner_implementation
     echo "sonar_scanner_implementation $*"
   End
-
 
   It 'runs analysis on single platform when shadow scans disabled'
     export RUN_SHADOW_SCANS="false"
@@ -191,8 +186,8 @@ Describe 'check_settings_xml()'
     mkdir -p "$HOME/.m2"
     When run check_settings_xml
     The status should be failure
-    The stderr should include "Missing Maven settings.xml"
-    The stderr should include "Maven settings.xml file not found at $HOME/.m2/settings.xml"
+    The lines of output should equal 1
+    The output should include "Missing Maven settings.xml::Maven settings.xml file not found at $HOME/.m2/settings.xml"
     # Cleanup
     rm -rf "$temp_home"
   End
@@ -203,8 +198,8 @@ Describe 'check_settings_xml()'
     export HOME="$temp_home"
     When run check_settings_xml
     The status should be failure
-    The stderr should include "Missing Maven settings.xml"
-    The stderr should include "Maven settings.xml file not found at $HOME/.m2/settings.xml"
+    The lines of output should equal 1
+    The output should include "Missing Maven settings.xml::Maven settings.xml file not found at $HOME/.m2/settings.xml"
     # Cleanup
     rm -rf "$temp_home"
   End
@@ -244,11 +239,13 @@ End
 
 Describe 'build_maven()'
   Mock check_tool
+    true
   End
   Mock check_settings_xml
     true
   End
   Mock git_fetch_unshallow
+    true
   End
   Mock orchestrate_sonar_platforms
     echo "orchestrate_sonar_platforms $*"
