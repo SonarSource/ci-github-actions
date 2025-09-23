@@ -66,14 +66,6 @@ runs:
         echo "ARTIFACTORY_ACCESS_TOKEN=$ARTIFACTORY_ACCESS_TOKEN" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_PASSWORD=$ARTIFACTORY_ACCESS_TOKEN" >> "$GITHUB_ENV"  # deprecated, backward compliance
 
-    - name: Create Maven command alias with common flags
-      shell: bash
-      env:
-        COMMON_MVN_FLAGS: ${{ inputs.common-mvn-flags }}
-      run: |
-        echo "alias mvn='mvn ${COMMON_MVN_FLAGS}'" >> "$HOME/.bash_aliases"
-        echo "BASH_ENV=$HOME/.bash_aliases" >> "$GITHUB_ENV"
-
     - name: Configure Maven settings and set repository URL
       shell: bash
       env:
@@ -99,3 +91,16 @@ runs:
         BUILD_NUMBER: ${{ steps.get_build_number.outputs.BUILD_NUMBER }}
       working-directory: ${{ inputs.working-directory }}
       run: ${GITHUB_ACTION_PATH}/set_maven_project_version.sh
+
+    - name: Create Maven command alias with common flags
+      shell: bash
+      env:
+        COMMON_MVN_FLAGS: ${{ inputs.common-mvn-flags }}
+      run: |
+        # Define a function named mvn()
+        # - 'command mvn' prevents the function from calling itself in a loop.
+        # - '"$@"' passes all arguments from your command (e.g., 'clean install') to the real mvn.
+        echo 'mvn() { command mvn ${{ env.COMMON_MVN_FLAGS }} "$@"; }' >> "$HOME/.bash_profile"
+
+        # Set BASH_ENV to load the function in subsequent steps
+        echo "BASH_ENV=$HOME/.bash_profile" >> "$GITHUB_ENV"

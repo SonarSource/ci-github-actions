@@ -52,8 +52,7 @@ set_project_version() {
     return 1
   fi
   release_version="${release_version}.${BUILD_NUMBER}"
-
-  mvn org.codehaus.mojo:versions-maven-plugin:2.7:set -DnewVersion="$release_version" -DgenerateBackupPoms=false -B -e
+  mvn org.codehaus.mojo:versions-maven-plugin:2.7:set -DnewVersion="$release_version" -DgenerateBackupPoms=false --batch-mode --no-transfer-progress --errors
   echo "project-version=$release_version" >> "$GITHUB_OUTPUT"
   echo "PROJECT_VERSION=$release_version" >> "$GITHUB_ENV"
 }
