@@ -15,6 +15,12 @@ inputs:
   repox-url:
     description: Artifactory (Repox) URL
     default: https://repox.jfrog.io/artifactory
+  use-develocity:
+    description: Whether to use Develocity for build tracking.
+    default: 'false'
+  develocity-url:
+    description: URL for Develocity
+    default: https://develocity.sonar.build/
 
 outputs:
   BUILD_NUMBER:
@@ -52,6 +58,7 @@ runs:
         secrets: |
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
+          ${{ inputs.use-develocity == 'true' && 'development/kv/data/develocity token | DEVELOCITY_TOKEN;' || '' }}
 
     - name: Set environment variables for Artifactory authentication
       shell: bash
@@ -59,12 +66,17 @@ runs:
         ARTIFACTORY_URL: ${{ inputs.repox-url }}
         ARTIFACTORY_USERNAME: ${{ fromJSON(steps.vault.outputs.vault).ARTIFACTORY_USERNAME }}
         ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.vault.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
+        DEVELOCITY_ACCESS_KEY: ${{ inputs.use-develocity == 'true' &&
+          format('develocity.sonar.build={0}', fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN) || '' }}
       run: |
         echo "ARTIFACTORY_URL=$ARTIFACTORY_URL" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_USERNAME=$ARTIFACTORY_USERNAME" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_ACCESS_USERNAME=$ARTIFACTORY_USERNAME" >> "$GITHUB_ENV"  # deprecated, backward compliance
         echo "ARTIFACTORY_ACCESS_TOKEN=$ARTIFACTORY_ACCESS_TOKEN" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_PASSWORD=$ARTIFACTORY_ACCESS_TOKEN" >> "$GITHUB_ENV"  # deprecated, backward compliance
+        if [ "$DEVELOCITY_ACCESS_KEY" != "" ]; then
+          echo "DEVELOCITY_ACCESS_KEY=$DEVELOCITY_ACCESS_KEY" >> "$GITHUB_ENV"
+        fi
 
     - name: Configure Maven settings and set repository URL
       shell: bash
@@ -104,3 +116,5 @@ runs:
 
         # Set BASH_ENV to load the function in subsequent steps
         echo "BASH_ENV=$HOME/.bash_profile" >> "$GITHUB_ENV"
+
+        echo "CONFIG_MAVEN_COMPLETED=true" >> "$GITHUB_ENV"

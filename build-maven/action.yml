@@ -15,12 +15,6 @@ inputs:
   scanner-java-opts:
     description: Additional Java options for the Sonar scanner (`SONAR_SCANNER_JAVA_OPTS`).
     default: -Xmx512m
-  use-develocity:
-    description: Whether to use Develocity for build tracking.
-    default: 'false'
-  develocity-url:
-    description: URL for Develocity
-    default: https://develocity.sonar.build/
   sonar-platform:
     description: SonarQube primary platform (next, sqc-eu, sqc-us, or none). Use 'none' to skip sonar scans.
     default: next
@@ -31,10 +25,36 @@ inputs:
     description: If true, run SonarQube analysis on all three platforms (next, sqc-eu, sqc-us).
       If false, run analysis on the platform specified with sonar-platform.
     default: 'false'
+  # Intputs set on config-maven, kept here for backward compatibility
+  artifactory-reader-role:
+    description: Suffix for the Artifactory reader role in Vault.
+      Defaults to `private-reader` for private repositories, and `public-reader` for public repositories.
+    default: ''
+  common-mvn-flags:
+    description: Maven flags for all subsequent mvn calls
+    default: --batch-mode --no-transfer-progress --errors --fail-at-end --show-version -Dmaven.test.redirectTestOutputToFile=false
+  repox-url:
+    description: Artifactory (Repox) URL
+    default: https://repox.jfrog.io/artifactory
+  use-develocity:
+    description: Whether to use Develocity for build tracking.
+    default: 'false'
+  develocity-url:
+    description: URL for Develocity
+    default: https://develocity.sonar.build/
 
 runs:
   using: composite
   steps:
+    - uses: SonarSource/ci-github-actions/config-maven@feat/mm/BUILD-8943-config-maven # TODO: change to master before merging
+      if: ${{ env.CONFIG_MAVEN_COMPLETED != 'true' }}
+      with:
+        working-directory: ${{ inputs.working-directory }}
+        artifactory-reader-role: ${{ inputs.artifactory-reader-role }}
+        common-mvn-flags: ${{ inputs.common-mvn-flags }}
+        repox-url: ${{ inputs.repox-url }}
+        use-develocity: ${{ inputs.use-develocity }}
+        develocity-url: ${{ inputs.develocity-url }}
     - name: Set build parameters
       shell: bash
       env:
@@ -60,7 +80,6 @@ runs:
 
           development/kv/data/sign key | SIGN_KEY;
           development/kv/data/sign passphrase | PGP_PASSPHRASE;
-          ${{ inputs.use-develocity == 'true' && 'development/kv/data/develocity token | DEVELOCITY_TOKEN;' || '' }}
       # yamllint enable rule:line-length
     - name: Build, Analyze and deploy
       shell: bash
@@ -85,8 +104,6 @@ runs:
         DEPLOY_PULL_REQUEST: ${{ inputs.deploy-pull-request }}
         PULL_REQUEST: ${{ github.event.pull_request.number || '' }}
         PULL_REQUEST_SHA: ${{ github.event.pull_request.base.sha || '' }}
-        DEVELOCITY_ACCESS_KEY: ${{ inputs.use-develocity == 'true' &&
-          format('develocity.sonar.build={0}', fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN) || '' }}
         USER_MAVEN_ARGS: ${{ inputs.maven-args }}
         SONAR_SCANNER_JAVA_OPTS: ${{ inputs.scanner-java-opts }}
       working-directory: ${{ inputs.working-directory }}

@@ -128,6 +128,8 @@ steps:
 | `working-directory`       | Relative path under github.workspace to execute the build in                                                               | `.`                                                                  |
 | `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault                                                                            | `private-reader` for private repos, `public-reader` for public repos |
 | `common-mvn-flags`        | Maven flags for all subsequent mvn calls                                                                                   | `--batch-mode --no-transfer-progress --errors --fail-at-end --show-version -Dmaven.test.redirectTestOutputToFile=false` |
+| `use-develocity`              | Whether to use Develocity for build tracking                                                                               | `false`                                                              |
+| `develocity-url`              | URL for Develocity                                                                                                         | `https://develocity.sonar.build/`                                    |
 
 ### Outputs
 
@@ -149,10 +151,11 @@ After running this action, the following environment variables are available:
 - `ARTIFACTORY_ACCESS_TOKEN`: Access token for Artifactory authentication
 - `ARTIFACTORY_PASSWORD`: Deprecated alias for `ARTIFACTORY_ACCESS_TOKEN`
 - `ARTIFACTORY_ACCESS_USERNAME`: Deprecated alias for `ARTIFACTORY_USERNAME`
+- `DEVELOCITY_ACCESS_KEY`: The Develocity access key when use-develicty is true
 - `MAVEN_OPTS`: JVM options for Maven execution
 - `SONARSOURCE_REPOSITORY_URL`: URL for SonarSource Artifactory root virtual repository (i.e.: sonarsource-qa for public builds or
   sonarsource-qa for private builds)
-- `BASH_ENV`: Path to bash aliases file with Maven command alias
+- `BASH_ENV`: Path to the bash profile with mvn function for adding common flags to Maven calls
 
 ## `build-maven`
 
@@ -198,10 +201,8 @@ steps:
 | `deploy-pull-request`         | Whether to deploy pull request artifacts                                                                                   | `false`                                                              |
 | `maven-args`                  | Additional arguments to pass to Maven                                                                                      | (optional)                                                           |
 | `scanner-java-opts`           | Additional Java options for the Sonar scanner (`SONAR_SCANNER_JAVA_OPTS`)                                                  | `-Xmx512m`                                                           |
-| `use-develocity`              | Whether to use Develocity for build tracking                                                                               | `false`                                                              |
 | `repox-url`                   | URL for Repox                                                                                                              | `https://repox.jfrog.io`                                             |
 | `repox-artifactory-url`       | URL for Repox Artifactory API (overrides repox-url/artifactory if provided)                                                | (optional)                                                           |
-| `develocity-url`              | URL for Develocity                                                                                                         | `https://develocity.sonar.build/`                                    |
 | `sonar-platform`              | SonarQube primary platform - 'next', 'sqc-eu', or 'sqc-us'                                                                 | `next`                                                               |
 | `working-directory`           | Relative path under github.workspace to execute the build in                                                               | `.`                                                                  |
 | `run-shadow-scans`            | If true, run SonarQube analysis on all 3 platforms (next, sqc-eu, sqc-us); if false, only on the selected `sonar-platform` | `false`                                                              |
