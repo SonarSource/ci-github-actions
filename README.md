@@ -92,6 +92,7 @@ This action sets up the complete Maven environment for SonarSource projects, inc
 - Maven settings configuration for Repox
 - Maven local repository caching
 - Common Maven flags and JVM options
+- Sets the project version by replacing `-SNAPSHOT` with the build number
 
 ### Requirements
 
