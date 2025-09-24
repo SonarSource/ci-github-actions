@@ -1,6 +1,10 @@
 ---
 name: Get build number
 description: GitHub Action to get the build number for a repository
+inputs:
+  SCRIPT_PATH:
+    description: script path to get_build_number.sh (defaults to the action directory)
+    default: ''
 outputs:
   BUILD_NUMBER:
     description: The build number, incremented or reused if already cached
@@ -9,6 +13,28 @@ outputs:
 runs:
   using: composite
   steps:
+    - id: setup
+      shell: bash
+      run: |
+        script_path="${{ inputs.SCRIPT_PATH }}"
+        if [ -z "$script_path" ]; then
+          script_path="$GITHUB_ACTION_PATH"
+        else
+          script_path="$script_path/get-build-number"
+        fi
+        echo "script_path: ${script_path}"
+        echo "script_path=${script_path}" >> "$GITHUB_OUTPUT"
+
+        echo "DEBUG get-build-number"
+        echo "github.workspace: ${{ github.workspace }}"
+        echo "GITHUB_WORKSPACE: ${GITHUB_WORKSPACE}"
+        echo "github.action_path: ${{ github.action_path }}"
+        echo "GITHUB_ACTION_PATH: ${GITHUB_ACTION_PATH}"
+        echo "PWD: $(pwd)"
+        echo
+        echo "GITHUB_ACTION_PATH/localB.sh ${GITHUB_ACTION_PATH}/get_build_number.sh $([ -e "${GITHUB_ACTION_PATH}/get_build_number.sh" ] && echo 'OK' || echo 'KO')"
+        echo "github.action_path/localB.sh ${{github.action_path}}/get_build_number.sh $([ -e "${{github.action_path}}/get_build_number.sh" ] && echo 'OK' || echo 'KO')"
+        echo "script_path/localB/localB.sh ${script_path}/get-build-number/get_build_number.sh $([ -e "${script_path}/get-build-number/get_build_number.sh" ] && echo 'OK' || echo 'KO')"
     # Reuse build number from environment if provided (e.g. from a parent workflow)
     - name: Save build number from environment to file
       id: from-env
@@ -42,7 +68,8 @@ runs:
       env:
         GITHUB_TOKEN: ${{ steps.current-build-number.outputs.cache-hit != 'true' &&
           steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).github_token || '' }}
-      run: ${GITHUB_ACTION_PATH}/get_build_number.sh
+        SCRIPT_PATH: ${{ steps.setup.outputs.script_path }}
+      run: $SCRIPT_PATH/get_build_number.sh
 
     - name: Export build number
       id: export
