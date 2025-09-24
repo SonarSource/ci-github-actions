@@ -26,9 +26,6 @@ outputs:
   BUILD_NUMBER:
     description: The current build number. Also set as environment variable BUILD_NUMBER
     value: ${{ steps.get_build_number.outputs.BUILD_NUMBER }}
-  build-number:
-    description: The current build number. Also set as environment variable BUILD_NUMBER
-    value: ${{ steps.get_build_number.outputs.BUILD_NUMBER }}
   current-version:
     description: The project version set in the pom.xml (before replacement). Also set as environment variable CURRENT_VERSION
     value: ${{ steps.config.outputs.current-version }}

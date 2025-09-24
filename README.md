@@ -135,7 +135,7 @@ steps:
 
 | Output             | Description                                                                                    |
 |--------------------|------------------------------------------------------------------------------------------------|
-| `build-number`     | The current build number. Also set as environment variable `BUILD_NUMBER`                     |
+| `BUILD_NUMBER`     | The current build number. Also set as environment variable `BUILD_NUMBER`                     |
 | `current-version` | The project version set in the pom.xml (before replacement). Also set as environment variable `CURRENT_VERSION` |
 | `project-version`  | The project version with build number (after replacement). Also set as environment variable `PROJECT_VERSION` |
 
