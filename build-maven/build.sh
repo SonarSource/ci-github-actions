@@ -58,7 +58,6 @@ if [[ "${SONAR_PLATFORM}" != "none" ]]; then
 fi
 : "${RUN_SHADOW_SCANS:?}"
 : "${DEPLOY_PULL_REQUEST:=false}"
-: "${MAVEN_OPTS:=-Xmx1536m -Xms128m}"
 export ARTIFACTORY_URL DEPLOY_PULL_REQUEST
 
 # FIXME Workaround for SonarSource parent POM; it can be removed after releases of parent 73+ and parent-oss 84+

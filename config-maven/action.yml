@@ -117,4 +117,6 @@ runs:
         # Set BASH_ENV to load the function in subsequent steps
         echo "BASH_ENV=$HOME/.bash_profile" >> "$GITHUB_ENV"
 
+        echo "MAVEN_OPTS=-Xmx1536m -Xms128m" >> "$GITHUB_ENV"
+
         echo "CONFIG_MAVEN_COMPLETED=true" >> "$GITHUB_ENV"

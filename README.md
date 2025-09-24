@@ -143,19 +143,19 @@ steps:
 
 After running this action, the following environment variables are available:
 
-- `BUILD_NUMBER`: The current build number
-- `CURRENT_VERSION`: The original project version from pom.xml
-- `PROJECT_VERSION`: The project version with build number appended
+- `ARTIFACTORY_ACCESS_TOKEN`: Access token for Artifactory authentication
+- `ARTIFACTORY_ACCESS_USERNAME`: Deprecated alias for `ARTIFACTORY_USERNAME`
+- `ARTIFACTORY_PASSWORD`: Deprecated alias for `ARTIFACTORY_ACCESS_TOKEN`
 - `ARTIFACTORY_URL`: Artifactory (Repox) URL. E.x.: `https://repox.jfrog.io/artifactory`
 - `ARTIFACTORY_USERNAME`: Username for Artifactory authentication
-- `ARTIFACTORY_ACCESS_TOKEN`: Access token for Artifactory authentication
-- `ARTIFACTORY_PASSWORD`: Deprecated alias for `ARTIFACTORY_ACCESS_TOKEN`
-- `ARTIFACTORY_ACCESS_USERNAME`: Deprecated alias for `ARTIFACTORY_USERNAME`
-- `DEVELOCITY_ACCESS_KEY`: The Develocity access key when use-develicty is true
-- `MAVEN_OPTS`: JVM options for Maven execution
-- `SONARSOURCE_REPOSITORY_URL`: URL for SonarSource Artifactory root virtual repository (i.e.: sonarsource-qa for public builds or
-  sonarsource-qa for private builds)
 - `BASH_ENV`: Path to the bash profile with mvn function for adding common flags to Maven calls
+- `BUILD_NUMBER`: The current build number
+- `CURRENT_VERSION`: The original project version from pom.xml
+- `DEVELOCITY_ACCESS_KEY`: The Develocity access key when use-develicty is true
+- `MAVEN_OPTS`: JVM options for Maven execution. Defaults to `-Xmx1536m -Xms128m` by default
+- `PROJECT_VERSION`: The project version with build number appended
+- `SONARSOURCE_REPOSITORY_URL`: URL for SonarSource Artifactory root virtual repository (i.e.: sonarsource-qa for public builds or sonarsource-qa for
+  private builds)
 
 ## `build-maven`
 
