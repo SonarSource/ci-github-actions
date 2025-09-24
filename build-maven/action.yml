@@ -53,7 +53,7 @@ outputs:
 runs:
   using: composite
   steps:
-    - uses: SonarSource/ci-github-actions/config-maven@master
+    - uses: SonarSource/ci-github-actions/config-maven@feat/mm/BUILD-8943-config-maven # TEST
       id: config
       if: ${{ env.CONFIG_MAVEN_COMPLETED != 'true' }}
       with:
