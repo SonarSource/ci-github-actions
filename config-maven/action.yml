@@ -101,7 +101,7 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       run: ${GITHUB_ACTION_PATH}/set_maven_project_version.sh
 
-    - name: Create Maven command alias with common flags
+    - name: Create Maven command alias with common flags and set MAVEN_OPTS
       shell: bash
       env:
         COMMON_MVN_FLAGS: ${{ inputs.common-mvn-flags }}
@@ -110,10 +110,6 @@ runs:
         # - 'command mvn' prevents the function from calling itself in a loop.
         # - '"$@"' passes all arguments from your command (e.g., 'clean install') to the real mvn.
         echo 'mvn() { command mvn ${{ env.COMMON_MVN_FLAGS }} "$@"; }' >> "$HOME/.bash_profile"
-
-        # Set BASH_ENV to load the function in subsequent steps
         echo "BASH_ENV=$HOME/.bash_profile" >> "$GITHUB_ENV"
-
         echo "MAVEN_OPTS=-Xmx1536m -Xms128m" >> "$GITHUB_ENV"
-
         echo "CONFIG_MAVEN_COMPLETED=true" >> "$GITHUB_ENV"

@@ -46,7 +46,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: SonarSource/ci-github-actions/config-maven@feat/mm/BUILD-8943-config-maven # TODO: change to master before merging
+    - uses: SonarSource/ci-github-actions/config-maven@master
       if: ${{ env.CONFIG_MAVEN_COMPLETED != 'true' }}
       with:
         working-directory: ${{ inputs.working-directory }}
