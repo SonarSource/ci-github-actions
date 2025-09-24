@@ -32,6 +32,7 @@
 # Optional user customization:
 # - DEPLOY_PULL_REQUEST: Whether to deploy pull request artifacts (default: false)
 # - SKIP_TESTS: Whether to skip running tests (default: false)
+# - SQ_SCANNER_VERSION: Version of sonarqube-scanner to use (default: latest)
 
 # shellcheck source-path=SCRIPTDIR
 
@@ -52,6 +53,7 @@ fi
 : "${DEPLOY_PULL_REQUEST:=false}" "${SKIP_TESTS:=false}"
 export DEPLOY_PULL_REQUEST SKIP_TESTS
 : "${BUILD_NAME:?}" "${PROJECT_VERSION:?}" "${CURRENT_VERSION:?}"
+: "${SQ_SCANNER_VERSION:=latest}"
 
 git_fetch_unshallow() {
   if [ "$SONAR_PLATFORM" = "none" ]; then
@@ -95,8 +97,8 @@ sonar_scanner_implementation() {
 
     scanner_args+=("${additional_params[@]+\"${additional_params[@]}\"}")
 
-    echo "npx command: npx sonarqube-scanner -X ${scanner_args[*]}"
-    npx sonarqube-scanner -X "${scanner_args[@]}"
+    echo "npx command: npx sonarqube-scanner@$SQ_SCANNER_VERSION -X ${scanner_args[*]}"
+    npx "sonarqube-scanner@$SQ_SCANNER_VERSION" -X "${scanner_args[@]}"
 }
 
 jfrog_npm_publish() {
