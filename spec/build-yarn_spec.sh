@@ -186,7 +186,7 @@ Describe 'build-yarn/build.sh'
       When call run_standard_pipeline
       The output should include "Installing yarn dependencies..."
       The output should include "Running tests..."
-      The output should include "npx sonarqube-scanner"
+      The output should include "npx @sonar/scan"
       The output should include "Building project..."
       The output should not include "::debug::JFrog operations completed successfully"
     End
@@ -237,7 +237,7 @@ Describe 'build-yarn/build.sh'
       export CURRENT_VERSION="1.2.3"
       When call sonar_scanner_implementation
       The status should be success
-      The output should include "npx sonarqube-scanner -X"
+      The output should include "npx @sonar/scan"
       The output should include "-Dsonar.host.url=https://sonar.example.com"
       The output should include "-Dsonar.token=test-token"
       The output should include "-Dsonar.analysis.buildNumber=42"
