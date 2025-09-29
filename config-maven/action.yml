@@ -60,7 +60,7 @@ runs:
         echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
     - name: Get secrets from Vault
       if: steps.from-env.outputs.skip != 'true'
-      id: vault
+      id: secrets
       uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
       with:
         secrets: |
@@ -74,10 +74,10 @@ runs:
       env:
         ARTIFACTORY_URL: ${{ inputs.repox-artifactory-url != '' && inputs.repox-artifactory-url ||
           format('{0}/artifactory', inputs.repox-url) }}
-        ARTIFACTORY_USERNAME: ${{ steps.vault.outputs.vault && fromJSON(steps.vault.outputs.vault).ARTIFACTORY_USERNAME || '' }}
-        ARTIFACTORY_ACCESS_TOKEN: ${{ steps.vault.outputs.vault && fromJSON(steps.vault.outputs.vault).ARTIFACTORY_ACCESS_TOKEN || '' }}
-        DEVELOCITY_ACCESS_KEY: ${{ inputs.use-develocity == 'true' && steps.vault.outputs.vault &&
-          format('develocity.sonar.build={0}', fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN) || '' }}
+        ARTIFACTORY_USERNAME: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME || '' }}
+        ARTIFACTORY_ACCESS_TOKEN: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN || '' }}
+        DEVELOCITY_ACCESS_KEY: ${{ inputs.use-develocity == 'true' && steps.secrets.outputs.vault &&
+          fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN || '' }}
       run: |
         echo "ARTIFACTORY_URL=$ARTIFACTORY_URL" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_USERNAME=$ARTIFACTORY_USERNAME" >> "$GITHUB_ENV"
@@ -85,7 +85,7 @@ runs:
         echo "ARTIFACTORY_ACCESS_TOKEN=$ARTIFACTORY_ACCESS_TOKEN" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_PASSWORD=$ARTIFACTORY_ACCESS_TOKEN" >> "$GITHUB_ENV"  # deprecated, backward compliance
         if [ "$DEVELOCITY_ACCESS_KEY" != "" ]; then
-          echo "DEVELOCITY_ACCESS_KEY=$DEVELOCITY_ACCESS_KEY" >> "$GITHUB_ENV"
+          echo "DEVELOCITY_ACCESS_KEY=develocity.sonar.build=$DEVELOCITY_ACCESS_KEY" >> "$GITHUB_ENV"
         fi
 
     - name: Configure Maven settings and set repository URL
@@ -107,6 +107,7 @@ runs:
         restore-keys: maven-${{ runner.os }}-${{ github.workflow }}-
 
     - name: Update project version and set current-version and project-version variables
+      id: config
       if: steps.from-env.outputs.skip != 'true'
       shell: bash
       working-directory: ${{ inputs.working-directory }}

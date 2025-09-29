@@ -26,7 +26,7 @@ inputs:
     description: Whether to cache NPM dependencies
     default: 'true'
   repox-url:
-    description: URL for Repox Platform
+    description: URL for Repox
     default: https://repox.jfrog.io
   repox-artifactory-url:
     description: URL for Repox Artifactory API (overrides repox-url/artifactory if provided)
@@ -52,9 +52,6 @@ outputs:
   project-version:
     description: The project version with build number (after replacement). Also set as environment variable PROJECT_VERSION.
     value: ${{ steps.config.outputs.project-version }}
-  build-info-url:
-    description: The JFrog build info UI URL
-    value: ${{ steps.build.outputs.BUILD_INFO_URL }}
 
 runs:
   using: composite
@@ -72,6 +69,7 @@ runs:
         cp ${GITHUB_ACTION_PATH}/mise.local.toml mise.local.toml
         mkdir ".actions"
         ln -s "${{github.action_path}}/../config-npm" .actions/config-npm
+        ln -s "${{github.action_path}}/../shared" .actions/shared
 
     - uses: jdx/mise-action@5ac50f778e26fac95da98d50503682459e86d566 # v3.2.0
       with:
@@ -140,28 +138,25 @@ runs:
     - name: Generate workflow summary
       if: always()
       shell: bash
+      env:
+        ARTIFACTORY_URL: ${{ inputs.repox-artifactory-url != '' && inputs.repox-artifactory-url ||
+          format('{0}/artifactory', inputs.repox-url) }}
       run: |
+        build_name="${GITHUB_REPOSITORY#*/}"
         echo "## 📦 NPM Build Summary" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-
-        # Basic build information
+        if [[ "${{ steps.build.conclusion }}" == "success" ]]; then
+          echo "✅ **Build SUCCESS**" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ **Build FAILED**" >> $GITHUB_STEP_SUMMARY
+        fi
         echo "### 📋 Build Information" >> $GITHUB_STEP_SUMMARY
-        echo "- **Project**: ${GITHUB_REPOSITORY#*/}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Version**: ${{ steps.build.outputs.project-version || 'Unknown' }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Build Number**: ${BUILD_NUMBER}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Commit**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- **Project**: \`$build_name\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Version**: \`${PROJECT_VERSION}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Build Number**: \`${BUILD_NUMBER}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Commit**: \`$GITHUB_SHA\`" >> $GITHUB_STEP_SUMMARY
 
-        # Deployment information
-        if [[ -n "${{ inputs.artifactory-deploy-repo }}" ]]; then
+        if [[ "${{ steps.build.outputs.should-deploy }}" == true ]]; then
           echo "### 🚀 Deployment" >> $GITHUB_STEP_SUMMARY
-          if [[ "${{ steps.build.conclusion }}" == "success" ]]; then
-            echo "✅ **Artifacts deployed to Artifactory**" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            ARTIFACTORY_BROWSE_URL="${{ steps.build.outputs.build-info-url }}"
-            echo "🔗 **[Browse artifacts in Artifactory](${ARTIFACTORY_BROWSE_URL})**" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ **Deployment failed** (build unsuccessful)" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo "" >> $GITHUB_STEP_SUMMARY
+          ARTIFACTORY_BROWSE_URL="${ARTIFACTORY_URL%/*}/ui/builds/$build_name/$BUILD_NUMBER"
+          echo "🔗 **[Browse artifacts in Artifactory](${ARTIFACTORY_BROWSE_URL})**" >> $GITHUB_STEP_SUMMARY
         fi

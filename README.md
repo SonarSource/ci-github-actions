@@ -634,7 +634,6 @@ See also [`config-npm`](#config-npm) input environment variables.
 | `current-version` | The project version from package.json                     |
 | `project-version` | The project version with build number (after replacement) |
 | `BUILD_NUMBER`    | The current build number                                  |
-| `build-info-url`  | The JFrog build info UI URL                               |
 
 ### Output Environment Variables
 
@@ -742,7 +741,6 @@ jobs:
 | Output            | Description                           |
 |-------------------|---------------------------------------|
 | `project-version` | The project version from package.json |
-| `build-info-url`  | The JFrog build info UI URL           |
 
 ### Features
 

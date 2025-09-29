@@ -81,7 +81,7 @@ set_project_version() {
   check_version_format "${release_version}"
   echo "project-version=$release_version" >> "$GITHUB_OUTPUT"
   echo "PROJECT_VERSION=$release_version" >> "$GITHUB_ENV"
-  echo "PROJECT_VERSION=${release_version}"
+  echo "PROJECT_VERSION=$release_version"
   export PROJECT_VERSION="$release_version"
 }
 

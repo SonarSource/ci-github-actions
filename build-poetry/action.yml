@@ -121,3 +121,29 @@ runs:
       run: |
         cd "${{ inputs.working-directory }}"
         ${GITHUB_ACTION_PATH}/build.sh
+
+    - name: Generate workflow summary
+      if: always()
+      shell: bash
+      env:
+        ARTIFACTORY_URL: ${{ inputs.repox-artifactory-url != '' && inputs.repox-artifactory-url ||
+          format('{0}/artifactory', inputs.repox-url) }}
+      run: |
+        build_name="${GITHUB_REPOSITORY#*/}"
+        echo "## 📦 Poetry Build Summary" >> $GITHUB_STEP_SUMMARY
+        if [[ "${{ steps.build.conclusion }}" == "success" ]]; then
+          echo "✅ **Build SUCCESS**" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ **Build FAILED**" >> $GITHUB_STEP_SUMMARY
+        fi
+        echo "### 📋 Build Information" >> $GITHUB_STEP_SUMMARY
+        echo "- **Project**: \`$build_name\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Version**: \`${PROJECT_VERSION}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Build Number**: \`${BUILD_NUMBER}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Commit**: \`$GITHUB_SHA\`" >> $GITHUB_STEP_SUMMARY
+
+        if [[ "${{ steps.build.outputs.should-deploy }}" == true ]]; then
+          echo "### 🚀 Deployment" >> $GITHUB_STEP_SUMMARY
+          ARTIFACTORY_BROWSE_URL="${ARTIFACTORY_URL%/*}/ui/builds/$build_name/$BUILD_NUMBER"
+          echo "🔗 **[Browse artifacts in Artifactory](${ARTIFACTORY_BROWSE_URL})**" >> $GITHUB_STEP_SUMMARY
+        fi

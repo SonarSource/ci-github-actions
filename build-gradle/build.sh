@@ -50,8 +50,8 @@ source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_RUN_ID:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}" "${GITHUB_SHA:?}"
 : "${GITHUB_OUTPUT:?}"
 : "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}"
-: "${SONAR_PLATFORM:?}" "${RUN_SHADOW_SCANS:?}"
-if [[ "${SONAR_PLATFORM}" != "none" ]]; then
+: "${RUN_SHADOW_SCANS:?}"
+if [[ "${SONAR_PLATFORM:?}" != "none" ]]; then
   : "${NEXT_URL:?}" "${NEXT_TOKEN:?}" "${SQC_US_URL:?}" "${SQC_US_TOKEN:?}" "${SQC_EU_URL:?}" "${SQC_EU_TOKEN:?}"
 fi
 : "${ORG_GRADLE_PROJECT_signingKey:?}" "${ORG_GRADLE_PROJECT_signingPassword:?}" "${ORG_GRADLE_PROJECT_signingKeyId:?}"
@@ -91,7 +91,26 @@ set_project_version() {
   echo "Replacing version $current_version with $release_version"
   sed -i.bak "s/$current_version/$release_version/g" gradle.properties
   echo "project-version=$release_version" >> "$GITHUB_OUTPUT"
+  echo "PROJECT_VERSION=$release_version" >> "$GITHUB_ENV"
+  echo "PROJECT_VERSION=$release_version"
   export PROJECT_VERSION=$release_version
+}
+
+should_deploy() {
+  # Disable deployment when shadow scans are enabled to prevent duplicate artifacts
+  if [[ "${RUN_SHADOW_SCANS}" == "true" ]]; then
+    return 1
+  fi
+
+  if is_pull_request; then
+    # For pull requests, deploy only if explicitly enabled
+    [[ "$DEPLOY_PULL_REQUEST" == "true" ]]
+  else
+    is_default_branch || \
+    is_maintenance_branch || \
+    is_dogfood_branch || \
+    is_long_lived_feature_branch
+  fi
 }
 
 build_gradle_args() {
@@ -141,6 +160,7 @@ build_gradle_args() {
 
   if should_deploy; then
     args+=("artifactoryPublish")
+    echo "should-deploy=true" >> "$GITHUB_OUTPUT"
   fi
 
   # Build number
@@ -153,23 +173,6 @@ build_gradle_args() {
   fi
 
   echo "${args[@]}"
-}
-
-should_deploy() {
-  # Disable deployment when shadow scans are enabled to prevent duplicate artifacts
-  if [[ "${RUN_SHADOW_SCANS}" == "true" ]]; then
-    return 1
-  fi
-
-  if is_pull_request; then
-    # For pull requests, deploy only if explicitly enabled
-    [[ "$DEPLOY_PULL_REQUEST" == "true" ]]
-  else
-    is_default_branch || \
-    is_maintenance_branch || \
-    is_dogfood_branch || \
-    is_long_lived_feature_branch
-  fi
 }
 
 get_build_type() {

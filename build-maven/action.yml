@@ -53,7 +53,13 @@ outputs:
 runs:
   using: composite
   steps:
-    - uses: SonarSource/ci-github-actions/config-maven@master
+    - name: Set local action
+      shell: bash
+      run: |
+        mkdir ".actions"
+        ln -s "${{github.action_path}}/../config-maven" .actions/config-maven
+        ln -s "${{github.action_path}}/../shared" .actions/shared
+    - uses: ./.actions/config-maven # TODO BUILD-9094
       id: config
       with:
         working-directory: ${{ inputs.working-directory }}
@@ -129,20 +135,21 @@ runs:
       if: always()
       shell: bash
       run: |
+        build_name="${GITHUB_REPOSITORY#*/}"
+        echo "## 🏗️ Maven Build Summary" >> $GITHUB_STEP_SUMMARY
         if [[ "${{ steps.build.conclusion }}" == "success" ]]; then
-          echo "# ✅ Build & Deployment Successful" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Build SUCCESS**" >> $GITHUB_STEP_SUMMARY
         else
-          echo "# ❌ Build & Deployment Failed" >> $GITHUB_STEP_SUMMARY
+          echo "❌ **Build FAILED**" >> $GITHUB_STEP_SUMMARY
         fi
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "## **Details**" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "- **Project**: \`${GITHUB_REPOSITORY#*/}\`" >> $GITHUB_STEP_SUMMARY
+        echo "### 📋 Build Information" >> $GITHUB_STEP_SUMMARY
+        echo "- **Project**: \`$build_name\`" >> $GITHUB_STEP_SUMMARY
         echo "- **Version**: \`${PROJECT_VERSION}\`" >> $GITHUB_STEP_SUMMARY
-        echo "- **Build Number**: ${BUILD_NUMBER}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Commit**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
-        ARTIFACTORY_BROWSE_URL="https://repox.jfrog.io/ui/builds/${GITHUB_REPOSITORY#*/}/$BUILD_NUMBER"
-        echo "- **Build**: [View in Artifactory](${ARTIFACTORY_BROWSE_URL})" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "---" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- **Build Number**: \`${BUILD_NUMBER}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Commit**: \`$GITHUB_SHA\`" >> $GITHUB_STEP_SUMMARY
+
+        if [[ "${{ steps.build.outputs.should-deploy }}" == true ]]; then
+          echo "### 🚀 Deployment" >> $GITHUB_STEP_SUMMARY
+          ARTIFACTORY_BROWSE_URL="${ARTIFACTORY_URL%/*}/ui/builds/$build_name/$BUILD_NUMBER"
+          echo "🔗 **[Browse artifacts in Artifactory](${ARTIFACTORY_BROWSE_URL})**" >> $GITHUB_STEP_SUMMARY
+        fi
