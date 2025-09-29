@@ -997,3 +997,37 @@ After running this action, the following environment variables are available:
 - **Unified Caching Strategy**: Single cache key for both smctl and jsign tools to optimize cache efficiency
 - **Smart Cache Management**: Caches smctl installation directory and jsign .deb package for faster subsequent runs
 - **Automatic Setup**: Handles all DigiCert authentication and environment configuration
+
+## Release
+
+1. Create a new GitHub release on <https://github.com/SonarSource/ci-github-actions/releases>
+
+    Increase the **patch** number for **fixes**, the **minor** number for **new features**, and the **major** number for **breaking changes**.
+
+    Edit the generated release notes to curate the highlights and key fixes, add notes, provide samples of new usage if applicable...
+
+   Make sure to include any **breaking changes** in the notes.
+
+2. After release, the `v*` branch must be updated for pointing to the new tag.
+
+    ```shell
+    git fetch --tags
+    git update-ref -m "reset: update branch v1 to tag 1.y.z" refs/heads/v1 1.y.z
+    git push origin v1
+    ```
+
+3. Communicate the new release on the Slack [#ask-github-migration](https://sonarsource.enterprise.slack.com/archives/C09791CRUKF) channel.
+   > 🚀 **New release `1.y.z` of `ci-github-actions` is live!** 🚀
+   >
+   > The v1 branch has been updated, so workflows using `@v1` will automatically receive these improvements.
+   >
+   > ### ✨ What's New
+   >
+   > - _Curated highlights from release notes_
+   >
+   > ### 🐛 Key Fixes
+   >
+   > - _Curated highlights from release notes_
+   >
+   > For all the details, you can
+   > [read the full release notes on GitHub](https://github.com/SonarSource/ci-github-actions/releases/tag/1.y.z).
