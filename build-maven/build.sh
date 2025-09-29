@@ -51,8 +51,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 : "${GITHUB_OUTPUT:?}"
 : "${RUNNER_OS:?}"
 : "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}"
-: "${SONAR_PLATFORM:?}"
-if [[ "${SONAR_PLATFORM}" != "none" ]]; then
+if [[ "${SONAR_PLATFORM:?}" != "none" ]]; then
   : "${NEXT_URL:?}" "${NEXT_TOKEN:?}" "${SQC_US_URL:?}" "${SQC_US_TOKEN:?}" "${SQC_EU_URL:?}" "${SQC_EU_TOKEN:?}"
 fi
 : "${RUN_SHADOW_SCANS:?}"
@@ -114,13 +113,14 @@ build_maven() {
   git_fetch_unshallow
 
   local maven_command_args
-  local enable_sonar=false
+  local enable_sonar=false should_deploy=false
   local sonar_args=()
 
   if is_default_branch || is_maintenance_branch; then
     echo "======= Build, deploy and analyze $GITHUB_REF_NAME ======="
     maven_command_args=("deploy" "-Pcoverage,deploy-sonarsource,release,sign")
     enable_sonar=true
+    should_deploy=true
 
   elif is_pull_request; then
     echo "======= Build and analyze pull request $PULL_REQUEST ($GITHUB_HEAD_REF) ======="
@@ -131,6 +131,7 @@ build_maven() {
     if [[ "$DEPLOY_PULL_REQUEST" == "true" ]]; then
       echo "======= with deploy ======="
       maven_command_args=("deploy" "-Pcoverage,deploy-sonarsource")
+      should_deploy=true
     else
       echo "======= no deploy ======="
       maven_command_args=("verify" "-Pcoverage")
@@ -140,6 +141,7 @@ build_maven() {
   elif is_dogfood_branch; then
     echo "======= Build, and deploy dogfood branch $GITHUB_REF_NAME ======="
     maven_command_args=("deploy" "-Pdeploy-sonarsource,release")
+    should_deploy=true
 
   elif is_long_lived_feature_branch; then
     echo "======= Build and analyze long lived feature branch $GITHUB_REF_NAME ======="
@@ -157,6 +159,7 @@ build_maven() {
     # Replace deploy with verify to disable deployment
     if [[ "${maven_command_args[0]}" == "deploy" ]]; then
       maven_command_args[0]="verify"
+      should_deploy=false
       # Remove deploy-specific profiles but keep others
       for i in "${!maven_command_args[@]}"; do
         if [[ "${maven_command_args[$i]}" == *"deploy-sonarsource"* ]]; then
@@ -166,6 +169,7 @@ build_maven() {
       done
     fi
   fi
+  echo "should-deploy=$should_deploy" >> "$GITHUB_OUTPUT"
 
   # Execute the main Maven build
   echo "Maven command: mvn ${maven_command_args[*]} $*"

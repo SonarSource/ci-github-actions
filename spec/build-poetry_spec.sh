@@ -60,7 +60,7 @@ Describe 'build-poetry/build.sh'
     End
     When run script build-poetry/build.sh
       The status should be success
-      The lines of stdout should equal 25
+      The lines of stdout should equal 26
       The line 1 should include "jq"
       The line 2 should include "jq"
       The line 3 should include "python"
@@ -78,13 +78,14 @@ Describe 'build-poetry/build.sh'
       The line 15 should equal "Deploy Pull Request: false"
       The line 16 should equal "Replacing version 1.2 with 1.2.0.42"
       The line 17 should equal "poetry version 1.2.0.42"
-      The line 18 should equal "======= Build other branch ======="
-
-      The line 20 should equal "jf config add repox --artifactory-url https://dummy.repox --access-token dummy access token"
-      The line 21 should equal "jf poetry-config --server-id-resolve repox --repo-resolve <repox pypi repo>"
-      The line 22 should equal "jf poetry install --build-name=my-repo --build-number=42"
-      The line 24 should equal "poetry build"
-      The line 25 should equal "=== Build completed successfully ==="
+      The line 18 should equal "PROJECT_VERSION=1.2.0.42"
+      The line 19 should equal "======= Build other branch ======="
+      The line 20 should equal "Installing dependencies..."
+      The line 21 should equal "jf config add repox --artifactory-url https://dummy.repox --access-token dummy access token"
+      The line 22 should equal "jf poetry-config --server-id-resolve repox --repo-resolve <repox pypi repo>"
+      The line 23 should equal "jf poetry install --build-name=my-repo --build-number=42"
+      The line 25 should equal "poetry build"
+      The line 26 should equal "=== Build completed successfully ==="
     End
 End
 

@@ -679,7 +679,7 @@ build_script:
 - NPM dependency caching for faster builds (configurable)
 - JFrog build info publishing with UI links
 - **Required permissions:** `id-token: write`, `contents: write`
-- **Outputs:** `project-version` from package.json, `build-info-url` when deployment occurs
+- **Outputs:** `project-version` from package.json
 
 #### YARN Projects (JavaScript/TypeScript)
 
@@ -703,7 +703,7 @@ build_script:
 - NPM dependency caching for faster builds (configurable)
 - JFrog build info publishing with UI links
 - **Required permissions:** `id-token: write`, `contents: write`
-- **Outputs:** `project-version` from package.json, `build-info-url` when deployment occurs
+- **Outputs:** `project-version` from package.json
 
 ##### Overriding Pull Request Deployment and Promotion
 

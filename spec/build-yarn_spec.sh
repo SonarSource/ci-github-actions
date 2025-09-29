@@ -66,12 +66,22 @@ export SQC_EU_URL="https://sonarcloud.io"
 export SQC_EU_TOKEN="sqc-eu-token"
 export DEPLOY_PULL_REQUEST="false" SKIP_TESTS="false" DEFAULT_BRANCH="main" PULL_REQUEST=""
 
-# Create mock files
-setup() {
+common_setup() {
+  GITHUB_OUTPUT=$(mktemp)
+  export GITHUB_OUTPUT
+  GITHUB_ENV=$(mktemp)
+  export GITHUB_ENV
   echo '{"version": "1.2.3-SNAPSHOT", "name": "test-project"}' > package.json
   touch yarn.lock
 }
-Before "setup"
+
+common_cleanup() {
+  [[ -f "$GITHUB_OUTPUT" ]] && rm "$GITHUB_OUTPUT"
+  [[ -f "$GITHUB_ENV" ]] && rm "$GITHUB_ENV"
+}
+
+BeforeEach 'common_setup'
+AfterEach 'common_cleanup'
 
 Describe 'build-yarn/build.sh'
   Include build-yarn/build.sh
@@ -134,9 +144,10 @@ Describe 'build-yarn/build.sh'
       When call set_project_version
       The variable CURRENT_VERSION should equal "1.2.3-SNAPSHOT"
       The variable PROJECT_VERSION should equal "1.2.3-42"
-      The lines of output should equal 2
+      The lines of output should equal 3
       The line 1 should equal "Replacing version 1.2.3-SNAPSHOT with 1.2.3-42"
       The line 2 should start with "npm version"
+      The line 3 should equal "PROJECT_VERSION=1.2.3-42"
     End
 
     It 'handles 1-digit versions'
@@ -144,9 +155,10 @@ Describe 'build-yarn/build.sh'
       When call set_project_version
       The variable CURRENT_VERSION should equal "1-SNAPSHOT"
       The variable PROJECT_VERSION should equal "1.0.0-42"
-      The lines of output should equal 2
+      The lines of output should equal 3
       The line 1 should equal "Replacing version 1-SNAPSHOT with 1.0.0-42"
       The line 2 should start with "npm version"
+      The line 3 should equal "PROJECT_VERSION=1.0.0-42"
     End
 
     It 'handles 2-digit versions'
@@ -154,9 +166,10 @@ Describe 'build-yarn/build.sh'
       When call set_project_version
       The variable CURRENT_VERSION should equal "1.2-SNAPSHOT"
       The variable PROJECT_VERSION should equal "1.2.0-42"
-      The lines of output should equal 2
+      The lines of output should equal 3
       The line 1 should equal "Replacing version 1.2-SNAPSHOT with 1.2.0-42"
       The line 2 should start with "npm version"
+      The line 3 should equal "PROJECT_VERSION=1.2.0-42"
     End
 
     It 'fails on invalid version (null)'
@@ -205,7 +218,16 @@ Describe 'build-yarn/build.sh'
     It 'publishes successfully'
       export PROJECT="test"
       When call jfrog_yarn_publish
-      The output should include "::debug::Build info URL saved:"
+      The status should be success
+      The lines of output should equal 8
+      The line 1 should include "Configuring JFrog"
+      The line 2 should include "jf config"
+      The line 3 should include "jf npm-config"
+      The line 4 should include "Publishing Yarn"
+      The line 5 should include "jf npm publish"
+      The line 6 should include "jf rt build-collect-env"
+      The line 7 should include "Publishing build info"
+      The line 8 should include "jf rt build-publish"
     End
   End
 

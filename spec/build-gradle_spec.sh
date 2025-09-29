@@ -72,6 +72,21 @@ Describe 'build-gradle/build.sh'
   End
 End
 
+common_setup() {
+  GITHUB_OUTPUT=$(mktemp)
+  export GITHUB_OUTPUT
+  GITHUB_ENV=$(mktemp)
+  export GITHUB_ENV
+}
+
+common_cleanup() {
+  [[ -f "$GITHUB_OUTPUT" ]] && rm "$GITHUB_OUTPUT"
+  [[ -f "$GITHUB_ENV" ]] && rm "$GITHUB_ENV"
+}
+
+BeforeEach 'common_setup'
+AfterEach 'common_cleanup'
+
 Include build-gradle/build.sh
 
 Describe 'set_build_env'

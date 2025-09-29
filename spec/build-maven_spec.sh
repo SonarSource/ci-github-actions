@@ -67,7 +67,6 @@ Describe 'build-maven/build.sh'
       echo "mvn $*"
     End
     When run script build-maven/build.sh
-    Dump
     The status should be success
     The output should include "Maven command: mvn"
   End

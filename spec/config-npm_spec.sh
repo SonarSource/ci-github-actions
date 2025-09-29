@@ -62,7 +62,6 @@ End
 
 Include config-npm/config.sh
 
-# Common setup function for all tests
 common_setup() {
   GITHUB_OUTPUT=$(mktemp)
   export GITHUB_OUTPUT
@@ -70,7 +69,6 @@ common_setup() {
   export GITHUB_ENV
 }
 
-# Common cleanup function for all tests
 common_cleanup() {
   [[ -f "$GITHUB_OUTPUT" ]] && rm "$GITHUB_OUTPUT"
   [[ -f "$GITHUB_ENV" ]] && rm "$GITHUB_ENV"

@@ -47,8 +47,8 @@ source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_RUN_ID:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}" "${GITHUB_SHA:?}"
 : "${GITHUB_OUTPUT:?}"
 : "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}"
-: "${SONAR_PLATFORM:?}" "${RUN_SHADOW_SCANS:?}"
-if [[ "${SONAR_PLATFORM}" != "none" ]]; then
+: "${RUN_SHADOW_SCANS:?}"
+if [[ "${SONAR_PLATFORM:?}" != "none" ]]; then
   : "${NEXT_URL:?}" "${NEXT_TOKEN:?}" "${SQC_US_URL:?}" "${SQC_US_TOKEN:?}" "${SQC_EU_URL:?}" "${SQC_EU_TOKEN:?}"
 fi
 : "${DEPLOY_PULL_REQUEST:=false}" "${SKIP_TESTS:=false}"
@@ -122,7 +122,9 @@ set_project_version() {
   release_version="${release_version}-${BUILD_NUMBER}"
   echo "Replacing version $current_version with $release_version"
   npm version --no-git-tag-version --allow-same-version "${release_version}"
-  echo "project-version=${release_version}" >> "${GITHUB_OUTPUT}"
+  echo "project-version=$release_version" >> "$GITHUB_OUTPUT"
+  echo "PROJECT_VERSION=$release_version" >> "$GITHUB_ENV"
+  echo "PROJECT_VERSION=$release_version"
   export PROJECT_VERSION=$release_version
 }
 
@@ -167,20 +169,8 @@ jfrog_yarn_publish() {
   jf npm publish --build-name="$PROJECT" --build-number="$BUILD_NUMBER"
 
   jf rt build-collect-env "$PROJECT" "$BUILD_NUMBER"
-
   echo "::debug::Publishing build info..."
-  local build_publish_output
-  build_publish_output=$(jf rt build-publish "$PROJECT" "$BUILD_NUMBER")
-  echo "::debug::Build publish output: ${build_publish_output}"
-
-  # Extract build info URL
-  local build_info_url
-  build_info_url=$(echo "$build_publish_output" | jq -r '.buildInfoUiUrl // empty')
-  if [ -n "$build_info_url" ]; then
-    echo "build-info-url=$build_info_url" >> "$GITHUB_OUTPUT"
-    echo "::debug::Build info URL saved: $build_info_url"
-  fi
-
+  jf rt build-publish "$PROJECT" "$BUILD_NUMBER"
 }
 
 # Determine build configuration based on branch type
@@ -235,6 +225,7 @@ get_build_config() {
     enable_deploy=false
   fi
 
+  echo "should-deploy=$enable_deploy" >> "$GITHUB_OUTPUT"
   # Export the configuration for use by run_standard_pipeline
   export BUILD_ENABLE_SONAR="$enable_sonar"
   export BUILD_ENABLE_DEPLOY="$enable_deploy"

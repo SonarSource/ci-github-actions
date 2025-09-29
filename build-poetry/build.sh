@@ -48,9 +48,8 @@ source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}" "${GITHUB_EVENT_PATH:?}"
 : "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}"
 : "${GITHUB_ENV:?}" "${GITHUB_OUTPUT:?}" "${GITHUB_SHA:?}" "${GITHUB_RUN_ID:?}"
-: "${SONAR_PLATFORM:?}"
 # Only validate sonar credentials if platform is not 'none'
-if [[ "${SONAR_PLATFORM}" != "none" ]]; then
+if [[ "${SONAR_PLATFORM:?}" != "none" ]]; then
   : "${NEXT_URL:?}" "${NEXT_TOKEN:?}" "${SQC_US_URL:?}" "${SQC_US_TOKEN:?}" "${SQC_EU_URL:?}" "${SQC_EU_TOKEN:?}"
 fi
 : "${RUN_SHADOW_SCANS:?}"
@@ -190,6 +189,8 @@ set_project_version() {
   echo "Replacing version $current_version with $release_version"
   poetry version "$release_version"
   echo "project-version=$release_version" >> "$GITHUB_OUTPUT"
+  echo "PROJECT_VERSION=$release_version" >> "$GITHUB_ENV"
+  echo "PROJECT_VERSION=$release_version"
   export PROJECT_VERSION=$release_version
 }
 
@@ -245,6 +246,7 @@ get_build_config() {
   # Export the configuration for use by build_poetry
   export BUILD_ENABLE_SONAR="$enable_sonar"
   export BUILD_ENABLE_DEPLOY="$enable_deploy"
+  echo "should-deploy=$enable_deploy" >> "$GITHUB_OUTPUT"
   export BUILD_SONAR_ARGS="${sonar_args[*]:-}"
 }
 
