@@ -603,9 +603,9 @@ jobs:
 
 ### Input Environment Variables
 
-| Environment Variable                    | Description                                                                       | Default                               |
-|-----------------------------------------|-----------------------------------------------------------------------------------|---------------------------------------|
-| `SQ_SCANNER_VERSION`                    | SonarQube scanner version.                                                        | 'latest'                              |
+| Environment Variable                    | Description                                                                       | Default |
+|-----------------------------------------|-----------------------------------------------------------------------------------|---------|
+| `SQ_SCANNER_VERSION`                    | SonarQube scanner version.                                                        | '4.3.0' |
 
 See also [`config-npm`](#config-npm) input environment variables.
 
@@ -713,6 +713,12 @@ jobs:
           # Primary platform when shadow scans disabled (optional)
           sonar-platform: 'next'
 ```
+
+### Input Environment Variables
+
+| Environment Variable                    | Description                                                                       | Default |
+|-----------------------------------------|-----------------------------------------------------------------------------------|---------|
+| `SQ_SCANNER_VERSION`                    | SonarQube scanner version.                                                        | '4.3.0' |
 
 ### Inputs
 

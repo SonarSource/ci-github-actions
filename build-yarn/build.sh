@@ -53,6 +53,7 @@ if [[ "${SONAR_PLATFORM}" != "none" ]]; then
 fi
 : "${DEPLOY_PULL_REQUEST:=false}" "${SKIP_TESTS:=false}"
 export ARTIFACTORY_URL DEPLOY_PULL_REQUEST SKIP_TESTS
+: "${SQ_SCANNER_VERSION:=4.3.0}"
 
 git_fetch_unshallow() {
   if [ "$SONAR_PLATFORM" = "none" ]; then
@@ -152,8 +153,8 @@ sonar_scanner_implementation() {
 
     scanner_args+=("${additional_params[@]+\"${additional_params[@]}\"}")
 
-    echo "npx command: npx sonarqube-scanner -X ${scanner_args[*]}"
-    npx sonarqube-scanner -X "${scanner_args[@]}"
+    echo "npx command: npx @sonar/scan@$SQ_SCANNER_VERSION -X ${scanner_args[*]}"
+    npx "@sonar/scan@$SQ_SCANNER_VERSION" -X "${scanner_args[@]}"
 }
 
 jfrog_yarn_publish() {
