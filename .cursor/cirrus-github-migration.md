@@ -1,6 +1,9 @@
-# 🚨 CRITICAL: Cirrus CI to GitHub Actions Migration Guide
+# Cirrus CI to GitHub Actions AI Migration Guide
 
 This guide documents the patterns and best practices for migrating SonarSource projects from Cirrus CI to GitHub Actions.
+⚠️ This document is intended for use during migrations involving AI agents. ⚠️
+
+For human readable docs refer to [xtranet](https://xtranet-sonarsource.atlassian.net/wiki/spaces/Platform/pages/4232970266/Migration+From+Cirrus+CI+-+GitHub).
 
 ## Maintaining This Documentation
 
@@ -29,10 +32,10 @@ When updating this migration guide:
 
 ```yaml
 # Checkout
-- uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+- uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
 # Mise Setup - INCLUDES REQUIRED VERSION PARAMETER
-- uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
+- uses: jdx/mise-action@5ac50f778e26fac95da98d50503682459e86d566 # v3.2.0
   with:
     version: 2025.7.12
 
@@ -46,13 +49,13 @@ When updating this migration guide:
 
 # Download Artifacts
 - name: Download coverage reports
-  uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+  uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
   with:
     name: coverage-reports
 
 # SonarQube Scan
 - name: SonarQube scan
-  uses: sonarsource/sonarqube-scan-action@8c71dc039c2dd71d3821e89a2b58ecc7fee6ced9 # v5.3.0
+  uses: sonarsource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602 # v6.0.0
   env:
     SONAR_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_TOKEN }}
     SONAR_HOST_URL: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_HOST_URL }}
@@ -70,20 +73,20 @@ Update this section when newer versions are released:
 
 #### Core GitHub Actions
 
-- [ ] `actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0`
+- [ ] `actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8`
 - [ ] `actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2`
-- [ ] `actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8`
+- [ ] `actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0`
 
 #### Build Tools
 
-- [ ] `jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4`
-- [ ] `sonarsource/sonarqube-scan-action@8c71dc039c2dd71d3821e89a2b58ecc7fee6ced9 # v5.3.0`
+- [ ] `jdx/mise-action@5ac50f778e26fac95da98d50503682459e86d566 # v3.2.0`
+- [ ] `sonarsource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602 # v6.0.0`
 
 #### SonarSource Actions
 
-- [ ] `SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # v3.1.0`
-- [ ] `SonarSource/gh-action_pre-commit@0ecedc4e4070444a95f6b6714ddc3ebcdde697c4 # v1.1.0`
-- [ ] `SonarSource/gh-action_release/.github/workflows/main.yaml@78fbbb684c2ebb36a682b9d66b1eda8a2eebd9b2 # v5.17.2`
+- [ ] `SonarSource/vault-action-wrapper@v3`
+- [ ] `SonarSource/gh-action_pre-commit@v1`
+- [ ] `SonarSource/gh-action_release/.github/workflows/main.yaml@v6`
 
 ### Mise Configuration
 
@@ -206,7 +209,7 @@ Follow these security principles during migration:
 
 ```yaml
 # ✅ CORRECT - Pinned to commit SHA
-- uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+- uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
 # ❌ WRONG - Unpinned versions
 - uses: actions/checkout@v4  # Can be modified
@@ -265,7 +268,7 @@ maven = "3.9"
 ### GitHub Workflow Integration
 
 ```yaml
-      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
+      - uses: jdx/mise-action@5ac50f778e26fac95da98d50503682459e86d566 # v3.2.0
         with:
           version: 2025.7.12
 ```
@@ -273,7 +276,7 @@ maven = "3.9"
 **For promote jobs**, disable cache saving:
 
 ```yaml
-- uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
+- uses: jdx/mise-action@5ac50f778e26fac95da98d50503682459e86d566 # v3.2.0
   with:
     cache_save: false
     version: 2025.7.12
@@ -309,8 +312,9 @@ jobs:
       id-token: write  # Required for Vault OIDC authentication
       contents: write  # Required for repository access and tagging
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
-      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
+      # NOTE: Check for latest releases and update commit SHAs for actions
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: jdx/mise-action@5ac50f778e26fac95da98d50503682459e86d566 # v3.2.0
         with:
           version: 2025.7.12
       - uses: SonarSource/ci-github-actions/build-maven@v1
@@ -325,8 +329,8 @@ jobs:
       id-token: write
       contents: write
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
-      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: jdx/mise-action@5ac50f778e26fac95da98d50503682459e86d566 # v3.2.0
         with:
           cache_save: false
           version: 2025.7.12
@@ -354,7 +358,7 @@ Fetches secrets from HashiCorp Vault using GitHub OIDC authentication.
 ```yaml
 - name: Vault
   id: secrets
-  uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # v3.1.0
+  uses: SonarSource/vault-action-wrapper@v3 # v3.1.0
   with:
     secrets: |
       development/artifactory/token/{REPO_OWNER_NAME_DASH}-private-reader access_token | ARTIFACTORY_ACCESS_TOKEN;
@@ -399,7 +403,7 @@ jobs:
       # Step 1: Retrieve secrets from Vault
       - name: Vault
         id: secrets
-        uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
+        uses: SonarSource/vault-action-wrapper@v3 # 3.1.0
         with:
           secrets: |
             development/artifactory/token/{REPO_OWNER_NAME_DASH}-qa-deployer username | ARTIFACTORY_DEPLOY_USERNAME;
@@ -1079,8 +1083,8 @@ by the custom actions. No need to specify cache folders or cleanup scripts.
 
 ```yaml
 # ✅ Pin third-party actions to commit SHA
-- uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
-- uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
+- uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+- uses: jdx/mise-action@5ac50f778e26fac95da98d50503682459e86d566 # v3.2.0
   with:
     version: 2025.7.12
 
@@ -1582,29 +1586,6 @@ run: echo "Title: $PR_TITLE"
 - Use GitHub's Dependabot to keep pinned actions updated
 - Never use `@main` or `@master` for third-party actions
 
-### Testing Tips
-
-- Use feature branches of custom actions for testing (e.g., `@feat/branch-name`)
-- Test both PR and branch builds
-- Verify promotion works correctly
-- Check Artifactory deployments
-- **Always consult the [official repository](https://github.com/SonarSource/ci-github-actions/) for the latest action parameters and
-  examples**
-
-#### Using Feature Branches for Testing
-
-When testing new custom actions, use feature branches:
-
-```yaml
-# For testing new features
-- uses: SonarSource/ci-github-actions/build-maven@feat/smarini/BUILD-8317-createBuildMavenGhAction
-
-# Production ready
-- uses: SonarSource/ci-github-actions/build-maven@v1
-```
-
-Remember to update to `@v1` once the feature is released!
-
 **💡 Version Updates**: Check the
 [releases page](https://github.com/SonarSource/ci-github-actions/releases) for the
 latest stable versions. While `@v1` is typically the current stable version, newer
@@ -1816,8 +1797,8 @@ jobs:
       id-token: write
       contents: write
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
-      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: jdx/mise-action@5ac50f778e26fac95da98d50503682459e86d566 # v3.2.0
         with:
           version: 2025.7.12
       - uses: SonarSource/ci-github-actions/build-maven@v1
@@ -1835,8 +1816,8 @@ jobs:
       id-token: write
       contents: write
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
-      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: jdx/mise-action@5ac50f778e26fac95da98d50503682459e86d566 # v3.2.0
         with:
           cache_save: false
           version: 2025.7.12
@@ -1908,7 +1889,7 @@ maven = "3.9"
      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
 
    # ❌ WRONG - GITHUB_TOKEN is already available by default
-   - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
+   - uses: jdx/mise-action@5ac50f778e26fac95da98d50503682459e86d566 # v3.2.0
      env:
        GITHUB_TOKEN: ${{ github.token }}  # Not needed!
    ```
@@ -1996,7 +1977,7 @@ Replace with:
 
 ```yaml
 - name: SonarQube Scan
-  uses: SonarSource/sonarqube-scan-action@8c71dc039c2dd71d3821e89a2b58ecc7fee6ced9 # v5.3.0
+  uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602 # v6.0.0
   env:
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     SONAR_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SONAR_TOKEN }}
