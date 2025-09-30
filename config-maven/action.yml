@@ -41,7 +41,7 @@ runs:
   steps:
     - name: Get build number
       id: get_build_number
-      uses: SonarSource/ci-github-actions/get-build-number@v1
+      uses: SonarSource/ci-github-actions/get-build-number@1.0.6
 
     - id: from-env
       if: env.CONFIG_MAVEN_COMPLETED != ''
@@ -102,7 +102,7 @@ runs:
         echo "SONARSOURCE_REPOSITORY_URL=${SONARSOURCE_REPOSITORY_URL}" >> "$GITHUB_ENV"
 
     - name: Cache local Maven repository
-      uses: SonarSource/ci-github-actions/cache@v1
+      uses: SonarSource/ci-github-actions/cache@1.0.6
       if: steps.from-env.outputs.skip != 'true'
       with:
         path: ~/.m2/repository

@@ -33,7 +33,7 @@ outputs:
 runs:
   using: composite
   steps:
-    - uses: SonarSource/ci-github-actions/get-build-number@v1
+    - uses: SonarSource/ci-github-actions/get-build-number@1.0.6
       id: get_build_number
     - name: Set parameters
       shell: bash
@@ -57,7 +57,7 @@ runs:
 
     - name: Cache NPM dependencies
       if: ${{ inputs.cache-npm == 'true' }}
-      uses: SonarSource/ci-github-actions/cache@v1
+      uses: SonarSource/ci-github-actions/cache@1.0.6
       with:
         path: ~/.npm
         key: npm-${{ runner.os }}-${{ github.workflow }}-${{ hashFiles('**/package-lock.json') }}
