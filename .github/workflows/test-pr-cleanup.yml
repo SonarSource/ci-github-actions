@@ -8,7 +8,7 @@ jobs:
   test-resources:
     runs-on: github-ubuntu-latest-s
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       # Create test file and directory for cache
       - name: Create test file for cache
         run: |
@@ -34,7 +34,7 @@ jobs:
     permissions:
       actions: write  # Required for cache/artifact operations
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: Run PR cleanup
         uses: ./pr_cleanup
 
