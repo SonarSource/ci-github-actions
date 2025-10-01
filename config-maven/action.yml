@@ -91,15 +91,12 @@ runs:
     - name: Configure Maven settings and set repository URL
       if: steps.from-env.outputs.skip != 'true'
       shell: bash
-      env:
-        SONARSOURCE_REPOSITORY_URL: ${{ github.event.repository.visibility == 'private' &&
-          'https://repox.jfrog.io/artifactory/sonarsource-qa' || 'https://repox.jfrog.io/artifactory/sonarsource' }}
       run: |
         MAVEN_CONFIG="$HOME/.m2"
         mkdir -p "$MAVEN_CONFIG"
         cp "${GITHUB_ACTION_PATH}/resources/settings.xml" "$MAVEN_CONFIG/settings.xml"
         echo "Copied Maven settings from ${GITHUB_ACTION_PATH}/resources/settings.xml to $MAVEN_CONFIG/settings.xml"
-        echo "SONARSOURCE_REPOSITORY_URL=${SONARSOURCE_REPOSITORY_URL}" >> "$GITHUB_ENV"
+        echo "SONARSOURCE_REPOSITORY_URL=$ARTIFACTORY_URL/sonarsource-qa" >> "$GITHUB_ENV"
 
     - name: Cache local Maven repository
       uses: SonarSource/ci-github-actions/cache@v1

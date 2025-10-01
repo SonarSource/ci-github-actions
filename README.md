@@ -194,8 +194,7 @@ After running this action, the following environment variables are available:
 - `DEVELOCITY_ACCESS_KEY`: The Develocity access key when use-develicty is true
 - `MAVEN_OPTS`: JVM options for Maven execution. Defaults to `-Xmx1536m -Xms128m` by default
 - `PROJECT_VERSION`: The project version with build number appended
-- `SONARSOURCE_REPOSITORY_URL`: URL for SonarSource Artifactory root virtual repository (i.e.: sonarsource-qa for public builds or
-  sonarsource-qa for private builds)
+- `SONARSOURCE_REPOSITORY_URL`: URL for SonarSource Artifactory root virtual repository is set to [`sonarsource-qa`](https://repox.jfrog.io/artifactory/sonarsource-qa)
 
 ## `build-maven`
 
@@ -263,6 +262,8 @@ See also [`config-maven`](#config-maven) input environment variables.
 | `BUILD_NUMBER` | The current build number. Also set as environment variable `BUILD_NUMBER` |
 
 ### Output Environment Variables
+
+- `SONARSOURCE_REPOSITORY_URL`: URL for SonarSource Artifactory root virtual repository is set to [`sonarsource`](https://repox.jfrog.io/artifactory/sonarsource)
 
 See also [`config-maven`](#config-maven) output environment variables.
 
