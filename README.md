@@ -1019,13 +1019,24 @@ After running this action, the following environment variables are available:
    >
    > The v1 branch has been updated, so workflows using `@v1` will automatically receive these improvements.
    >
+   > ---
+   >
    > ### ✨ What's New
    >
+   > - _Curated highlights from release notes: new features, important new options_
+   >
+   > ### 🚀 Improvements
+   >
+   > - _Curated highlights from release notes: improvement and upgrades_
+   >
+   > ### 🐛 Bug Fixes
+   >
    > - _Curated highlights from release notes_
    >
-   > ### 🐛 Key Fixes
+   > ### 📚 Documentation
    >
    > - _Curated highlights from release notes_
+   >
    >
    > For all the details, you can
    > [read the full release notes on GitHub](https://github.com/SonarSource/ci-github-actions/releases/tag/1.y.z).
