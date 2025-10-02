@@ -120,7 +120,7 @@ runs:
 
     - name: Restore Gradle Cache
       if: ${{ inputs.disable-caching != 'true' }}
-      uses: SonarSource/gh-action_cache@v1
+      uses: SonarSource/gh-action_cache@feat/mmatuszny/PREQ-2280-cache-improvements
       id: gradle-cache-restore
       with:
         path: |
