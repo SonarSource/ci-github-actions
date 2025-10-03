@@ -44,7 +44,7 @@ MULTI_REPO_SRC_PRIVATE=sonarsource-private-qa
 MULTI_REPO_SRC_PUBLIC=sonarsource-public-qa
 
 set_build_env() {
-  DEFAULT_BRANCH=${DEFAULT_BRANCH:=$(gh repo view --json defaultBranchRef --jq ".defaultBranchRef.name")}
+  : "${DEFAULT_BRANCH:=$(gh repo view --json defaultBranchRef --jq ".defaultBranchRef.name")}"
   export DEFAULT_BRANCH
 }
 
