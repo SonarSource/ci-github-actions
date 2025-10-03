@@ -109,8 +109,16 @@ runs:
       if: ${{ inputs.disable-caching != 'true' }}
       shell: bash
       run: |
+        set -x
+        echo "SHELL: $SHELL BASH_VERSION: $BASH_VERSION BASH: $BASH"
+        ls -la *.gradle *.gradle.kts gradle/libs.versions.toml gradle/wrapper/gradle-wrapper.properties 2>/dev/null || true
+        find --version
+        find . \( -name '*.gradle' -o -name '*.gradle.kts' \) -type f
+        find . \( -name '*.gradle' -o -name '*.gradle.kts' \) -type f -exec md5sum {} +
+        find . \( -name '*.gradle' -o -name '*.gradle.kts' \) -type f -exec md5sum {} \;
+        type sort
         # Generate cache key from all Gradle files
-        find . \( -name '*.gradle' -o -name '*.gradle.kts' \) -type f -exec md5sum {} \; | sort > gradle-md5-sums.txt
+        find . \( -name '*.gradle' -o -name '*.gradle.kts' \) -type f -exec md5sum {} \; > gradle-md5-sums.txt
         md5sum gradle/libs.versions.toml gradle/wrapper/gradle-wrapper.properties 2>/dev/null >> gradle-md5-sums.txt || true
 
         GRADLE_CACHE_KEY=$(md5sum gradle-md5-sums.txt | awk '{ print $1 }')
@@ -119,6 +127,7 @@ runs:
         echo "GRADLE_CACHE_KEY=${GRADLE_CACHE_KEY}" >> "$GITHUB_ENV"
 
         rm -f gradle-md5-sums.txt
+        set +x
 
     - name: Restore Gradle Cache
       if: ${{ inputs.disable-caching != 'true' }}
