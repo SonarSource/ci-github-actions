@@ -22,7 +22,7 @@ runs:
       shell: bash
       run: |
         cp ${GITHUB_ACTION_PATH}/mise.local.toml mise.local.toml
-    - uses: SonarSource/ci-github-actions/get-build-number@v1
+    - uses: SonarSource/ci-github-actions/get-build-number@1.0.6
     - name: Vault
       id: secrets
       uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
