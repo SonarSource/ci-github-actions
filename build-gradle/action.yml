@@ -122,7 +122,7 @@ runs:
 
     - name: Restore Gradle Cache
       if: ${{ inputs.disable-caching != 'true' }}
-      uses: SonarSource/gh-action_cache@v1
+      uses: SonarSource/ci-github-actions/cache@v1
       id: gradle-cache-restore
       with:
         path: ${{ inputs.cache-paths }}
