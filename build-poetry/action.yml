@@ -3,7 +3,7 @@ name: Build Poetry
 description: GitHub Action to build, analyze, and deploy a Python project using Poetry with SonarQube integration
 inputs:
   public:
-    description: Whether to build and deploy with/to public repositories. Set to `true` for public repositories (OSS), `false` for private.
+    description: Deprecated. Use `artifactory-reader-role`, `artifactory-deployer-role`, and `artifactory-deploy-repo` instead.
     default: ${{ github.event.repository.visibility == 'public' && 'true' || 'false' }}
   artifactory-reader-role:
     description: Suffix for the Artifactory reader role in Vault. Defaults to `private-reader` for private repositories, and `public-reader`
@@ -12,6 +12,10 @@ inputs:
   artifactory-deployer-role:
     description: Suffix for the Artifactory deployer role in Vault. Defaults to `qa-deployer` for private repositories, and
       `public-deployer` for public repositories.
+    default: ''
+  artifactory-deploy-repo:
+    description: Deployment repository. Defaults to `sonarsource-pypi-private-qa` for private repositories, and `sonarsource-pypi-public-qa`
+      for public repositories.
     default: ''
   deploy-pull-request:
     description: Whether to deploy pull request artifacts. Set to `false` if not using the promote action.
@@ -55,9 +59,9 @@ runs:
       shell: bash
       env:
         ARTIFACTORY_READER_ROLE: ${{ inputs.artifactory-reader-role != '' && inputs.artifactory-reader-role ||
-          (inputs.public == 'true' && 'public-reader' || 'private-reader') }}
+          (github.event.repository.visibility == 'public' && 'public-reader' || 'private-reader') }}
         ARTIFACTORY_DEPLOYER_ROLE: ${{ inputs.artifactory-deployer-role != '' && inputs.artifactory-deployer-role ||
-          (inputs.public == 'true' && 'public-deployer' || 'qa-deployer') }}
+          (github.event.repository.visibility == 'public' && 'public-deployer' || 'qa-deployer') }}
       run: |
         echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_DEPLOYER_ROLE=${ARTIFACTORY_DEPLOYER_ROLE}" >> "$GITHUB_ENV"
@@ -102,7 +106,8 @@ runs:
           format('{0}/artifactory', inputs.repox-url) }}
         DEPLOY_PULL_REQUEST: ${{ inputs.deploy-pull-request }}
         ARTIFACTORY_PYPI_REPO: ${{ inputs.public == 'true' && 'sonarsource-pypi' || 'sonarsource-pypi' }} # FIXME: sonarsource-pypi-public
-        ARTIFACTORY_DEPLOY_REPO: ${{ inputs.public == 'true' && 'sonarsource-pypi-public-qa' || 'sonarsource-pypi-private-qa' }}
+        ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo != '' && inputs.artifactory-deploy-repo ||
+          github.event.repository.visibility == 'public' && 'sonarsource-pypi-public-qa' || 'sonarsource-pypi-private-qa' }}
         ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
         ARTIFACTORY_DEPLOY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN }}
         POETRY_VIRTUALENVS_PATH: ${{ github.workspace }}/${{ inputs.poetry-virtualenvs-path }}

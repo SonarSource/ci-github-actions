@@ -3,7 +3,7 @@ name: Build Yarn
 description: GitHub Action to build, analyze, and deploy a Yarn project with SonarQube integration
 inputs:
   public:
-    description: Whether to build and deploy with/to public repositories. Set to `true` for public repositories (OSS), `false` for private.
+    description: Deprecated. Use `artifactory-reader-role`, `artifactory-deployer-role`, and `artifactory-deploy-repo` instead.
     default: ${{ github.event.repository.visibility == 'public' && 'true' || 'false' }}
   artifactory-reader-role:
     description: Suffix for the Artifactory reader role in Vault. Defaults to `private-reader` for private repositories, and `public-reader`
@@ -14,7 +14,8 @@ inputs:
       `public-deployer` for public repositories.
     default: ''
   artifactory-deploy-repo:
-    description: Name of deployment repository
+    description: Deployment repository. Defaults to `sonarsource-private-qa` for private repositories, and `sonarsource-public-qa` for
+      public repositories.
     default: ''
   deploy-pull-request:
     description: Whether to deploy pull request artifacts
@@ -54,9 +55,9 @@ runs:
       shell: bash
       env:
         ARTIFACTORY_READER_ROLE: ${{ inputs.artifactory-reader-role != '' && inputs.artifactory-reader-role ||
-          (inputs.public == 'true' && 'public-reader' || 'private-reader') }}
+          (github.event.repository.visibility == 'public' && 'public-reader' || 'private-reader') }}
         ARTIFACTORY_DEPLOYER_ROLE: ${{ inputs.artifactory-deployer-role != '' && inputs.artifactory-deployer-role ||
-          (inputs.public == 'true' && 'public-deployer' || 'qa-deployer') }}
+          (github.event.repository.visibility == 'public' && 'public-deployer' || 'qa-deployer') }}
       run: |
         echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_DEPLOYER_ROLE=${ARTIFACTORY_DEPLOYER_ROLE}" >> "$GITHUB_ENV"
@@ -103,7 +104,7 @@ runs:
         ARTIFACTORY_URL: ${{ inputs.repox-artifactory-url != '' && inputs.repox-artifactory-url ||
           format('{0}/artifactory', inputs.repox-url) }}
         ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo != '' && inputs.artifactory-deploy-repo ||
-          (inputs.public == 'true' && 'sonarsource-public-qa' || 'sonarsource-private-qa') }}
+          github.event.repository.visibility == 'public' && 'sonarsource-public-qa' || 'sonarsource-private-qa' }}
         ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
         ARTIFACTORY_DEPLOY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN }}
         DEPLOY_PULL_REQUEST: ${{ inputs.deploy-pull-request }}
