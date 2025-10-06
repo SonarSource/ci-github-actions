@@ -83,16 +83,14 @@ runs:
       uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
       with:
         secrets: |
+          ${{ inputs.sonar-platform != 'none' && 'development/kv/data/next url | NEXT_URL;' || '' }}
+          ${{ inputs.sonar-platform != 'none' && 'development/kv/data/next token | NEXT_TOKEN;' || '' }}
+          ${{ inputs.sonar-platform != 'none' && 'development/kv/data/sonarqube-us url | SQC_US_URL;' || '' }}
+          ${{ inputs.sonar-platform != 'none' && 'development/kv/data/sonarqube-us token | SQC_US_TOKEN;' || '' }}
+          ${{ inputs.sonar-platform != 'none' && 'development/kv/data/sonarcloud url | SQC_EU_URL;' || '' }}
+          ${{ inputs.sonar-platform != 'none' && 'development/kv/data/sonarcloud token | SQC_EU_TOKEN;' || '' }}
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} username | ARTIFACTORY_DEPLOY_USERNAME;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;
-
-          development/kv/data/next url | NEXT_URL;
-          development/kv/data/next token | NEXT_TOKEN;
-          development/kv/data/sonarqube-us url | SQC_US_URL;
-          development/kv/data/sonarqube-us token | SQC_US_TOKEN;
-          development/kv/data/sonarcloud url | SQC_EU_URL;
-          development/kv/data/sonarcloud token | SQC_EU_TOKEN;
-
           development/kv/data/sign key | SIGN_KEY;
           development/kv/data/sign passphrase | PGP_PASSPHRASE;
       # yamllint enable rule:line-length
