@@ -14,7 +14,8 @@ inputs:
       `public-deployer` for public repositories.
     default: ''
   artifactory-deploy-repo:
-    description: Name of deployment repository
+    description: Deployment repository. Defaults to `sonarsource-npm-public-qa` for private repositories, and `sonarsource-npm-public-qa`
+      for public repositories.
     default: ''
   deploy-pull-request:
     description: Whether to deploy pull request artifacts
@@ -67,7 +68,7 @@ runs:
         echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_DEPLOYER_ROLE=${ARTIFACTORY_DEPLOYER_ROLE}" >> "$GITHUB_ENV"
         cp ${GITHUB_ACTION_PATH}/mise.local.toml mise.local.toml
-        mkdir ".actions"
+        mkdir -p ".actions"
         ln -s "${{github.action_path}}/../config-npm" .actions/config-npm
         ln -s "${{github.action_path}}/../shared" .actions/shared
 
