@@ -155,8 +155,8 @@ sonar_scanner_implementation() {
 
     scanner_args+=("${additional_params[@]+\"${additional_params[@]}\"}")
 
-    echo "npx command: npx @sonar/scan@$SQ_SCANNER_VERSION -X ${scanner_args[*]}"
-    npx "@sonar/scan@$SQ_SCANNER_VERSION" -X "${scanner_args[@]}"
+    echo "npx command: npx @sonar/scan@$SQ_SCANNER_VERSION ${scanner_args[*]}"
+    npx "@sonar/scan@$SQ_SCANNER_VERSION" "${scanner_args[@]}"
 }
 
 jfrog_yarn_publish() {
