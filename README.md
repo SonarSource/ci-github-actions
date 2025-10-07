@@ -105,6 +105,29 @@ This action sets up the complete Maven environment for SonarSource projects, inc
 - Common Maven flags and JVM options
 - Sets the project version by replacing `-SNAPSHOT` with the build number
 
+### Caching Configuration
+
+By default, Maven caches `~/.m2/repository`. You can customize this behavior:
+
+**Cache custom directories:**
+
+```yaml
+- uses: SonarSource/ci-github-actions/build-maven@v1
+  with:
+    cache-paths: |
+      ~/.m2/repository
+      .custom-cache
+      target/cache
+```
+
+**Disable caching entirely:**
+
+```yaml
+- uses: SonarSource/ci-github-actions/build-maven@v1
+  with:
+    disable-caching: 'true'
+```
+
 ### Requirements
 
 #### Required GitHub Permissions
@@ -150,7 +173,9 @@ steps:
 | `repox-url`               | URL for Repox                                                               | `https://repox.jfrog.io`                                                                                                |
 | `repox-artifactory-url`   | URL for Repox Artifactory API (overrides repox-url/artifactory if provided) | (optional)                                                                                                              |
 | `use-develocity`          | Whether to use Develocity for build tracking                                | `false`                                                                                                                 |
-| `develocity-url`          | URL for Develocity                                                          | `https://develocity.sonar.build/`                                                                                       |
+| `develocity-url`          | URL for Develocity                                                          | `https://develocity.sonar.build/`                                                                                                         |
+| `cache-paths`             | Custom cache paths (multiline). Overrides default `~/.m2/repository`. | (optional)                                                  |
+| `disable-caching`         | Whether to disable Maven caching entirely                                   | `false`                                                                                                                 |
 
 ### Outputs
 
@@ -211,10 +236,10 @@ Build and deploy a Maven project with SonarQube analysis and Artifactory deploym
 
 - `public-reader` or `private-reader`: Artifactory role for reading dependencies.
 - `public-deployer` or `qa-deployer`: Artifactory role for deployment.
-- `development/kv/data/next`, `development/kv/data/sonarcloud`, or `development/kv/data/sonarqube-us`: SonarQube credentials (based on
-  sonar-platform)
+- `development/kv/data/next`, `development/kv/data/sonarcloud`, and `development/kv/data/sonarqube-us`: SonarQube credentials (only
+  fetched when `sonar-platform` is not `none`)
 - `development/kv/data/sign`: Artifact signing credentials (key and passphrase).
-- `development/kv/data/develocity`: Develocity access token (if using Develocity).
+- `development/kv/data/develocity`: Develocity access token (only fetched when `use-develocity: true`).
 
 ### Other Dependencies
 
@@ -251,9 +276,11 @@ See also [`config-maven`](#config-maven) input environment variables.
 | `repox-artifactory-url`       | URL for Repox Artifactory API (overrides repox-url/artifactory if provided)                                                | (optional)                                                           |
 | `use-develocity`              | Whether to use Develocity for build tracking                                                                               | `false`                                                              |
 | `develocity-url`              | URL for Develocity                                                                                                         | `https://develocity.sonar.build/`                                    |
-| `sonar-platform`              | SonarQube primary platform - 'next', 'sqc-eu', or 'sqc-us'                                                                 | `next`                                                               |
+| `sonar-platform`              | SonarQube primary platform - 'next', 'sqc-eu', 'sqc-us', or 'none'. Use 'none' to skip sonar scans                        | `next`                                                               |
 | `working-directory`           | Relative path under github.workspace to execute the build in                                                               | `.`                                                                  |
 | `run-shadow-scans`            | If true, run SonarQube analysis on all 3 platforms (next, sqc-eu, sqc-us); if false, only on the selected `sonar-platform` | `false`                                                              |
+| `cache-paths`                 | Custom cache paths (multiline). Overrides default `~/.m2/repository`.                        | (optional)                                                           |
+| `disable-caching`             | Whether to disable Maven caching entirely                                                                                  | `false`                                                              |
 
 ### Outputs
 
@@ -274,6 +301,7 @@ See also [`config-maven`](#config-maven) output environment variables.
 - Artifact signing with GPG keys from Vault
 - Conditional deployment based on branch patterns
 - Develocity integration for build optimization (optional)
+- Maven local repository caching with customization options
 - Support for different branch types:
   - **master**: Deploy + SonarQube analysis with full profiles
   - **maintenance** (`branch-*`): Deploy with full profiles + separate SonarQube analysis
@@ -295,8 +323,8 @@ Build, analyze, and publish a Python project using Poetry with SonarQube integra
 
 #### Required Vault Permissions
 
-- `development/kv/data/next`, `development/kv/data/sonarcloud`, or `development/kv/data/sonarqube-us`: SonarQube credentials (based on
-  sonar-platform)
+- `development/kv/data/next`, `development/kv/data/sonarcloud`, and `development/kv/data/sonarqube-us`: SonarQube credentials (only
+  fetched when `sonar-platform` is not `none`)
 - `public-reader` or `private-reader`: Artifactory role for reading dependencies
 - `public-deployer` or `qa-deployer`: Artifactory role for deployment
 
@@ -376,15 +404,12 @@ Build and publish a Gradle project with SonarQube analysis and Artifactory deplo
 
 #### Required Vault Permissions
 
-- `development/kv/data/next`: SonarQube credentials for next platform
-- `development/kv/data/sonarcloud`: SonarQube credentials for sqc-eu platform
-- `development/kv/data/sonarqube-us`: SonarQube credentials for sqc-us platform
+- `development/kv/data/next`, `development/kv/data/sonarcloud`, and `development/kv/data/sonarqube-us`: SonarQube credentials (only
+  fetched when `sonar-platform` is not `none`)
 - `development/kv/data/sign`: Artifact signing credentials (key, passphrase, and key_id)
-- `development/kv/data/develocity`: Develocity access token if `use-develocity: true`
+- `development/kv/data/develocity`: Develocity access token (only fetched when `use-develocity: true`)
 - `public-reader` or `private-reader`: Artifactory role for reading dependencies
 - `public-deployer` or `qa-deployer`: Artifactory role for deployment
-
-**Note**: Credentials for all three SonarQube platforms are always required, regardless of the `run-shadow-scans` setting.
 
 #### Other Dependencies
 
@@ -443,8 +468,10 @@ jobs:
 | `develocity-url`            | URL for Develocity                                                             | `https://develocity.sonar.build/`                                    |
 | `repox-url`                 | URL for Repox                                                                  | `https://repox.jfrog.io`                                             |
 | `repox-artifactory-url`     | URL for Repox Artifactory API (overrides repox-url/artifactory if provided)    | (optional)                                                           |
-| `sonar-platform`            | SonarQube variant - 'next', 'sqc-eu', or 'sqc-us'                              | `next`                                                               |
+| `sonar-platform`            | SonarQube variant - 'next', 'sqc-eu', 'sqc-us', or 'none'. Use 'none' to skip sonar scans | `next`                                                     |
 | `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding) | `false`                                                              |
+| `cache-paths`               | Custom cache paths (multiline).  | (optional)                                                          |
+| `disable-caching`           | Whether to disable Gradle caching entirely                                     | `false`                                                              |
 
 ### Outputs
 
@@ -463,7 +490,31 @@ jobs:
 - Automatic artifact signing with credentials from Vault
 - Pull request support with optional deployment
 - Develocity integration for build scans
+- Gradle caching with customization options
 - Comprehensive build logging and error handling
+
+### Caching Configuration
+
+By default, Gradle caches `~/.gradle/caches` and `~/.gradle/wrapper`. You can customize this behavior:
+
+**Cache custom directories:**
+
+```yaml
+- uses: SonarSource/ci-github-actions/build-gradle@v1
+  with:
+    cache-paths: |
+      ~/.gradle/caches
+      ~/.gradle/wrapper
+      ~/custom/directory
+```
+
+**Disable caching entirely:**
+
+```yaml
+- uses: SonarSource/ci-github-actions/build-gradle@v1
+  with:
+    disable-caching: 'true'
+```
 
 ## `config-npm`
 
@@ -557,13 +608,10 @@ Then build, test, analyze with SonarQube, and deploy an NPM project to JFrog Art
 
 #### Required Vault Permissions
 
-- `development/kv/data/next`: SonarQube credentials for next platform
-- `development/kv/data/sonarcloud`: SonarQube credentials for sqc-eu platform
-- `development/kv/data/sonarqube-us`: SonarQube credentials for sqc-us platform
+- `development/kv/data/next`, `development/kv/data/sonarcloud`, and `development/kv/data/sonarqube-us`: SonarQube credentials (only
+  fetched when `sonar-platform` is not `none`)
 - `public-reader` or `private-reader`: Artifactory role for reading dependencies
 - `public-deployer` or `qa-deployer`: Artifactory role for deployment
-
-**Note**: Credentials for all three SonarQube platforms are always required, regardless of the `run-shadow-scans` setting.
 
 #### Other Dependencies
 
@@ -669,13 +717,10 @@ Build, test, analyze, and deploy a Yarn project with SonarQube integration and A
 
 #### Required Vault Permissions
 
-- `development/kv/data/next`: SonarQube credentials for next platform
-- `development/kv/data/sonarcloud`: SonarQube credentials for sqc-eu platform
-- `development/kv/data/sonarqube-us`: SonarQube credentials for sqc-us platform
+- `development/kv/data/next`, `development/kv/data/sonarcloud`, and `development/kv/data/sonarqube-us`: SonarQube credentials (only
+  fetched when `sonar-platform` is not `none`)
 - `public-reader` or `private-reader`: Artifactory role for reading dependencies
 - `public-deployer` or `qa-deployer`: Artifactory role for deployment
-
-**Note**: Credentials for all three SonarQube platforms are always required, regardless of the `run-shadow-scans` setting.
 
 #### Other Dependencies
 

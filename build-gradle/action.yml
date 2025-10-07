@@ -44,8 +44,10 @@ inputs:
      If false, run on the platform provided by SONAR_PLATFORM.
     default: 'false'
   cache-paths:
-    description: Additional cache paths to include (multiline, one path per line)
-    default: ''
+    description: Cache paths to use (multiline). If provided, overrides the default Gradle cache directories
+    default: |-
+      ~/.gradle/caches
+      ~/.gradle/wrapper
   disable-caching:
     description: Whether to disable Gradle caching entirely
     default: 'false'
@@ -123,10 +125,7 @@ runs:
       uses: SonarSource/gh-action_cache@v1
       id: gradle-cache-restore
       with:
-        path: |
-          ${{ env.GRADLE_USER_HOME }}/caches
-          ${{ env.GRADLE_USER_HOME }}/wrapper
-          ${{ inputs.cache-paths }}
+        path: ${{ inputs.cache-paths }}
         key: gradle-${{ runner.os }}-${{ github.workflow }}-${{ env.GRADLE_CACHE_KEY }}
         restore-keys: |
           gradle-${{ runner.os }}-${{ github.workflow }}-
