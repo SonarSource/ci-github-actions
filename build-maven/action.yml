@@ -45,6 +45,13 @@ inputs:
   develocity-url:
     description: URL for Develocity
     default: https://develocity.sonar.build/
+  cache-paths:
+    description: Cache paths to use (multiline). If provided, overrides the default ~/.m2/repository
+    default: |-
+      ~/.m2/repository
+  disable-caching:
+    description: Whether to disable Maven caching entirely
+    default: 'false'
 outputs:
   BUILD_NUMBER:
     description: The build number, incremented or reused if already cached
@@ -69,6 +76,8 @@ runs:
         repox-artifactory-url: ${{ inputs.repox-artifactory-url }}
         use-develocity: ${{ inputs.use-develocity }}
         develocity-url: ${{ inputs.develocity-url }}
+        cache-paths: ${{ inputs.cache-paths }}
+        disable-caching: ${{ inputs.disable-caching }}
     - name: Set build parameters
       shell: bash
       env:
