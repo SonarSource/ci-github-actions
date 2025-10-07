@@ -145,6 +145,36 @@ Describe 'set_project_version'
     The variable PROJECT_VERSION should equal "1.2.0.42"
     rm -f gradle.properties gradle.properties.bak
   End
+
+  It 'fails when version is empty'
+    echo "version=1.0-SNAPSHOT" > gradle.properties
+    Mock gradle
+      if [[ "$*" == "properties --no-scan --no-daemon --console plain" ]]; then
+        echo "version: "
+      else
+        echo "gradle $*"
+      fi
+    End
+    When run set_project_version
+    The status should be failure
+    The stderr should include "ERROR: Could not get valid version from Gradle properties"
+    rm -f gradle.properties gradle.properties.bak
+  End
+
+  It 'fails when version is unspecified'
+    echo "version=1.0-SNAPSHOT" > gradle.properties
+    Mock gradle
+      if [[ "$*" == "properties --no-scan --no-daemon --console plain" ]]; then
+        echo "version: unspecified"
+      else
+        echo "gradle $*"
+      fi
+    End
+    When run set_project_version
+    The status should be failure
+    The stderr should include "ERROR: Could not get valid version from Gradle properties. Got: 'unspecified'"
+    rm -f gradle.properties gradle.properties.bak
+  End
 End
 
 Describe 'should_deploy'
