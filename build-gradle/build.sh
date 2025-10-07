@@ -82,6 +82,10 @@ set_build_env() {
 
 set_project_version() {
   current_version=$($GRADLE_CMD properties --no-scan --no-daemon --console plain | grep 'version:' | tr -d "[:space:]" | cut -d ":" -f 2)
+  if [[ -z "$current_version" || "$current_version" == "unspecified" ]]; then
+    echo "ERROR: Could not get valid version from Gradle properties. Got: '$current_version'" >&2
+    exit 1
+  fi
   export CURRENT_VERSION=$current_version
   release_version="${current_version/-SNAPSHOT/}"
   if [[ "${release_version}" =~ ^[0-9]+\.[0-9]+$ ]]; then

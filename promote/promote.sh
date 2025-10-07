@@ -91,7 +91,7 @@ get_build_info_property() {
     jf rt curl "api/build/$BUILD_NAME/$BUILD_NUMBER" > "$BUILD_INFO_FILE"
   fi
   property_value=$(jq -r ".buildInfo.properties.\"buildInfo.env.$property\"" "$BUILD_INFO_FILE")
-  if [[ "$property_value" == "null" || -z "$property_value" ]]; then
+  if [[ "$property_value" == "null" || -z "$property_value" || "$property_value" == "unspecified" ]]; then
     echo "Failed to retrieve $property from buildInfo for build ${BUILD_NAME}/${BUILD_NUMBER}" >&2
     jq -r '.errors' "$BUILD_INFO_FILE" >&2
     return 1
@@ -135,9 +135,9 @@ promote_mono() {
 github_notify_promotion() {
   local project_version longDescription shortDescription buildUrl githubApiUrl
   project_version=$(get_build_info_property PROJECT_VERSION)
-  longDescription="Latest promoted build of '${project_version}' from branch '${GITHUB_REF_NAME}'"
+  longDescription="Latest promoted build of '${project_version}' from branch '${GITHUB_REF}'"
   shortDescription=${longDescription:0:140} # required for GH API endpoint (max 140 chars)
-  buildUrl="${ARTIFACTORY_URL}/ui/builds/${BUILD_NAME}/${BUILD_NUMBER}/"
+  buildUrl="${ARTIFACTORY_URL%/*}/ui/builds/${BUILD_NAME}/${BUILD_NUMBER}/"
   githubApiUrl="https://api.github.com/repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}"
   gh api -X POST -H "$GH_API_VERSION_HEADER" "$githubApiUrl" -H "Content-Type: application/json" --input - <<EOF
 {

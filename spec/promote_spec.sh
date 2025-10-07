@@ -43,6 +43,7 @@ export BUILD_NAME="dummy-project"
 export BUILD_NUMBER="42"
 export DEFAULT_BRANCH="main"
 export GITHUB_EVENT_NAME="push"
+export GITHUB_REF="refs/heads/dummy-branch"
 export GITHUB_REF_NAME="dummy-branch"
 export GITHUB_REPOSITORY="SonarSource/dummy-project"
 export GITHUB_SHA="abc123"
@@ -284,9 +285,11 @@ Describe 'jfrog_promote()'
 End
 
 Describe 'github_notify_promotion()'
-  It 'notifies GitHub about the promotion'
+  It 'calls gh api with correct parameters'
     When call github_notify_promotion
-    The line 1 should match pattern "gh api -X POST */repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA *"
+    The output should include "gh api -X POST -H X-GitHub-Api-Version: 2022-11-28"
+    The output should include "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA"
+    The output should include "-H Content-Type: application/json --input -"
   End
 End
 
