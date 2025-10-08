@@ -52,6 +52,8 @@ export PROJECT_VERSION="1.2.3"
 export PROMOTE_PULL_REQUEST="false"
 GITHUB_EVENT_PATH=$(mktemp)
 export GITHUB_EVENT_PATH
+GITHUB_STEP_SUMMARY=$(mktemp)
+export GITHUB_STEP_SUMMARY
 
 Describe 'promote/promote.sh'
   It 'does not run promote() if the script is sourced'
@@ -85,7 +87,7 @@ Describe 'promote/promote.sh'
     export PROMOTE_PULL_REQUEST="true"
     When run script promote/promote.sh
     The status should be success
-    The lines of stdout should equal 11
+    The lines of stdout should equal 12
     The line 1 should include "gh"
     The line 2 should include "gh"
     The line 3 should include "jq"
@@ -94,9 +96,10 @@ Describe 'promote/promote.sh'
     The line 6 should include "jf"
     The line 7 should equal "jf config remove repox"
     The line 8 should equal "jf config add repox --artifactory-url https://dummy.repox --access-token dummy promote token"
-    The line 9 should equal "Promote dummy-project/$BUILD_NUMBER build artifacts to $ARTIFACTORY_TARGET_REPO"
-    The line 10 should equal "jf rt bpr --status it-passed-pr dummy-project $BUILD_NUMBER $ARTIFACTORY_TARGET_REPO"
-    The line 11 should include "gh api -X POST"
+    The line 9 should equal "Promoting build dummy-project/$BUILD_NUMBER (version: 1.2.3.42)"
+    The line 10 should equal "Target repository: $ARTIFACTORY_TARGET_REPO"
+    The line 11 should equal "jf rt bpr --status it-passed-pr dummy-project $BUILD_NUMBER $ARTIFACTORY_TARGET_REPO"
+    The line 12 should include "gh api -X POST"
   End
 
   It 'skips promotion on pull_request when promotion is disabled'
@@ -169,6 +172,7 @@ Describe 'get_target_repos()'
     The status should be success
     The variable targetRepo1 should equal "sonarsource-private-dev"
     The variable targetRepo2 should equal "sonarsource-public-dev"
+    The variable TARGET_REPOS should equal "sonarsource-private-dev, sonarsource-public-dev"
   End
 
   It 'returns target repositories for main branch'
@@ -177,6 +181,7 @@ Describe 'get_target_repos()'
     The status should be success
     The variable targetRepo1 should equal "sonarsource-private-builds"
     The variable targetRepo2 should equal "sonarsource-public-builds"
+    The variable TARGET_REPOS should equal "sonarsource-private-builds, sonarsource-public-builds"
   End
 
   It 'returns target repositories for maintenance branch'
@@ -185,6 +190,7 @@ Describe 'get_target_repos()'
     The status should be success
     The variable targetRepo1 should equal "sonarsource-private-builds"
     The variable targetRepo2 should equal "sonarsource-public-builds"
+    The variable TARGET_REPOS should equal "sonarsource-private-builds, sonarsource-public-builds"
   End
 
   It 'returns target repositories for dogfood branch'
@@ -193,17 +199,20 @@ Describe 'get_target_repos()'
     The status should be success
     The variable targetRepo1 should equal "sonarsource-dogfood-builds"
     The variable targetRepo2 should equal "sonarsource-dogfood-builds"
+    The variable TARGET_REPOS should equal "sonarsource-dogfood-builds, sonarsource-dogfood-builds"
   End
 End
 
 Describe 'promote_multi()'
-  It 'calls the multiRepoPromote plugin'
+  It 'calls the multiRepoPromote plugin with version display'
     export GITHUB_REF_NAME="main"
     export status='it-passed'
+    export PROJECT_VERSION="1.2.3.42"
     get_target_repos
     When call promote_multi
-    The line 1 should equal "Promote dummy-project/$BUILD_NUMBER build artifacts to sonarsource-private-builds and sonarsource-public-builds"
-    The line 2 should match pattern "jf rt curl */multiRepoPromote?*;src1=*;target1=*;src2=*;target2=*"
+    The line 1 should equal "Promoting build dummy-project/$BUILD_NUMBER (version: 1.2.3.42)"
+    The line 2 should equal "Target repositories: sonarsource-private-builds and sonarsource-public-builds"
+    The line 3 should match pattern "jf rt curl */multiRepoPromote?*;src1=*;target1=*;src2=*;target2=*"
   End
 End
 
@@ -228,6 +237,7 @@ Describe 'get_target_repo()'
     The status should be success
     The output should equal "ARTIFACTORY_DEPLOY_REPO=sonarsource-deploy-qa"
     The variable targetRepo should equal "sonarsource-deploy-dev"
+    The variable TARGET_REPOS should equal "sonarsource-deploy-dev"
   End
 
   It 'returns the target repository for main branch'
@@ -236,6 +246,7 @@ Describe 'get_target_repo()'
     The status should be success
     The output should equal "ARTIFACTORY_DEPLOY_REPO=sonarsource-deploy-qa"
     The variable targetRepo should equal "sonarsource-deploy-builds"
+    The variable TARGET_REPOS should equal "sonarsource-deploy-builds"
   End
 
   It 'returns the target repository for maintenance branch'
@@ -244,6 +255,7 @@ Describe 'get_target_repo()'
     The status should be success
     The output should equal "ARTIFACTORY_DEPLOY_REPO=sonarsource-deploy-qa"
     The variable targetRepo should equal "sonarsource-deploy-builds"
+    The variable TARGET_REPOS should equal "sonarsource-deploy-builds"
   End
 
   It 'returns the target repository for dogfood branch'
@@ -252,34 +264,41 @@ Describe 'get_target_repo()'
     The status should be success
     The output should equal "ARTIFACTORY_DEPLOY_REPO=sonarsource-deploy-qa"
     The variable targetRepo should equal "sonarsource-dogfood-builds"
+    The variable TARGET_REPOS should equal "sonarsource-dogfood-builds"
   End
 End
 
 Describe 'jfrog_promote()'
-  It 'sets the status for pull requests then promotes'
+  It 'sets the status for pull requests then promotes with version display'
     export GITHUB_EVENT_NAME="pull_request"
     export ARTIFACTORY_DEPLOY_REPO="artifactory-deploy-repo-qa"
     When call jfrog_promote
     The status should be success
+    The variable PROJECT_VERSION should equal "1.2.3.42"
     The line 1 should equal "ARTIFACTORY_DEPLOY_REPO=artifactory-deploy-repo-qa"
-    The line 2 should equal "Promote dummy-project/$BUILD_NUMBER build artifacts to artifactory-deploy-repo-dev"
-    The line 3 should equal "jf rt bpr --status it-passed-pr dummy-project $BUILD_NUMBER artifactory-deploy-repo-dev"
+    The line 2 should equal "Promoting build dummy-project/$BUILD_NUMBER (version: 1.2.3.42)"
+    The line 3 should equal "Target repository: artifactory-deploy-repo-dev"
+    The line 4 should equal "jf rt bpr --status it-passed-pr dummy-project $BUILD_NUMBER artifactory-deploy-repo-dev"
   End
 
-  It 'promotes the build artifacts to the specified target'
+  It 'promotes the build artifacts to the specified target with version display'
     export ARTIFACTORY_TARGET_REPO="artifactory-target"
     When call jfrog_promote
-    The line 1 should equal "Promote dummy-project/$BUILD_NUMBER build artifacts to artifactory-target"
-    The line 2 should equal "jf rt bpr --status it-passed dummy-project $BUILD_NUMBER artifactory-target"
+    The variable PROJECT_VERSION should equal "1.2.3.42"
+    The line 1 should equal "Promoting build dummy-project/$BUILD_NUMBER (version: 1.2.3.42)"
+    The line 2 should equal "Target repository: artifactory-target"
+    The line 3 should equal "jf rt bpr --status it-passed dummy-project $BUILD_NUMBER artifactory-target"
   End
 
-  It 'does multi-promotion when MULTI_REPO_PROMOTE is true'
+  It 'does multi-promotion when MULTI_REPO_PROMOTE is true with version display'
     export GITHUB_REF_NAME="main"
     export MULTI_REPO_PROMOTE="true"
     When call jfrog_promote
     The status should be success
-    The line 1 should equal "Promote dummy-project/$BUILD_NUMBER build artifacts to sonarsource-private-builds and sonarsource-public-builds"
-    The line 2 should match pattern "jf rt curl */multiRepoPromote?*;src1=*;target1=*;src2=*;target2=*"
+    The variable PROJECT_VERSION should equal "1.2.3.42"
+    The line 1 should equal "Promoting build dummy-project/$BUILD_NUMBER (version: 1.2.3.42)"
+    The line 2 should equal "Target repositories: sonarsource-private-builds and sonarsource-public-builds"
+    The line 3 should match pattern "jf rt curl */multiRepoPromote?*;src1=*;target1=*;src2=*;target2=*"
   End
 
 End
@@ -308,7 +327,8 @@ Describe 'promote()'
     When call promote
     The status should be success
     The line 1 should equal "ARTIFACTORY_DEPLOY_REPO=sonarsource-deploy-qa"
-    The line 2 should equal "Promote dummy-project/$BUILD_NUMBER build artifacts to sonarsource-deploy-builds"
+    The line 2 should equal "Promoting build dummy-project/$BUILD_NUMBER (version: 1.2.3.42)"
+    The line 3 should equal "Target repository: sonarsource-deploy-builds"
   End
 
   It 'customizes the build name with BUILD_NAME not equal to the repository name'
@@ -317,7 +337,8 @@ Describe 'promote()'
     When call promote
     The status should be success
     The variable BUILD_NAME should equal "dummy-project-abc"
-    The line 2 should equal "Promote $BUILD_NAME/$BUILD_NUMBER build artifacts to sonarsource-deploy-builds"
-    The line 3 should equal "jf rt bpr --status it-passed dummy-project-abc 42 sonarsource-deploy-builds"
+    The line 2 should equal "Promoting build $BUILD_NAME/$BUILD_NUMBER (version: 1.2.3.42)"
+    The line 3 should equal "Target repository: sonarsource-deploy-builds"
+    The line 4 should equal "jf rt bpr --status it-passed dummy-project-abc 42 sonarsource-deploy-builds"
   End
 End
