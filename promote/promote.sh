@@ -83,6 +83,8 @@ get_target_repos() {
     targetRepo1="sonarsource-dogfood-builds"
     targetRepo2="sonarsource-dogfood-builds"
   fi
+
+  export TARGET_REPOS="$targetRepo1, $targetRepo2"
 }
 
 get_build_info_property() {
@@ -103,6 +105,7 @@ get_target_repo() {
   # Set targetRepo based on the branch type and ARTIFACTORY_DEPLOY_REPO, if not already set
   if [[ -n $ARTIFACTORY_TARGET_REPO ]]; then
     targetRepo="$ARTIFACTORY_TARGET_REPO"
+    export TARGET_REPOS="$targetRepo"
     return
   fi
   : "${ARTIFACTORY_DEPLOY_REPO:=$(get_build_info_property ARTIFACTORY_DEPLOY_REPO)}"
@@ -114,11 +117,16 @@ get_target_repo() {
   elif is_dogfood_branch; then
     targetRepo=sonarsource-dogfood-builds
   fi
+
+  export TARGET_REPOS="$targetRepo"
 }
 
 promote_multi() {
   # Call to https://github.com/SonarSource/re-tooling/tree/main/artifactory-user-plugins/multiRepoPromote
-  echo "Promote $BUILD_NAME/$BUILD_NUMBER build artifacts to $targetRepo1 and $targetRepo2"
+
+  echo "Promoting build $BUILD_NAME/$BUILD_NUMBER (version: $PROJECT_VERSION)"
+  echo "Target repositories: $targetRepo1 and $targetRepo2"
+
   local promoteUrl="api/plugins/execute/multiRepoPromote?"
   promoteUrl+="params=buildName=$BUILD_NAME;buildNumber=$BUILD_NUMBER;status=$status"
   promoteUrl+=";src1=$MULTI_REPO_SRC_PRIVATE;target1=$targetRepo1"
@@ -128,7 +136,10 @@ promote_multi() {
 
 promote_mono() {
   # Promote JFrog Artifactory build
-  echo "Promote $BUILD_NAME/$BUILD_NUMBER build artifacts to $targetRepo"
+
+  echo "Promoting build $BUILD_NAME/$BUILD_NUMBER (version: $PROJECT_VERSION)"
+  echo "Target repository: $targetRepo"
+
   jf rt bpr --status "$status" "$BUILD_NAME" "$BUILD_NUMBER" "$targetRepo"
 }
 
@@ -154,6 +165,10 @@ jfrog_promote() {
   if is_pull_request; then
     status='it-passed-pr'
   fi
+
+  export PROJECT_VERSION
+  PROJECT_VERSION=$(get_build_info_property PROJECT_VERSION)
+
   if [[ "${MULTI_REPO_PROMOTE}" == "true" ]]; then
     local targetRepo1 targetRepo2
     get_target_repos
@@ -165,6 +180,28 @@ jfrog_promote() {
   fi
 }
 
+generate_workflow_summary() {
+  local build_url="${ARTIFACTORY_URL%/*}/ui/builds/${BUILD_NAME}/${BUILD_NUMBER}/"
+
+
+  cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+## 🚀 Promotion Summary
+
+✅ **Promotion SUCCESS**
+
+### 📋 Promotion Information
+- **Project**: \`${BUILD_NAME}\`
+- **Version**: \`${PROJECT_VERSION}\`
+- **Build Number**: \`${BUILD_NUMBER}\`
+- **Branch**: \`${GITHUB_REF}\`
+- **Commit**: \`${GITHUB_SHA}\`
+- **Target Repository**: \`${TARGET_REPOS}\`
+
+### 🔗 Deployment
+- **[Browse artifacts in Artifactory](${build_url})**
+EOF
+}
+
 promote() {
   check_tool gh --version
   check_tool jq --version
@@ -174,6 +211,7 @@ promote() {
   jfrog_config_repox
   jfrog_promote
   github_notify_promotion
+  generate_workflow_summary
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
