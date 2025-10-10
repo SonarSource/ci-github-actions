@@ -458,22 +458,23 @@ jobs:
 
 ### Inputs
 
-| Input                       | Description                                                                    | Default                                                                                     |
-|-----------------------------|--------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
-| `public`                    | Deprecated                                                                     | Repository visibility                                                                       |
-| `artifactory-deploy-repo`   | Deployment repository                                                          | `sonarsource-private-qa` for private repositories, `sonarsource-public-qa` for public repos |
-| `artifactory-reader-role`   | Suffix for the Artifactory reader role in Vault                                | `private-reader` for private repos, `public-reader` for public repos                        |
-| `artifactory-deployer-role` | Suffix for the Artifactory deployer role in Vault                              | `qa-deployer` for private repos, `public-deployer` for public repos                         |
-| `deploy-pull-request`       | Whether to deploy pull request artifacts                                       | `false`                                                                                     |
-| `skip-tests`                | Whether to skip running tests                                                  | `false`                                                                                     |
-| `use-develocity`            | Whether to use Develocity for build tracking                                   | `false`                                                                                     |
-| `gradle-args`               | Additional arguments to pass to Gradle                                         | (optional)                                                                                  |
-| `develocity-url`            | URL for Develocity                                                             | `https://develocity.sonar.build/`                                                           |
-| `repox-url`                 | URL for Repox                                                                  | `https://repox.jfrog.io`                                                                    |
-| `repox-artifactory-url`     | URL for Repox Artifactory API (overrides repox-url/artifactory if provided)    | (optional)                                                                                  |
+| Input                       | Description                                                                               | Default                                                                                     |
+|-----------------------------|-------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
+| `public`                    | Deprecated                                                                                | Repository visibility                                                                       |
+| `artifactory-deploy-repo`   | Deployment repository                                                                     | `sonarsource-private-qa` for private repositories, `sonarsource-public-qa` for public repos |
+| `artifactory-reader-role`   | Suffix for the Artifactory reader role in Vault                                           | `private-reader` for private repos, `public-reader` for public repos                        |
+| `artifactory-deployer-role` | Suffix for the Artifactory deployer role in Vault                                         | `qa-deployer` for private repos, `public-deployer` for public repos                         |
+| `deploy-pull-request`       | Whether to deploy pull request artifacts                                                  | `false`                                                                                     |
+| `skip-tests`                | Whether to skip running tests                                                             | `false`                                                                                     |
+| `use-develocity`            | Whether to use Develocity for build tracking                                              | `false`                                                                                     |
+| `gradle-args`               | Additional arguments to pass to Gradle                                                    | (optional)                                                                                  |
+| `develocity-url`            | URL for Develocity                                                                        | `https://develocity.sonar.build/`                                                           |
+| `repox-url`                 | URL for Repox                                                                             | `https://repox.jfrog.io`                                                                    |
+| `repox-artifactory-url`     | URL for Repox Artifactory API (overrides repox-url/artifactory if provided)               | (optional)                                                                                  |
 | `sonar-platform`            | SonarQube variant - 'next', 'sqc-eu', 'sqc-us', or 'none'. Use 'none' to skip sonar scans | `next`                                                                                      |
-| `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding) | `false`                                                                                     || `cache-paths`               | Custom cache paths (multiline).  | (optional)                                                          |
-| `disable-caching`           | Whether to disable Gradle caching entirely                                     | `false`                                                              |
+| `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding)            | `false`                                                                                     |
+| `cache-paths`               | Custom cache paths (multiline).                                                           | `~/.gradle/caches`<br>`~/.gradle/wrapper`                                                   |
+| `disable-caching`           | Whether to disable Gradle caching entirely                                                | `false`                                                                                     |
 
 ### Outputs
 
