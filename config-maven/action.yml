@@ -26,7 +26,7 @@ inputs:
     default: https://develocity.sonar.build/
   cache-paths:
     description: Cache paths to use (multiline). If provided, overrides the default ~/.m2/repository
-    default: ''
+    default: ~/.m2/repository
   disable-caching:
     description: Whether to disable Maven caching entirely
     default: 'false'

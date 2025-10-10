@@ -174,7 +174,7 @@ steps:
 | `repox-artifactory-url`   | URL for Repox Artifactory API (overrides repox-url/artifactory if provided) | (optional)                                                                                                              |
 | `use-develocity`          | Whether to use Develocity for build tracking                                | `false`                                                                                                                 |
 | `develocity-url`          | URL for Develocity                                                          | `https://develocity.sonar.build/`                                                                                                         |
-| `cache-paths`             | Custom cache paths (multiline). Overrides default `~/.m2/repository`. | (optional)                                                  |
+| `cache-paths`             | Custom cache paths (multiline).                                             | (optional)                                                  |
 | `disable-caching`         | Whether to disable Maven caching entirely                                   | `false`                                                                                                                 |
 
 ### Outputs
