@@ -178,7 +178,7 @@ build_maven() {
   # Execute SonarQube analysis if enabled
   if [ "$enable_sonar" = true ]; then
     # This will call back to shared sonar_scanner_implementation() function
-    orchestrate_sonar_platforms "${sonar_args[@]+"${sonar_args[@]}"}"
+    orchestrate_sonar_platforms "${sonar_args[@]+"${sonar_args[@]}"}" "$@"
   fi
 }
 
