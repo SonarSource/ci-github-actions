@@ -157,7 +157,7 @@ Describe 'build_npm()'
     The status should be success
     The output should include "======= Building main branch ======="
     The output should include "Installing npm dependencies..."
-    The output should include "npx @sonar/scan"
+    The output should include "npx -- @sonar/scan"
     The output should include "Building project..."
   End
 
@@ -197,7 +197,7 @@ Describe 'build_npm()'
     The output should include "======= Building pull request ======="
     The output should include "======= no deploy ======="
     The output should include "Installing npm dependencies..."
-    The output should include "npx @sonar/scan"
+    The output should include "npx -- @sonar/scan"
     The output should not include "DEBUG: JFrog operations"
   End
 
@@ -235,7 +235,7 @@ Describe 'build_npm()'
     The status should be success
     The output should include "======= Build long-lived feature branch ======="
     The output should include "Installing npm dependencies..."
-    The output should include "npx @sonar/scan"
+    The output should include "npx -- @sonar/scan"
     The output should not include "DEBUG: JFrog operations"
   End
 
@@ -277,7 +277,7 @@ Describe 'sonar_scanner_implementation()'
     export GITHUB_REPOSITORY="test/repo"
     When call sonar_scanner_implementation
     The status should be success
-    The output should include "npx @sonar/scan"
+    The output should include "npx -- @sonar/scan"
     The output should include "-Dsonar.host.url=https://sonar.example.com"
     The output should include "-Dsonar.token=test-token"
     The output should include "-Dsonar.analysis.buildNumber=42"
