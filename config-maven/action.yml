@@ -82,16 +82,22 @@ runs:
           format('{0}/artifactory', inputs.repox-url) }}
         ARTIFACTORY_USERNAME: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME || '' }}
         ARTIFACTORY_ACCESS_TOKEN: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN || '' }}
-        DEVELOCITY_ACCESS_KEY: ${{ inputs.use-develocity == 'true' && steps.secrets.outputs.vault &&
+        DEVELOCITY_TOKEN: ${{ inputs.use-develocity == 'true' && steps.secrets.outputs.vault &&
           fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN || '' }}
       run: |
+        if [[ "${DEVELOCITY_ACCESS_KEY:-}" == "develocity.sonar.build=" ]]; then
+          echo "::warning title=Found invalid DEVELOCITY_ACCESS_KEY::DEVELOCITY_ACCESS_KEY should not be set manually in the environment."
+          echo "[WARNING] DEVELOCITY_ACCESS_KEY is set in the environment with an empty token. This is a deprecated configuration." \
+          "The Develocity token is configured by config-maven. Please remove external configuration of DEVELOCITY_ACCESS_KEY."
+        fi
+
         echo "ARTIFACTORY_URL=$ARTIFACTORY_URL" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_USERNAME=$ARTIFACTORY_USERNAME" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_ACCESS_USERNAME=$ARTIFACTORY_USERNAME" >> "$GITHUB_ENV"  # deprecated, backward compliance
         echo "ARTIFACTORY_ACCESS_TOKEN=$ARTIFACTORY_ACCESS_TOKEN" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_PASSWORD=$ARTIFACTORY_ACCESS_TOKEN" >> "$GITHUB_ENV"  # deprecated, backward compliance
-        if [ "$DEVELOCITY_ACCESS_KEY" != "" ]; then
-          echo "DEVELOCITY_ACCESS_KEY=develocity.sonar.build=$DEVELOCITY_ACCESS_KEY" >> "$GITHUB_ENV"
+        if [ "DEVELOCITY_TOKEN" != "" ]; then
+          echo "DEVELOCITY_ACCESS_KEY=develocity.sonar.build=$DEVELOCITY_TOKEN" >> "$GITHUB_ENV"
         fi
 
     - name: Configure Maven settings and set repository URL
