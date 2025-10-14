@@ -94,9 +94,7 @@ sonar_scanner_implementation() {
     if [ -n "${SONAR_REGION:-}" ]; then
         scanner_args+=("-Dsonar.region=${SONAR_REGION}")
     fi
-
-    scanner_args+=("${additional_params[@]+\"${additional_params[@]}\"}")
-
+    scanner_args+=("${additional_params[@]+${additional_params[@]}}")
     echo "npx command: npx -- @sonar/scan@$SQ_SCANNER_VERSION ${scanner_args[*]}"
     npx -- "@sonar/scan@$SQ_SCANNER_VERSION" "${scanner_args[@]}"
 }
