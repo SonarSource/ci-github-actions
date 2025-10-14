@@ -63,7 +63,7 @@ git_fetch_unshallow() {
 
   if git rev-parse --is-shallow-repository --quiet >/dev/null 2>&1; then
     echo "Fetch Git references for SonarQube analysis..."
-    git fetch --unshallow
+    git fetch --unshallow || true # Ignore errors like "fatal: --unshallow on a complete repository does not make sense"
   elif [ -n "${GITHUB_BASE_REF:-}" ]; then
     echo "Fetch ${GITHUB_BASE_REF} for SonarQube analysis..."
     git fetch origin "${GITHUB_BASE_REF}"
