@@ -502,6 +502,76 @@ By default, Gradle caches `~/.gradle/caches` and `~/.gradle/wrapper`. You can cu
     disable-caching: 'true'
 ```
 
+### Repox Authentication
+
+The action configures Repox authentication using [repoxAuth.init.gradle.kts](build-gradle/resources/repoxAuth.init.gradle.kts) Gradle hook.
+
+Follow [the xtranet/Developer Box documentation](https://xtranet-sonarsource.atlassian.net/wiki/spaces/DEV/pages/776711/Developer+Box) for
+the developer local setup.
+
+The Gradle project must be configured to use Repox for dependency resolution and deployment.
+
+See for instance the configuration in <https://github.com/SonarSource/sonar-dummy-gradle-oss>.
+
+`gradle.properties`:
+
+```properties
+group=org.sonarsource.dummy
+version=2.8-SNAPSHOT
+projectType=application
+org.gradle.caching=true
+```
+
+`build.gradle`:
+
+```groovy
+// Replaces the version defined in sources, usually x.y-SNAPSHOT, by a version identifying the build.
+def buildNumber = System.getProperty("buildNumber")
+if (version.endsWith('-SNAPSHOT') && buildNumber != null) {
+  version = version.replace('-SNAPSHOT', ".0.$buildNumber")
+}
+
+repositories {
+  mavenLocal()
+  mavenCentral()
+  maven {
+    url System.env.'ARTIFACTORY_URL' + '/sonarsource'
+  }
+}
+
+artifactory {
+  clientConfig.setIncludeEnvVars(true)
+  clientConfig.setEnvVarsExcludePatterns('*password*,*PASSWORD*,*secret*,*MAVEN_CMD_LINE_ARGS*,sun.java.command,*token*,*TOKEN*,*LOGIN*,*login*,*signing*')
+  contextUrl = System.getenv('ARTIFACTORY_URL')
+  publish {
+    repository {
+      repoKey = System.getenv('ARTIFACTORY_DEPLOY_REPO')
+      username = System.getenv('ARTIFACTORY_DEPLOY_USERNAME')
+      password = System.getenv('ARTIFACTORY_DEPLOY_ACCESS_TOKEN')
+    }
+    defaults {
+      properties = [
+        'build.name'      : 'sonar-dummy-gradle-oss',
+        'build.number'    : System.getenv('BUILD_NUMBER'),
+        'pr.branch.target': System.getenv('PULL_REQUEST_BRANCH_TARGET'),
+        'pr.number'       : System.getenv('PULL_REQUEST_NUMBER'),
+        'vcs.branch'      : System.getenv('GIT_BRANCH'),
+        'vcs.revision'    : System.getenv('GIT_COMMIT'),
+        'version'         : version
+      ]
+      publications('mavenJava')
+      publishPom = true
+      publishIvy = false
+    }
+    clientConfig.info.addEnvironmentProperty('ARTIFACTS_TO_PUBLISH', 'org.sonarsource.dummy:sonar-dummy-gradle-oss-plugin:jar,org.sonarsource.dummy:sonar-dummy-gradle-oss-plugin:json:cyclonedx')
+  }
+
+  clientConfig.info.setBuildName('sonar-dummy-gradle-oss')
+  clientConfig.info.setBuildNumber(System.getenv('BUILD_NUMBER'))
+  clientConfig.info.addEnvironmentProperty('PROJECT_VERSION', "${version}")
+}
+```
+
 ## `config-npm`
 
 Call [`get-build-number`](#get-build-number).
