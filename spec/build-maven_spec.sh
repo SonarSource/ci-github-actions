@@ -302,8 +302,8 @@ Describe 'build_maven()'
       The lines of stdout should equal 5
       The line 1 should include "Build and analyze pull request 123 (fix/jdoe/JIRA-1234-aFix)"
       The line 2 should include "no deploy"
-      The line 3 should start with "Maven command: mvn verify"
-      The line 4 should start with "mvn verify"
+      The line 3 should start with "Maven command: mvn install"
+      The line 4 should start with "mvn install"
       The line 4 should include "-Pcoverage"
       The line 5 should start with "orchestrate_sonar_platforms"
       The line 5 should include "-Dsonar.pullrequest.key=123"
@@ -347,8 +347,8 @@ Describe 'build_maven()'
       When call build_maven
       The lines of stdout should equal 4
       The line 1 should include "Build and analyze long lived feature branch feature/long/some-feature"
-      The line 2 should start with "Maven command: mvn verify"
-      The line 3 should start with "mvn verify"
+      The line 2 should start with "Maven command: mvn install"
+      The line 3 should start with "mvn install"
       The line 3 should include "-Pcoverage"
       The line 4 should start with "orchestrate_sonar_platforms"
     End
@@ -374,7 +374,7 @@ Describe 'build_maven()'
       When call build_maven
       The status should be success
       The output should include "Shadow scans enabled - disabling deployment"
-      The output should include "Maven command: mvn verify"
+      The output should include "Maven command: mvn install"
       The output should not include "Maven command: mvn deploy"
     End
   End
