@@ -134,7 +134,7 @@ build_maven() {
       should_deploy=true
     else
       echo "======= no deploy ======="
-      maven_command_args=("verify" "-Pcoverage")
+      maven_command_args=("install" "-Pcoverage")
     fi
     enable_sonar=true
 
@@ -145,7 +145,7 @@ build_maven() {
 
   elif is_long_lived_feature_branch; then
     echo "======= Build and analyze long lived feature branch $GITHUB_REF_NAME ======="
-    maven_command_args=("verify" "-Pcoverage")
+    maven_command_args=("install" "-Pcoverage")
     enable_sonar=true
 
   else
@@ -156,9 +156,9 @@ build_maven() {
   # Disable deployment when running shadow scans
   if [ "${RUN_SHADOW_SCANS}" = "true" ]; then
     echo "Shadow scans enabled - disabling deployment"
-    # Replace deploy with verify to disable deployment
+    # Replace deploy with install to disable deployment
     if [[ "${maven_command_args[0]}" == "deploy" ]]; then
-      maven_command_args[0]="verify"
+      maven_command_args[0]="install"
       should_deploy=false
       # Remove deploy-specific profiles but keep others
       for i in "${!maven_command_args[@]}"; do
