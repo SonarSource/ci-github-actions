@@ -119,6 +119,112 @@ the [Bash parameter expansion](https://xtranet-sonarsource.atlassian.net/wiki/sp
 
 Additional tests will be added to cover specific scenarios or edge cases, when fixing bugs (test-driven development).
 
+## Step Formatting
+
+```yaml
+    - name: Add a name to the step ONLY IF RELEVANT
+      uses: ...
+      if: ...
+      id: underscore_id_only_if_needed
+```
+
+Do not name obvious steps, for instance: checkout, vault, etc. But name a step when it deserves a description.
+
+Set an ID only if it is used.
+
+## Referring Local Actions
+
+When using local actions in an action, some fixes are necessary to ensure that the action works correctly both in the standard usage and in
+a container (see [BUILD-9094](https://sonarsource.atlassian.net/browse/BUILD-9094)).
+
+### Symlinks to Local Actions And Host Paths Variables
+
+Example of action `build-xyz` calling local action `config-xyz`:
+
+```yaml
+runs:
+  using: composite
+  steps:
+    - name: Set local action paths
+      id: set-path
+      shell: bash
+      run: |
+        echo "::group::Fix for using local actions"
+        echo "GITHUB_ACTION_PATH=$GITHUB_ACTION_PATH"                           # For debugging purposes
+        echo "github.action_path=${{ github.action_path }}"                     # For debugging purposes
+        ACTION_PATH_BUILD_XYZ="${{ github.action_path }}"                       # For local usage instead of GITHUB_ACTION_PATH
+        echo "ACTION_PATH_BUILD_XYZ=$ACTION_PATH_BUILD_XYZ"                     # For debugging purposes
+        echo "ACTION_PATH_BUILD_XYZ=$ACTION_PATH_BUILD_XYZ" >> "$GITHUB_ENV"    # For local usage instead of GITHUB_ACTION_PATH
+        host_actions_root="$(dirname "$ACTION_PATH_BUILD_XYZ")"                 # Effective path to the local actions checkout on the host
+        echo "host_actions_root=$host_actions_root" >> "$GITHUB_OUTPUT"
+
+        mkdir -p ".actions"
+        ln -sf "$host_actions_root/config-xyz" .actions/config-xyz              # For local reference
+        ln -sf "$host_actions_root/shared" .actions/shared                      # For use in the Shell scripts
+        ls -la .actions/*                                                       # For debugging purposes
+        echo "::endgroup::"
+
+    - uses: ./.actions/config-xyz                                               # Local action reference
+      with:
+        host-actions-root: ${{ steps.set-path.outputs.host_actions_root }}      # Only needed if the child action will use local references
+
+    - shell: bash
+      run: $ACTION_PATH_BUILD_XYZ/build.sh                                      # Use ACTION_PATH_BUILD_XYZ instead of GITHUB_ACTION_PATH
+```
+
+```shell
+#!/bin/bash
+# Example build.sh loading the common functions
+
+set -euo pipefail
+
+# shellcheck source=SCRIPTDIR/../shared/common-functions.sh
+source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
+```
+
+### Child Action With Local References
+
+In the case of a child action that also uses local references, `host-actions-root` input and similar fixes are necessary.
+
+```yaml
+inputs:
+  host-actions-root:
+    description: Path to the actions folder on the host (used when called from another local action)
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Set local action paths
+      id: set-path
+      shell: bash
+      run: |
+        echo "::group::Fix for using local actions"
+        echo "GITHUB_ACTION_PATH=$GITHUB_ACTION_PATH"
+        echo "github.action_path=${{ github.action_path }}"
+        ACTION_PATH_CONFIG_XYZ="${{ github.action_path }}"
+        host_actions_root="${{ inputs.host-actions-root }}"
+        if [ -z "$host_actions_root" ]; then
+          host_actions_root="$(dirname "$ACTION_PATH_CONFIG_XYZ")"
+        else
+          ACTION_PATH_CONFIG_XYZ="$host_actions_root/config-xyz"
+        fi
+        echo "ACTION_PATH_CONFIG_XYZ=$ACTION_PATH_CONFIG_XYZ"
+        echo "ACTION_PATH_CONFIG_XYZ=$ACTION_PATH_CONFIG_XYZ" >> "$GITHUB_ENV"
+        echo "host_actions_root=$host_actions_root" >> "$GITHUB_OUTPUT"
+
+        mkdir -p ".actions"
+        ln -sf "$host_actions_root/another-action" .actions/another-action
+        ln -sf "$host_actions_root/shared" .actions/shared
+        ls -la .actions/*
+        echo "::endgroup::"
+
+    - uses: ./.actions/another-action
+
+    - shell: bash
+      run: $ACTION_PATH_CONFIG_XYZ/config.sh
+```
+
 ## Documentation for AI tools
 
 This repository includes a comprehensive migration guide at [cirrus-github-migration.md](.cursor/cirrus-github-migration.md) that

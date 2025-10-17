@@ -30,6 +30,9 @@ inputs:
   disable-caching:
     description: Whether to disable Maven caching entirely
     default: 'false'
+  host-actions-root:
+    description: Path to the actions folder on the host (used when called from another local action)
+    default: ''
 
 outputs:
   BUILD_NUMBER:
@@ -45,9 +48,35 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Get build number
+    - name: Set local action paths
+      id: set-path
+      shell: bash
+      run: |
+        echo "::group::Fix for using local actions"
+        echo "GITHUB_ACTION_PATH=$GITHUB_ACTION_PATH"
+        echo "github.action_path=${{ github.action_path }}"
+        ACTION_PATH_CONFIG_MAVEN="${{ github.action_path }}"
+        host_actions_root="${{ inputs.host-actions-root }}"
+        if [ -z "$host_actions_root" ]; then
+          host_actions_root="$(dirname "$ACTION_PATH_CONFIG_MAVEN")"
+        else
+          ACTION_PATH_CONFIG_MAVEN="$host_actions_root/config-maven"
+        fi
+        echo "ACTION_PATH_CONFIG_MAVEN=$ACTION_PATH_CONFIG_MAVEN"
+        echo "ACTION_PATH_CONFIG_MAVEN=$ACTION_PATH_CONFIG_MAVEN" >> "$GITHUB_ENV"
+        echo "host_actions_root=$host_actions_root" >> "$GITHUB_OUTPUT"
+
+        mkdir -p ".actions"
+        ln -sf "$host_actions_root/get-build-number" .actions/get-build-number
+        ln -sf "$host_actions_root/cache" .actions/cache
+        ln -sf "$host_actions_root/shared" .actions/shared
+        ls -la .actions/*
+        echo "::endgroup::"
+
+    - uses: ./.actions/get-build-number
       id: get_build_number
-      uses: SonarSource/ci-github-actions/get-build-number@v1
+      with:
+        host-actions-root: ${{ steps.set-path.outputs.host_actions_root }}
 
     - id: from-env
       if: env.CONFIG_MAVEN_COMPLETED != ''
@@ -64,10 +93,9 @@ runs:
           (github.event.repository.visibility == 'public' && 'public-reader' || 'private-reader') }}
       run: |
         echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
-    - name: Get secrets from Vault
+    - uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
       if: steps.from-env.outputs.skip != 'true'
       id: secrets
-      uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
       with:
         secrets: |
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
@@ -106,12 +134,13 @@ runs:
       run: |
         MAVEN_CONFIG="$HOME/.m2"
         mkdir -p "$MAVEN_CONFIG"
-        cp "${GITHUB_ACTION_PATH}/resources/settings.xml" "$MAVEN_CONFIG/settings.xml"
-        echo "Copied Maven settings from ${GITHUB_ACTION_PATH}/resources/settings.xml to $MAVEN_CONFIG/settings.xml"
+        cp "${ACTION_PATH_CONFIG_MAVEN}/resources/settings.xml" "$MAVEN_CONFIG/settings.xml"
+        echo "Copied Maven settings from ${ACTION_PATH_CONFIG_MAVEN}/resources/settings.xml to $MAVEN_CONFIG/settings.xml"
+        echo "MAVEN_CONFIG=$MAVEN_CONFIG" >> "$GITHUB_ENV"
         echo "SONARSOURCE_REPOSITORY_URL=$ARTIFACTORY_URL/sonarsource-qa" >> "$GITHUB_ENV"
 
     - name: Cache local Maven repository
-      uses: SonarSource/ci-github-actions/cache@v1
+      uses: ./.actions/cache
       if: steps.from-env.outputs.skip != 'true' && inputs.disable-caching == 'false'
       with:
         path: |-
@@ -124,7 +153,14 @@ runs:
       if: steps.from-env.outputs.skip != 'true'
       shell: bash
       working-directory: ${{ inputs.working-directory }}
-      run: ${GITHUB_ACTION_PATH}/set_maven_project_version.sh
+      run: |
+        echo "pwd: $(pwd)"
+        env|grep HOME
+        echo "user.home: $(mvn -q -Dexec.executable="echo" -Dexec.args="\${user.home}" \
+          --non-recursive org.codehaus.mojo:exec-maven-plugin:1.3.1:exec)"
+        echo "env.HOME: $(mvn -q -Dexec.executable="echo" -Dexec.args="\${env.HOME}" \
+          --non-recursive org.codehaus.mojo:exec-maven-plugin:1.3.1:exec)"
+        $ACTION_PATH_CONFIG_MAVEN/set_maven_project_version.sh
 
     - name: Deactivate UseContainerSupport on github-ubuntu-* runners
       if: runner.os == 'Linux' && runner.environment == 'github-hosted' && steps.from-env.outputs.skip != 'true'

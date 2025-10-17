@@ -18,6 +18,9 @@ inputs:
   repox-artifactory-url:
     description: URL for Repox Artifactory API (overrides repox-url/artifactory if provided)
     default: ''
+  host-actions-root:
+    description: Path to the actions folder on the host (used when called from another local action)
+    default: ''
 
 outputs:
   BUILD_NUMBER:
@@ -33,8 +36,36 @@ outputs:
 runs:
   using: composite
   steps:
-    - uses: SonarSource/ci-github-actions/get-build-number@v1
+    - name: Set local action paths
+      id: set-path
+      shell: bash
+      run: |
+        echo "::group::Fix for using local actions"
+        echo "GITHUB_ACTION_PATH=$GITHUB_ACTION_PATH"
+        echo "github.action_path=${{ github.action_path }}"
+        ACTION_PATH_CONFIG_NPM="${{ github.action_path }}"
+        host_actions_root="${{ inputs.host-actions-root }}"
+        if [ -z "$host_actions_root" ]; then
+          host_actions_root="$(dirname "$ACTION_PATH_CONFIG_NPM")"
+        else
+          ACTION_PATH_CONFIG_NPM="$host_actions_root/config-npm"
+        fi
+        echo "ACTION_PATH_CONFIG_NPM=$ACTION_PATH_CONFIG_NPM"
+        echo "ACTION_PATH_CONFIG_NPM=$ACTION_PATH_CONFIG_NPM" >> "$GITHUB_ENV"
+        echo "host_actions_root=$host_actions_root" >> "$GITHUB_OUTPUT"
+
+        mkdir -p ".actions"
+        ln -sf "$host_actions_root/get-build-number" .actions/get-build-number
+        ln -sf "$host_actions_root/cache" .actions/cache
+        ln -sf "$host_actions_root/shared" .actions/shared
+        ls -la .actions/*
+        echo "::endgroup::"
+
+    - uses: ./.actions/get-build-number
       id: get_build_number
+      with:
+        host-actions-root: ${{ steps.set-path.outputs.host_actions_root }}
+
     - name: Set parameters
       shell: bash
       env:
@@ -42,22 +73,22 @@ runs:
           (github.event.repository.visibility == 'public' && 'public-reader' || 'private-reader') }}
       run: |
         echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
-        cp ${GITHUB_ACTION_PATH}/mise.local.toml mise.local.toml
+        cp "$ACTION_PATH_CONFIG_NPM/mise.local.toml" mise.local.toml
+
     - uses: jdx/mise-action@5ac50f778e26fac95da98d50503682459e86d566 # v3.2.0
       with:
         version: 2025.7.12
 
-    - name: Get secrets from Vault
+    - uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
       id: secrets
-      uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
       with:
         secrets: |
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
 
     - name: Cache NPM dependencies
+      uses: ./.actions/cache
       if: ${{ inputs.cache-npm == 'true' }}
-      uses: SonarSource/ci-github-actions/cache@v1
       with:
         path: ~/.npm
         key: npm-${{ runner.os }}-${{ github.workflow }}-${{ hashFiles('**/package-lock.json') }}
@@ -73,4 +104,4 @@ runs:
         ARTIFACTORY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME }}
         ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
       working-directory: ${{ inputs.working-directory }}
-      run: ${GITHUB_ACTION_PATH}/config.sh
+      run: $ACTION_PATH_CONFIG_NPM/config.sh
