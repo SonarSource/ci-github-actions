@@ -74,7 +74,7 @@ runs:
 
     - name: Cache with S3 (private/internal repos)
       if: steps.repo-visibility.outputs.cache-backend == 's3'
-      uses: SonarSource/gh-action_cache@v1
+      uses: SonarSource/gh-action_cache@feat/jd/BUILD-9518-cache-fix-mac
       id: s3-cache
       with:
         path: ${{ inputs.path }}
