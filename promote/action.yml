@@ -18,14 +18,34 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Set local action paths
+      id: set-path
+      shell: bash
+      run: |
+        echo "::group::Fix for using local actions"
+        echo "GITHUB_ACTION_PATH=$GITHUB_ACTION_PATH"
+        echo "github.action_path=${{ github.action_path }}"
+        ACTION_PATH_PROMOTE="${{ github.action_path }}"
+        echo "ACTION_PATH_PROMOTE=$ACTION_PATH_PROMOTE"
+        echo "ACTION_PATH_PROMOTE=$ACTION_PATH_PROMOTE" >> "$GITHUB_ENV"
+        host_actions_root="$(dirname "$ACTION_PATH_PROMOTE")"
+        echo "host_actions_root=$host_actions_root" >> "$GITHUB_OUTPUT"
+
+        mkdir -p ".actions"
+        ln -sf "$host_actions_root/get-build-number" .actions/get-build-number
+        ln -sf "$host_actions_root/shared" .actions/shared
+        ls -la .actions/*
+        echo "::endgroup::"
+
     - name: Set build parameters
       shell: bash
       run: |
-        cp ${GITHUB_ACTION_PATH}/mise.local.toml mise.local.toml
-    - uses: SonarSource/ci-github-actions/get-build-number@v1
-    - name: Vault
+        cp "$ACTION_PATH_PROMOTE/mise.local.toml" mise.local.toml
+    - uses: ./.actions/get-build-number
+      with:
+        host-actions-root: ${{ steps.set-path.outputs.host_actions_root }}
+    - uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
       id: secrets
-      uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
       with:
         secrets: |
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-promoter access_token | ARTIFACTORY_PROMOTE_ACCESS_TOKEN;
@@ -45,4 +65,4 @@ runs:
         PROMOTE_PULL_REQUEST: ${{ inputs.promote-pull-request }}
         BUILD_NAME: ${{ inputs.build-name || github.event.repository.name }}
       run: |
-        ${GITHUB_ACTION_PATH}/promote.sh
+        "$ACTION_PATH_PROMOTE/promote.sh"

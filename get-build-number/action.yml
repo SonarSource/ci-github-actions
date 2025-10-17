@@ -5,10 +5,32 @@ outputs:
   BUILD_NUMBER:
     description: The build number, incremented or reused if already cached
     value: ${{ steps.export.outputs.BUILD_NUMBER }}
+inputs:
+  host-actions-root:
+    description: Path to the actions folder on the host (used when called from another local action)
+    default: ''
 
 runs:
   using: composite
   steps:
+    - name: Set local action paths
+      id: set-path
+      shell: bash
+      run: |
+        echo "::group::Fix for using local actions"
+        echo "GITHUB_ACTION_PATH=$GITHUB_ACTION_PATH"
+        echo "github.action_path=${{ github.action_path }}"
+        ACTION_PATH_GET_BUILD_NUMBER="${{ github.action_path }}"
+        host_actions_root="${{ inputs.host-actions-root }}"
+        if [ -z "$host_actions_root" ]; then
+          host_actions_root="$(dirname "$ACTION_PATH_GET_BUILD_NUMBER")"
+        else
+          ACTION_PATH_GET_BUILD_NUMBER="$host_actions_root/get-build-number"
+        fi
+        echo "ACTION_PATH_GET_BUILD_NUMBER=$ACTION_PATH_GET_BUILD_NUMBER"
+        echo "ACTION_PATH_GET_BUILD_NUMBER=$ACTION_PATH_GET_BUILD_NUMBER" >> "$GITHUB_ENV"
+        echo "::endgroup::"
+
     # Reuse build number from environment if provided (e.g. from a parent workflow)
     - name: Save build number from environment to file
       id: from-env
@@ -30,10 +52,9 @@ runs:
         enableCrossOsArchive: true
 
     # Otherwise, increment the build number
-    - name: Get secrets from Vault
+    - uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
       id: secrets
       if: steps.from-env.outputs.skip != 'true' && steps.current-build-number.outputs.cache-hit != 'true'
-      uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
       with:
         secrets: development/github/token/{REPO_OWNER_NAME_DASH}-build-number token | github_token;
     - name: Get new build number
@@ -42,7 +63,7 @@ runs:
       env:
         GITHUB_TOKEN: ${{ steps.current-build-number.outputs.cache-hit != 'true' &&
           steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).github_token || '' }}
-      run: ${GITHUB_ACTION_PATH}/get_build_number.sh
+      run: ${ACTION_PATH_GET_BUILD_NUMBER}/get_build_number.sh
 
     - name: Export build number
       id: export

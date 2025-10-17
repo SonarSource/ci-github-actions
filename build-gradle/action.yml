@@ -64,6 +64,25 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Set local action paths
+      id: set-path
+      shell: bash
+      run: |
+        echo "::group::Fix for using local actions"
+        echo "GITHUB_ACTION_PATH=$GITHUB_ACTION_PATH"
+        echo "github.action_path=${{ github.action_path }}"
+        ACTION_PATH_BUILD_GRADLE="${{ github.action_path }}"
+        echo "ACTION_PATH_BUILD_GRADLE=$ACTION_PATH_BUILD_GRADLE"
+        echo "ACTION_PATH_BUILD_GRADLE=$ACTION_PATH_BUILD_GRADLE" >> "$GITHUB_ENV"
+        host_actions_root="$(dirname "$ACTION_PATH_BUILD_GRADLE")"
+        echo "host_actions_root=$host_actions_root" >> "$GITHUB_OUTPUT"
+
+        mkdir -p ".actions"
+        ln -sf "$host_actions_root/get-build-number" .actions/get-build-number
+        ln -sf "$host_actions_root/shared" .actions/shared
+        ls -la .actions/*
+        echo "::endgroup::"
+
     - name: Set build parameters
       shell: bash
       env:
@@ -74,11 +93,12 @@ runs:
       run: |
         echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_DEPLOYER_ROLE=${ARTIFACTORY_DEPLOYER_ROLE}" >> "$GITHUB_ENV"
-    - uses: SonarSource/ci-github-actions/get-build-number@v1
+    - uses: ./.actions/get-build-number
       id: get_build_number
-    - name: Vault
+      with:
+        host-actions-root: ${{ steps.set-path.outputs.host_actions_root }}
+    - uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
       id: secrets
-      uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
       with:
         # yamllint disable rule:line-length
         secrets: |
@@ -137,7 +157,7 @@ runs:
       run: |
         GRADLE_INIT_DIR="$GRADLE_USER_HOME/init.d"
         mkdir -p "$GRADLE_INIT_DIR"
-        cp "${GITHUB_ACTION_PATH}/resources/repoxAuth.init.gradle.kts" "$GRADLE_INIT_DIR/"
+        cp "$ACTION_PATH_BUILD_GRADLE/resources/repoxAuth.init.gradle.kts" "$GRADLE_INIT_DIR/"
 
     - name: Extract Develocity hostname
       id: develocity-hostname
@@ -192,7 +212,7 @@ runs:
         ORG_GRADLE_PROJECT_signingKeyId: ${{ fromJSON(steps.secrets.outputs.vault).SIGN_KEY_ID }}
         DEVELOCITY_ACCESS_KEY: ${{ inputs.use-develocity == 'true' &&
           format('{0}={1}', steps.develocity-hostname.outputs.hostname, fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN) || '' }}
-      run: ${GITHUB_ACTION_PATH}/build.sh
+      run: $ACTION_PATH_BUILD_GRADLE/build.sh
 
     - name: Archive problems report
       if: always()

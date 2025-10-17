@@ -63,15 +63,29 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Set local action
+    - name: Set local action paths
+      id: set-path
       shell: bash
       run: |
+        echo "::group::Fix for using local actions"
+        echo "GITHUB_ACTION_PATH=$GITHUB_ACTION_PATH"
+        echo "github.action_path=${{ github.action_path }}"
+        ACTION_PATH_BUILD_MAVEN="${{ github.action_path }}"
+        echo "ACTION_PATH_BUILD_MAVEN=$ACTION_PATH_BUILD_MAVEN"
+        echo "ACTION_PATH_BUILD_MAVEN=$ACTION_PATH_BUILD_MAVEN" >> "$GITHUB_ENV"
+        host_actions_root="$(dirname "$ACTION_PATH_BUILD_MAVEN")"
+        echo "host_actions_root=$host_actions_root" >> "$GITHUB_OUTPUT"
+
         mkdir -p ".actions"
-        ln -s "${{github.action_path}}/../config-maven" .actions/config-maven
-        ln -s "${{github.action_path}}/../shared" .actions/shared
-    - uses: ./.actions/config-maven # TODO BUILD-9094
+        ln -sf "$host_actions_root/config-maven" .actions/config-maven
+        ln -sf "$host_actions_root/shared" .actions/shared
+        ls -la .actions/*
+        echo "::endgroup::"
+
+    - uses: ./.actions/config-maven
       id: config
       with:
+        host-actions-root: ${{ steps.set-path.outputs.host_actions_root }}
         working-directory: ${{ inputs.working-directory }}
         artifactory-reader-role: ${{ inputs.artifactory-reader-role }}
         common-mvn-flags: ${{ inputs.common-mvn-flags }}
@@ -89,10 +103,9 @@ runs:
       run: |
         echo "ARTIFACTORY_DEPLOYER_ROLE=${ARTIFACTORY_DEPLOYER_ROLE}" >> "$GITHUB_ENV"
         echo "SONARSOURCE_REPOSITORY_URL=${ARTIFACTORY_URL}/sonarsource" >> "$GITHUB_ENV"
-    - name: Vault
-      # yamllint disable rule:line-length
+    - uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
       id: secrets
-      uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
+      # yamllint disable rule:line-length
       with:
         secrets: |
           ${{ inputs.sonar-platform != 'none' && 'development/kv/data/next url | NEXT_URL;' || '' }}
@@ -132,7 +145,7 @@ runs:
         USER_MAVEN_ARGS: ${{ inputs.maven-args }}
         SONAR_SCANNER_JAVA_OPTS: ${{ inputs.scanner-java-opts }}
       working-directory: ${{ inputs.working-directory }}
-      run: ${GITHUB_ACTION_PATH}/build.sh $USER_MAVEN_ARGS
+      run: $ACTION_PATH_BUILD_MAVEN/build.sh $USER_MAVEN_ARGS
 
     - name: Cleanup Maven repository before caching
       shell: bash
