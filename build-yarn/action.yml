@@ -62,7 +62,7 @@ runs:
         echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_DEPLOYER_ROLE=${ARTIFACTORY_DEPLOYER_ROLE}" >> "$GITHUB_ENV"
         cp ${GITHUB_ACTION_PATH}/mise.local.toml mise.local.toml
-    - uses: SonarSource/ci-github-actions/get-build-number@v1
+    - uses: SonarSource/ci-github-actions/get-build-number@v1 # TODO BUILD-9094
       id: get_build_number
     - uses: jdx/mise-action@5ac50f778e26fac95da98d50503682459e86d566 # v3.2.0
       with:
@@ -70,7 +70,7 @@ runs:
 
     - name: Cache Yarn dependencies
       if: ${{ inputs.cache-yarn == 'true' }}
-      uses: SonarSource/ci-github-actions/cache@v1
+      uses: SonarSource/ci-github-actions/cache@v1 # TODO BUILD-9094
       with:
         path: |
           ~/.yarn

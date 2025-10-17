@@ -63,16 +63,16 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Set local action
+    - name: Set local action paths
       id: set-path
       shell: bash
       run: |
+        # Fix for local actions referencing other local actions
+        echo "host_action_path=$(dirname $GITHUB_ACTION_PATH)" >> $GITHUB_OUTPUT
         mkdir -p ".actions"
-        host_action_path=`dirname $GITHUB_ACTION_PATH`
-        echo "host_action_path=$host_action_path" >> $GITHUB_OUTPUT
         ln -s "${{github.action_path}}/../config-maven" .actions/config-maven
         ln -s "${{github.action_path}}/../shared" .actions/shared
-    - uses: ./.actions/config-maven # TODO BUILD-9094
+    - uses: ./.actions/config-maven
       id: config
       with:
         ACTION_PATH: ${{ steps.set-path.outputs.host_action_path }}/config-maven
