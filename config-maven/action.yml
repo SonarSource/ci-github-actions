@@ -30,6 +30,10 @@ inputs:
   disable-caching:
     description: Whether to disable Maven caching entirely
     default: 'false'
+  ACTION_PATH:
+    description: Path to the action folder (used when called from another action)
+    default: ''
+
 
 outputs:
   BUILD_NUMBER:
@@ -45,6 +49,31 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Set local action
+      id: set-path
+      shell: bash
+      env:
+        ACTION_PATH: ${{ inputs.ACTION_PATH != '' && inputs.ACTION_PATH || github.action_path }}
+      run: |
+        echo "::group::DEBUG BUILD-9094"
+        echo "ACTION_PATH=$ACTION_PATH"
+        echo "GITHUB_ACTION_PATH=$GITHUB_ACTION_PATH"
+        echo "github.action_path=${{github.action_path}}"
+        ls -la "${GITHUB_ACTION_PATH}/resources/settings.xml" || true
+        ls -la "$ACTION_PATH/resources/settings.xml" || true
+        # if [ ! -d "$GITHUB_ACTION_PATH" ]; then
+        #  echo "WARNING: Setting GITHUB_ACTION_PATH to $ACTION_PATH"
+        #  echo "GITHUB_ACTION_PATH=$ACTION_PATH" >> $GITHUB_ENV
+        # fi
+        echo "::endgroup::"
+        echo "ACTION_PATH=$ACTION_PATH" >> $GITHUB_ENV
+
+    #        mkdir -p ".actions"
+    #        host_action_path=`dirname $GITHUB_ACTION_PATH`
+    #        echo "host_action_path=$host_action_path" >> $GITHUB_OUTPUT
+    #        ln -s "${{github.action_path}}/../config-maven" .actions/config-maven
+    #        ln -s "${{github.action_path}}/../shared" .actions/shared
+
     - name: Get build number
       id: get_build_number
       uses: SonarSource/ci-github-actions/get-build-number@v1
@@ -106,8 +135,8 @@ runs:
       run: |
         MAVEN_CONFIG="$HOME/.m2"
         mkdir -p "$MAVEN_CONFIG"
-        cp "${GITHUB_ACTION_PATH}/resources/settings.xml" "$MAVEN_CONFIG/settings.xml"
-        echo "Copied Maven settings from ${GITHUB_ACTION_PATH}/resources/settings.xml to $MAVEN_CONFIG/settings.xml"
+        cp "${ACTION_PATH}/resources/settings.xml" "$MAVEN_CONFIG/settings.xml"
+        echo "Copied Maven settings from ${ACTION_PATH}/resources/settings.xml to $MAVEN_CONFIG/settings.xml"
         echo "SONARSOURCE_REPOSITORY_URL=$ARTIFACTORY_URL/sonarsource-qa" >> "$GITHUB_ENV"
 
     - name: Cache local Maven repository
@@ -124,7 +153,7 @@ runs:
       if: steps.from-env.outputs.skip != 'true'
       shell: bash
       working-directory: ${{ inputs.working-directory }}
-      run: ${GITHUB_ACTION_PATH}/set_maven_project_version.sh
+      run: ${ACTION_PATH}/set_maven_project_version.sh
 
     - name: Deactivate UseContainerSupport on github-ubuntu-* runners
       if: runner.os == 'Linux' && runner.environment == 'github-hosted' && steps.from-env.outputs.skip != 'true'
