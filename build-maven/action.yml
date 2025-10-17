@@ -64,14 +64,18 @@ runs:
   using: composite
   steps:
     - name: Set local action
+      id: set-path
       shell: bash
       run: |
         mkdir -p ".actions"
+        host_action_path=`dirname $GITHUB_ACTION_PATH`
+        echo "host_action_path=$host_action_path" >> $GITHUB_OUTPUT
         ln -s "${{github.action_path}}/../config-maven" .actions/config-maven
         ln -s "${{github.action_path}}/../shared" .actions/shared
     - uses: ./.actions/config-maven # TODO BUILD-9094
       id: config
       with:
+        ACTION_PATH: ${{ steps.set-path.outputs.host_action_path }}/config-maven
         working-directory: ${{ inputs.working-directory }}
         artifactory-reader-role: ${{ inputs.artifactory-reader-role }}
         common-mvn-flags: ${{ inputs.common-mvn-flags }}
