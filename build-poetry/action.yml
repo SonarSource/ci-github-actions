@@ -55,6 +55,25 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Set local action paths
+      id: set-path
+      shell: bash
+      run: |
+        echo "::group::Fix for using local actions"
+        echo "GITHUB_ACTION_PATH=$GITHUB_ACTION_PATH"
+        echo "github.action_path=${{ github.action_path }}"
+        ACTION_PATH_BUILD_POETRY="${{ github.action_path }}"
+        echo "ACTION_PATH_BUILD_POETRY=$ACTION_PATH_BUILD_POETRY"
+        echo "ACTION_PATH_BUILD_POETRY=$ACTION_PATH_BUILD_POETRY" >> "$GITHUB_ENV"
+        host_actions_root="$(dirname "$ACTION_PATH_BUILD_POETRY")"
+        echo "host_actions_root=$host_actions_root" >> "$GITHUB_OUTPUT"
+
+        mkdir -p ".actions"
+        ln -sf "$host_actions_root/get-build-number" .actions/get-build-number
+        ln -sf "$host_actions_root/shared" .actions/shared
+        ls -la .actions/*
+        echo "::endgroup::"
+
     - name: Set build parameters
       shell: bash
       env:
@@ -65,9 +84,11 @@ runs:
       run: |
         echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_DEPLOYER_ROLE=${ARTIFACTORY_DEPLOYER_ROLE}" >> "$GITHUB_ENV"
-        cp ${GITHUB_ACTION_PATH}/mise.local.toml mise.local.toml
-    - uses: SonarSource/ci-github-actions/get-build-number@v1
+        cp "$ACTION_PATH_BUILD_POETRY/mise.local.toml" mise.local.toml
+    - uses: ./.actions/get-build-number
       id: get_build_number
+      with:
+        host-actions-root: ${{ steps.set-path.outputs.host_actions_root }}
     - name: Cache local Poetry cache
       uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
@@ -77,10 +98,9 @@ runs:
     - uses: jdx/mise-action@5ac50f778e26fac95da98d50503682459e86d566 # v3.2.0
       with:
         version: 2025.7.12
-    - name: Vault
-      # yamllint disable rule:line-length
+    - uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
       id: secrets
-      uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
+      # yamllint disable rule:line-length
       with:
         secrets: |
           ${{ inputs.sonar-platform != 'none' && 'development/kv/data/next url | NEXT_URL;' || '' }}
@@ -124,7 +144,7 @@ runs:
         RUN_SHADOW_SCANS: ${{ inputs.run-shadow-scans }}
       run: |
         cd "${{ inputs.working-directory }}"
-        ${GITHUB_ACTION_PATH}/build.sh
+        "$ACTION_PATH_BUILD_POETRY/build.sh"
 
     - name: Generate workflow summary
       if: always()
