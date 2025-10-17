@@ -96,7 +96,7 @@ runs:
         echo "ARTIFACTORY_ACCESS_USERNAME=$ARTIFACTORY_USERNAME" >> "$GITHUB_ENV"  # deprecated, backward compliance
         echo "ARTIFACTORY_ACCESS_TOKEN=$ARTIFACTORY_ACCESS_TOKEN" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_PASSWORD=$ARTIFACTORY_ACCESS_TOKEN" >> "$GITHUB_ENV"  # deprecated, backward compliance
-        if [ "DEVELOCITY_TOKEN" != "" ]; then
+        if [[ -n "${DEVELOCITY_TOKEN:-}" ]]; then
           echo "DEVELOCITY_ACCESS_KEY=develocity.sonar.build=$DEVELOCITY_TOKEN" >> "$GITHUB_ENV"
         fi
 
