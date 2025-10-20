@@ -160,7 +160,8 @@ steps:
 | Environment Variable                    | Description                                                                       |
 |-----------------------------------------|-----------------------------------------------------------------------------------|
 | `CURRENT_VERSION` and `PROJECT_VERSION` | If both are set, they will be used as-is and no version update will be performed. |
-| `MAVEN_OPTS`                            | JVM options for Maven execution. Defaults to `-Xmx1536m -Xms128m` if not set.     |
+| `MAVEN_OPTS`                            | JVM options for Maven execution. Defaults to `-Xmx1536m -Xms128m`.                |
+| `JAVA_TOOL_OPTIONS`                     | JVM options. Defaults to `-XX:-UseContainerSupport`.                              |
 | `CONFIG_MAVEN_COMPLETED`                | For internal use. If set, the action is skipped                                   |
 
 ### Inputs
@@ -438,6 +439,12 @@ jobs:
           # Primary platform when shadow scans disabled (optional)
           sonar-platform: 'next'
 ```
+
+### Input Environment Variables
+
+| Environment Variable | Description                                          |
+|----------------------|------------------------------------------------------|
+| `JAVA_TOOL_OPTIONS`  | JVM options. Defaults to `-XX:-UseContainerSupport`. |
 
 ### Inputs
 
