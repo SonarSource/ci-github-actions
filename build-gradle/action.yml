@@ -185,6 +185,9 @@ runs:
         DEVELOCITY_ACCESS_KEY: ${{ inputs.use-develocity == 'true' &&
           format('{0}={1}', steps.develocity-hostname.outputs.hostname, fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN) || '' }}
       run: |
+        JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS:=-XX:-UseContainerSupport}
+        echo "JAVA_TOOL_OPTIONS=$JAVA_TOOL_OPTIONS" >> "$GITHUB_ENV"
+        export JAVA_TOOL_OPTIONS
         ${GITHUB_ACTION_PATH}/build.sh
 
     - name: Archive problems report

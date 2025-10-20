@@ -25,7 +25,7 @@ Describe 'get_current_version()'
     When call get_current_version
     The status should be success
     The lines of output should equal 1
-    The line 1 of output should start with "mvn -q -Dexec.executable=echo"
+    The line 1 of output should start with "mvn --quiet --non-recursive org.codehaus.mojo:exec-maven-plugin"
   End
 
   It 'handles Maven expression failure'
