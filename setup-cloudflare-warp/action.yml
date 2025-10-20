@@ -32,13 +32,8 @@ runs:
     - name: Install inspection certificate
       shell: bash
       run: |
-        # Write certificate to temporary file
         echo "${{ fromJSON(steps.secrets.outputs.vault).CLOUDFLARE_INSPECTION_CERTIFICATE }}" > /tmp/cloudflare-inspection.pem
-
-        # Add certificate to system keychain
         sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain /tmp/cloudflare-inspection.pem
-
-        # Clean up temporary file
         rm /tmp/cloudflare-inspection.pem
 
     - name: Setup Cloudflare WARP

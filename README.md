@@ -1150,7 +1150,7 @@ jobs:
 
 ### Inputs
 
-This action requires no inputs. All configuration is handled automatically.
+This action requires no inputs.
 
 ### Features
 
@@ -1158,7 +1158,7 @@ This action requires no inputs. All configuration is handled automatically.
 - **Device Posture Check**: Automatically configures device posture check file for Cloudflare Zero Trust
 - **Certificate Installation**: Installs Cloudflare inspection certificate to system keychain
 - **Fixed Egress CIDR**: All traffic is routed through Cloudflare Egress ranges assigned to SonarSource, allowing us to
-  configure Firewalls with Ip Allowlist
+  configure firewalls with IP allowlist.
 
 ## Release
 
