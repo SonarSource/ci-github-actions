@@ -1,0 +1,56 @@
+---
+name: Setup Cloudflare WARP
+description: Setup Cloudflare WARP with device posture check and inspection certificate for secure network access on MacOS runners
+
+runs:
+  using: composite
+  steps:
+    - name: Get secrets from Vault
+      id: secrets
+      uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
+      with:
+        secrets: |
+          development/kv/data/cloudflare/warp-github-runner client-id | CLOUDFLARE_AUTH_CLIENT_ID;
+          development/kv/data/cloudflare/warp-github-runner client-secret | CLOUDFLARE_AUTH_CLIENT_SECRET;
+          development/kv/data/cloudflare/warp-github-runner device-posture-secret | CLOUDFLARE_DEVICE_SECRET;
+          development/kv/data/cloudflare/warp-github-runner inspection-certificate | CLOUDFLARE_INSPECTION_CERTIFICATE;
+
+    - name: Setup Cloudflare WARP Device Posture Check
+      shell: bash
+      run: |
+        # Create directory if it doesn't exist
+        sudo mkdir -p /private/etc
+
+        # Create device posture check file
+        echo "${{ fromJSON(steps.secrets.outputs.vault).CLOUDFLARE_DEVICE_SECRET }}" | \
+          sudo sh -c 'cat > /private/etc/cloudflare-warp-posture.json'
+
+        # Print SHA256 hash for verification
+        echo "SHA256 hash of the posture file:"
+        shasum -a 256 /private/etc/cloudflare-warp-posture.json
+
+    - name: Install inspection certificate
+      shell: bash
+      run: |
+        # Write certificate to temporary file
+        echo "${{ fromJSON(steps.secrets.outputs.vault).CLOUDFLARE_INSPECTION_CERTIFICATE }}" > /tmp/cloudflare-inspection.pem
+
+        # Add certificate to system keychain
+        sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain /tmp/cloudflare-inspection.pem
+
+        # Clean up temporary file
+        rm /tmp/cloudflare-inspection.pem
+
+    - name: Setup Cloudflare WARP
+      uses: Boostport/setup-cloudflare-warp@4e41641ec6b5a3afde97e18a1da9d7b3efd78d32 # v1.17.0
+      with:
+        organization: sonarsource
+        auth_client_id: ${{ fromJSON(steps.secrets.outputs.vault).CLOUDFLARE_AUTH_CLIENT_ID }}
+        auth_client_secret: ${{ fromJSON(steps.secrets.outputs.vault).CLOUDFLARE_AUTH_CLIENT_SECRET }}
+
+    - name: Wait for WARP connection to be ready
+      shell: bash
+      run: |
+        echo "Waiting for WARP connection to be ready..."
+        sleep 180
+        echo "WARP connection ready"

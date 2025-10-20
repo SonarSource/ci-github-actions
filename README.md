@@ -27,6 +27,7 @@ for details on how to use it.
 - [`pr_cleanup`](#pr_cleanup)
 - [`cache`](#cache)
 - [`code-signing`](#code-signing)
+- [`setup-cloudflare-warp`](#setup-cloudflare-warp)
 
 ## `get-build-number`
 
@@ -1098,6 +1099,66 @@ After running this action, the following environment variables are available:
 - **Unified Caching Strategy**: Single cache key for both smctl and jsign tools to optimize cache efficiency
 - **Smart Cache Management**: Caches smctl installation directory and jsign .deb package for faster subsequent runs
 - **Automatic Setup**: Handles all DigiCert authentication and environment configuration
+
+## `setup-cloudflare-warp`
+
+Setup Cloudflare WARP with device posture check and inspection certificate for secure network access.
+
+This action provides a complete setup for Cloudflare WARP on macOS runners, including device posture check configuration,
+SSL inspection certificate installation, and connection stabilization. It ensures that the WARP connection is ready and
+stable before proceeding with network-dependent tasks.
+
+All secrets are fetched automatically from Vault - no configuration needed.
+
+### Requirements
+
+#### Required GitHub Permissions
+
+- `id-token: write`
+- `contents: read`
+
+#### Required Vault Permissions
+
+- `development/kv/data/cloudflare/warp-github-runner`: Cloudflare WARP credentials including:
+  - `client-id`: Cloudflare authentication client ID
+  - `client-secret`: Cloudflare authentication client secret
+  - `device-posture-secret`: Device posture check secret JSON
+  - `inspection-certificate`: Cloudflare inspection certificate PEM
+
+#### Other Dependencies
+
+- macOS runner (uses `security` command for keychain operations)
+
+### Usage
+
+```yaml
+jobs:
+  build:
+    runs-on: macos-latest-xlarge
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Setup Cloudflare WARP
+        uses: SonarSource/ci-github-actions/setup-cloudflare-warp@v1
+
+      # WARP connection is now ready - proceed with your workflow steps
+      - name: Your build steps
+        run: |
+          # Network requests will now go through Cloudflare WARP
+```
+
+### Inputs
+
+This action requires no inputs. All configuration is handled automatically.
+
+### Features
+
+- **Zero Configuration**: All secrets are fetched automatically from Vault
+- **Device Posture Check**: Automatically configures device posture check file for Cloudflare Zero Trust
+- **Certificate Installation**: Installs Cloudflare inspection certificate to system keychain
+- **Fixed Egress CIDR**: All traffic is routed through Cloudflare Egress ranges assigned to SonarSource, allowing us to
+  configure Firewalls with Ip Allowlist
 
 ## Release
 
