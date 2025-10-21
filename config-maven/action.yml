@@ -126,6 +126,14 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       run: ${GITHUB_ACTION_PATH}/set_maven_project_version.sh
 
+    - name: Deactivate UseContainerSupport on github-ubuntu-* runners
+      if: runner.os == 'Linux' && runner.environment == 'github-hosted' && steps.from-env.outputs.skip != 'true'
+      shell: bash
+      run: |
+        echo "::warning title=Deactivating UseContainerSupport::The GitHub-hosted Ubuntu runners have an issue with Java's" \
+          "UseContainerSupport feature."
+        echo "JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS:=-XX:-UseContainerSupport}" >> "$GITHUB_ENV"
+
     - name: Create mvn wrapper function with common Maven flags and set MAVEN_OPTS
       if: steps.from-env.outputs.skip != 'true'
       shell: bash
@@ -136,5 +144,4 @@ runs:
         echo 'mvn() { command mvn ${{ env.COMMON_MVN_FLAGS }} "$@"; }' >> "$HOME/.bash_profile"
         echo "BASH_ENV=$HOME/.bash_profile" >> "$GITHUB_ENV"
         echo "MAVEN_OPTS=${MAVEN_OPTS:=-Xmx1536m -Xms128m}" >> "$GITHUB_ENV"
-        echo "JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS:=-XX:-UseContainerSupport}" >> "$GITHUB_ENV"
         echo "CONFIG_MAVEN_COMPLETED=$GITHUB_ACTION" >> "$GITHUB_ENV"
