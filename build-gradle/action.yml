@@ -145,6 +145,14 @@ runs:
       shell: bash
       run: echo "hostname=$(echo '${{ inputs.develocity-url }}' | sed 's|https://||' | sed 's|/$||')" >> $GITHUB_OUTPUT
 
+    - name: Deactivate UseContainerSupport on github-ubuntu-* runners
+      if: runner.os == 'Linux' && runner.environment == 'github-hosted'
+      shell: bash
+      run: |
+        echo "::warning title=Deactivating UseContainerSupport::The GitHub-hosted Ubuntu runners have an issue with Java's" \
+          "UseContainerSupport feature."
+        echo "JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS:=-XX:-UseContainerSupport}" >> "$GITHUB_ENV"
+
     - name: Build, analyze and deploy
       id: build
       shell: bash
@@ -184,11 +192,7 @@ runs:
         ORG_GRADLE_PROJECT_signingKeyId: ${{ fromJSON(steps.secrets.outputs.vault).SIGN_KEY_ID }}
         DEVELOCITY_ACCESS_KEY: ${{ inputs.use-develocity == 'true' &&
           format('{0}={1}', steps.develocity-hostname.outputs.hostname, fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN) || '' }}
-      run: |
-        JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS:=-XX:-UseContainerSupport}
-        echo "JAVA_TOOL_OPTIONS=$JAVA_TOOL_OPTIONS" >> "$GITHUB_ENV"
-        export JAVA_TOOL_OPTIONS
-        ${GITHUB_ACTION_PATH}/build.sh
+      run: ${GITHUB_ACTION_PATH}/build.sh
 
     - name: Archive problems report
       if: always()
