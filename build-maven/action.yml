@@ -55,6 +55,9 @@ inputs:
   disable-caching:
     description: Whether to disable Maven caching entirely
     default: 'false'
+  generate-provenance:
+    description: Whether to generate provenance attestation for built artifacts
+    default: 'false'
 outputs:
   BUILD_NUMBER:
     description: The build number, incremented or reused if already cached
@@ -140,6 +143,15 @@ runs:
         rm -rf "$HOME/.m2/repository/org/sonarsource/"
         rm -rf "$HOME/.m2/repository/repository/com/sonarsource/"
         /usr/bin/find "$HOME/.m2/repository" -name resolver-status.properties -delete
+
+    - name: Generate provenance attestation
+      if: ${{ inputs.generate-provenance == 'true' && steps.build.outputs.should-deploy == 'true' }}
+      uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
+      with:
+        subject-path: |
+          **/target/*.jar
+          !**/target/*-sources.jar
+          !**/target/*-javadoc.jar
 
     - name: Generate workflow summary
       if: always()

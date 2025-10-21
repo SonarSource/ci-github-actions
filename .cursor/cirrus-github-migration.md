@@ -877,24 +877,19 @@ jobs:
 
 Complete mapping table for ci-common-scripts compatibility:
 
-| Cirrus CI Variable                   | GitHub Actions Variable                             | Purpose                     |
-|--------------------------------------|-----------------------------------------------------|-----------------------------|
-| `CIRRUS_CHANGE_IN_REPO`              | `GITHUB_SHA`                                        | Git commit SHA              |
-| `CIRRUS_BASE_BRANCH`                 | `GITHUB_BASE_REF`                                   | Base branch for PRs         |
-| `CIRRUS_BRANCH`                      | `GITHUB_HEAD_REF` (PR) / `GITHUB_REF_NAME` (branch) | Current branch              |
-| `CIRRUS_REPO_FULL_NAME`              | `GITHUB_REPOSITORY`                                 | Full repo name (owner/repo) |
-| `CIRRUS_BUILD_ID` / `CIRRUS_TASK_ID` | `GITHUB_RUN_ID`                                     | Build/run identifier        |
-| `BUILD_NUMBER` / `CI_BUILD_NUMBER`   | `BUILD_NUMBER` / `BUILD_ID` / `PIPELINE_ID`         | Build number                |
-| `CIRRUS_REPO_NAME`                   | `PROJECT`                                           | Repository name only        |
-| `PROJECT_VERSION`                    | `PROJECT_VERSION`                                   | Project version             |
-| `CIRRUS_DEFAULT_BRANCH`              | `DEFAULT_BRANCH`                                    | Default branch              |
-| `CIRRUS_PR`                          | `PULL_REQUEST`                                      | PR number or false          |
-| `CIRRUS_BASE_SHA`                    | `PULL_REQUEST_SHA`                                  | Base SHA for PRs            |
-| `CIRRUS_ENV`                         | `GITHUB_ENV`                                        | Environment file path       |
-
-**Additional Variables**:
-
-- `SONARSOURCE_QA`: Set to `true` if not prefixed with BUILD (impacts Maven settings)
+| Cirrus CI Variable                               | GitHub Actions Variable                             | Purpose                                          |
+|--------------------------------------------------|-----------------------------------------------------|--------------------------------------------------|
+| `GIT_SHA1` or `CIRRUS_CHANGE_IN_REPO`            | `GITHUB_SHA`                                        | Git commit SHA                                   |
+| `GITHUB_BASE_BRANCH` or `CIRRUS_BASE_BRANCH`     | `GITHUB_BASE_REF`                                   | Base branch for PRs                              |
+| `CIRRUS_BASE_SHA`                                | -                                                   | Base SHA for PRs                                 |
+| `GITHUB_BRANCH` or `CIRRUS_BRANCH`               | `GITHUB_HEAD_REF` (PR) / `GITHUB_REF_NAME` (branch) | Current branch                                   |
+| `GITHUB_REPO` or `CIRRUS_REPO_FULL_NAME`         | `GITHUB_REPOSITORY`                                 | Full repo name (owner/repo)                      |
+| `CIRRUS_REPO_NAME` or `PROJECT`                  | `"${GITHUB_REPOSITORY#*/}"`                         | Repository short name                            |
+| `CIRRUS_BUILD_ID` or `PIPELINE_ID`               | `GITHUB_RUN_ID`                                     | Cirrus CI build / GitHub workflow run identifier |
+| `CIRRUS_TASK_ID`                                 | `GITHUB_JOB`                                        | Cirrus CI task / GitHub job identifier           |
+| `BUILD_NUMBER`, `CI_BUILD_NUMBER`, or `BUILD_ID` | `BUILD_NUMBER`                                      | Build number                                     |
+| `CIRRUS_DEFAULT_BRANCH`                          | `${{ github.event.repository.default_branch }}`     | Default branch                                   |
+| `CIRRUS_ENV`                                     | `GITHUB_ENV`                                        | Environment file path                            |
 
 #### Specific Environment Variable Mappings
 
