@@ -30,7 +30,7 @@ inputs:
   disable-caching:
     description: Whether to disable Maven caching entirely
     default: 'false'
-  ACTION_PATH:
+  action-path:
     description: Path to the action folder (used when called from another local action)
     default: ''
 
@@ -53,11 +53,11 @@ runs:
       id: set-path
       shell: bash
       env:
-        ACTION_PATH: ${{ inputs.ACTION_PATH != '' && inputs.ACTION_PATH || github.action_path }}
+        ACTION_PATH_CONFIG_MAVEN: ${{ inputs.action-path != '' && inputs.action-path || github.action_path }}
       run: |
         # Fix for using local actions
-        echo "ACTION_PATH=$ACTION_PATH" >> $GITHUB_ENV
-        echo "::debug::ACTION_PATH=$ACTION_PATH"
+        echo "ACTION_PATH_CONFIG_MAVEN=$ACTION_PATH_CONFIG_MAVEN" >> $GITHUB_ENV
+        echo "::debug::ACTION_PATH_CONFIG_MAVEN=$ACTION_PATH_CONFIG_MAVEN"
         echo "::debug::GITHUB_ACTION_PATH=$GITHUB_ACTION_PATH"
         echo "::debug::github.action_path=${{github.action_path}}"
 
@@ -75,7 +75,7 @@ runs:
       id: get_build_number
       uses: ./.actions/get-build-number # TODO BUILD-9094
       with:
-        ACTION_PATH: ${{ steps.set-path.outputs.host_action_path }}/get-build-number
+        action-path: ${{ steps.set-path.outputs.host_action_path }}/get-build-number
 
     - id: from-env
       if: env.CONFIG_MAVEN_COMPLETED != ''
@@ -134,8 +134,8 @@ runs:
       run: |
         MAVEN_CONFIG="$HOME/.m2"
         mkdir -p "$MAVEN_CONFIG"
-        cp "${ACTION_PATH}/resources/settings.xml" "$MAVEN_CONFIG/settings.xml"
-        echo "Copied Maven settings from ${ACTION_PATH}/resources/settings.xml to $MAVEN_CONFIG/settings.xml"
+        cp "${ACTION_PATH_CONFIG_MAVEN}/resources/settings.xml" "$MAVEN_CONFIG/settings.xml"
+        echo "Copied Maven settings from ${ACTION_PATH_CONFIG_MAVEN}/resources/settings.xml to $MAVEN_CONFIG/settings.xml"
         echo "MAVEN_CONFIG=$MAVEN_CONFIG" >> "$GITHUB_ENV"
         echo "SONARSOURCE_REPOSITORY_URL=$ARTIFACTORY_URL/sonarsource-qa" >> "$GITHUB_ENV"
 
@@ -160,7 +160,7 @@ runs:
           --non-recursive org.codehaus.mojo:exec-maven-plugin:1.3.1:exec)"
         echo "env.HOME: $(mvn -q -Dexec.executable="echo" -Dexec.args="\${env.HOME}" \
           --non-recursive org.codehaus.mojo:exec-maven-plugin:1.3.1:exec)"
-        ${ACTION_PATH}/set_maven_project_version.sh
+        ${ACTION_PATH_CONFIG_MAVEN}/set_maven_project_version.sh
 
     - name: Deactivate UseContainerSupport on github-ubuntu-* runners
       if: runner.os == 'Linux' && runner.environment == 'github-hosted' && steps.from-env.outputs.skip != 'true'
