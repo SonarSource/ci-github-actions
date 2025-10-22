@@ -65,9 +65,9 @@ runs:
         echo "ACTION_PATH_CONFIG_MAVEN=$ACTION_PATH_CONFIG_MAVEN"
         echo "::debug::GITHUB_ACTION_PATH=$GITHUB_ACTION_PATH" # KO
         echo "::debug::github.action_path=${{github.action_path}}" # KO
-        # ls -la "$ACTION_PATH_CONFIG_MAVEN/" "$ACTION_PATH_CONFIG_MAVEN/.." || true
-        # ls -la "$GITHUB_ACTION_PATH/" "$GITHUB_ACTION_PATH/.." || true
-        # ls -la "${{github.action_path}}/../" "${{github.action_path}}/../get-build-number" || true
+        ls -la "$ACTION_PATH_CONFIG_MAVEN/" "$ACTION_PATH_CONFIG_MAVEN/.." || true
+        ls -la "$GITHUB_ACTION_PATH/" "$GITHUB_ACTION_PATH/.." || true
+        ls -la "${{github.action_path}}/" "${{github.action_path}}/../" "${{github.action_path}}/../get-build-number" || true
         echo "::endgroup::"
 
         [ -L .actions/get-build-number ] || ln -s "${{github.action_path}}/../get-build-number" .actions/get-build-number
