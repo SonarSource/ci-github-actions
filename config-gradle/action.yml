@@ -69,7 +69,7 @@ runs:
           echo "[WARNING] DEVELOCITY_ACCESS_KEY is set in the environment with an empty token. This is a deprecated configuration." \
           "The Develocity token is configured by config-gradle. Please remove external configuration of DEVELOCITY_ACCESS_KEY."
         fi
-        
+
         echo "ARTIFACTORY_URL=$ARTIFACTORY_URL" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_USERNAME=$ARTIFACTORY_USERNAME" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_ACCESS_USERNAME=$ARTIFACTORY_USERNAME" >> "$GITHUB_ENV"  # deprecated, backward compliance
