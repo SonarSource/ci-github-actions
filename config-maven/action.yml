@@ -56,12 +56,15 @@ runs:
         ACTION_PATH: ${{ inputs.ACTION_PATH != '' && inputs.ACTION_PATH || github.action_path }}
       run: |
         echo "ACTION_PATH=$ACTION_PATH" >> $GITHUB_ENV
+        echo "::debug::ACTION_PATH=$ACTION_PATH"
+        echo "::debug::GITHUB_ACTION_PATH=$GITHUB_ACTION_PATH"
+        echo "::debug::github.action_path=${{github.action_path}}"
 
-        mkdir -p ".actions"
         echo "host_action_path=$(dirname $GITHUB_ACTION_PATH)" >> $GITHUB_OUTPUT
-        ln -s "${{github.action_path}}/../get-build-number" .actions/get-build-number
-        ln -s "${{github.action_path}}/../cache" .actions/cache
-        ln -s "${{github.action_path}}/../shared" .actions/shared
+        mkdir -p ".actions"
+        [ -L .actions/get-build-number ] || ln -s "${{github.action_path}}/../get-build-number" .actions/get-build-number
+        [ -L .actions/cache ] || ln -s "${{github.action_path}}/../cache" .actions/cache
+        [ -L .actions/shared ] || ln -s "${{github.action_path}}/../shared" .actions/shared
 
     - name: Get build number
       id: get_build_number
