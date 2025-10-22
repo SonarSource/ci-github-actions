@@ -55,27 +55,27 @@ runs:
       env:
         ACTION_PATH_CONFIG_MAVEN: ${{ inputs.action-path != '' && inputs.action-path || github.action_path }}
       run: |
-        # Fix for using local actions
-        echo "ACTION_PATH_CONFIG_MAVEN=$ACTION_PATH_CONFIG_MAVEN" >> $GITHUB_ENV
+        echo "::group::Fix for using local actions"
+        echo "ACTION_PATH_CONFIG_MAVEN=$ACTION_PATH_CONFIG_MAVEN" >> "$GITHUB_ENV"
+        host_action_path="$(dirname $ACTION_PATH_CONFIG_MAVEN)"
+        echo "host_action_path=$host_action_path" >> "$GITHUB_OUTPUT"
 
-        echo "host_action_path=$(dirname $ACTION_PATH_CONFIG_MAVEN)" >> $GITHUB_OUTPUT
-        mkdir -p ".actions"
-        echo "::group::debug symlinks"
         echo "pwd: $(pwd)"
         echo "ACTION_PATH_CONFIG_MAVEN=$ACTION_PATH_CONFIG_MAVEN"
         echo "::debug::GITHUB_ACTION_PATH=$GITHUB_ACTION_PATH" # KO
         echo "::debug::github.action_path=${{github.action_path}}" # KO
-        ls -la "$(dirname ACTION_PATH_CONFIG_MAVEN)/" "$(dirname ACTION_PATH_CONFIG_MAVEN)/get-build-number/" 2>&1 #\
+        (ls -la "$host_action_path/" "$host_action_path/get-build-number/" 2>&1 || true) #\
         #  | awk '{print "::debug::" $0}'
-        ls -la "$GITHUB_ACTION_PATH/" "$GITHUB_ACTION_PATH/.." 2>&1 | awk '{print "::debug::" $0}'
-        ls -la "${{github.action_path}}/" "${{github.action_path}}/../" "${{github.action_path}}/../get-build-number" 2>&1 \
+        (ls -la "$GITHUB_ACTION_PATH/" "$GITHUB_ACTION_PATH/.." 2>&1 || true) | awk '{print "::debug::" $0}'
+        (ls -la "${{github.action_path}}/" "${{github.action_path}}/../" "${{github.action_path}}/../get-build-number" 2>&1 || true) \
           | awk '{print "::debug::" $0}'
-        echo "::endgroup::"
 
-        [ -L .actions/get-build-number ] || ln -s "$(dirname ACTION_PATH_CONFIG_MAVEN)/get-build-number" .actions/get-build-number
-        [ -L .actions/cache ] || ln -s "$(dirname ACTION_PATH_CONFIG_MAVEN)/cache" .actions/cache
-        [ -L .actions/shared ] || ln -s "$(dirname ACTION_PATH_CONFIG_MAVEN)/shared" .actions/shared
+        mkdir -p ".actions"
+        [ -L .actions/get-build-number ] || ln -s "$host_action_path/get-build-number" .actions/get-build-number
+        [ -L .actions/cache ] || ln -s "$host_action_path/cache" .actions/cache
+        [ -L .actions/shared ] || ln -s "$host_action_path/shared" .actions/shared
         ls -la .actions/
+        echo "::endgroup::"
 
     - name: Get build number
       id: get_build_number
