@@ -66,17 +66,31 @@ runs:
     - name: Set local action paths
       id: set-path
       shell: bash
-      env:
-        ACTION_PATH_BUILD_MAVEN: ${{ github.action_path }}
+      # env:
+      #  ACTION_PATH_BUILD_MAVEN: ${{ github.action_path }}
       run: |
         echo "::group::Fix for using local actions"
+        echo "github.action_path=${{ github.action_path }}"
+        echo "GITHUB_ACTION_PATH=$GITHUB_ACTION_PATH"
+        echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
+        echo "github.workspace=${{ github.workspace }}"
+        env | grep "/home/" | sort
+        echo "PWD: $(pwd)"
+
+        ACTION_PATH_BUILD_MAVEN="${{ github.action_path }}"
         echo "ACTION_PATH_BUILD_MAVEN=$ACTION_PATH_BUILD_MAVEN" >> "$GITHUB_ENV"
-        host_action_path="$(dirname $ACTION_PATH_BUILD_MAVEN)"
+        echo "ACTION_PATH_BUILD_MAVEN=$ACTION_PATH_BUILD_MAVEN"
+        ACTION_PATH_ROOT="$(dirname $ACTION_PATH_BUILD_MAVEN)"
+
+        host_action_path="$(dirname $GITHUB_ACTION_PATH)"
         echo "host_action_path=$host_action_path" >> "$GITHUB_OUTPUT"
+        echo "host_action_path=$host_action_path"
+
         mkdir -p ".actions"
-        [ -L .actions/config-maven ] || ln -s "$host_action_path/config-maven" .actions/config-maven
-        [ -L .actions/shared ] || ln -s "$host_action_path/shared" .actions/shared
-        ls -la .actions/
+        ls -la "$ACTION_PATH_ROOT/config-maven/" || true
+        [ -L .actions/config-maven ] || ln -s "$ACTION_PATH_ROOT/config-maven" .actions/config-maven || true
+        [ -L .actions/shared ] || ln -s "$ACTION_PATH_ROOT/shared" .actions/shared || true
+        ls -la .actions/ .actions/*/action.yml || true
         echo "::endgroup::"
 
     #        echo "host_action_path=$(dirname $GITHUB_ACTION_PATH)" >> $GITHUB_OUTPUT
