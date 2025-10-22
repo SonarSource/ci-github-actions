@@ -67,7 +67,7 @@ runs:
       id: set-path
       shell: bash
       run: |
-        # Fix for local actions referencing other local actions
+        # Fix for using local actions
         echo "host_action_path=$(dirname $GITHUB_ACTION_PATH)" >> $GITHUB_OUTPUT
         mkdir -p ".actions"
         [ -L .actions/config-maven ] || ln -s "${{github.action_path}}/../config-maven" .actions/config-maven

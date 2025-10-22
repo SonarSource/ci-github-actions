@@ -55,6 +55,7 @@ runs:
       env:
         ACTION_PATH: ${{ inputs.ACTION_PATH != '' && inputs.ACTION_PATH || github.action_path }}
       run: |
+        # Fix for using local actions
         echo "ACTION_PATH=$ACTION_PATH" >> $GITHUB_ENV
         echo "::debug::ACTION_PATH=$ACTION_PATH"
         echo "::debug::GITHUB_ACTION_PATH=$GITHUB_ACTION_PATH"
@@ -62,6 +63,10 @@ runs:
 
         echo "host_action_path=$(dirname $GITHUB_ACTION_PATH)" >> $GITHUB_OUTPUT
         mkdir -p ".actions"
+        echo "::group::debug symlinks"
+        echo "pwd: $(pwd)"
+        ls -la . "${{github.action_path}}/" "${{github.action_path}}/../" "${{github.action_path}}/../get-build-number" ".actions/" || true
+        echo "::endgroup::"
         [ -L .actions/get-build-number ] || ln -s "${{github.action_path}}/../get-build-number" .actions/get-build-number
         [ -L .actions/cache ] || ln -s "${{github.action_path}}/../cache" .actions/cache
         [ -L .actions/shared ] || ln -s "${{github.action_path}}/../shared" .actions/shared
@@ -69,8 +74,8 @@ runs:
     - name: Get build number
       id: get_build_number
       uses: ./.actions/get-build-number # TODO BUILD-9094
-      #      with:
-      #          ACTION_PATH: ${{ steps.set-path.outputs.host_action_path }}/get-build-number
+      with:
+        ACTION_PATH: ${{ steps.set-path.outputs.host_action_path }}/get-build-number
 
     - id: from-env
       if: env.CONFIG_MAVEN_COMPLETED != ''

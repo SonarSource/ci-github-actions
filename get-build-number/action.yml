@@ -5,10 +5,23 @@ outputs:
   BUILD_NUMBER:
     description: The build number, incremented or reused if already cached
     value: ${{ steps.export.outputs.BUILD_NUMBER }}
+inputs:
+  ACTION_PATH:
+    description: Path to the action folder (used when called from another local action)
+    default: ''
 
 runs:
   using: composite
   steps:
+    - name: Set local action paths
+      id: set-path
+      shell: bash
+      env:
+        ACTION_PATH: ${{ inputs.ACTION_PATH != '' && inputs.ACTION_PATH || github.action_path }}
+      run: |
+        # Fix for using local actions
+        echo "ACTION_PATH=$ACTION_PATH" >> $GITHUB_ENV
+
     # Reuse build number from environment if provided (e.g. from a parent workflow)
     - name: Save build number from environment to file
       id: from-env
@@ -42,7 +55,7 @@ runs:
       env:
         GITHUB_TOKEN: ${{ steps.current-build-number.outputs.cache-hit != 'true' &&
           steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).github_token || '' }}
-      run: ${GITHUB_ACTION_PATH}/get_build_number.sh
+      run: ${ACTION_PATH}/get_build_number.sh
 
     - name: Export build number
       id: export
