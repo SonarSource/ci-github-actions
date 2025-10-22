@@ -58,23 +58,22 @@ runs:
         # Fix for using local actions
         echo "ACTION_PATH_CONFIG_MAVEN=$ACTION_PATH_CONFIG_MAVEN" >> $GITHUB_ENV
 
-        echo "host_action_path=$(dirname $GITHUB_ACTION_PATH)" >> $GITHUB_OUTPUT
+        echo "host_action_path=$(dirname $ACTION_PATH_CONFIG_MAVEN)" >> $GITHUB_OUTPUT
         mkdir -p ".actions"
-
         echo "::group::debug symlinks"
         echo "pwd: $(pwd)"
         echo "ACTION_PATH_CONFIG_MAVEN=$ACTION_PATH_CONFIG_MAVEN"
-        echo "GITHUB_ACTION_PATH=$GITHUB_ACTION_PATH"
-        echo "github.action_path=${{github.action_path}}"
-        ls -la "$ACTION_PATH_CONFIG_MAVEN/" "$ACTION_PATH_CONFIG_MAVEN/.." || true
-        ls -la "$GITHUB_ACTION_PATH/" "$GITHUB_ACTION_PATH/.." || true
-        ls -la "${{github.action_path}}/../" "${{github.action_path}}/../get-build-number" || true
-        ls -la .actions/ || true
+        echo "::debug::GITHUB_ACTION_PATH=$GITHUB_ACTION_PATH" # KO
+        echo "::debug::github.action_path=${{github.action_path}}" # KO
+        # ls -la "$ACTION_PATH_CONFIG_MAVEN/" "$ACTION_PATH_CONFIG_MAVEN/.." || true
+        # ls -la "$GITHUB_ACTION_PATH/" "$GITHUB_ACTION_PATH/.." || true
+        # ls -la "${{github.action_path}}/../" "${{github.action_path}}/../get-build-number" || true
         echo "::endgroup::"
 
         [ -L .actions/get-build-number ] || ln -s "${{github.action_path}}/../get-build-number" .actions/get-build-number
         [ -L .actions/cache ] || ln -s "${{github.action_path}}/../cache" .actions/cache
         [ -L .actions/shared ] || ln -s "${{github.action_path}}/../shared" .actions/shared
+        ls -la .actions/
 
     - name: Get build number
       id: get_build_number
