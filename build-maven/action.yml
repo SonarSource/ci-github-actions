@@ -66,15 +66,23 @@ runs:
     - name: Set local action paths
       id: set-path
       shell: bash
+      env:
+        ACTION_PATH_BUILD_MAVEN: ${{ github.action_path }}
       run: |
         echo "::group::Fix for using local actions"
-        host_action_path="$(dirname $GITHUB_ACTION_PATH)"
+        echo "ACTION_PATH_BUILD_MAVEN=$ACTION_PATH_BUILD_MAVEN" >> "$GITHUB_ENV"
+        host_action_path="$(dirname $ACTION_PATH_BUILD_MAVEN)"
         echo "host_action_path=$host_action_path" >> "$GITHUB_OUTPUT"
         mkdir -p ".actions"
         [ -L .actions/config-maven ] || ln -s "$host_action_path/config-maven" .actions/config-maven
         [ -L .actions/shared ] || ln -s "$host_action_path/shared" .actions/shared
         ls -la .actions/
         echo "::endgroup::"
+
+    #        echo "host_action_path=$(dirname $GITHUB_ACTION_PATH)" >> $GITHUB_OUTPUT
+    #        mkdir -p ".actions"
+    #        [ -L .actions/config-maven ] || ln -s "${{github.action_path}}/../config-maven" .actions/config-maven
+    #        [ -L .actions/shared ] || ln -s "${{github.action_path}}/../shared" .actions/shared
     - uses: ./.actions/config-maven
       id: config
       with:
@@ -139,7 +147,7 @@ runs:
         USER_MAVEN_ARGS: ${{ inputs.maven-args }}
         SONAR_SCANNER_JAVA_OPTS: ${{ inputs.scanner-java-opts }}
       working-directory: ${{ inputs.working-directory }}
-      run: ${GITHUB_ACTION_PATH}/build.sh $USER_MAVEN_ARGS
+      run: $ACTION_PATH_BUILD_MAVEN/build.sh $USER_MAVEN_ARGS
 
     - name: Cleanup Maven repository before caching
       shell: bash
