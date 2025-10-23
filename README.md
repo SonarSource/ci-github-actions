@@ -437,7 +437,8 @@ By default, Gradle caches `~/.gradle/caches` and `~/.gradle/wrapper`. You can cu
 
 **Java**: Must be pre-installed in the runner image. We recommend using `mise` to install and manage Java versions.
 
-**Gradle**: Must be pre-installed in the runner image. We recommend including the Gradle wrapper (`gradlew`) in your repository, which will be used automatically. If the Gradle wrapper is not available, you can install Gradle using `mise` in your pipeline.
+**Gradle**: Must be pre-installed in the runner image. We recommend including the Gradle wrapper (`gradlew`) in your repository,
+which will be used automatically. If the Gradle wrapper is not available, you can install Gradle using `mise` in your pipeline.
 
 ### Usage
 
@@ -484,7 +485,6 @@ steps:
 | `GRADLE_CACHE_KEY`            | The Gradle cache key generated from all gradle files                |
 
 See also [`get-build-number`](#get-build-number) output environment variables.
-
 
 ## `build-gradle`
 
