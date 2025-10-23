@@ -52,13 +52,14 @@ runs:
       id: set-path
       shell: bash
       env:
-        ACTION_PATH_CONFIG_MAVEN: ${{ inputs.action-path != '' && inputs.action-path || github.action_path }}
+        ACTION_PATH_CONFIG_MAVEN: ${{ inputs.action-path }}
+        # ACTION_PATH_CONFIG_MAVEN: ${{ inputs.action-path != '' && inputs.action-path || github.action_path }}
       run: |
         echo "::group::Fix for using local actions"
         echo "github.action_path=${{ github.action_path }}" # KO locally, but OK for uses: ./.actions/...
         echo "GITHUB_ACTION_PATH=$GITHUB_ACTION_PATH"
 
-        echo "inputs.action-path: ${{ inputs.action-path }}"
+        echo "inputs.action-path=${{ inputs.action-path }}"
         echo "ACTION_PATH_CONFIG_MAVEN=$ACTION_PATH_CONFIG_MAVEN" >> "$GITHUB_ENV"
         echo "ACTION_PATH_CONFIG_MAVEN=$ACTION_PATH_CONFIG_MAVEN"
         ACTION_PATH_ROOT="$(dirname "$ACTION_PATH_CONFIG_MAVEN")"
