@@ -79,6 +79,7 @@ runs:
         echo "ACTION_PATH_BUILD_MAVEN=$ACTION_PATH_BUILD_MAVEN" >> "$GITHUB_ENV"
         echo "ACTION_PATH_BUILD_MAVEN=$ACTION_PATH_BUILD_MAVEN"
         ACTION_PATH_ROOT="$(dirname "${{ github.action_path }}")"
+        echo "action_path_root=$ACTION_PATH_ROOT" >> "$GITHUB_OUTPUT"
 
         host_action_path="$(dirname $GITHUB_ACTION_PATH)"
         echo "host_action_path=$host_action_path" >> "$GITHUB_OUTPUT"
@@ -93,7 +94,8 @@ runs:
     - uses: ./.actions/config-maven
       id: config
       with:
-        action-path: ${{ steps.set-path.outputs.host_action_path }}/config-maven
+        # action-path: ${{ steps.set-path.outputs.host_action_path }}/config-maven
+        action-path: ${{ steps.set-path.outputs.action_path_root }}/config-maven
         working-directory: ${{ inputs.working-directory }}
         artifactory-reader-role: ${{ inputs.artifactory-reader-role }}
         common-mvn-flags: ${{ inputs.common-mvn-flags }}
