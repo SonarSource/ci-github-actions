@@ -59,10 +59,17 @@ runs:
     - name: Set environment variables for Artifactory authentication
       shell: bash
       env:
-        ARTIFACTORY_URL: ${{ inputs.repox-artifactory-url != '' && inputs.repox-artifactory-url || format('{0}/artifactory', inputs.repox-url) }}
-        ARTIFACTORY_USERNAME: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME || '' }}
-        ARTIFACTORY_ACCESS_TOKEN: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN || '' }}
-        DEVELOCITY_TOKEN: ${{ inputs.use-develocity == 'true' && steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN || '' }}
+        ARTIFACTORY_URL:
+          ${{ inputs.repox-artifactory-url != '' && inputs.repox-artifactory-url  || format('{0}/artifactory', inputs.repox-url) }}
+        ARTIFACTORY_USERNAME:
+          ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME || '' }}
+        ARTIFACTORY_ACCESS_TOKEN:
+          ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN || '' }}
+        DEVELOCITY_TOKEN:
+          ${{ inputs.use-develocity == 'true'
+            && steps.secrets.outputs.vault
+            && fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN
+            || '' }}
       run: |
         if [[ "${DEVELOCITY_ACCESS_KEY:-}" == "develocity.sonar.build=" ]]; then
           echo "::warning title=Found invalid DEVELOCITY_ACCESS_KEY::DEVELOCITY_ACCESS_KEY should not be set manually in the environment."
