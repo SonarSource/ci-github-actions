@@ -96,6 +96,7 @@ runs:
       with:
         # action-path: ${{ steps.set-path.outputs.host_action_path }}/config-maven
         action-path: ${{ steps.set-path.outputs.action_path_root }}/config-maven
+        action-path-root: ${{ steps.set-path.outputs.action_path_root }}
         working-directory: ${{ inputs.working-directory }}
         artifactory-reader-role: ${{ inputs.artifactory-reader-role }}
         common-mvn-flags: ${{ inputs.common-mvn-flags }}

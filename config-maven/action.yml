@@ -33,6 +33,9 @@ inputs:
   action-path:
     description: Path to the action folder (used when called from another local action)
     default: ''
+  action-path-root:
+    description: Path to the action folder (used when called from another local action)
+    default: none
 
 outputs:
   BUILD_NUMBER:
@@ -53,11 +56,10 @@ runs:
       shell: bash
       env:
         ACTION_PATH_CONFIG_MAVEN: ${{ inputs.action-path != '' && inputs.action-path || github.action_path }}
-        INPUT_1: ${{ inputs.action-path }}
+        ACTION_PATH_ROOT_ENV: ${{ inputs.action-path-root }}
       run: |
-        INPUT_2="${{ inputs.action-path }}"
-        echo "INPUT_1=$INPUT_1"
-        echo "INPUT_2=$INPUT_2"
+        echo "ACTION_PATH_ROOT_ENV=$ACTION_PATH_ROOT_ENV"
+        echo "ACTION_PATH_ROOT_RUN=${{ inputs.action-path-root }}"
         echo "::group::Fix for using local actions"
         echo "github.action_path=${{ github.action_path }}" # KO locally, but OK for uses: ./.actions/...
         echo "GITHUB_ACTION_PATH=$GITHUB_ACTION_PATH"
