@@ -104,10 +104,13 @@ runs:
         # Deployment secrets
         ARTIFACTORY_DEPLOY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_USERNAME }}
         ARTIFACTORY_DEPLOY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN }}
+        ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo != '' && inputs.artifactory-deploy-repo ||
+          github.event.repository.visibility == 'public' && 'sonarsource-public-qa' || 'sonarsource-private-qa' }}
       run: |
         echo "ARTIFACTORY_DEPLOY_USERNAME=$ARTIFACTORY_DEPLOY_USERNAME" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_DEPLOY_ACCESS_TOKEN=$ARTIFACTORY_DEPLOY_ACCESS_TOKEN" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_DEPLOY_PASSWORD=$ARTIFACTORY_DEPLOY_ACCESS_TOKEN" >> "$GITHUB_ENV"  # deprecated, backward compliance
+        echo "ARTIFACTORY_DEPLOY_REPO=${ARTIFACTORY_DEPLOY_REPO}" >> "$GITHUB_ENV"
 
     - name: Configure Gradle
       uses: ./.actions/config-gradle
