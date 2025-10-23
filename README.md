@@ -19,6 +19,7 @@ for details on how to use it.
 - [`config-maven`](#config-maven)
 - [`build-maven`](#build-maven)
 - [`build-poetry`](#build-poetry)
+- [`config-gradle`](#config-gradle)
 - [`build-gradle`](#build-gradle)
 - [`config-npm`](#config-npm)
 - [`build-npm`](#build-npm)
@@ -382,7 +383,112 @@ jobs:
 - `project-version`: The project version from pyproject.toml with build number. The same is also exposed as `PROJECT_VERSION` environment
   variable.
 
+## `config-gradle`
+
+Call [`get-build-number`](#get-build-number).
+
+Configure Gradle build environment with build number, authentication, and default settings.
+
+This action sets up the complete Gradle environment for SonarSource projects, including:
+
+- Build number management
+- Artifactory authentication and repository setup
+- Gradle authentication configuration for Repox
+- Gradle caching (caches and wrapper directories)
+- JVM options configuration
+- Develocity integration for build tracking (optional)
+
+### Caching Configuration
+
+By default, Gradle caches `~/.gradle/caches` and `~/.gradle/wrapper`. You can customize this behavior:
+
+**Cache custom directories:**
+
+```yaml
+- uses: SonarSource/ci-github-actions/config-gradle@v1
+  with:
+    cache-paths: |
+      ~/.gradle/caches
+      ~/.gradle/wrapper
+      ~/custom/directory
+```
+
+**Disable caching entirely:**
+
+```yaml
+- uses: SonarSource/ci-github-actions/config-gradle@v1
+  with:
+    disable-caching: 'true'
+```
+
+### Requirements
+
+#### Required GitHub Permissions
+
+- `id-token: write`
+- `contents: write`
+
+#### Required Vault Permissions
+
+- `public-reader` or `private-reader`: Artifactory role for reading dependencies.
+- `development/kv/data/develocity`: Develocity access token (only fetched when `use-develocity: true`).
+
+#### Other Dependencies
+
+**Java**: Must be pre-installed in the runner image. We recommend using `mise` to install and manage Java versions.
+
+**Gradle**: Must be pre-installed in the runner image. We recommend including the Gradle wrapper (`gradlew`) in your repository, which will be used automatically. If the Gradle wrapper is not available, you can install Gradle using `mise` in your pipeline.
+
+### Usage
+
+```yaml
+permissions:
+  id-token: write
+  contents: write
+steps:
+  - uses: actions/checkout@v5
+  - uses: SonarSource/ci-github-actions/config-gradle@v1
+  - run: ./gradlew build
+```
+
+### Inputs
+
+| Input                     | Description                                                                 | Default                                                              |
+|---------------------------|-----------------------------------------------------------------------------|----------------------------------------------------------------------|
+| `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault                             | `private-reader` for private repos, `public-reader` for public repos |
+| `use-develocity`          | Whether to use Develocity for build tracking                                | `false`                                                              |
+| `develocity-url`          | URL for Develocity                                                          | `https://develocity.sonar.build/`                                    |
+| `repox-url`               | URL for Repox                                                               | `https://repox.jfrog.io`                                             |
+| `repox-artifactory-url`   | URL for Repox Artifactory API (overrides repox-url/artifactory if provided) | (optional)                                                           |
+| `cache-paths`             | Custom cache paths (multiline).                                             | `~/.gradle/caches`<br>`~/.gradle/wrapper`                            |
+| `disable-caching`         | Whether to disable Gradle caching entirely                                  | `false`                                                              |
+
+### Outputs
+
+| Output         | Description                                                               |
+|----------------|---------------------------------------------------------------------------|
+| `BUILD_NUMBER` | The current build number. Also set as environment variable `BUILD_NUMBER` |
+
+### Output Environment Variables
+
+| Environment Variable          | Description                                                         |
+|-------------------------------|---------------------------------------------------------------------|
+| `BUILD_NUMBER`                | The current build number.                                           |
+| `ARTIFACTORY_READER_ROLE`     | Reader role for Artifactory authentication                          |
+| `ARTIFACTORY_USERNAME`        | Username for Artifactory authentication                             |
+| `ARTIFACTORY_ACCESS_TOKEN`    | Access token for Artifactory authentication                         |
+| `ARTIFACTORY_URL`             | Artifactory (Repox) URL. E.x.: `https://repox.jfrog.io/artifactory` |
+| `ARTIFACTORY_ACCESS_USERNAME` | Deprecated alias for `ARTIFACTORY_USERNAME`                         |
+| `ARTIFACTORY_PASSWORD`        | Deprecated alias for `ARTIFACTORY_ACCESS_TOKEN`                     |
+| `DEVELOCITY_ACCESS_KEY`       | The Develocity access key when `use-develocity` is true             |
+| `GRADLE_CACHE_KEY`            | The Gradle cache key generated from all gradle files                |
+
+See also [`get-build-number`](#get-build-number) output environment variables.
+
+
 ## `build-gradle`
+
+Call [`config-gradle`](#config-gradle).
 
 Build and publish a Gradle project with SonarQube analysis and Artifactory deployment.
 
