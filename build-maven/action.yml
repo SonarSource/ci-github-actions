@@ -78,7 +78,7 @@ runs:
         ACTION_PATH_BUILD_MAVEN="${{ github.action_path }}"
         echo "ACTION_PATH_BUILD_MAVEN=$ACTION_PATH_BUILD_MAVEN" >> "$GITHUB_ENV"
         echo "ACTION_PATH_BUILD_MAVEN=$ACTION_PATH_BUILD_MAVEN"
-        ACTION_PATH_ROOT="$(dirname $ACTION_PATH_BUILD_MAVEN)"
+        ACTION_PATH_ROOT="$(dirname "${{ github.action_path }}")"
 
         host_action_path="$(dirname $GITHUB_ACTION_PATH)"
         echo "host_action_path=$host_action_path" >> "$GITHUB_OUTPUT"
