@@ -60,9 +60,9 @@ runs:
 
         echo "ACTION_PATH_CONFIG_MAVEN=$ACTION_PATH_CONFIG_MAVEN" >> "$GITHUB_ENV"
         echo "ACTION_PATH_CONFIG_MAVEN=$ACTION_PATH_CONFIG_MAVEN"
-        ACTION_PATH_ROOT="$(dirname "${{ github.action_path }}")"
+        ACTION_PATH_ROOT="$(dirname "$ACTION_PATH_CONFIG_MAVEN")"
 
-        # host_action_path="$(dirname $ACTION_PATH_CONFIG_MAVEN)"
+        # host_action_path="$(dirname "$ACTION_PATH_CONFIG_MAVEN")"
         host_action_path="$(dirname $GITHUB_ACTION_PATH)"
         echo "host_action_path=$host_action_path" >> "$GITHUB_OUTPUT"
         echo "host_action_path=$host_action_path"
