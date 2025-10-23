@@ -66,24 +66,25 @@ runs:
     - name: Set local action paths
       id: set-path
       shell: bash
-      env:
-        #  ACTION_PATH_BUILD_MAVEN: ${{ github.action_path }}
-        GITHUB_ACTION_PATH_FROM_ENV: ${{ github.action_path }}
+      #      env:
+      #        GITHUB_ACTION_PATH_FROM_ENV: ${{ github.action_path }}
       run: |
         echo "::group::Fix for using local actions"
-        echo "github.action_path=${{ github.action_path }}" # KO locally, but OK for uses: ./.actions/...
+        # echo "github.action_path (env)=$GITHUB_ACTION_PATH_FROM_ENV"
+        echo "github.action_path=${{ github.action_path }}"
         echo "GITHUB_ACTION_PATH=$GITHUB_ACTION_PATH"
-        echo "GITHUB_ACTION_PATH_FROM_ENV=$GITHUB_ACTION_PATH_FROM_ENV should equal github.action_path"
 
-        ACTION_PATH_BUILD_MAVEN="${{ github.action_path }}"
-        echo "ACTION_PATH_BUILD_MAVEN=$ACTION_PATH_BUILD_MAVEN" >> "$GITHUB_ENV"
-        echo "ACTION_PATH_BUILD_MAVEN=$ACTION_PATH_BUILD_MAVEN"
         ACTION_PATH_ROOT="$(dirname "${{ github.action_path }}")"
+        echo "ACTION_PATH_ROOT=$ACTION_PATH_ROOT"
         echo "action_path_root=$ACTION_PATH_ROOT" >> "$GITHUB_OUTPUT"
 
+        ACTION_PATH_BUILD_MAVEN="${{ github.action_path }}"
+        echo "ACTION_PATH_BUILD_MAVEN=$ACTION_PATH_BUILD_MAVEN"
+        echo "ACTION_PATH_BUILD_MAVEN=$ACTION_PATH_BUILD_MAVEN" >> "$GITHUB_ENV"
+
         host_action_path="$(dirname $GITHUB_ACTION_PATH)"
-        echo "host_action_path=$host_action_path" >> "$GITHUB_OUTPUT"
         echo "host_action_path=$host_action_path"
+        echo "host_action_path=$host_action_path" >> "$GITHUB_OUTPUT"
 
         mkdir -p ".actions"
         ln -sf "$ACTION_PATH_ROOT/config-maven" .actions/config-maven
@@ -95,7 +96,7 @@ runs:
       id: config
       with:
         # action-path: ${{ steps.set-path.outputs.host_action_path }}/config-maven
-        action-path: ${{ steps.set-path.outputs.action_path_root }}/config-maven
+        # action-path: ${{ steps.set-path.outputs.action_path_root }}/config-maven
         action-path-root: ${{ steps.set-path.outputs.action_path_root }}
         working-directory: ${{ inputs.working-directory }}
         artifactory-reader-role: ${{ inputs.artifactory-reader-role }}

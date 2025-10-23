@@ -35,7 +35,7 @@ inputs:
     default: ''
   action-path-root:
     description: Path to the action folder (used when called from another local action)
-    default: none
+    default: ''
 
 outputs:
   BUILD_NUMBER:
@@ -54,20 +54,19 @@ runs:
     - name: Set local action paths
       id: set-path
       shell: bash
-      env:
-        ACTION_PATH_CONFIG_MAVEN: ${{ inputs.action-path != '' && inputs.action-path || github.action_path }}
-        ACTION_PATH_ROOT_ENV: ${{ inputs.action-path-root }}
       run: |
-        echo "ACTION_PATH_ROOT_ENV=$ACTION_PATH_ROOT_ENV"
-        echo "ACTION_PATH_ROOT_RUN=${{ inputs.action-path-root }}"
         echo "::group::Fix for using local actions"
-        echo "github.action_path=${{ github.action_path }}" # KO locally, but OK for uses: ./.actions/...
+        echo "github.action_path=${{ github.action_path }}"
         echo "GITHUB_ACTION_PATH=$GITHUB_ACTION_PATH"
 
-        echo "inputs.action-path=${{ inputs.action-path }}"
-        echo "ACTION_PATH_CONFIG_MAVEN=$ACTION_PATH_CONFIG_MAVEN" >> "$GITHUB_ENV"
+        ACTION_PATH_ROOT="${{ inputs.action-path-root }}"
+        : ${ACTION_PATH_ROOT:=$(dirname "${{ github.action_path }}")}
+        echo "ACTION_PATH_ROOT=$ACTION_PATH_ROOT"
+        echo "action_path_root=$ACTION_PATH_ROOT" >> "$GITHUB_OUTPUT"
+
+        ACTION_PATH_CONFIG_MAVEN="$ACTION_PATH_ROOT/config-maven"
         echo "ACTION_PATH_CONFIG_MAVEN=$ACTION_PATH_CONFIG_MAVEN"
-        ACTION_PATH_ROOT="$(dirname "$ACTION_PATH_CONFIG_MAVEN")"
+        echo "ACTION_PATH_CONFIG_MAVEN=$ACTION_PATH_CONFIG_MAVEN" >> "$GITHUB_ENV"
 
         # host_action_path="$(dirname "$ACTION_PATH_CONFIG_MAVEN")"
         host_action_path="$(dirname $GITHUB_ACTION_PATH)"
@@ -86,6 +85,7 @@ runs:
       uses: ./.actions/get-build-number # TODO BUILD-9094
       with:
         action-path: ${{ steps.set-path.outputs.host_action_path }}/get-build-number
+        action-path-root: ${{ steps.set-path.outputs.action_path_root }}
 
     - id: from-env
       if: env.CONFIG_MAVEN_COMPLETED != ''
