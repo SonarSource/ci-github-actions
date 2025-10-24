@@ -43,6 +43,9 @@ inputs:
   working-directory:
     description: Relative path under github.workspace to execute the build in
     default: .
+  generate-provenance:
+    description: Whether to generate provenance attestation for built artifacts
+    default: 'false'
 
 outputs:
   project-version:
@@ -125,6 +128,14 @@ runs:
       run: |
         cd "${{ inputs.working-directory }}"
         ${GITHUB_ACTION_PATH}/build.sh
+
+    - name: Generate provenance attestation
+      if: ${{ inputs.generate-provenance == 'true' && steps.build.outputs.should-deploy == 'true' }}
+      uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
+      with:
+        subject-path: |
+          ${{ inputs.working-directory }}/dist/*.tar.gz
+          ${{ inputs.working-directory }}/dist/*.whl
 
     - name: Generate workflow summary
       if: always()
