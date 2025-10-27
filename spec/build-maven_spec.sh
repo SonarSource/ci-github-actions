@@ -276,6 +276,19 @@ Describe 'build_maven()'
       The line 3 should include "-Pcoverage,deploy-sonarsource,release,sign"
       The line 4 should start with "orchestrate_sonar_platforms"
     End
+
+    It 'builds and analyzes main branch when DEPLOYMENT is false'
+      export DEPLOYMENT="false"
+
+      When call build_maven
+      The lines of stdout should equal 5
+      The line 1 should include "DEPLOYMENT is false - disabling deployment"
+      The line 2 should include "Build and analyze def_main"
+      The line 3 should start with "Maven command: mvn install"
+      The line 4 should start with "mvn install"
+      The line 4 should include "-Pcoverage,release,sign"
+      The line 5 should start with "orchestrate_sonar_platforms"
+    End
   End
 
   Describe 'is_maintenance_branch'
@@ -287,6 +300,18 @@ Describe 'build_maven()'
       The line 1 should include "Build, deploy and analyze branch-1.2"
       The line 3 should start with "mvn deploy"
       The line 4 should start with "orchestrate_sonar_platforms"
+    End
+
+    It 'builds and analyzes main branch when DEPLOYMENT is false'
+      export DEPLOYMENT="false"
+
+      When call build_maven
+      The lines of stdout should equal 5
+      The line 1 should include "DEPLOYMENT is false - disabling deployment"
+      The line 2 should include "Build and analyze branch-1.2"
+      The line 3 should start with "Maven command: mvn install"
+      The line 4 should start with "mvn install"
+      The line 5 should start with "orchestrate_sonar_platforms"
     End
   End
 
@@ -325,18 +350,45 @@ Describe 'build_maven()'
       The line 5 should include "-Dsonar.pullrequest.branch=fix/jdoe/JIRA-1234-aFix"
       The line 5 should include "-Dsonar.pullrequest.base=def_main"
     End
+    It 'builds, analyzes pull request with no deploy when DEPLOY_PULL_REQUEST is true and DEPLOYMENT is false'
+      export DEPLOY_PULL_REQUEST="true"
+      export DEPLOYMENT="false"
+      When call build_maven
+      The lines of stdout should equal 6
+      The line 1 should include "DEPLOYMENT is false - disabling deployment"
+      The line 2 should include "Build and analyze pull request 123 (fix/jdoe/JIRA-1234-aFix)"
+      The line 3 should include "no deploy"
+      The line 4 should start with "Maven command: mvn install"
+      The line 5 should start with "mvn install"
+      The line 5 should include "-Pcoverage"
+      The line 6 should start with "orchestrate_sonar_platforms"
+      The line 6 should include "-Dsonar.pullrequest.key=123"
+      The line 6 should include "-Dsonar.pullrequest.branch=fix/jdoe/JIRA-1234-aFix"
+      The line 6 should include "-Dsonar.pullrequest.base=def_main"
+    End
   End
 
   Describe 'is_dogfood_branch'
     export GITHUB_REF_NAME="dogfood-on-something"
 
-    It 'builds'
+    It 'builds and deploy'
       When call build_maven
       The lines of stdout should equal 3
       The line 1 should include "Build, and deploy dogfood branch dogfood-on-something"
       The line 2 should start with "Maven command: mvn deploy"
       The line 3 should start with "mvn deploy"
       The line 3 should include "-Pdeploy-sonarsource,release"
+    End
+
+    It 'builds when DEPLOYMENT is false'
+      export DEPLOYMENT="false"
+      When call build_maven
+      The lines of stdout should equal 4
+      The line 1 should include "DEPLOYMENT is false - disabling deployment"
+      The line 2 should include "Build dogfood branch dogfood-on-something"
+      The line 3 should start with "Maven command: mvn install"
+      The line 4 should start with "mvn install"
+      The line 4 should include "-Prelease"
     End
   End
 
