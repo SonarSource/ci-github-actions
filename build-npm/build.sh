@@ -107,6 +107,15 @@ jfrog_npm_publish() {
 
   export PROJECT="${GITHUB_REPOSITORY#*/}"
   echo "PROJECT: ${PROJECT}"
+
+  # Create a local tarball and preserve it for attestation
+  echo "Creating local tarball for attestation..."
+  npm pack
+
+  # Copy to safe location before jf npm publish deletes it
+  mkdir -p .attestation-artifacts
+  cp -v ./*.tgz .attestation-artifacts/ 2>/dev/null || true
+
   echo "Publishing NPM package..."
   jf npm publish --build-name="$PROJECT" --build-number="$BUILD_NUMBER"
 
@@ -213,6 +222,27 @@ build_npm() {
   echo "=== Build completed successfully ==="
 }
 
+export_built_artifacts() {
+  local should_deploy
+  should_deploy=$(grep "should-deploy=" "$GITHUB_OUTPUT" 2>/dev/null | cut -d= -f2)
+  [[ "$should_deploy" != "true" ]] && return 0
+
+  echo "=== Capturing built artifacts for attestation ==="
+
+  local artifacts
+  artifacts=$(find .attestation-artifacts -name '*.tgz' -type f 2>/dev/null || true)
+
+  [[ -z "$artifacts" ]] && echo "No artifacts found for attestation" && return 0
+
+  echo "Found artifact(s) for attestation:"
+  echo "$artifacts"
+  {
+    echo "artifact-paths<<EOF"
+    echo "$artifacts"
+    echo "EOF"
+  } >> "$GITHUB_OUTPUT"
+}
+
 main() {
   echo "::group::Check tools"
   check_tool jq --version
@@ -222,6 +252,7 @@ main() {
   git_fetch_unshallow
   echo "::group::Build"
   build_npm
+  export_built_artifacts
   echo "::endgroup::"
 }
 

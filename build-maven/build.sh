@@ -189,6 +189,46 @@ build_maven() {
   fi
 }
 
+export_built_artifacts() {
+  local should_deploy
+  should_deploy=$(grep "should-deploy=" "$GITHUB_OUTPUT" 2>/dev/null | cut -d= -f2)
+  [[ "$should_deploy" != "true" ]] && return 0
+
+  echo "=== Capturing built artifacts for attestation ==="
+
+  # Check if maven.deploy.skip is set to true (modules not meant for deployment)
+  local deploy_skip
+  deploy_skip=$(mvn help:evaluate -Dexpression=maven.deploy.skip -q -DforceStdout 2>/dev/null || echo "false")
+  if [[ "$deploy_skip" == "true" ]]; then
+    echo "maven.deploy.skip=true detected - skipping attestation for non-deployable module"
+    return 0
+  fi
+
+  # Query Maven for build directory name, fallback to 'target'
+  local build_dir
+  build_dir=$(mvn help:evaluate -Dexpression=project.build.directory -q -DforceStdout 2>/dev/null | xargs basename 2>/dev/null || echo "target")
+  echo "Scanning for artifacts in: */${build_dir}/*"
+
+  # Find all built artifacts (excluding sources, javadoc, tests)
+  local artifacts
+  artifacts=$(find . -path "*/${build_dir}/*" \
+    \( -name '*.jar' -o -name '*.war' -o -name '*.ear' -o -name '*.zip' -o -name '*.tar.gz' -o -name '*.tar' -o -name '*.pom' -o -name '*.asc' -o -name '*.json' \) \
+    ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-tests.jar' \
+    -type f 2>/dev/null || true)
+
+  [[ -z "$artifacts" ]] && echo "No artifacts found for attestation" && return 0
+
+  echo "Found artifacts for attestation:"
+  echo "$artifacts"
+
+  {
+    echo "artifact-paths<<EOF"
+    echo "$artifacts"
+    echo "EOF"
+  } >> "$GITHUB_OUTPUT"
+}
+
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   build_maven "$@"
+  export_built_artifacts
 fi

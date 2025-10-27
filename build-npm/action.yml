@@ -42,6 +42,15 @@ inputs:
   build-name:
     description: Name of the build to publish. Defaults to the repository name.
     default: ''
+  generate-provenance:
+    description: Whether to generate provenance attestation for built artifacts
+    default: 'false'
+  provenance-on-pr:
+    description: Developer mode - Allow provenance generation on PRs/branches (bypass master-only restriction)
+    default: 'false'
+  provenance-subject-path:
+    description: Override the default subject-path for provenance attestation (glob pattern)
+    default: ''
 
 outputs:
   BUILD_NUMBER:
@@ -152,6 +161,17 @@ runs:
         name: npm-logs-${{ github.job }}${{ strategy.job-index }}
         path: ~/.npm/_logs/
         if-no-files-found: ignore
+
+    - name: Generate provenance attestation
+      if: |
+        ${{
+          inputs.generate-provenance == 'true' &&
+          steps.build.outputs.should-deploy == 'true' &&
+          (github.ref_name == github.event.repository.default_branch || inputs.provenance-on-pr == 'true')
+        }}
+      uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
+      with:
+        subject-path: ${{ inputs.provenance-subject-path != '' && inputs.provenance-subject-path || steps.build.outputs.artifact-paths }}
 
     - name: Generate workflow summary
       if: always()
