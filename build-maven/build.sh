@@ -120,16 +120,16 @@ build_maven() {
   local sonar_args=()
 
   # Determine if deployment should be skipped
-  if [ "${RUN_SHADOW_SCANS}" = "true" ]; then
+  if [[ "${RUN_SHADOW_SCANS}" = "true" ]]; then
     echo "Shadow scans enabled - disabling deployment"
     deployment=false
-  elif [ "${DEPLOYMENT}" = "false" ]; then
+  elif [[ "${DEPLOYMENT}" = "false" ]]; then
     echo "DEPLOYMENT is false - disabling deployment"
     deployment=false
   fi
 
   if is_default_branch || is_maintenance_branch; then
-    if [ "$deployment" != "true" ]; then
+    if [[ "$deployment" != "true" ]]; then
       echo "======= Build and analyze $GITHUB_REF_NAME ======="
       maven_command_args=("install" "-Pcoverage,release,sign")
     else
@@ -145,7 +145,7 @@ build_maven() {
     sonar_args+=("-Dsonar.pullrequest.branch=$GITHUB_HEAD_REF")
     sonar_args+=("-Dsonar.pullrequest.base=$GITHUB_BASE_REF")
 
-    if [ "$deployment" = "true" ] && [ "$DEPLOY_PULL_REQUEST" = "true" ]; then
+    if [[ "$deployment" = "true" ]] && [[ "$DEPLOY_PULL_REQUEST" = "true" ]]; then
       echo "======= with deploy ======="
       maven_command_args=("deploy" "-Pcoverage,deploy-sonarsource")
       should_deploy=true
@@ -156,7 +156,7 @@ build_maven() {
     enable_sonar=true
 
   elif is_dogfood_branch; then
-    if [ "$deployment" != "true" ]; then
+    if [[ "$deployment" != "true" ]]; then
       echo "======= Build dogfood branch $GITHUB_REF_NAME ======="
       maven_command_args=("install" "-Prelease")
     else
