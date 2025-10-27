@@ -104,18 +104,18 @@ set_project_version() {
 
 should_deploy() {
   # Disable deployment when explicitly requested
-  if [[ "${DEPLOYMENT}" == "false" ]]; then
+  if [[ "${DEPLOYMENT}" = "false" ]]; then
     return 1
   fi
 
   # Disable deployment when shadow scans are enabled to prevent duplicate artifacts
-  if [[ "${RUN_SHADOW_SCANS}" == "true" ]]; then
+  if [[ "${RUN_SHADOW_SCANS}" = "true" ]]; then
     return 1
   fi
 
   if is_pull_request; then
     # For pull requests, deploy only if explicitly enabled
-    [[ "$DEPLOY_PULL_REQUEST" == "true" ]]
+    [[ "$DEPLOY_PULL_REQUEST" = "true" ]]
   else
     is_default_branch || \
     is_maintenance_branch || \
