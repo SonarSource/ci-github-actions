@@ -33,6 +33,7 @@
 # - GITHUB_BASE_REF: Base branch for pull requests (only during pull_request events)
 #
 # Optional user customization:
+# - DEPLOYMENT: Whether to deploy (default: true)
 # - DEPLOY_PULL_REQUEST: Whether to deploy pull request artifacts (default: false)
 # - SKIP_TESTS: Whether to skip running tests (default: false)
 # - GRADLE_ARGS: Additional arguments to pass to Gradle
@@ -55,8 +56,9 @@ if [[ "${SONAR_PLATFORM:?}" != "none" ]]; then
   : "${NEXT_URL:?}" "${NEXT_TOKEN:?}" "${SQC_US_URL:?}" "${SQC_US_TOKEN:?}" "${SQC_EU_URL:?}" "${SQC_EU_TOKEN:?}"
 fi
 : "${ORG_GRADLE_PROJECT_signingKey:?}" "${ORG_GRADLE_PROJECT_signingPassword:?}" "${ORG_GRADLE_PROJECT_signingKeyId:?}"
-: "${DEPLOY_PULL_REQUEST:=false}" "${SKIP_TESTS:=false}"
-export DEPLOY_PULL_REQUEST
+: "${DEPLOY_PULL_REQUEST:=false}" "${DEPLOYMENT:=true}"
+export DEPLOY_PULL_REQUEST DEPLOYMENT
+: "${SKIP_TESTS:=false}"
 : "${GRADLE_ARGS:=}"
 
 git_fetch_unshallow() {
@@ -101,6 +103,11 @@ set_project_version() {
 }
 
 should_deploy() {
+  # Disable deployment when explicitly requested
+  if [[ "${DEPLOYMENT}" == "false" ]]; then
+    return 1
+  fi
+
   # Disable deployment when shadow scans are enabled to prevent duplicate artifacts
   if [[ "${RUN_SHADOW_SCANS}" == "true" ]]; then
     return 1

@@ -33,6 +33,7 @@
 #
 # Optional user customization:
 # - DEPLOY_PULL_REQUEST: Whether to deploy pull request artifacts (default: false)
+# - DEPLOYMENT: Whether to skip deployment (default: false)
 # - SONAR_SCANNER_JAVA_OPTS: JVM options for SonarQube scanner (e.g. -Xmx512m)
 # - SCANNER_VERSION: SonarQube Maven plugin version (default: 5.1.0.4751)
 # shellcheck source-path=SCRIPTDIR
@@ -56,7 +57,8 @@ if [[ "${SONAR_PLATFORM:?}" != "none" ]]; then
 fi
 : "${RUN_SHADOW_SCANS:?}"
 : "${DEPLOY_PULL_REQUEST:=false}"
-export ARTIFACTORY_URL DEPLOY_PULL_REQUEST
+: "${DEPLOYMENT:=true}"
+export ARTIFACTORY_URL DEPLOY_PULL_REQUEST DEPLOYMENT
 
 # FIXME Workaround for SonarSource parent POM; it can be removed after releases of parent 73+ and parent-oss 84+
 export BUILD_ID=$BUILD_NUMBER
@@ -113,14 +115,29 @@ build_maven() {
   git_fetch_unshallow
 
   local maven_command_args
+  local deployment=true
   local enable_sonar=false should_deploy=false
   local sonar_args=()
 
+  # Determine if deployment should be skipped
+  if [ "${RUN_SHADOW_SCANS}" = "true" ]; then
+    echo "Shadow scans enabled - disabling deployment"
+    deployment=false
+  elif [ "${DEPLOYMENT}" = "false" ]; then
+    echo "DEPLOYMENT is false - disabling deployment"
+    deployment=false
+  fi
+
   if is_default_branch || is_maintenance_branch; then
-    echo "======= Build, deploy and analyze $GITHUB_REF_NAME ======="
-    maven_command_args=("deploy" "-Pcoverage,deploy-sonarsource,release,sign")
+    if [ "$deployment" != "true" ]; then
+      echo "======= Build and analyze $GITHUB_REF_NAME ======="
+      maven_command_args=("install" "-Pcoverage,release,sign")
+    else
+      echo "======= Build, deploy and analyze $GITHUB_REF_NAME ======="
+      maven_command_args=("deploy" "-Pcoverage,deploy-sonarsource,release,sign")
+      should_deploy=true
+    fi
     enable_sonar=true
-    should_deploy=true
 
   elif is_pull_request; then
     echo "======= Build and analyze pull request $PULL_REQUEST ($GITHUB_HEAD_REF) ======="
@@ -128,7 +145,7 @@ build_maven() {
     sonar_args+=("-Dsonar.pullrequest.branch=$GITHUB_HEAD_REF")
     sonar_args+=("-Dsonar.pullrequest.base=$GITHUB_BASE_REF")
 
-    if [[ "$DEPLOY_PULL_REQUEST" == "true" ]]; then
+    if [ "$deployment" = "true" ] && [ "$DEPLOY_PULL_REQUEST" = "true" ]; then
       echo "======= with deploy ======="
       maven_command_args=("deploy" "-Pcoverage,deploy-sonarsource")
       should_deploy=true
@@ -139,9 +156,14 @@ build_maven() {
     enable_sonar=true
 
   elif is_dogfood_branch; then
-    echo "======= Build, and deploy dogfood branch $GITHUB_REF_NAME ======="
-    maven_command_args=("deploy" "-Pdeploy-sonarsource,release")
-    should_deploy=true
+    if [ "$deployment" != "true" ]; then
+      echo "======= Build dogfood branch $GITHUB_REF_NAME ======="
+      maven_command_args=("install" "-Prelease")
+    else
+      echo "======= Build, and deploy dogfood branch $GITHUB_REF_NAME ======="
+      maven_command_args=("deploy" "-Pdeploy-sonarsource,release")
+      should_deploy=true
+    fi
 
   elif is_long_lived_feature_branch; then
     echo "======= Build and analyze long lived feature branch $GITHUB_REF_NAME ======="
@@ -153,22 +175,6 @@ build_maven() {
     maven_command_args=("verify")
   fi
 
-  # Disable deployment when running shadow scans
-  if [ "${RUN_SHADOW_SCANS}" = "true" ]; then
-    echo "Shadow scans enabled - disabling deployment"
-    # Replace deploy with install to disable deployment
-    if [[ "${maven_command_args[0]}" == "deploy" ]]; then
-      maven_command_args[0]="install"
-      should_deploy=false
-      # Remove deploy-specific profiles but keep others
-      for i in "${!maven_command_args[@]}"; do
-        if [[ "${maven_command_args[$i]}" == *"deploy-sonarsource"* ]]; then
-          # Remove deploy-sonarsource from profiles
-          maven_command_args[i]=$(echo "${maven_command_args[i]}" | sed 's/,deploy-sonarsource//g' | sed 's/deploy-sonarsource,//g' | sed 's/deploy-sonarsource//g')
-        fi
-      done
-    fi
-  fi
   echo "should-deploy=$should_deploy" >> "$GITHUB_OUTPUT"
 
   # Execute the main Maven build
