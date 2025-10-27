@@ -53,6 +53,7 @@ export SQC_EU_TOKEN="sqc-eu-token"
 export ORG_GRADLE_PROJECT_signingKey="signing-key"
 export ORG_GRADLE_PROJECT_signingPassword="signing-pass"
 export ORG_GRADLE_PROJECT_signingKeyId="signing-id"
+export DEPLOYMENT="true"
 export DEPLOY_PULL_REQUEST="false"
 export SKIP_TESTS="false"
 export GRADLE_ARGS=""
@@ -178,6 +179,14 @@ Describe 'set_project_version'
 End
 
 Describe 'should_deploy'
+  It 'does not deploy when deployment is disabled'
+    export DEPLOYMENT="false"
+    export GITHUB_EVENT_NAME="push"
+    export GITHUB_REF_NAME="master"
+    When call should_deploy
+    The status should be failure
+  End
+
   It 'deploys for master branch'
     export GITHUB_REF_NAME="master"
     export GITHUB_EVENT_NAME="push"
@@ -211,6 +220,14 @@ Describe 'should_deploy'
     export DEPLOY_PULL_REQUEST="true"
     When call should_deploy
     The status should be success
+  End
+
+  It 'does not deploy when deployment is disabled and pr is enabled'
+    export DEPLOYMENT="false"
+    export GITHUB_EVENT_NAME="pull_request"
+    export DEPLOY_PULL_REQUEST="true"
+    When call should_deploy
+    The status should be failure
   End
 
   It 'does not deploy when shadow scans enabled'

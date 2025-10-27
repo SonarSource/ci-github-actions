@@ -256,24 +256,26 @@ See also [`config-maven`](#config-maven) input environment variables.
 | `artifactory-deploy-repo`   | Deployment repository                                                                                                      | `sonarsource-private-qa` for private repositories, `sonarsource-public-qa` for public repos |
 | `artifactory-reader-role`   | Suffix for the Artifactory reader role in Vault                                                                            | `private-reader` for private repos, `public-reader` for public repos                        |
 | `artifactory-deployer-role` | Suffix for the Artifactory deployer role in Vault                                                                          | `qa-deployer` for private repos, `public-deployer` for public repos                         |
-| `deploy-pull-request`       | Whether to deploy pull request artifacts                                                                                   | `false`                                                                                     |
+| `deploy`                    | Whether to deploy on master, maintenance, dogfood and long-lived branches                                                  | `true`                                                                                      |
+| `deploy-pull-request`       | Whether to also deploy for pull requests. If deploy is false, this has no effect.                                          | `false`                                                                                     |
 | `maven-args`                | Additional arguments to pass to Maven                                                                                      | (optional)                                                                                  |
 | `scanner-java-opts`         | Additional Java options for the Sonar scanner (`SONAR_SCANNER_JAVA_OPTS`)                                                  | `-Xmx512m`                                                                                  |
 | `repox-url`                 | URL for Repox                                                                                                              | `https://repox.jfrog.io`                                                                    |
 | `repox-artifactory-url`     | URL for Repox Artifactory API (overrides repox-url/artifactory if provided)                                                | (optional)                                                                                  |
 | `use-develocity`            | Whether to use Develocity for build tracking                                                                               | `false`                                                                                     |
 | `develocity-url`            | URL for Develocity                                                                                                         | `https://develocity.sonar.build/`                                                           |
-| `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', 'sqc-us', or 'none'. Use 'none' to skip sonar scans                        | `next`                                                                                      |
+| `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', 'sqc-us', or 'none'. Use 'none' to skip sonar scans                         | `next`                                                                                      |
 | `working-directory`         | Relative path under github.workspace to execute the build in                                                               | `.`                                                                                         |
 | `run-shadow-scans`          | If true, run SonarQube analysis on all 3 platforms (next, sqc-eu, sqc-us); if false, only on the selected `sonar-platform` | `false`                                                                                     |
-| `cache-paths`                 | Custom cache paths (multiline). Overrides default `~/.m2/repository`.                        | (optional)                                                           |
-| `disable-caching`             | Whether to disable Maven caching entirely                                                                                  | `false`                                                              |
+| `cache-paths`               | Custom cache paths (multiline). Overrides default `~/.m2/repository`.                                                      | (optional)                                                                                  |
+| `disable-caching`           | Whether to disable Maven caching entirely                                                                                  | `false`                                                                                     |
 
 ### Outputs
 
 | Output         | Description                                                               |
 |----------------|---------------------------------------------------------------------------|
 | `BUILD_NUMBER` | The current build number. Also set as environment variable `BUILD_NUMBER` |
+| `WAS_DEPLOYED` | Whether the build was deployed (`true` or `false`)                        |
 
 ### Output Environment Variables
 
@@ -457,7 +459,8 @@ jobs:
 | `artifactory-deploy-repo`   | Deployment repository                                                                     | `sonarsource-private-qa` for private repositories, `sonarsource-public-qa` for public repos |
 | `artifactory-reader-role`   | Suffix for the Artifactory reader role in Vault                                           | `private-reader` for private repos, `public-reader` for public repos                        |
 | `artifactory-deployer-role` | Suffix for the Artifactory deployer role in Vault                                         | `qa-deployer` for private repos, `public-deployer` for public repos                         |
-| `deploy-pull-request`       | Whether to deploy pull request artifacts                                                  | `false`                                                                                     |
+| `deploy`                    | Whether to deploy on master, maintenance, dogfood and long-lived branches                 | `true`                                                                                      |
+| `deploy-pull-request`       | Whether to also deploy for pull requests. If deploy is false, this has no effect.         | `false`                                                                                     |
 | `skip-tests`                | Whether to skip running tests                                                             | `false`                                                                                     |
 | `use-develocity`            | Whether to use Develocity for build tracking                                              | `false`                                                                                     |
 | `gradle-args`               | Additional arguments to pass to Gradle                                                    | (optional)                                                                                  |
@@ -471,9 +474,11 @@ jobs:
 
 ### Outputs
 
-| Output            | Description                                |
-|-------------------|--------------------------------------------|
-| `project-version` | The project version from gradle.properties |
+| Output            | Description                                                               |
+|-------------------|---------------------------------------------------------------------------|
+| `project-version` | The project version from gradle.properties                                |
+| `BUILD_NUMBER`    | The current build number. Also set as environment variable `BUILD_NUMBER` |
+| `WAS_DEPLOYED`    | Whether the build was deployed (`true` or `false`)                        |
 
 ### Features
 
