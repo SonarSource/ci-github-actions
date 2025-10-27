@@ -192,9 +192,26 @@ export_built_artifacts() {
 
   echo "=== Capturing built artifacts for attestation ==="
   
-  # Find all built artifacts (JARs, WARs, EARs, ZIPs, TARs, POMs, signatures, SBOMs) in target directories, excluding sources, javadoc, and tests
+  # Query Maven for build directory (handles custom locations)
+  # Use command to bypass any mvn wrapper functions that might pollute output
+  local build_dir
+  build_dir=$(command mvn help:evaluate -Dexpression=project.build.directory -q -DforceStdout 2>/dev/null | grep -v '^\[' | tail -1)
+  
+  # Fallback to 'target' if query fails or returns empty
+  if [[ -z "$build_dir" ]] || [[ "$build_dir" == *"ERROR"* ]]; then
+    echo "Maven query failed, falling back to default 'target' directory"
+    build_dir="target"
+  else
+    echo "Maven build directory: ${build_dir}"
+  fi
+  
+  # Extract just the directory name (e.g., 'target' from '/full/path/to/target')
+  local build_dir_name
+  build_dir_name=$(basename "$build_dir")
+  
+  # Find all built artifacts in build directories (supports multi-module projects)
   local artifacts
-  artifacts=$(find . -path '*/target/*' \
+  artifacts=$(find . -path "*/${build_dir_name}/*" \
     \( -name '*.jar' -o -name '*.war' -o -name '*.ear' -o -name '*.zip' -o -name '*.tar.gz' -o -name '*.tar' -o -name '*.pom' -o -name '*.asc' -o -name '*.json' \) \
     ! -name '*-sources.jar' \
     ! -name '*-javadoc.jar' \
