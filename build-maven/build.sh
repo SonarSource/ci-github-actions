@@ -186,37 +186,36 @@ export_built_artifacts() {
   local should_deploy
   should_deploy=$(grep "should-deploy=" "$GITHUB_OUTPUT" 2>/dev/null | cut -d= -f2)
   
-  if [[ "$should_deploy" != "true" ]]; then
-    return 0
-  fi
+  [[ "$should_deploy" != "true" ]] && return 0
 
   echo "=== Capturing built artifacts for attestation ==="
   
-  # Query Maven for build directory (handles custom locations)
-  # Use command to bypass any mvn wrapper functions that might pollute output
-  local build_dir
-  build_dir=$(command mvn help:evaluate -Dexpression=project.build.directory -q -DforceStdout 2>/dev/null | grep -v '^\[' | tail -1)
-  
-  # Fallback to 'target' if query fails or returns empty
-  if [[ -z "$build_dir" ]] || [[ "$build_dir" == *"ERROR"* ]]; then
-    echo "Maven query failed, falling back to default 'target' directory"
-    build_dir="target"
-  else
-    echo "Maven build directory: ${build_dir}"
-  fi
-  
-  # Extract just the directory name (e.g., 'target' from '/full/path/to/target')
+  # Query Maven for build directory name, fallback to 'target' if it fails
   local build_dir_name
-  build_dir_name=$(basename "$build_dir")
+  build_dir_name=$(command mvn help:evaluate -Dexpression=project.build.directory -q -DforceStdout 2>/dev/null | xargs basename 2>/dev/null)
+  build_dir_name=${build_dir_name:-target}
   
-  # Find all built artifacts in build directories (supports multi-module projects)
+  echo "Scanning for artifacts in: */${build_dir_name}/*"
+  
+  # Maven artifact types to attest
+  local -a artifact_types=(
+    '*.jar' '*.war' '*.ear'           # Java archives
+    '*.zip' '*.tar.gz' '*.tar'        # Distribution archives
+    '*.pom' '*.asc' '*.json'          # Metadata, signatures, SBOMs
+  )
+  
+  # Build find name pattern
+  local find_pattern=""
+  for type in "${artifact_types[@]}"; do
+    find_pattern+="${find_pattern:+ -o }-name '$type'"
+  done
+  
+  # Find all built artifacts (excluding sources, javadoc, tests)
   local artifacts
-  artifacts=$(find . -path "*/${build_dir_name}/*" \
-    \( -name '*.jar' -o -name '*.war' -o -name '*.ear' -o -name '*.zip' -o -name '*.tar.gz' -o -name '*.tar' -o -name '*.pom' -o -name '*.asc' -o -name '*.json' \) \
-    ! -name '*-sources.jar' \
-    ! -name '*-javadoc.jar' \
-    ! -name '*-tests.jar' \
-    -type f 2>/dev/null || true)
+  artifacts=$(eval "find . -path '*/${build_dir_name}/*' \
+    \( $find_pattern \) \
+    ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-tests.jar' \
+    -type f 2>/dev/null || true")
   
   if [[ -z "$artifacts" ]]; then
     echo "No artifacts found for attestation"
@@ -226,7 +225,6 @@ export_built_artifacts() {
   echo "Found artifacts for attestation:"
   echo "$artifacts"
   
-  # Output to GitHub Actions (multi-line format)
   {
     echo "artifact-paths<<EOF"
     echo "$artifacts"
