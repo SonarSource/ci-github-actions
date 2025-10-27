@@ -244,12 +244,45 @@ gradle_build() {
   fi
 }
 
+export_built_artifacts() {
+  if ! should_deploy; then
+    return 0
+  fi
+
+  echo "=== Capturing built artifacts for attestation ==="
+  
+  # Find all built artifacts (JARs, WARs, EARs, ZIPs, TARs, POMs, signatures, SBOMs), excluding sources, javadoc, and tests
+  local artifacts
+  artifacts=$(find . \( -path '*/build/libs/*' -o -path '*/build/distributions/*' -o -path '*/build/publications/*' \) \
+    \( -name '*.jar' -o -name '*.war' -o -name '*.ear' -o -name '*.zip' -o -name '*.tar.gz' -o -name '*.tar' -o -name '*.pom' -o -name '*.asc' -o -name '*.json' \) \
+    ! -name '*-sources.jar' \
+    ! -name '*-javadoc.jar' \
+    ! -name '*-tests.jar' \
+    -type f 2>/dev/null || true)
+  
+  if [[ -z "$artifacts" ]]; then
+    echo "No artifacts found for attestation"
+    return 0
+  fi
+  
+  echo "Found artifacts for attestation:"
+  echo "$artifacts"
+  
+  # Output to GitHub Actions (multi-line format)
+  {
+    echo "artifact-paths<<EOF"
+    echo "$artifacts"
+    echo "EOF"
+  } >> "$GITHUB_OUTPUT"
+}
+
 main() {
   check_tool java -version
   set_gradle_cmd
   set_build_env
   set_project_version
   gradle_build
+  export_built_artifacts
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

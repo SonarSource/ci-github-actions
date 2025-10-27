@@ -165,6 +165,14 @@ jfrog_yarn_publish() {
   jf config add repox --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_DEPLOY_ACCESS_TOKEN"
   jf npm-config --repo-resolve "npm" --repo-deploy "$ARTIFACTORY_DEPLOY_REPO"
 
+  # Create a local tarball and preserve it for attestation
+  echo "Creating local tarball for attestation..."
+  yarn pack
+  
+  # Copy to safe location before jf npm publish deletes it
+  mkdir -p .attestation-artifacts
+  cp -v *.tgz .attestation-artifacts/ 2>/dev/null || true
+
   echo "::debug::Publishing Yarn package..."
   jf npm publish --build-name="$PROJECT" --build-number="$BUILD_NUMBER"
 
@@ -274,12 +282,40 @@ build_yarn() {
   echo "=== Build completed successfully ==="
 }
 
+export_built_artifacts() {
+  local should_deploy
+  should_deploy=$(grep "should-deploy=" "$GITHUB_OUTPUT" 2>/dev/null | cut -d= -f2)
+  
+  if [[ "$should_deploy" != "true" ]]; then
+    return 0
+  fi
+
+  echo "=== Capturing built artifacts for attestation ==="
+  
+  # Get artifacts from safe location
+  local artifacts
+  artifacts=$(find .attestation-artifacts -name '*.tgz' -type f 2>/dev/null || true)
+  
+  if [[ -n "$artifacts" ]]; then
+    echo "Found artifact(s) for attestation:"
+    echo "$artifacts"
+    {
+      echo "artifact-paths<<EOF"
+      echo "$artifacts"
+      echo "EOF"
+    } >> "$GITHUB_OUTPUT"
+  else
+    echo "No artifacts found for attestation"
+  fi
+}
+
 main() {
   check_tool jq --version
   check_tool jf --version
   check_tool yarn --version
   set_build_env
   build_yarn
+  export_built_artifacts
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

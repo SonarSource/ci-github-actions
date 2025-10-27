@@ -182,6 +182,42 @@ build_maven() {
   fi
 }
 
+export_built_artifacts() {
+  local should_deploy
+  should_deploy=$(grep "should-deploy=" "$GITHUB_OUTPUT" 2>/dev/null | cut -d= -f2)
+  
+  if [[ "$should_deploy" != "true" ]]; then
+    return 0
+  fi
+
+  echo "=== Capturing built artifacts for attestation ==="
+  
+  # Find all built artifacts (JARs, WARs, EARs, ZIPs, TARs, POMs, signatures, SBOMs) in target directories, excluding sources, javadoc, and tests
+  local artifacts
+  artifacts=$(find . -path '*/target/*' \
+    \( -name '*.jar' -o -name '*.war' -o -name '*.ear' -o -name '*.zip' -o -name '*.tar.gz' -o -name '*.tar' -o -name '*.pom' -o -name '*.asc' -o -name '*.json' \) \
+    ! -name '*-sources.jar' \
+    ! -name '*-javadoc.jar' \
+    ! -name '*-tests.jar' \
+    -type f 2>/dev/null || true)
+  
+  if [[ -z "$artifacts" ]]; then
+    echo "No artifacts found for attestation"
+    return 0
+  fi
+  
+  echo "Found artifacts for attestation:"
+  echo "$artifacts"
+  
+  # Output to GitHub Actions (multi-line format)
+  {
+    echo "artifact-paths<<EOF"
+    echo "$artifacts"
+    echo "EOF"
+  } >> "$GITHUB_OUTPUT"
+}
+
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   build_maven "$@"
+  export_built_artifacts
 fi

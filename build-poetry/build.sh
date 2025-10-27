@@ -298,6 +298,36 @@ build_poetry() {
   echo "=== Build completed successfully ==="
 }
 
+export_built_artifacts() {
+  local should_deploy
+  should_deploy=$(grep "should-deploy=" "$GITHUB_OUTPUT" 2>/dev/null | cut -d= -f2)
+  
+  if [[ "$should_deploy" != "true" ]]; then
+    return 0
+  fi
+
+  echo "=== Capturing built artifacts for attestation ==="
+  
+  # Find Python distribution packages (wheels, source distributions, SBOMs)
+  local artifacts
+  artifacts=$(find dist -type f \( -name '*.tar.gz' -o -name '*.whl' -o -name '*.json' \) 2>/dev/null || true)
+  
+  if [[ -z "$artifacts" ]]; then
+    echo "No artifacts found for attestation"
+    return 0
+  fi
+  
+  echo "Found artifacts for attestation:"
+  echo "$artifacts"
+  
+  # Output to GitHub Actions (multi-line format)
+  {
+    echo "artifact-paths<<EOF"
+    echo "$artifacts"
+    echo "EOF"
+  } >> "$GITHUB_OUTPUT"
+}
+
 main() {
   check_tool jq --version
   check_tool python --version
@@ -306,6 +336,7 @@ main() {
 
   set_build_env
   build_poetry
+  export_built_artifacts
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
