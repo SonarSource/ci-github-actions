@@ -1085,7 +1085,7 @@ to avoid re-downloading tools on every run. It handles all DigiCert authenticati
 
 #### Required Vault Permissions
 
-- `development/kv/data/sign/2023-2025`: DigiCert signing credentials including:
+- `development/kv/data/sign/digicert`: DigiCert signing credentials including:
   - `apikey`: DigiCert API key for downloading tools
   - `client_cert_file_base64`: Base64-encoded client certificate
   - `cert_fp`: Certificate fingerprint (SHA1 hash)
