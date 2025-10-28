@@ -92,7 +92,7 @@ Describe 'build.sh'
       The line 4 should include "git fetch"
       The line 5 should include "Build, no analysis, no deploy"
       The line 6 should include "Maven command: mvn verify"
-      The line 7 should match pattern "mvn verify"
+      The line 7 should match pattern "mvn verify -Psign"
   End
 
   It 'runs build_maven() for windows'
@@ -113,7 +113,7 @@ Describe 'build.sh'
       The line 4 should include "git fetch"
       The line 5 should include "Build, no analysis, no deploy"
       The line 6 should include "Maven command: mvn verify"
-      The line 7 should match pattern "mvn verify"
+      The line 7 should match pattern "mvn verify -Psign"
   End
 End
 

@@ -38,6 +38,7 @@ runs:
           development/kv/data/sign/digicert apikey | SM_API_KEY;
           development/kv/data/sign/digicert client_cert_file_base64 | SM_CLIENT_CERT_FILE_B64;
           development/kv/data/sign/digicert cert_fp | SM_CODE_SIGNING_CERT_SHA1_HASH;
+          development/kv/data/sign/digicert cert | SM_CERT;
           development/kv/data/sign/digicert client_cert_password | SM_CLIENT_CERT_PASSWORD;
           development/kv/data/sign/digicert host | SM_HOST;
 
@@ -53,6 +54,11 @@ runs:
       run: |
         echo "Using cached smctl from ${SMTOOLS_PATH}"
         echo "${SMTOOLS_PATH}" >> "$GITHUB_PATH"
+
+    - name: Setup pkcs11properties.cfg
+      shell: bash
+      run: |
+        cat "${SMTOOLS_PATH}/pkcs11properties.cfg"
 
     - name: Setup jsign
       shell: bash
@@ -81,6 +87,7 @@ runs:
       run: |
         rm -f Certificate_pkcs12.p12
         echo '${{ fromJSON(steps.secrets.outputs.vault).SM_CLIENT_CERT_FILE_B64 }}' | base64 --decode > Certificate_pkcs12.p12
+        echo "SM_CERT=${{ fromJSON(steps.secrets.outputs.vault).SM_CERT }}" >> "$GITHUB_ENV"
         echo "SM_HOST=${{ fromJSON(steps.secrets.outputs.vault).SM_HOST }}" >> "$GITHUB_ENV"
         echo "SM_API_KEY=${{ fromJSON(steps.secrets.outputs.vault).SM_API_KEY }}" >> "$GITHUB_ENV"
         echo "SM_CLIENT_CERT_FILE=${PWD}/Certificate_pkcs12.p12" >> "$GITHUB_ENV"

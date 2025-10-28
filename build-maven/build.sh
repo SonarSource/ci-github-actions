@@ -130,11 +130,11 @@ build_maven() {
 
     if [[ "$DEPLOY_PULL_REQUEST" == "true" ]]; then
       echo "======= with deploy ======="
-      maven_command_args=("deploy" "-Pcoverage,deploy-sonarsource")
+      maven_command_args=("deploy" "-Pcoverage,deploy-sonarsource,sign")
       should_deploy=true
     else
       echo "======= no deploy ======="
-      maven_command_args=("install" "-Pcoverage")
+      maven_command_args=("install" "-Pcoverage,sign")
     fi
     enable_sonar=true
 
@@ -150,7 +150,7 @@ build_maven() {
 
   else
     echo "======= Build, no analysis, no deploy $GITHUB_REF_NAME ======="
-    maven_command_args=("verify")
+    maven_command_args=("verify" "-Psign")
   fi
 
   # Disable deployment when running shadow scans
