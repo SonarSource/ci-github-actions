@@ -67,11 +67,12 @@ Describe 'set_project_version()'
     The lines of contents of file "$GITHUB_ENV" should equal 2
     The line 1 of contents of file "$GITHUB_ENV" should equal "CURRENT_VERSION=1.2.3-SNAPSHOT"
     The line 2 of contents of file "$GITHUB_ENV" should equal "PROJECT_VERSION=1.2.3.999"
-    The lines of output should equal 4
+    The lines of output should equal 5
     The line 1 should equal "CURRENT_VERSION=1.2.3-SNAPSHOT (from pom.xml)"
     The line 2 should equal "Replacing version 1.2.3-SNAPSHOT with 1.2.3.999"
-    The line 3 should start with "mvn org.codehaus.mojo:versions-maven-plugin:2.7:set -DnewVersion=1.2.3.999"
-    The line 4 should equal "PROJECT_VERSION=1.2.3.999"
+    The line 3 should start with "Maven command: mvn"
+    The line 4 should start with "mvn org.codehaus.mojo:versions-maven-plugin:2.7:set -DnewVersion=1.2.3.999"
+    The line 5 should equal "PROJECT_VERSION=1.2.3.999"
   End
 
   It 'handles 1.2-SNAPSHOT version (adds .0)'
@@ -86,11 +87,12 @@ Describe 'set_project_version()'
     The lines of contents of file "$GITHUB_ENV" should equal 2
     The line 1 of contents of file "$GITHUB_ENV" should equal "CURRENT_VERSION=1.2-SNAPSHOT"
     The line 2 of contents of file "$GITHUB_ENV" should equal "PROJECT_VERSION=1.2.0.999"
-    The lines of output should equal 4
+    The lines of output should equal 5
     The line 1 should equal "CURRENT_VERSION=1.2-SNAPSHOT (from pom.xml)"
     The line 2 should equal "Replacing version 1.2-SNAPSHOT with 1.2.0.999"
-    The line 3 should start with "mvn org.codehaus.mojo:versions-maven-plugin:2.7:set -DnewVersion=1.2.0.999"
-    The line 4 should equal "PROJECT_VERSION=1.2.0.999"
+    The line 3 should start with "Maven command: mvn"
+    The line 4 should start with "mvn org.codehaus.mojo:versions-maven-plugin:2.7:set -DnewVersion=1.2.0.999"
+    The line 5 should equal "PROJECT_VERSION=1.2.0.999"
   End
 
   It 'handles 1-SNAPSHOT version (adds .0.0)'
@@ -105,11 +107,12 @@ Describe 'set_project_version()'
     The lines of contents of file "$GITHUB_ENV" should equal 2
     The line 1 of contents of file "$GITHUB_ENV" should equal "CURRENT_VERSION=1-SNAPSHOT"
     The line 2 of contents of file "$GITHUB_ENV" should equal "PROJECT_VERSION=1.0.0.999"
-    The lines of output should equal 4
+    The lines of output should equal 5
     The line 1 should equal "CURRENT_VERSION=1-SNAPSHOT (from pom.xml)"
     The line 2 should equal "Replacing version 1-SNAPSHOT with 1.0.0.999"
-    The line 3 should start with "mvn org.codehaus.mojo:versions-maven-plugin:2.7:set -DnewVersion=1.0.0.999"
-    The line 4 should equal "PROJECT_VERSION=1.0.0.999"
+    The line 3 should start with "Maven command: mvn"
+    The line 4 should start with "mvn org.codehaus.mojo:versions-maven-plugin:2.7:set -DnewVersion=1.0.0.999"
+    The line 5 should equal "PROJECT_VERSION=1.0.0.999"
   End
 
   It 'rejects version with too many digits'
