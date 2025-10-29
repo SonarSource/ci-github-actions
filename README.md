@@ -53,7 +53,7 @@ The build number is unique per workflow run ID. It is not incremented on workflo
 ```yaml
 jobs:
   get-build-number:
-    runs-on: github-ubuntu-latest-s
+    runs-on: sonar-xs  # Private repos default; use github-ubuntu-latest-s for public repos
     permissions:
       id-token: write
       contents: read
@@ -331,12 +331,13 @@ on:
   merge_group:
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true # or ${{ github.ref_name != github.event.repository.default_branch }}
+
 jobs:
   build:
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-      cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
-    runs-on: github-ubuntu-latest-s
+    runs-on: sonar-xs  # Private repos default; use github-ubuntu-latest-s for public repos
     name: Build
     permissions:
       id-token: write
@@ -420,12 +421,13 @@ on:
   merge_group:
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true # or ${{ github.ref_name != github.event.repository.default_branch }}
+
 jobs:
   build:
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-      cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
-    runs-on: github-ubuntu-latest-s
+    runs-on: sonar-xs  # Private repos default; use github-ubuntu-latest-s for public repos
     name: Build
     permissions:
       id-token: write
@@ -605,10 +607,7 @@ The Node.js and NPM tools must be pre-installed. Use of `mise` is recommended.
 
 ```yaml
 config:
-  concurrency:
-    group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-    cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
-  runs-on: github-ubuntu-latest-s
+  runs-on: sonar-xs  # Private repos default; use github-ubuntu-latest-s for public repos
   name: Build
   permissions:
     id-token: write
@@ -693,12 +692,13 @@ on:
   merge_group:
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true # or ${{ github.ref_name != github.event.repository.default_branch }}
+
 jobs:
   build:
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-      cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
-    runs-on: github-ubuntu-latest-s
+    runs-on: sonar-xs  # Private repos default; use github-ubuntu-latest-s for public repos
     name: Build
     permissions:
       id-token: write
@@ -804,12 +804,13 @@ on:
   merge_group:
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true # or ${{ github.ref_name != github.event.repository.default_branch }}
+
 jobs:
   build:
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-      cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
-    runs-on: github-ubuntu-latest-s
+    runs-on: sonar-xs  # Private repos default; use github-ubuntu-latest-s for public repos
     name: Build
     permissions:
       id-token: write
@@ -898,10 +899,7 @@ Required properties in the build info:
 promote:
   needs:
     - build
-  concurrency:
-    group: ${{ github.workflow }}-promote-${{ github.event.pull_request.number || github.ref }}
-    cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
-  runs-on: github-ubuntu-latest-s
+  runs-on: sonar-xs  # Private repos default; use github-ubuntu-latest-s for public repos
   name: Promote
   permissions:
     id-token: write
@@ -955,7 +953,7 @@ on:
 
 jobs:
   cleanup:
-    runs-on: github-ubuntu-latest-s
+    runs-on: sonar-xs  # Private repos default; use github-ubuntu-latest-s for public repos
     permissions:
       actions: write
     steps:
@@ -997,7 +995,7 @@ The only requirement for the action is `jq` installed.
 ```yaml
 jobs:
   build:
-    runs-on: github-ubuntu-latest-s
+    runs-on: sonar-xs  # Private repos default; use github-ubuntu-latest-s for public repos
     steps:
       - uses: SonarSource/ci-github-actions/cache@v1
         with:
