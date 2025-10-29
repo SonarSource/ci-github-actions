@@ -50,7 +50,7 @@ inputs:
     description: URL for Develocity
     default: https://develocity.sonar.build/
   cache-paths:
-    description: Cache paths to use (multiline). If provided, overrides the default ~/.m2/repository
+    description: Cache paths to use (multiline).
     default: ~/.m2/repository
   disable-caching:
     description: Whether to disable Maven caching entirely
@@ -150,9 +150,9 @@ runs:
     - name: Cleanup Maven repository before caching
       shell: bash
       run: |
-        rm -rf "$HOME/.m2/repository/org/sonarsource/"
-        rm -rf "$HOME/.m2/repository/repository/com/sonarsource/"
-        /usr/bin/find "$HOME/.m2/repository" -name resolver-status.properties -delete
+        rm -rf "$MAVEN_CONFIG/repository/org/sonarsource/"
+        rm -rf "$MAVEN_CONFIG/repository/repository/com/sonarsource/"
+        /usr/bin/find "$MAVEN_CONFIG/repository" -name resolver-status.properties -delete
 
     - name: Generate workflow summary
       if: always()

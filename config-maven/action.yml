@@ -25,7 +25,7 @@ inputs:
     description: URL for Develocity
     default: https://develocity.sonar.build/
   cache-paths:
-    description: Cache paths to use (multiline). If provided, overrides the default ~/.m2/repository
+    description: Cache paths to use (multiline).
     default: ~/.m2/repository
   disable-caching:
     description: Whether to disable Maven caching entirely
@@ -133,11 +133,28 @@ runs:
       shell: bash
       run: |
         MAVEN_CONFIG="$HOME/.m2"
-        mkdir -p "$MAVEN_CONFIG"
-        cp "${ACTION_PATH_CONFIG_MAVEN}/resources/settings.xml" "$MAVEN_CONFIG/settings.xml"
-        echo "Copied Maven settings from ${ACTION_PATH_CONFIG_MAVEN}/resources/settings.xml to $MAVEN_CONFIG/settings.xml"
+        mkdir -p "$MAVEN_CONFIG/repository"
+        M2_SETTINGS="$MAVEN_CONFIG/settings.xml"
+        cp "${ACTION_PATH_CONFIG_MAVEN}/resources/settings.xml" "$M2_SETTINGS"
+        echo "Copied Maven settings from ${ACTION_PATH_CONFIG_MAVEN}/resources/settings.xml to $M2_SETTINGS"
         echo "MAVEN_CONFIG=$MAVEN_CONFIG" >> "$GITHUB_ENV"
         echo "SONARSOURCE_REPOSITORY_URL=$ARTIFACTORY_URL/sonarsource-qa" >> "$GITHUB_ENV"
+
+        # Maven retrieves the user home directory from the passwd database, that may differ from $HOME (e.g., in a container)
+        echo "HOME: $HOME"
+        if [ "$RUNNER_OS" != "Windows" ]; then
+          USER_HOME="$(getent passwd $(whoami) | cut -d: -f6)"
+          if [ "$USER_HOME" != "$HOME" ]; then
+            echo "::group::USER_HOME symlinks workaround for Maven when it differs from HOME"
+            echo "USER_HOME (from passwd): $USER_HOME"
+            mkdir -p "$USER_HOME/.m2"
+            ln -sf "$MAVEN_CONFIG/repository" "$USER_HOME/.m2/repository"
+            ln -sf "$M2_SETTINGS" "$USER_HOME/.m2/settings.xml"
+            echo "Created symlinks from $USER_HOME/.m2 to $HOME/.m2:"
+            ls -la "$USER_HOME/.m2/" "$HOME/.m2"
+            echo "::endgroup::"
+          fi
+        fi
 
     - name: Cache local Maven repository
       uses: ./.actions/cache
@@ -153,14 +170,7 @@ runs:
       if: steps.from-env.outputs.skip != 'true'
       shell: bash
       working-directory: ${{ inputs.working-directory }}
-      run: |
-        echo "pwd: $(pwd)"
-        env|grep HOME
-        echo "user.home: $(mvn -q -Dexec.executable="echo" -Dexec.args="\${user.home}" \
-          --non-recursive org.codehaus.mojo:exec-maven-plugin:1.3.1:exec)"
-        echo "env.HOME: $(mvn -q -Dexec.executable="echo" -Dexec.args="\${env.HOME}" \
-          --non-recursive org.codehaus.mojo:exec-maven-plugin:1.3.1:exec)"
-        $ACTION_PATH_CONFIG_MAVEN/set_maven_project_version.sh
+      run: $ACTION_PATH_CONFIG_MAVEN/set_maven_project_version.sh
 
     - name: Deactivate UseContainerSupport on github-ubuntu-* runners
       if: runner.os == 'Linux' && runner.environment == 'github-hosted' && steps.from-env.outputs.skip != 'true'

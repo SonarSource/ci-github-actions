@@ -22,9 +22,10 @@ source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 get_current_version() {
   local expression="project.version"
   if ! mvn --quiet --non-recursive org.codehaus.mojo:exec-maven-plugin:1.3.1:exec 2>/dev/null \
-    -Dexec.executable="echo" -Dexec.args="\${$expression}"; then
+      -Dexec.executable="echo" -Dexec.args="\${$expression}"; then
     echo "Failed to evaluate Maven expression '$expression'" >&2
-    mvn --debug -Dexec.executable="echo" -Dexec.args="\${$expression}" --non-recursive org.codehaus.mojo:exec-maven-plugin:1.3.1:exec
+    mvn --debug --non-recursive org.codehaus.mojo:exec-maven-plugin:1.3.1:exec \
+      -Dexec.executable="echo" -Dexec.args="\${$expression}"
     return 1
   fi
 }
@@ -67,7 +68,10 @@ set_project_version() {
   fi
   release_version="${release_version}.${BUILD_NUMBER}"
   echo "Replacing version ${current_version} with ${release_version}"
-  mvn org.codehaus.mojo:versions-maven-plugin:2.7:set -DnewVersion="$release_version" -DgenerateBackupPoms=false --batch-mode --no-transfer-progress --errors
+  echo "Maven command: mvn org.codehaus.mojo:versions-maven-plugin:2.7:set -DnewVersion=$release_version" \
+    "-DgenerateBackupPoms=false --batch-mode --no-transfer-progress --errors"
+  mvn org.codehaus.mojo:versions-maven-plugin:2.7:set -DnewVersion="$release_version" \
+    -DgenerateBackupPoms=false --batch-mode --no-transfer-progress --errors
   echo "project-version=$release_version" >> "$GITHUB_OUTPUT"
   echo "PROJECT_VERSION=$release_version" >> "$GITHUB_ENV"
   echo "PROJECT_VERSION=$release_version"

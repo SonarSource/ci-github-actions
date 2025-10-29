@@ -202,6 +202,7 @@ steps:
 | `PROJECT_VERSION`             | The project version with build number (after replacement)                                                                                 |
 | `SONARSOURCE_REPOSITORY_URL`  | URL for SonarSource Artifactory root virtual repository (i.e.: `sonarsource-qa` for public builds or `sonarsource-qa` for private builds) |
 | `CONFIG_MAVEN_COMPLETED`      | For internal use. If set, the action is skipped                                                                                           |
+| `MAVEN_CONFIG`                | Path to m2 root `$HOME/.m2`                                                                                                               |
 
 See also [`get-build-number`](#get-build-number) output environment variables.
 
