@@ -322,18 +322,14 @@ jobs:
           deploy-pull-request: true
 
   promote:
-    needs: [ build ]
+    needs:
+      - build
     runs-on: sonar-xs  # Private repos default; use github-ubuntu-latest-s for public repos
     name: Promote
     permissions:
       id-token: write
       contents: write
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-      - uses: jdx/mise-action@5ac50f778e26fac95da98d50503682459e86d566 # v3.2.0
-        with:
-          cache_save: false
-          version: 2025.7.12
       - uses: SonarSource/ci-github-actions/promote@v1
         with:
           promote-pull-request: true
