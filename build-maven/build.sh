@@ -182,6 +182,57 @@ build_maven() {
   fi
 }
 
+export_built_artifacts() {
+  local should_deploy
+  should_deploy=$(grep "should-deploy=" "$GITHUB_OUTPUT" 2>/dev/null | cut -d= -f2)
+  
+  [[ "$should_deploy" != "true" ]] && return 0
+
+  echo "=== Capturing built artifacts for attestation ==="
+  
+  # Query Maven for build directory name, fallback to 'target' if it fails
+  local build_dir_name
+  build_dir_name=$(command mvn help:evaluate -Dexpression=project.build.directory -q -DforceStdout 2>/dev/null | xargs basename 2>/dev/null)
+  build_dir_name=${build_dir_name:-target}
+  
+  echo "Scanning for artifacts in: */${build_dir_name}/*"
+  
+  # Maven artifact types to attest
+  local -a artifact_types=(
+    '*.jar' '*.war' '*.ear'           # Java archives
+    '*.zip' '*.tar.gz' '*.tar'        # Distribution archives
+    '*.pom' '*.asc' '*.json'          # Metadata, signatures, SBOMs
+  )
+  
+  # Build find name pattern
+  local find_pattern=""
+  for type in "${artifact_types[@]}"; do
+    find_pattern+="${find_pattern:+ -o }-name '$type'"
+  done
+  
+  # Find all built artifacts (excluding sources, javadoc, tests)
+  local artifacts
+  artifacts=$(eval "find . -path '*/${build_dir_name}/*' \
+    \( $find_pattern \) \
+    ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-tests.jar' \
+    -type f 2>/dev/null || true")
+  
+  if [[ -z "$artifacts" ]]; then
+    echo "No artifacts found for attestation"
+    return 0
+  fi
+  
+  echo "Found artifacts for attestation:"
+  echo "$artifacts"
+  
+  {
+    echo "artifact-paths<<EOF"
+    echo "$artifacts"
+    echo "EOF"
+  } >> "$GITHUB_OUTPUT"
+}
+
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   build_maven "$@"
+  export_built_artifacts
 fi
