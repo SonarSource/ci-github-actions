@@ -143,7 +143,14 @@ runs:
         # Maven retrieves the user home directory from the passwd database, that may differ from $HOME (e.g., in a container)
         echo "HOME: $HOME"
         if [ "$RUNNER_OS" != "Windows" ]; then
-          USER_HOME="$(getent passwd $(whoami) | cut -d: -f6)"
+          # Get user home directory - use getent on Linux, dscl on macOS
+          if command -v getent &> /dev/null; then
+            USER_HOME="$(getent passwd $(whoami) | cut -d: -f6)"
+          elif command -v dscl &> /dev/null; then
+            USER_HOME="$(dscl . -read  /Users/$(whoami) NFSHomeDirectory | awk '{print $2}')"
+          else
+            USER_HOME="$HOME"
+          fi
           if [ "$USER_HOME" != "$HOME" ]; then
             echo "::group::USER_HOME symlinks workaround for Maven when it differs from HOME"
             echo "USER_HOME (from passwd): $USER_HOME"
