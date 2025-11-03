@@ -148,6 +148,7 @@ Describe 'shared/common-functions.sh'
 
     It 'detects pull request'
       export GITHUB_EVENT_NAME="pull_request"
+      export GITHUB_REF_NAME="123/merge"
       When call is_pull_request
       The status should be success
     End

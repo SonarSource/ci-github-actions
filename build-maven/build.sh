@@ -32,8 +32,8 @@
 # - RUNNER_OS: Operating system (e.g. Linux, Windows)
 #
 # Optional user customization:
+# - DEPLOY: Whether to deploy (default: true)
 # - DEPLOY_PULL_REQUEST: Whether to deploy pull request artifacts (default: false)
-# - DEPLOYMENT: Whether to skip deployment (default: false)
 # - SONAR_SCANNER_JAVA_OPTS: JVM options for SonarQube scanner (e.g. -Xmx512m)
 # - SCANNER_VERSION: SonarQube Maven plugin version (default: 5.1.0.4751)
 # shellcheck source-path=SCRIPTDIR
@@ -57,8 +57,8 @@ if [[ "${SONAR_PLATFORM:?}" != "none" ]]; then
 fi
 : "${RUN_SHADOW_SCANS:?}"
 : "${DEPLOY_PULL_REQUEST:=false}"
-: "${DEPLOYMENT:=true}"
-export ARTIFACTORY_URL DEPLOY_PULL_REQUEST DEPLOYMENT
+: "${DEPLOY:=true}"
+export ARTIFACTORY_URL DEPLOY_PULL_REQUEST
 
 # FIXME Workaround for SonarSource parent POM; it can be removed after releases of parent 73+ and parent-oss 84+
 export BUILD_ID=$BUILD_NUMBER
@@ -109,80 +109,81 @@ check_settings_xml() {
   fi
 }
 
+should_deploy() {
+  # Disable deployment when explicitly requested
+  if [[ "${DEPLOY}" != "true" ]]; then
+    return 1
+  fi
+
+  # Disable deployment when shadow scans are enabled to prevent duplicate artifacts
+  if [[ "${RUN_SHADOW_SCANS}" = "true" ]]; then
+    echo "Shadow scans enabled - disabling deployment"
+    return 1
+  fi
+
+  if is_pull_request; then
+    # For pull requests, deploy only if explicitly enabled
+    [[ "$DEPLOY_PULL_REQUEST" = "true" ]]
+  else
+    is_default_branch || \
+    is_maintenance_branch || \
+    is_dogfood_branch || \
+    is_long_lived_feature_branch
+  fi
+}
+
+should_scan() {
+  is_default_branch || is_maintenance_branch || is_pull_request || is_long_lived_feature_branch
+  return $?
+}
+
 build_maven() {
   check_tool mvn --version
   check_settings_xml
   git_fetch_unshallow
 
   local maven_command_args
-  local deployment=true
-  local enable_sonar=false should_deploy=false
-  local sonar_args=()
+  if should_deploy; then
+    maven_command_args=("deploy" "-Pdeploy-sonarsource")
+  else
+    maven_command_args=("install")
+  fi
 
-  # Determine if deployment should be skipped
-  if [[ "${RUN_SHADOW_SCANS}" = "true" ]]; then
-    echo "Shadow scans enabled - disabling deployment"
-    deployment=false
-  elif [[ "${DEPLOYMENT}" = "false" ]]; then
-    echo "DEPLOYMENT is false - disabling deployment"
-    deployment=false
+  if should_scan; then
+    maven_command_args+=("-Pcoverage")
   fi
 
   if is_default_branch || is_maintenance_branch; then
-    if [[ "$deployment" != "true" ]]; then
-      echo "======= Build and analyze $GITHUB_REF_NAME ======="
-      maven_command_args=("install" "-Pcoverage,release,sign")
-    else
-      echo "======= Build, deploy and analyze $GITHUB_REF_NAME ======="
-      maven_command_args=("deploy" "-Pcoverage,deploy-sonarsource,release,sign")
-      should_deploy=true
-    fi
-    enable_sonar=true
-
+    echo "======= Build and analyze $GITHUB_REF_NAME ======="
+    maven_command_args+=("-Prelease,sign")
   elif is_pull_request; then
     echo "======= Build and analyze pull request $PULL_REQUEST ($GITHUB_HEAD_REF) ======="
-    sonar_args+=("-Dsonar.pullrequest.key=$PULL_REQUEST")
-    sonar_args+=("-Dsonar.pullrequest.branch=$GITHUB_HEAD_REF")
-    sonar_args+=("-Dsonar.pullrequest.base=$GITHUB_BASE_REF")
-
-    if [[ "$deployment" = "true" ]] && [[ "$DEPLOY_PULL_REQUEST" = "true" ]]; then
-      echo "======= with deploy ======="
-      maven_command_args=("deploy" "-Pcoverage,deploy-sonarsource")
-      should_deploy=true
-    else
-      echo "======= no deploy ======="
-      maven_command_args=("install" "-Pcoverage")
-    fi
-    enable_sonar=true
-
   elif is_dogfood_branch; then
-    if [[ "$deployment" != "true" ]]; then
-      echo "======= Build dogfood branch $GITHUB_REF_NAME ======="
-      maven_command_args=("install" "-Prelease")
-    else
-      echo "======= Build, and deploy dogfood branch $GITHUB_REF_NAME ======="
-      maven_command_args=("deploy" "-Pdeploy-sonarsource,release")
-      should_deploy=true
-    fi
-
+    echo "======= Build dogfood branch $GITHUB_REF_NAME ======="
+    maven_command_args+=("-Prelease")
   elif is_long_lived_feature_branch; then
     echo "======= Build and analyze long lived feature branch $GITHUB_REF_NAME ======="
-    maven_command_args=("install" "-Pcoverage")
-    enable_sonar=true
-
   else
     echo "======= Build, no analysis, no deploy $GITHUB_REF_NAME ======="
     maven_command_args=("verify")
   fi
 
-  echo "should-deploy=$should_deploy" >> "$GITHUB_OUTPUT"
-
   # Execute the main Maven build
   echo "Maven command: mvn ${maven_command_args[*]} $*"
   mvn "${maven_command_args[@]}" "$@"
 
+  if should_deploy; then
+    echo "deployed=true" >> "$GITHUB_OUTPUT"
+  fi
+
   # Execute SonarQube analysis if enabled
-  if [ "$enable_sonar" = true ]; then
+  if should_scan; then
+    local sonar_args=()
+    if is_pull_request; then
+      sonar_args+=("-Dsonar.pullrequest.key=$PULL_REQUEST")
+      sonar_args+=("-Dsonar.pullrequest.branch=$GITHUB_HEAD_REF")
+      sonar_args+=("-Dsonar.pullrequest.base=$GITHUB_BASE_REF")
+    fi
     # This will call back to shared sonar_scanner_implementation() function
     orchestrate_sonar_platforms "${sonar_args[@]+"${sonar_args[@]}"}" "$@"
   fi

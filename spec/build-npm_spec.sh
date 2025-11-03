@@ -124,6 +124,7 @@ Describe 'git_fetch_unshallow()'
 
   It 'fallbacks and fetches base branch for pull request'
     export GITHUB_EVENT_NAME="pull_request"
+    export GITHUB_REF_NAME="123/merge"
     export GITHUB_BASE_REF="def_main"
     Mock git
       case "$*" in
@@ -147,11 +148,12 @@ Describe 'git_fetch_unshallow()'
 End
 
 Describe 'build_npm()'
+  export PROJECT="test-project"
+
   It 'builds main branch correctly'
     export GITHUB_REF_NAME="main"
     export DEFAULT_BRANCH="main"
     export GITHUB_EVENT_NAME="push"
-    export PROJECT="test-project"
     export BUILD_NUMBER="42"
     When call build_npm
     The status should be success
@@ -164,7 +166,6 @@ Describe 'build_npm()'
   It 'builds maintenance branch with SNAPSHOT version'
     export GITHUB_REF_NAME="branch-1.2"
     export GITHUB_EVENT_NAME="push"
-    export PROJECT="test-project"
     export BUILD_NUMBER="42"
     When call build_npm
     The status should be success
@@ -177,7 +178,6 @@ Describe 'build_npm()'
     export PROJECT_VERSION="1.2.3" # No SNAPSHOT suffix, valid semantic version
     export GITHUB_REF_NAME="branch-1.2"
     export GITHUB_EVENT_NAME="push"
-    export PROJECT="test-project"
     export BUILD_NUMBER="42"
     When call build_npm
     The status should be success
@@ -186,11 +186,10 @@ Describe 'build_npm()'
   End
 
   It 'builds pull request without deploy'
-    export GITHUB_REF_NAME="feature/test"
     export GITHUB_EVENT_NAME="pull_request"
+    export GITHUB_REF_NAME="123/merge"
     export DEPLOY_PULL_REQUEST="false"
     export PULL_REQUEST="123"
-    export PROJECT="test-project"
     export BUILD_NUMBER="42"
     When call build_npm
     The status should be success
@@ -202,11 +201,10 @@ Describe 'build_npm()'
   End
 
   It 'builds pull request with deploy when enabled'
-    export GITHUB_REF_NAME="feature/test"
     export GITHUB_EVENT_NAME="pull_request"
+    export GITHUB_REF_NAME="123/merge"
     export DEPLOY_PULL_REQUEST="true"
     export PULL_REQUEST="123"
-    export PROJECT="test-project"
     export BUILD_NUMBER="42"
     When call build_npm
     The status should be success
@@ -217,7 +215,6 @@ Describe 'build_npm()'
   It 'builds dogfood branch without sonar'
     export GITHUB_REF_NAME="dogfood-on-feature"
     export GITHUB_EVENT_NAME="push"
-    export PROJECT="test-project"
     export BUILD_NUMBER="42"
     When call build_npm
     The status should be success
@@ -229,7 +226,6 @@ Describe 'build_npm()'
   It 'builds long-lived feature branch without deploy'
     export GITHUB_REF_NAME="feature/long/test-feature"
     export GITHUB_EVENT_NAME="push"
-    export PROJECT="test-project"
     export BUILD_NUMBER="42"
     When call build_npm
     The status should be success
@@ -242,7 +238,6 @@ Describe 'build_npm()'
   It 'builds other branches without sonar or deploy'
     export GITHUB_REF_NAME="feature/test"
     export GITHUB_EVENT_NAME="push"
-    export PROJECT="test-project"
     export BUILD_NUMBER="42"
     When call build_npm
     The status should be success
@@ -257,7 +252,6 @@ Describe 'build_npm()'
     export GITHUB_REF_NAME="main"
     export DEFAULT_BRANCH="main"
     export GITHUB_EVENT_NAME="push"
-    export PROJECT="test-project"
     export BUILD_NUMBER="42"
     When call build_npm
     The status should be success
@@ -314,7 +308,6 @@ Describe 'sonar_scanner_implementation()'
     The output should include "-Dsonar.branch.name=feature"
   End
 End
-
 
 Describe 'get_build_config()'
   It 'disables deployment when shadow scans enabled on main branch'

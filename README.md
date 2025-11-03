@@ -275,7 +275,7 @@ See also [`config-maven`](#config-maven) input environment variables.
 | Output         | Description                                                               |
 |----------------|---------------------------------------------------------------------------|
 | `BUILD_NUMBER` | The current build number. Also set as environment variable `BUILD_NUMBER` |
-| `WAS_DEPLOYED` | Whether the build was deployed (`true` or `false`)                        |
+| `deployed`     | `true` if the build succeed and was supposed to deploy                    |
 
 ### Output Environment Variables
 
@@ -478,7 +478,7 @@ jobs:
 |-------------------|---------------------------------------------------------------------------|
 | `project-version` | The project version from gradle.properties                                |
 | `BUILD_NUMBER`    | The current build number. Also set as environment variable `BUILD_NUMBER` |
-| `WAS_DEPLOYED`    | Whether the build was deployed (`true` or `false`)                        |
+| `deployed`     | `true` if the build succeed and was supposed to deploy                    |
 
 ### Features
 

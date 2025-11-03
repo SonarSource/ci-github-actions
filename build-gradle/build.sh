@@ -33,7 +33,7 @@
 # - GITHUB_BASE_REF: Base branch for pull requests (only during pull_request events)
 #
 # Optional user customization:
-# - DEPLOYMENT: Whether to deploy (default: true)
+# - DEPLOY: Whether to deploy (default: true)
 # - DEPLOY_PULL_REQUEST: Whether to deploy pull request artifacts (default: false)
 # - SKIP_TESTS: Whether to skip running tests (default: false)
 # - GRADLE_ARGS: Additional arguments to pass to Gradle
@@ -56,8 +56,8 @@ if [[ "${SONAR_PLATFORM:?}" != "none" ]]; then
   : "${NEXT_URL:?}" "${NEXT_TOKEN:?}" "${SQC_US_URL:?}" "${SQC_US_TOKEN:?}" "${SQC_EU_URL:?}" "${SQC_EU_TOKEN:?}"
 fi
 : "${ORG_GRADLE_PROJECT_signingKey:?}" "${ORG_GRADLE_PROJECT_signingPassword:?}" "${ORG_GRADLE_PROJECT_signingKeyId:?}"
-: "${DEPLOY_PULL_REQUEST:=false}" "${DEPLOYMENT:=true}"
-export DEPLOY_PULL_REQUEST DEPLOYMENT
+: "${DEPLOY_PULL_REQUEST:=false}" "${DEPLOY:=true}"
+export DEPLOY_PULL_REQUEST
 : "${SKIP_TESTS:=false}"
 : "${GRADLE_ARGS:=}"
 
@@ -104,12 +104,13 @@ set_project_version() {
 
 should_deploy() {
   # Disable deployment when explicitly requested
-  if [[ "${DEPLOYMENT}" = "false" ]]; then
+  if [[ "${DEPLOY}" != "true" ]]; then
     return 1
   fi
 
   # Disable deployment when shadow scans are enabled to prevent duplicate artifacts
   if [[ "${RUN_SHADOW_SCANS}" = "true" ]]; then
+    echo "Shadow scans enabled - disabling deployment"
     return 1
   fi
 
@@ -148,11 +149,11 @@ build_gradle_args() {
     args+=("-Dsonar.scm.revision=$GITHUB_SHA")
 
     # Add branch-specific sonar arguments
-    if is_default_branch && ! is_pull_request; then
+    if is_default_branch; then
       # Master branch analysis
       args+=("-Dsonar.analysis.sha1=$GITHUB_SHA")
 
-    elif is_maintenance_branch && ! is_pull_request; then
+    elif is_maintenance_branch; then
       # Maintenance branch analysis
       args+=("-Dsonar.branch.name=$GITHUB_REF_NAME")
       args+=("-Dsonar.analysis.sha1=$GITHUB_SHA")
@@ -162,7 +163,7 @@ build_gradle_args() {
       args+=("-Dsonar.analysis.sha1=$PULL_REQUEST_SHA")
       args+=("-Dsonar.analysis.prNumber=$PULL_REQUEST")
 
-    elif is_long_lived_feature_branch && ! is_pull_request; then
+    elif is_long_lived_feature_branch; then
       # Long-lived feature branch analysis
       args+=("-Dsonar.branch.name=$GITHUB_REF_NAME")
       args+=("-Dsonar.analysis.sha1=$GITHUB_SHA")
@@ -171,7 +172,6 @@ build_gradle_args() {
 
   if should_deploy; then
     args+=("artifactoryPublish")
-    echo "should-deploy=true" >> "$GITHUB_OUTPUT"
   fi
 
   # Build number
@@ -225,6 +225,9 @@ gradle_build_and_analyze() {
   read -ra gradle_args <<< "$(build_gradle_args)"
   echo "Gradle command: $GRADLE_CMD ${gradle_args[*]}"
   "$GRADLE_CMD" "${gradle_args[@]}"
+  if should_deploy; then
+    echo "deployed=true" >> "$GITHUB_OUTPUT"
+  fi
 }
 
 # ORCHESTRATOR CONTRACT: Required callback function
