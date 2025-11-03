@@ -84,6 +84,7 @@ Describe 'promote/promote.sh'
   It 'runs promote() on pull_request when promotion is enabled'
     export ARTIFACTORY_TARGET_REPO="artifactory-target"
     export GITHUB_EVENT_NAME="pull_request"
+    export GITHUB_REF_NAME="123/merge"
     export PROMOTE_PULL_REQUEST="true"
     When run script promote/promote.sh
     The status should be success
@@ -104,6 +105,7 @@ Describe 'promote/promote.sh'
 
   It 'skips promotion on pull_request when promotion is disabled'
     export GITHUB_EVENT_NAME="pull_request"
+    export GITHUB_REF_NAME="123/merge"
     export PROMOTE_PULL_REQUEST="false"
     When run script promote/promote.sh
     The status should be success
@@ -125,6 +127,7 @@ Describe 'check_branch()'
   # merge queue branches use case is handled in promote.sh, due to the exit 0 in check_branch
   It 'allows pull requests when promotion is enabled'
     export GITHUB_EVENT_NAME="pull_request"
+    export GITHUB_REF_NAME="123/merge"
     export PROMOTE_PULL_REQUEST="true"
     When call check_branch
     The status should be success
@@ -168,6 +171,7 @@ End
 Describe 'get_target_repos()'
   It 'returns target repositories for pull requests'
     export GITHUB_EVENT_NAME="pull_request"
+    export GITHUB_REF_NAME="123/merge"
     When call get_target_repos
     The status should be success
     The variable targetRepo1 should equal "sonarsource-private-dev"
@@ -233,6 +237,7 @@ End
 Describe 'get_target_repo()'
   It 'returns the target repository for pull requests'
     export GITHUB_EVENT_NAME="pull_request"
+    export GITHUB_REF_NAME="123/merge"
     When call get_target_repo
     The status should be success
     The output should equal "ARTIFACTORY_DEPLOY_REPO=sonarsource-deploy-qa"
@@ -271,6 +276,7 @@ End
 Describe 'jfrog_promote()'
   It 'sets the status for pull requests then promotes with version display'
     export GITHUB_EVENT_NAME="pull_request"
+    export GITHUB_REF_NAME="123/merge"
     export ARTIFACTORY_DEPLOY_REPO="artifactory-deploy-repo-qa"
     When call jfrog_promote
     The status should be success

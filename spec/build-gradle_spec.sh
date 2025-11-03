@@ -28,11 +28,15 @@ Mock sed
   echo "sed $*"
 End
 
+readonly GITHUB_EVENT_NAME_PR="pull_request"
+readonly GITHUB_REF_NAME_PR="123/merge"
+
 # Environment setup
 export ARTIFACTORY_URL="https://dummy.repox/artifactory"
 export DEFAULT_BRANCH="master"
 export PULL_REQUEST=""
 export PULL_REQUEST_SHA=""
+export GITHUB_EVENT_NAME="push"
 export GITHUB_REF_NAME="master"
 export BUILD_NUMBER="42"
 export GITHUB_RUN_ID="123456"
@@ -53,10 +57,10 @@ export SQC_EU_TOKEN="sqc-eu-token"
 export ORG_GRADLE_PROJECT_signingKey="signing-key"
 export ORG_GRADLE_PROJECT_signingPassword="signing-pass"
 export ORG_GRADLE_PROJECT_signingKeyId="signing-id"
+export DEPLOY="true"
 export DEPLOY_PULL_REQUEST="false"
 export SKIP_TESTS="false"
 export GRADLE_ARGS=""
-export GITHUB_EVENT_NAME="push"
 export GITHUB_OUTPUT=/dev/null
 # Duplicate environment variables removed
 GITHUB_EVENT_PATH=$(mktemp)
@@ -99,7 +103,8 @@ Describe 'set_build_env'
   End
 
   It 'handles pull request'
-    export GITHUB_EVENT_NAME="pull_request"
+    export GITHUB_EVENT_NAME="$GITHUB_EVENT_NAME_PR"
+    export GITHUB_REF_NAME="$GITHUB_REF_NAME_PR"
     export PULL_REQUEST="123"
     export PULL_REQUEST_SHA="base123"
     echo '{"number": 123, "pull_request": {"base": {"sha": "base123"}}}' > "$GITHUB_EVENT_PATH"
@@ -178,47 +183,60 @@ Describe 'set_project_version'
 End
 
 Describe 'should_deploy'
+  It 'does not deploy when deployment is disabled'
+    export DEPLOY="false"
+    When call should_deploy
+    The status should be failure
+  End
+
   It 'deploys for master branch'
-    export GITHUB_REF_NAME="master"
-    export GITHUB_EVENT_NAME="push"
     When call should_deploy
     The status should be success
   End
 
   It 'deploys for maintenance branch'
     export GITHUB_REF_NAME="branch-1.0"
-    export GITHUB_EVENT_NAME="push"
     When call should_deploy
     The status should be success
   End
 
   It 'does not deploy for feature branch'
     export GITHUB_REF_NAME="feature/test"
-    export GITHUB_EVENT_NAME="push"
     When call should_deploy
     The status should be failure
   End
 
   It 'does not deploy for PR by default'
-    export GITHUB_EVENT_NAME="pull_request"
+    export GITHUB_EVENT_NAME="$GITHUB_EVENT_NAME_PR"
+    export GITHUB_REF_NAME="$GITHUB_REF_NAME_PR"
     export DEPLOY_PULL_REQUEST="false"
     When call should_deploy
     The status should be failure
   End
 
   It 'deploys for PR when enabled'
-    export GITHUB_EVENT_NAME="pull_request"
+    export GITHUB_EVENT_NAME="$GITHUB_EVENT_NAME_PR"
+    export GITHUB_REF_NAME="$GITHUB_REF_NAME_PR"
     export DEPLOY_PULL_REQUEST="true"
     When call should_deploy
     The status should be success
   End
 
-  It 'does not deploy when shadow scans enabled'
-    export RUN_SHADOW_SCANS="true"
-    export GITHUB_EVENT_NAME="push"
-    export GITHUB_REF_NAME="master"
+  It 'does not deploy when deployment is disabled and pr is enabled'
+    export DEPLOY="false"
+    export GITHUB_EVENT_NAME="$GITHUB_EVENT_NAME_PR"
+    export GITHUB_REF_NAME="$GITHUB_REF_NAME_PR"
+    export DEPLOY_PULL_REQUEST="true"
     When call should_deploy
     The status should be failure
+  End
+
+  It 'does not deploy when shadow scans enabled'
+    export RUN_SHADOW_SCANS="true"
+    When call should_deploy
+    The status should be failure
+    The lines of stdout should equal 1
+    The line 1 should equal "Shadow scans enabled - disabling deployment"
   End
 End
 
@@ -243,8 +261,6 @@ Describe 'build_gradle_args'
 
   It 'includes deployment for master'
     export GRADLE_ARGS=""
-    export GITHUB_REF_NAME="master"
-    export GITHUB_EVENT_NAME="push"
     When call build_gradle_args
     The output should include "artifactoryPublish"
   End
@@ -258,8 +274,6 @@ Describe 'build_gradle_args'
 
   It 'includes sonar args for master branch'
     export GRADLE_ARGS=""
-    export GITHUB_REF_NAME="master"
-    export GITHUB_EVENT_NAME="push"
     export SONAR_HOST_URL="https://sonar.example.com"
     export SONAR_TOKEN="sonar-token"
     When call build_gradle_args
@@ -270,7 +284,6 @@ Describe 'build_gradle_args'
   It 'includes sonar args for maintenance branch'
     export GRADLE_ARGS=""
     export GITHUB_REF_NAME="branch-1.0"
-    export GITHUB_EVENT_NAME="push"
     export SONAR_HOST_URL="https://sonar.example.com"
     export SONAR_TOKEN="sonar-token"
     When call build_gradle_args
@@ -279,7 +292,8 @@ Describe 'build_gradle_args'
 
   It 'includes sonar args for PR'
     export GRADLE_ARGS=""
-    export GITHUB_EVENT_NAME="pull_request"
+    export GITHUB_EVENT_NAME="$GITHUB_EVENT_NAME_PR"
+    export GITHUB_REF_NAME="$GITHUB_REF_NAME_PR"
     export PULL_REQUEST="123"
     export PULL_REQUEST_SHA="base123"
     export SONAR_HOST_URL="https://sonar.example.com"
@@ -291,7 +305,6 @@ Describe 'build_gradle_args'
   It 'includes sonar args for long-lived feature branch'
     export GRADLE_ARGS=""
     export GITHUB_REF_NAME="feature/long/my-feature"
-    export GITHUB_EVENT_NAME="push"
     export SONAR_HOST_URL="https://sonar.example.com"
     export SONAR_TOKEN="sonar-token"
     When call build_gradle_args
@@ -309,42 +322,37 @@ End
 
 Describe 'get_build_type'
   It 'returns default branch for master'
-    export GITHUB_REF_NAME="master"
-    export GITHUB_EVENT_NAME="push"
     When call get_build_type
     The output should equal "default branch"
   End
 
   It 'returns maintenance branch'
     export GITHUB_REF_NAME="branch-1.0"
-    export GITHUB_EVENT_NAME="push"
     When call get_build_type
     The output should equal "maintenance branch"
   End
 
   It 'returns pull request'
-    export GITHUB_EVENT_NAME="pull_request"
+    export GITHUB_EVENT_NAME="$GITHUB_EVENT_NAME_PR"
+    export GITHUB_REF_NAME="$GITHUB_REF_NAME_PR"
     When call get_build_type
     The output should equal "pull request"
   End
 
   It 'returns dogfood branch'
     export GITHUB_REF_NAME="dogfood-on-main"
-    export GITHUB_EVENT_NAME="push"
     When call get_build_type
     The output should equal "dogfood branch"
   End
 
   It 'returns long-lived feature branch'
     export GITHUB_REF_NAME="feature/long/my-feature"
-    export GITHUB_EVENT_NAME="push"
     When call get_build_type
     The output should equal "long-lived feature branch"
   End
 
   It 'returns regular build for other branches'
     export GITHUB_REF_NAME="feature/test"
-    export GITHUB_EVENT_NAME="push"
     When call get_build_type
     The output should equal "regular build"
   End

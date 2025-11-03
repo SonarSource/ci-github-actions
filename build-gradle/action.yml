@@ -19,8 +19,11 @@ inputs:
     default: ''
   gradle-args:
     description: Additional arguments to pass to Gradle
+  deploy:
+    description: Whether to deploy on master, maintenance, dogfood and long-lived branches.
+    default: 'true'
   deploy-pull-request:
-    description: Whether to deploy pull request artifacts
+    description: Whether to also deploy pull request artifacts. If deploy is 'false', this has no effect.
     default: 'false'
   skip-tests:
     description: Whether to skip running tests
@@ -60,6 +63,9 @@ outputs:
   BUILD_NUMBER:
     description: The build number, incremented or reused if already cached
     value: ${{ steps.get_build_number.outputs.BUILD_NUMBER }}
+  deployed:
+    description: Whether artifacts were deployed
+    value: ${{ steps.build.outputs.deployed }}
 
 runs:
   using: composite
@@ -194,6 +200,7 @@ runs:
         ARTIFACTORY_DEPLOY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_USERNAME }}
         ARTIFACTORY_DEPLOY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN }}
         ARTIFACTORY_DEPLOY_PASSWORD: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN }} # used in parent POM
+        DEPLOY: ${{ inputs.deploy }}
         DEPLOY_PULL_REQUEST: ${{ inputs.deploy-pull-request }}
         SKIP_TESTS: ${{ inputs.skip-tests }}
         GRADLE_ARGS: ${{ inputs.gradle-args }}
@@ -243,7 +250,7 @@ runs:
         echo "- **Branch**: \`${GITHUB_REF}\`" >> $GITHUB_STEP_SUMMARY
         echo "- **Commit**: \`$GITHUB_SHA\`" >> $GITHUB_STEP_SUMMARY
 
-        if [[ "${{ steps.build.outputs.should-deploy }}" == true ]]; then
+        if [[ "${{ steps.build.outputs.deployed }}" == true ]]; then
           echo "### 🚀 Deployment" >> $GITHUB_STEP_SUMMARY
           ARTIFACTORY_BROWSE_URL="${ARTIFACTORY_URL%/*}/ui/builds/$build_name/$BUILD_NUMBER"
           echo "🔗 **[Browse artifacts in Artifactory](${ARTIFACTORY_BROWSE_URL})**" >> $GITHUB_STEP_SUMMARY
