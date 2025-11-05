@@ -897,9 +897,12 @@ The GitHub status check is named `repox-${GITHUB_REF_NAME}`.
 Required properties in the build info:
 
 - `buildInfo.env.ARTIFACTORY_DEPLOY_REPO`: Repository to deploy to (e.g. `sonarsource-deploy-qa`). It can also be set as an input.
-- `buildInfo.env.PROJECT_VERSION`: Version of the project (e.g. 1.2.3).
+- `buildInfo.env.PROJECT_VERSION`: Version of the project (e.g. 1.2.3). Can also be set as an environment variable to override the build
+  info value.
 
 ### Usage
+
+**Basic usage (version from JFrog build info):**
 
 ```yaml
 promote:
@@ -913,6 +916,29 @@ promote:
   steps:
     - uses: SonarSource/ci-github-actions/promote@v1
 ```
+
+**With custom project version:**
+
+```yaml
+promote:
+  needs:
+    - build
+  runs-on: sonar-xs  # Private repos default; use github-ubuntu-latest-s for public repos
+  name: Promote
+  permissions:
+    id-token: write
+    contents: write
+  env:
+    PROJECT_VERSION: '2.0.0-custom'  # Override version from JFrog build info
+  steps:
+    - uses: SonarSource/ci-github-actions/promote@v1
+```
+
+### Input Environment Variables
+
+| Environment Variable | Description                                                                                                               |
+|----------------------|---------------------------------------------------------------------------------------------------------------------------|
+| `PROJECT_VERSION`    | Version of the project (e.g. 1.2.3). If set, it takes precedence over the version from JFrog build info.                 |
 
 ### Inputs
 
