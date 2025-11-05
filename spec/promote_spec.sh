@@ -36,6 +36,10 @@ Mock jq
   fi
 End
 
+# Test constants
+TEST_PR_REF_NAME="123/merge"
+TEST_EVENT_PULL_REQUEST="pull_request"
+
 # Minimal environment variables
 export ARTIFACTORY_PROMOTE_ACCESS_TOKEN="dummy promote token"
 export ARTIFACTORY_URL="https://dummy.repox"
@@ -82,9 +86,10 @@ Describe 'promote/promote.sh'
   End
 
   It 'runs promote() on pull_request when promotion is enabled'
+    unset PROJECT_VERSION
     export ARTIFACTORY_TARGET_REPO="artifactory-target"
-    export GITHUB_EVENT_NAME="pull_request"
-    export GITHUB_REF_NAME="123/merge"
+    export GITHUB_EVENT_NAME="$TEST_EVENT_PULL_REQUEST"
+    export GITHUB_REF_NAME="$TEST_PR_REF_NAME"
     export PROMOTE_PULL_REQUEST="true"
     When run script promote/promote.sh
     The status should be success
@@ -104,8 +109,8 @@ Describe 'promote/promote.sh'
   End
 
   It 'skips promotion on pull_request when promotion is disabled'
-    export GITHUB_EVENT_NAME="pull_request"
-    export GITHUB_REF_NAME="123/merge"
+    export GITHUB_EVENT_NAME="$TEST_EVENT_PULL_REQUEST"
+    export GITHUB_REF_NAME="$TEST_PR_REF_NAME"
     export PROMOTE_PULL_REQUEST="false"
     When run script promote/promote.sh
     The status should be success
@@ -126,8 +131,8 @@ End
 Describe 'check_branch()'
   # merge queue branches use case is handled in promote.sh, due to the exit 0 in check_branch
   It 'allows pull requests when promotion is enabled'
-    export GITHUB_EVENT_NAME="pull_request"
-    export GITHUB_REF_NAME="123/merge"
+    export GITHUB_EVENT_NAME="$TEST_EVENT_PULL_REQUEST"
+    export GITHUB_REF_NAME="$TEST_PR_REF_NAME"
     export PROMOTE_PULL_REQUEST="true"
     When call check_branch
     The status should be success
@@ -170,8 +175,8 @@ End
 
 Describe 'get_target_repos()'
   It 'returns target repositories for pull requests'
-    export GITHUB_EVENT_NAME="pull_request"
-    export GITHUB_REF_NAME="123/merge"
+    export GITHUB_EVENT_NAME="$TEST_EVENT_PULL_REQUEST"
+    export GITHUB_REF_NAME="$TEST_PR_REF_NAME"
     When call get_target_repos
     The status should be success
     The variable targetRepo1 should equal "sonarsource-private-dev"
@@ -236,8 +241,8 @@ End
 
 Describe 'get_target_repo()'
   It 'returns the target repository for pull requests'
-    export GITHUB_EVENT_NAME="pull_request"
-    export GITHUB_REF_NAME="123/merge"
+    export GITHUB_EVENT_NAME="$TEST_EVENT_PULL_REQUEST"
+    export GITHUB_REF_NAME="$TEST_PR_REF_NAME"
     When call get_target_repo
     The status should be success
     The output should equal "ARTIFACTORY_DEPLOY_REPO=sonarsource-deploy-qa"
@@ -274,9 +279,12 @@ Describe 'get_target_repo()'
 End
 
 Describe 'jfrog_promote()'
+  TEST_TARGET_REPO="artifactory-target"
+
   It 'sets the status for pull requests then promotes with version display'
-    export GITHUB_EVENT_NAME="pull_request"
-    export GITHUB_REF_NAME="123/merge"
+    unset PROJECT_VERSION
+    export GITHUB_EVENT_NAME="$TEST_EVENT_PULL_REQUEST"
+    export GITHUB_REF_NAME="$TEST_PR_REF_NAME"
     export ARTIFACTORY_DEPLOY_REPO="artifactory-deploy-repo-qa"
     When call jfrog_promote
     The status should be success
@@ -288,15 +296,17 @@ Describe 'jfrog_promote()'
   End
 
   It 'promotes the build artifacts to the specified target with version display'
-    export ARTIFACTORY_TARGET_REPO="artifactory-target"
+    unset PROJECT_VERSION
+    export ARTIFACTORY_TARGET_REPO="$TEST_TARGET_REPO"
     When call jfrog_promote
     The variable PROJECT_VERSION should equal "1.2.3.42"
     The line 1 should equal "Promoting build dummy-project/$BUILD_NUMBER (version: 1.2.3.42)"
-    The line 2 should equal "Target repository: artifactory-target"
-    The line 3 should equal "jf rt bpr --status it-passed dummy-project $BUILD_NUMBER artifactory-target"
+    The line 2 should equal "Target repository: $TEST_TARGET_REPO"
+    The line 3 should equal "jf rt bpr --status it-passed dummy-project $BUILD_NUMBER $TEST_TARGET_REPO"
   End
 
   It 'does multi-promotion when MULTI_REPO_PROMOTE is true with version display'
+    unset PROJECT_VERSION
     export GITHUB_REF_NAME="main"
     export MULTI_REPO_PROMOTE="true"
     When call jfrog_promote
@@ -307,10 +317,30 @@ Describe 'jfrog_promote()'
     The line 3 should match pattern "jf rt curl */multiRepoPromote?*;src1=*;target1=*;src2=*;target2=*"
   End
 
+  It 'uses PROJECT_VERSION from environment when set instead of fetching from JFrog'
+    export PROJECT_VERSION="2.0.0-custom"
+    export ARTIFACTORY_TARGET_REPO="$TEST_TARGET_REPO"
+    When call jfrog_promote
+    The status should be success
+    The variable PROJECT_VERSION should equal "2.0.0-custom"
+    The line 1 should equal "Promoting build dummy-project/$BUILD_NUMBER (version: 2.0.0-custom)"
+    The line 2 should equal "Target repository: $TEST_TARGET_REPO"
+  End
+
+  It 'falls back to JFrog build info when PROJECT_VERSION is not set'
+    unset PROJECT_VERSION
+    export ARTIFACTORY_TARGET_REPO="$TEST_TARGET_REPO"
+    When call jfrog_promote
+    The status should be success
+    The variable PROJECT_VERSION should equal "1.2.3.42"
+    The line 1 should equal "Promoting build dummy-project/$BUILD_NUMBER (version: 1.2.3.42)"
+  End
+
 End
 
 Describe 'github_notify_promotion()'
   It 'calls gh api with correct parameters'
+    export PROJECT_VERSION="1.2.3"
     When call github_notify_promotion
     The output should include "gh api -X POST -H X-GitHub-Api-Version: 2022-11-28"
     The output should include "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA"
@@ -329,6 +359,7 @@ Describe 'promote()'
   End
 
   It 'runs the full promotion process for the main branch'
+    unset PROJECT_VERSION
     export GITHUB_REF_NAME="main"
     When call promote
     The status should be success
@@ -338,6 +369,7 @@ Describe 'promote()'
   End
 
   It 'customizes the build name with BUILD_NAME not equal to the repository name'
+    unset PROJECT_VERSION
     export BUILD_NAME="dummy-project-abc"
     export GITHUB_REF_NAME="main"
     When call promote
