@@ -82,6 +82,7 @@ Describe 'promote/promote.sh'
   End
 
   It 'runs promote() on pull_request when promotion is enabled'
+    unset PROJECT_VERSION
     export ARTIFACTORY_TARGET_REPO="artifactory-target"
     export GITHUB_EVENT_NAME="pull_request"
     export GITHUB_REF_NAME="123/merge"
@@ -275,6 +276,7 @@ End
 
 Describe 'jfrog_promote()'
   It 'sets the status for pull requests then promotes with version display'
+    unset PROJECT_VERSION
     export GITHUB_EVENT_NAME="pull_request"
     export GITHUB_REF_NAME="123/merge"
     export ARTIFACTORY_DEPLOY_REPO="artifactory-deploy-repo-qa"
@@ -288,6 +290,7 @@ Describe 'jfrog_promote()'
   End
 
   It 'promotes the build artifacts to the specified target with version display'
+    unset PROJECT_VERSION
     export ARTIFACTORY_TARGET_REPO="artifactory-target"
     When call jfrog_promote
     The variable PROJECT_VERSION should equal "1.2.3.42"
@@ -297,6 +300,7 @@ Describe 'jfrog_promote()'
   End
 
   It 'does multi-promotion when MULTI_REPO_PROMOTE is true with version display'
+    unset PROJECT_VERSION
     export GITHUB_REF_NAME="main"
     export MULTI_REPO_PROMOTE="true"
     When call jfrog_promote
@@ -307,10 +311,30 @@ Describe 'jfrog_promote()'
     The line 3 should match pattern "jf rt curl */multiRepoPromote?*;src1=*;target1=*;src2=*;target2=*"
   End
 
+  It 'uses PROJECT_VERSION from environment when set instead of fetching from JFrog'
+    export PROJECT_VERSION="2.0.0-custom"
+    export ARTIFACTORY_TARGET_REPO="artifactory-target"
+    When call jfrog_promote
+    The status should be success
+    The variable PROJECT_VERSION should equal "2.0.0-custom"
+    The line 1 should equal "Promoting build dummy-project/$BUILD_NUMBER (version: 2.0.0-custom)"
+    The line 2 should equal "Target repository: artifactory-target"
+  End
+
+  It 'falls back to JFrog build info when PROJECT_VERSION is not set'
+    unset PROJECT_VERSION
+    export ARTIFACTORY_TARGET_REPO="artifactory-target"
+    When call jfrog_promote
+    The status should be success
+    The variable PROJECT_VERSION should equal "1.2.3.42"
+    The line 1 should equal "Promoting build dummy-project/$BUILD_NUMBER (version: 1.2.3.42)"
+  End
+
 End
 
 Describe 'github_notify_promotion()'
   It 'calls gh api with correct parameters'
+    export PROJECT_VERSION="1.2.3"
     When call github_notify_promotion
     The output should include "gh api -X POST -H X-GitHub-Api-Version: 2022-11-28"
     The output should include "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA"
@@ -329,6 +353,7 @@ Describe 'promote()'
   End
 
   It 'runs the full promotion process for the main branch'
+    unset PROJECT_VERSION
     export GITHUB_REF_NAME="main"
     When call promote
     The status should be success
@@ -338,6 +363,7 @@ Describe 'promote()'
   End
 
   It 'customizes the build name with BUILD_NAME not equal to the repository name'
+    unset PROJECT_VERSION
     export BUILD_NAME="dummy-project-abc"
     export GITHUB_REF_NAME="main"
     When call promote

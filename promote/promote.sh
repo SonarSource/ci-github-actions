@@ -18,6 +18,7 @@
 # - MULTI_REPO_PROMOTE: If true, promotes to multiple repositories (default: false)
 # - ARTIFACTORY_DEPLOY_REPO: Repository to deploy to. If not set, it will be retrieved from the build info.
 # - ARTIFACTORY_TARGET_REPO: Target repository for the promotion. If not set, it will be determined based on the branch type.
+# - PROJECT_VERSION: Version of the project (e.g. 1.2.3). If not set, it will be retrieved from the build info.
 #
 # Required properties in the JFrog build info:
 # - buildInfo.env.ARTIFACTORY_DEPLOY_REPO: Repository to deploy to (e.g. sonarsource-deploy-qa)
@@ -145,7 +146,7 @@ promote_mono() {
 
 github_notify_promotion() {
   local project_version longDescription shortDescription buildUrl githubApiUrl
-  project_version=$(get_build_info_property PROJECT_VERSION)
+  project_version="$PROJECT_VERSION"
   longDescription="Latest promoted build of '${project_version}' from branch '${GITHUB_REF}'"
   shortDescription=${longDescription:0:140} # required for GH API endpoint (max 140 chars)
   buildUrl="${ARTIFACTORY_URL%/*}/ui/builds/${BUILD_NAME}/${BUILD_NUMBER}/"
@@ -167,7 +168,7 @@ jfrog_promote() {
   fi
 
   export PROJECT_VERSION
-  PROJECT_VERSION=$(get_build_info_property PROJECT_VERSION)
+  : "${PROJECT_VERSION:=$(get_build_info_property PROJECT_VERSION)}"
 
   if [[ "${MULTI_REPO_PROMOTE}" == "true" ]]; then
     local targetRepo1 targetRepo2
