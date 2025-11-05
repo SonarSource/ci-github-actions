@@ -890,6 +890,67 @@ jobs:
 - Support for different branch types (default, maintenance, PR, dogfood, long-lived feature)
 - Comprehensive build logging and error handling
 
+## Provenance Attestation
+
+The build actions in this repository can automatically generate SLSA build provenance
+attestations for produced artifacts when the build is considered deployable. This feature is
+powered by GitHub's `actions/attest-build-provenance` action. See the upstream documentation:
+[`actions/attest-build-provenance`](https://github.com/actions/attest-build-provenance).
+
+Attestations identify the artifact(s) that serve as the subject of the attestation. Our actions
+attempt to discover these subjects automatically using conventional build output locations and
+common file types for each ecosystem. Discovery is only performed when the current context is
+deployable (the same gating used for publication), and the generation is skipped for
+non-deployable contexts.
+
+### Ecosystem assumptions (automatic discovery)
+
+- Gradle
+  - Locations: `**/build/libs/**`, `**/build/distributions/**`, `**/build/reports/**` (for SBOM JSONs)
+  - File types: `*.jar`, `*.war`, `*.ear`, `*.zip`, `*.tar.gz`, `*.tar`, `*.json`
+  - Exclusions: `*-sources.jar`, `*-javadoc.jar`, `*-tests.jar`
+
+- Maven
+  - Location: `**/<project.build.directory>/**` (queried via Maven); falls back to `target/`
+  - File types: `*.jar`, `*.war`, `*.ear`, `*.zip`, `*.tar.gz`, `*.tar`, `*.pom`, `*.json`
+  - Exclusions: `*-sources.jar`, `*-javadoc.jar`, `*-tests.jar`
+  - Skip rule: if `maven.deploy.skip=true` is effective, attestation is skipped for that module
+
+- Poetry (Python)
+  - Location: `dist/`
+  - File types: `*.whl`, `*.tar.gz`, `*.json`
+
+- NPM
+  - Location: `.attestation-artifacts/`
+  - File types: `*.tgz`
+
+- Yarn
+  - Location: `.attestation-artifacts/`
+  - File types: `*.tgz`
+
+These assumptions are based on widely-used industry conventions and on how artifacts are currently
+published to our Artifactory. They should cover most repositories, but they are not exhaustive.
+
+### Strong recommendation: manually specify subjects when needed
+
+For complete accuracy, we strongly recommend explicitly specifying the artifacts to attest using
+the `provenance-subject-path` input. This mirrors the upstream `subject-path` input from
+`actions/attest-build-provenance` and may contain a glob pattern or a list of paths (total subject
+count cannot exceed 1024). See upstream docs for details and more examples:
+[`actions/attest-build-provenance`](https://github.com/actions/attest-build-provenance).
+
+Example with a build action (same idea applies to other actions):
+
+```yaml
+- uses: SonarSource/ci-github-actions/build-maven@v1
+  with:
+    provenance-subject-path: |
+      target/*.jar
+      target/*bom.json
+```
+
+If `provenance-subject-path` is not provided, the automatic discovery described above will be used.
+
 ---
 
 ## `promote`
