@@ -360,7 +360,7 @@ jobs:
           run-shadow-scans: false                              # Run SonarQube scans on all 3 platforms (next, sqc-eu, sqc-us)
 ```
 
-## Inputs
+### Inputs
 
 | Input                       | Description                                                                                                                                                                                   | Default                                                                                               |
 |-----------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------|
@@ -468,9 +468,27 @@ jobs:
 | `repox-url`                 | URL for Repox                                                                             | `https://repox.jfrog.io`                                                                    |
 | `repox-artifactory-url`     | URL for Repox Artifactory API (overrides repox-url/artifactory if provided)               | (optional)                                                                                  |
 | `sonar-platform`            | SonarQube variant - 'next', 'sqc-eu', 'sqc-us', or 'none'. Use 'none' to skip sonar scans | `next`                                                                                      |
+| `working-directory`         | Relative path under github.workspace to execute the build in                              | `.`                                                                                         |
 | `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding)            | `false`                                                                                     |
 | `cache-paths`               | Custom cache paths (multiline).                                                           | `~/.gradle/caches`<br>`~/.gradle/wrapper`                                                   |
 | `disable-caching`           | Whether to disable Gradle caching entirely                                                | `false`                                                                                     |
+
+> [!TIP]
+> When using `working-directory`, Java must be available at root due to a limitation
+> of [setup-gradle](https://github.com/gradle/actions/tree/main/setup-gradle).
+> For instance, if the `mise.toml` file is in the working directory, and not at root.
+>
+> ```yaml
+>      - name: Workaround for setup-gradle which has no working-directory input
+>        run: |
+>          cp <working-directory>/mise.toml mise.toml
+>      - uses: jdx/mise-action@5ac50f778e26fac95da98d50503682459e86d566 # v3.2.0
+>        with:
+>          version: 2025.7.12
+>      - uses: SonarSource/ci-github-actions/build-gradle@v1
+>        with:
+>          working-directory: <working-directory>
+> ```
 
 ### Outputs
 

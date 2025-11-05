@@ -43,6 +43,9 @@ inputs:
   sonar-platform:
     description: SonarQube variant (next, sqc-eu, sqc-us, or none). Use 'none' to skip sonar scans.
     default: next
+  working-directory:
+    description: Relative path under github.workspace to execute the build in
+    default: .
   run-shadow-scans:
     description: If true, run sonar scanner on all 3 platforms using the provided URL and token.
      If false, run on the platform provided by SONAR_PLATFORM.
@@ -136,6 +139,7 @@ runs:
     - name: Generate Gradle Cache Key
       if: ${{ inputs.disable-caching != 'true' }}
       shell: bash
+      working-directory: ${{ inputs.working-directory }}
       run: |
         /usr/bin/find . \( -name '*.gradle' -o -name '*.gradle.kts' \) -type f -exec md5sum {} \; > gradle-md5-sums.txt
         md5sum gradle/libs.versions.toml gradle/wrapper/gradle-wrapper.properties 2>/dev/null >> gradle-md5-sums.txt || true
@@ -179,6 +183,7 @@ runs:
     - name: Build, analyze and deploy
       id: build
       shell: bash
+      working-directory: ${{ inputs.working-directory }}
       env:
         # GitHub context
         PULL_REQUEST: ${{ github.event.pull_request.number || '' }}
