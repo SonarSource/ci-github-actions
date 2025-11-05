@@ -129,7 +129,7 @@ build_gradle_args() {
   local args=()
 
   # Base arguments
-  args+=("--no-daemon" "--info" "--stacktrace" "--console" "plain")
+  args+=("--no-daemon" "--stacktrace" "--console" "plain")
 
   args+=("build")
 
