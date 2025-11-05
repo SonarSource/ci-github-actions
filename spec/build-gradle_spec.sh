@@ -418,6 +418,44 @@ Describe 'sonar_scanner_implementation()'
 End
 
 
+Describe 'export_built_artifacts()'
+  It 'skips silently on non-deployable branch'
+    export GITHUB_REF_NAME="feature/test"
+    mkdir -p build/libs
+    touch build/libs/app-1.0.jar
+
+    When call export_built_artifacts
+    The status should be success
+    The output should be blank
+
+    # Cleanup
+    rm -rf build
+  End
+
+  It 'captures artifacts on deployable branch and writes to GITHUB_OUTPUT'
+    export GITHUB_REF_NAME="master"
+    export DEPLOY="true"
+    mkdir -p build/libs build/distributions build/reports
+    touch build/libs/app-1.0.jar
+    touch build/distributions/app-1.0.zip
+    touch build/reports/dependency-check.json
+
+    When call export_built_artifacts
+    The status should be success
+    The output should include "Capturing built artifacts for attestation"
+    The output should include "Found artifacts for attestation:"
+    The output should include "build/libs/app-1.0.jar"
+    The output should include "build/distributions/app-1.0.zip"
+    The contents of file "$GITHUB_OUTPUT" should include "artifact-paths<<EOF"
+    The contents of file "$GITHUB_OUTPUT" should include "build/libs/app-1.0.jar"
+    The contents of file "$GITHUB_OUTPUT" should include "build/distributions/app-1.0.zip"
+
+    # Cleanup
+    rm -rf build
+  End
+End
+
+
 Describe 'set_gradle_cmd()'
   It 'uses gradlew when available'
     unset GRADLE_CMD
@@ -485,6 +523,7 @@ End
 Describe 'main function'
   It 'executes full sequence'
     unset GRADLE_CMD
+    export DEPLOY="false"
     Mock check_tool
       case "$1" in
         java) echo "java ok" ;;

@@ -114,6 +114,34 @@ Describe 'build-yarn/build.sh'
 
   End
 
+  Describe 'export_built_artifacts()'
+    It 'captures artifacts when should-deploy=true and writes to GITHUB_OUTPUT'
+      echo "should-deploy=true" >> "$GITHUB_OUTPUT"
+      rm -rf .attestation-artifacts
+      mkdir -p .attestation-artifacts
+      touch .attestation-artifacts/test-1.2.3.tgz
+
+      When call export_built_artifacts
+      The status should be success
+      The output should include "Capturing built artifacts for attestation"
+      The output should include "Found artifact(s) for attestation:"
+      The output should include ".attestation-artifacts/test-1.2.3.tgz"
+      The contents of file "$GITHUB_OUTPUT" should include "artifact-paths<<EOF"
+      The contents of file "$GITHUB_OUTPUT" should include ".attestation-artifacts/test-1.2.3.tgz"
+    End
+
+    It 'skips silently when should-deploy=false'
+      echo "should-deploy=false" >> "$GITHUB_OUTPUT"
+      rm -rf .attestation-artifacts
+      mkdir -p .attestation-artifacts
+      touch .attestation-artifacts/ignored-1.0.0.tgz
+
+      When call export_built_artifacts
+      The status should be success
+      The output should be blank
+    End
+  End
+
   Describe 'git_fetch_unshallow()'
     It 'fetches unshallow when shallow'
       unset GITHUB_BASE_REF
@@ -219,15 +247,17 @@ Describe 'build-yarn/build.sh'
       export PROJECT="test"
       When call jfrog_yarn_publish
       The status should be success
-      The lines of output should equal 8
+      The lines of output should equal 10
       The line 1 should include "Configuring JFrog"
       The line 2 should include "jf config"
       The line 3 should include "jf npm-config"
-      The line 4 should include "Publishing Yarn"
-      The line 5 should include "jf npm publish"
-      The line 6 should include "jf rt build-collect-env"
-      The line 7 should include "Publishing build info"
-      The line 8 should include "jf rt build-publish"
+      The line 4 should include "Creating local tarball for attestation"
+      The line 5 should include "yarn pack"
+      The line 6 should include "Publishing Yarn package"
+      The line 7 should include "jf npm publish"
+      The line 8 should include "jf rt build-collect-env"
+      The line 9 should include "Publishing build info"
+      The line 10 should include "jf rt build-publish"
     End
   End
 

@@ -60,6 +60,9 @@ Describe 'build-maven/build.sh'
     export HOME
     mkdir -p "$HOME/.m2"
     touch "$HOME/.m2/settings.xml"
+    GITHUB_OUTPUT=$(mktemp)
+    export GITHUB_OUTPUT
+    echo "should-deploy=false" > "$GITHUB_OUTPUT"
     Mock git
       echo "git $*"
     End
@@ -69,6 +72,7 @@ Describe 'build-maven/build.sh'
     When run script build-maven/build.sh
     The status should be success
     The output should include "Maven command: mvn"
+    rm -f "$GITHUB_OUTPUT"
   End
 End
 
@@ -114,6 +118,52 @@ Describe 'build.sh'
       The line 5 should include "Build, no analysis, no deploy"
       The line 6 should include "Maven command: mvn verify"
       The line 7 should match pattern "mvn verify"
+  End
+End
+
+Describe 'export_built_artifacts()'
+  It 'skips silently when should-deploy=false'
+    GITHUB_OUTPUT=$(mktemp)
+    export GITHUB_OUTPUT
+    echo "should-deploy=false" > "$GITHUB_OUTPUT"
+
+    When call export_built_artifacts
+    The status should be success
+    The output should be blank
+
+    rm -f "$GITHUB_OUTPUT"
+  End
+
+  It 'captures artifacts when should-deploy=true and writes to GITHUB_OUTPUT'
+    GITHUB_OUTPUT=$(mktemp)
+    export GITHUB_OUTPUT
+    echo "should-deploy=true" > "$GITHUB_OUTPUT"
+
+    # Mock mvn evaluations used by export_built_artifacts
+    Mock mvn
+      case "$*" in
+        *"help:evaluate -Dexpression=maven.deploy.skip -q -DforceStdout"*) echo "false" ;;
+        *"help:evaluate -Dexpression=project.build.directory -q -DforceStdout"*) echo "target" ;;
+        *) echo "mvn $*" ;;
+      esac
+    End
+
+    mkdir -p target
+    touch target/app-1.0.jar
+    touch target/app-1.0.zip
+    touch target/dependency-check.json
+
+    When call export_built_artifacts
+    The status should be success
+    The output should include "Capturing built artifacts for attestation"
+    The output should include "Found artifacts for attestation:"
+    The output should include "target/app-1.0.jar"
+    The output should include "target/app-1.0.zip"
+    The contents of file "$GITHUB_OUTPUT" should include "artifact-paths<<EOF"
+    The contents of file "$GITHUB_OUTPUT" should include "target/app-1.0.jar"
+    The contents of file "$GITHUB_OUTPUT" should include "target/app-1.0.zip"
+
+    rm -rf target "$GITHUB_OUTPUT"
   End
 End
 
