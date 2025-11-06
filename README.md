@@ -894,14 +894,13 @@ jobs:
 
 The build actions in this repository can automatically generate SLSA build provenance
 attestations for produced artifacts when the build is considered deployable. This feature is
-powered by GitHub's `actions/attest-build-provenance` action. See the upstream documentation:
-[`actions/attest-build-provenance`](https://github.com/actions/attest-build-provenance).
+powered by [`actions/attest-build-provenance`](https://github.com/actions/attest-build-provenance).
 
-Attestations identify the artifact(s) that serve as the subject of the attestation. Our actions
+Attestations identify the artifact(s) that serve as the subject of the attestation. The `build-*` actions
 attempt to discover these subjects automatically using conventional build output locations and
-common file types for each ecosystem. Discovery is only performed when the current context is
-deployable (the same gating used for publication), and the generation is skipped for
-non-deployable contexts.
+common file types for each ecosystem. Automatic discovery runs only when deployment is enabled.
+The attestation step runs when `provenance` parameter is enabled and artifact paths are available (either via
+`provenance-artifact-paths` or from the build output); otherwise, it is skipped.
 
 ### Ecosystem assumptions (automatic discovery)
 
@@ -929,27 +928,27 @@ non-deployable contexts.
   - File types: `*.tgz`
 
 These assumptions are based on widely-used industry conventions and on how artifacts are currently
-published to our Artifactory. They should cover most repositories, but they are not exhaustive.
+published to our Artifactory. They should cover most repositories, but they are not exhaustive. If
+needed, you can customize the paths via the `provenance-artifact-paths` input.
 
-### Strong recommendation: manually specify subjects when needed
+### Manually specify subjects when needed
 
-For complete accuracy, we strongly recommend explicitly specifying the artifacts to attest using
-the `provenance-subject-path` input. This mirrors the upstream `subject-path` input from
-`actions/attest-build-provenance` and may contain a glob pattern or a list of paths (total subject
-count cannot exceed 1024). See upstream docs for details and more examples:
-[`actions/attest-build-provenance`](https://github.com/actions/attest-build-provenance).
+For complete accuracy, we recommend explicitly specifying the artifacts to attest using the
+`provenance-artifact-paths` input. Repository owners know best what their build produces, so
+providing explicit paths might be sometimes preferable. `provenance-artifact-paths` is passed to
+`actions/attest-build-provenance` as the `subject-path` input. It may be a glob pattern or a
+newline-separated list of paths (total subject count cannot exceed 1024). See upstream docs for
+details and more examples: [`actions/attest-build-provenance`](https://github.com/actions/attest-build-provenance).
 
 Example with a build action (same idea applies to other actions):
 
 ```yaml
 - uses: SonarSource/ci-github-actions/build-maven@v1
   with:
-    provenance-subject-path: |
+    provenance-artifact-paths: |
       target/*.jar
       target/*bom.json
 ```
-
-If `provenance-subject-path` is not provided, the automatic discovery described above will be used.
 
 ---
 
