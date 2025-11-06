@@ -190,9 +190,9 @@ build_maven() {
 }
 
 export_built_artifacts() {
-  local should_deploy
-  should_deploy=$(grep "should-deploy=" "$GITHUB_OUTPUT" 2>/dev/null | cut -d= -f2)
-  [[ "$should_deploy" != "true" ]] && return 0
+  local deployed
+  deployed=$(grep "deployed=" "$GITHUB_OUTPUT" 2>/dev/null | cut -d= -f2)
+  [[ "$deployed" != "true" ]] && return 0
 
   echo "=== Capturing built artifacts for attestation ==="
 

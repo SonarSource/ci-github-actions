@@ -246,7 +246,9 @@ get_build_config() {
   # Export the configuration for use by build_poetry
   export BUILD_ENABLE_SONAR="$enable_sonar"
   export BUILD_ENABLE_DEPLOY="$enable_deploy"
-  echo "should-deploy=$enable_deploy" >> "$GITHUB_OUTPUT"
+  if [ "$enable_deploy" = "true" ]; then
+    echo "deployed=true" >> "$GITHUB_OUTPUT"
+  fi
   export BUILD_SONAR_ARGS="${sonar_args[*]:-}"
 }
 
@@ -299,9 +301,9 @@ build_poetry() {
 }
 
 export_built_artifacts() {
-  local should_deploy
-  should_deploy=$(grep "should-deploy=" "$GITHUB_OUTPUT" 2>/dev/null | cut -d= -f2)
-  [[ "$should_deploy" != "true" ]] && return 0
+  local deployed
+  deployed=$(grep "deployed=" "$GITHUB_OUTPUT" 2>/dev/null | cut -d= -f2)
+  [[ "$deployed" != "true" ]] && return 0
 
   echo "=== Capturing built artifacts for attestation ==="
 

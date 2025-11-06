@@ -62,6 +62,12 @@ outputs:
   project-version:
     description: The project version with build number (after replacement). Also set as environment variable PROJECT_VERSION.
     value: ${{ steps.config.outputs.project-version }}
+  deployed:
+    description: Whether artifacts were deployed
+    value: ${{ steps.build.outputs.deployed }}
+  artifact-paths:
+    description: Newline-separated list of artifact paths for provenance attestation
+    value: ${{ steps.build.outputs.artifact-paths }}
 
 runs:
   using: composite
@@ -166,8 +172,7 @@ runs:
       if: |
         ${{
           inputs.generate-provenance == 'true' &&
-          steps.build.outputs.should-deploy == 'true' &&
-          (github.ref_name == github.event.repository.default_branch || inputs.provenance-on-pr == 'true')
+          (inputs.provenance-subject-path != '' || steps.build.outputs.artifact-paths != '')
         }}
       uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
       with:

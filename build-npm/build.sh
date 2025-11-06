@@ -176,7 +176,9 @@ get_build_config() {
     enable_deploy=false
   fi
 
-  echo "should-deploy=$enable_deploy" >> "$GITHUB_OUTPUT"
+  if [ "$enable_deploy" = "true" ]; then
+    echo "deployed=true" >> "$GITHUB_OUTPUT"
+  fi
   # Export the configuration for use by run_standard_pipeline
   export BUILD_ENABLE_SONAR="$enable_sonar"
   export BUILD_ENABLE_DEPLOY="$enable_deploy"
@@ -223,9 +225,9 @@ build_npm() {
 }
 
 export_built_artifacts() {
-  local should_deploy
-  should_deploy=$(grep "should-deploy=" "$GITHUB_OUTPUT" 2>/dev/null | cut -d= -f2)
-  [[ "$should_deploy" != "true" ]] && return 0
+  local deployed
+  deployed=$(grep "deployed=" "$GITHUB_OUTPUT" 2>/dev/null | cut -d= -f2)
+  [[ "$deployed" != "true" ]] && return 0
 
   echo "=== Capturing built artifacts for attestation ==="
 
