@@ -308,7 +308,7 @@ export_built_artifacts() {
   echo "::group::Capturing built artifacts for attestation"
 
   local artifacts
-  artifacts=$(find dist -type f \( -name '*.tar.gz' -o -name '*.whl' -o -name '*.json' \) 2>/dev/null || true)
+  artifacts=$(/usr/bin/find dist -type f \( -name '*.tar.gz' -o -name '*.whl' -o -name '*.json' \) 2>/dev/null || true)
 
   if [[ -z "$artifacts" ]]; then
     echo "::warning title=No artifacts found::No artifacts found for attestation in build output directories"

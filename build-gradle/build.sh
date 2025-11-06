@@ -263,7 +263,7 @@ export_built_artifacts() {
 
   # Find all built artifacts, excluding sources/javadoc/tests JARs
   local artifacts
-  artifacts=$(find . \( -path '*/build/libs/*' -o -path '*/build/distributions/*' -o -path '*/build/reports/*' \) \
+  artifacts=$(/usr/bin/find . \( -path '*/build/libs/*' -o -path '*/build/distributions/*' -o -path '*/build/reports/*' \) \
     \( -name '*.jar' -o -name '*.war' -o -name '*.ear' -o -name '*.zip' -o -name '*.tar.gz' -o -name '*.tar' -o -name '*.json' \) \
     ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-tests.jar' \
     -type f 2>/dev/null | sort -u || true)

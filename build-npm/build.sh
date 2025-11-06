@@ -232,7 +232,7 @@ export_built_artifacts() {
   echo "::group::Capturing built artifacts for attestation"
 
   local artifacts
-  artifacts=$(find .attestation-artifacts -name '*.tgz' -type f 2>/dev/null || true)
+  artifacts=$(/usr/bin/find .attestation-artifacts -name '*.tgz' -type f 2>/dev/null || true)
 
   if [[ -z "$artifacts" ]]; then
     echo "::warning title=No artifacts found::No artifacts found for attestation in build output directories"
