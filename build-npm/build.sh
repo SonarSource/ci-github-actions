@@ -208,6 +208,7 @@ run_standard_pipeline() {
 
   if [ "${BUILD_ENABLE_DEPLOY}" = "true" ]; then
     jfrog_npm_publish
+    export_built_artifacts
   fi
 }
 
@@ -260,7 +261,6 @@ main() {
   git_fetch_unshallow
   echo "::group::Build"
   build_npm
-  export_built_artifacts
   echo "::endgroup::"
 }
 

@@ -174,6 +174,7 @@ build_maven() {
 
   if should_deploy; then
     echo "deployed=true" >> "$GITHUB_OUTPUT"
+    export_built_artifacts
   fi
 
   # Execute SonarQube analysis if enabled
@@ -237,5 +238,4 @@ export_built_artifacts() {
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   build_maven "$@"
-  export_built_artifacts
 fi

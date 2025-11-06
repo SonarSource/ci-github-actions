@@ -265,6 +265,7 @@ run_standard_pipeline() {
 
   if [ "${BUILD_ENABLE_DEPLOY}" = "true" ]; then
     jfrog_yarn_publish
+    export_built_artifacts
   fi
 }
 
@@ -317,7 +318,6 @@ main() {
   check_tool yarn --version
   set_build_env
   build_yarn
-  export_built_artifacts
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

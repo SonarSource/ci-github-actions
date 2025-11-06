@@ -295,6 +295,7 @@ build_poetry() {
 
   if [ "${BUILD_ENABLE_DEPLOY}" = "true" ]; then
     jfrog_poetry_publish
+    export_built_artifacts
   fi
 
   echo "=== Build completed successfully ==="
@@ -336,7 +337,6 @@ main() {
 
   set_build_env
   build_poetry
-  export_built_artifacts
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

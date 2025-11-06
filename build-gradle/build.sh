@@ -227,6 +227,7 @@ gradle_build_and_analyze() {
   "$GRADLE_CMD" "${gradle_args[@]}"
   if should_deploy; then
     echo "deployed=true" >> "$GITHUB_OUTPUT"
+    export_built_artifacts
   fi
 }
 
@@ -292,7 +293,6 @@ main() {
   set_build_env
   set_project_version
   gradle_build
-  export_built_artifacts
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
