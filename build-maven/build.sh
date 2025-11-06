@@ -194,13 +194,14 @@ export_built_artifacts() {
   deployed=$(grep "deployed=" "$GITHUB_OUTPUT" 2>/dev/null | cut -d= -f2)
   [[ "$deployed" != "true" ]] && return 0
 
-  echo "=== Capturing built artifacts for attestation ==="
+  echo "::group::Capturing built artifacts for attestation"
 
   # Check if maven.deploy.skip is set to true (modules not meant for deployment)
   local deploy_skip
   deploy_skip=$(mvn help:evaluate -Dexpression=maven.deploy.skip -q -DforceStdout 2>/dev/null || echo "false")
   if [[ "$deploy_skip" == "true" ]]; then
     echo "maven.deploy.skip=true detected - skipping attestation for non-deployable module"
+    echo "::endgroup::"
     return 0
   fi
 
@@ -216,7 +217,11 @@ export_built_artifacts() {
     ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-tests.jar' \
     -type f 2>/dev/null || true)
 
-  [[ -z "$artifacts" ]] && echo "No artifacts found for attestation" && return 0
+  if [[ -z "$artifacts" ]]; then
+    echo "::warning title=No artifacts found::No artifacts found for attestation in build output directories"
+    echo "::endgroup::"
+    return 0
+  fi
 
   echo "Found artifacts for attestation:"
   echo "$artifacts"
@@ -226,6 +231,8 @@ export_built_artifacts() {
     echo "$artifacts"
     echo "EOF"
   } >> "$GITHUB_OUTPUT"
+
+  echo "::endgroup::"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

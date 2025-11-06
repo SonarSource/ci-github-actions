@@ -259,7 +259,7 @@ export_built_artifacts() {
     return 0
   fi
 
-  echo "=== Capturing built artifacts for attestation ==="
+  echo "::group::Capturing built artifacts for attestation"
 
   # Find all built artifacts, excluding sources/javadoc/tests JARs
   local artifacts
@@ -268,7 +268,11 @@ export_built_artifacts() {
     ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-tests.jar' \
     -type f 2>/dev/null | sort -u || true)
 
-  [[ -z "$artifacts" ]] && echo "No artifacts found for attestation" && return 0
+  if [[ -z "$artifacts" ]]; then
+    echo "::warning title=No artifacts found::No artifacts found for attestation in build output directories"
+    echo "::endgroup::"
+    return 0
+  fi
 
   echo "Found artifacts for attestation:"
   echo "$artifacts"
@@ -278,6 +282,8 @@ export_built_artifacts() {
     echo "$artifacts"
     echo "EOF"
   } >> "$GITHUB_OUTPUT"
+
+  echo "::endgroup::"
 }
 
 main() {
