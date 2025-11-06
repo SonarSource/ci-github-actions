@@ -228,12 +228,12 @@ get_build_config() {
   fi
 
   # Disable deployment when shadow scans are enabled to prevent duplicate artifacts
-  if [ "${RUN_SHADOW_SCANS}" = "true" ]; then
+  if [[ "${RUN_SHADOW_SCANS}" = "true" ]]; then
     echo "======= Shadow scans enabled - disabling deployment to prevent duplicate artifacts ======="
     enable_deploy=false
   fi
 
-  if [ "$enable_deploy" = "true" ]; then
+  if [[ "$enable_deploy" = "true" ]]; then
     echo "deployed=true" >> "$GITHUB_OUTPUT"
   fi
   # Export the configuration for use by run_standard_pipeline

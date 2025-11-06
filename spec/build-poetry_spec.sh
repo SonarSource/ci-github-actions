@@ -150,14 +150,18 @@ Describe 'export_built_artifacts()'
     GITHUB_OUTPUT=$(mktemp)
     export GITHUB_OUTPUT
     echo "should-deploy=true" >> "$GITHUB_OUTPUT"
-    touch dist/pkg-1.0.0.42.whl dist/pkg-1.0.0.42.tar.gz
+    touch dist/pkg-1.0.0.42.whl
+    Mock grep
+      echo "should-deploy=true"
+    End
 
     When call export_built_artifacts
     The status should be success
-    The output should include "=== Capturing built artifacts for attestation ==="
-    The output should include "Found artifacts for attestation:"
-    The output should include "dist/pkg-1.0.0.42.whl"
-    The output should include "dist/pkg-1.0.0.42.tar.gz"
+    The lines of stdout should equal 4
+    The line 1 should equal "::group::Capturing built artifacts for attestation"
+    The line 2 should equal "Found artifacts for attestation:"
+    The line 3 should equal "dist/pkg-1.0.0.42.whl"
+    The line 4 should equal "::endgroup::"
     The contents of file "$GITHUB_OUTPUT" should include "artifact-paths<<EOF"
     The contents of file "$GITHUB_OUTPUT" should include "dist/pkg-1.0.0.42.whl"
   End

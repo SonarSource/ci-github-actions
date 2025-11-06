@@ -246,7 +246,7 @@ get_build_config() {
   # Export the configuration for use by build_poetry
   export BUILD_ENABLE_SONAR="$enable_sonar"
   export BUILD_ENABLE_DEPLOY="$enable_deploy"
-  if [ "$enable_deploy" = "true" ]; then
+  if [[ "$enable_deploy" = "true" ]]; then
     echo "deployed=true" >> "$GITHUB_OUTPUT"
   fi
   export BUILD_SONAR_ARGS="${sonar_args[*]:-}"

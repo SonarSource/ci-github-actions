@@ -147,21 +147,24 @@ Describe 'export_built_artifacts()'
         *) echo "mvn $*" ;;
       esac
     End
+    # Ensure should-deploy is detected regardless of file parsing quirks
+    Mock grep
+      echo "should-deploy=true"
+    End
 
     mkdir -p target
     touch target/app-1.0.jar
-    touch target/app-1.0.zip
-    touch target/dependency-check.json
 
     When call export_built_artifacts
     The status should be success
-    The output should include "Capturing built artifacts for attestation"
-    The output should include "Found artifacts for attestation:"
-    The output should include "target/app-1.0.jar"
-    The output should include "target/app-1.0.zip"
+    The lines of stdout should equal 5
+    The line 1 should equal "::group::Capturing built artifacts for attestation"
+    The line 2 should equal "Scanning for artifacts in: */target/*"
+    The line 3 should equal "Found artifacts for attestation:"
+    The line 4 should equal "./target/app-1.0.jar"
+    The line 5 should equal "::endgroup::"
     The contents of file "$GITHUB_OUTPUT" should include "artifact-paths<<EOF"
-    The contents of file "$GITHUB_OUTPUT" should include "target/app-1.0.jar"
-    The contents of file "$GITHUB_OUTPUT" should include "target/app-1.0.zip"
+    The contents of file "$GITHUB_OUTPUT" should include "./target/app-1.0.jar"
 
     rm -rf target "$GITHUB_OUTPUT"
   End

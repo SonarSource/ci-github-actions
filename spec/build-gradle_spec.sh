@@ -407,6 +407,7 @@ Describe 'sonar_scanner_implementation()'
   It 'runs gradle with sonar for current platform'
     export GRADLE_ARGS=""
     export SONAR_HOST_URL="https://next.sonarqube.com"
+    export DEPLOY="false"
     Mock build_gradle_args
       echo "--no-daemon build sonar"
     End
@@ -442,10 +443,13 @@ Describe 'export_built_artifacts()'
 
     When call export_built_artifacts
     The status should be success
-    The output should include "Capturing built artifacts for attestation"
-    The output should include "Found artifacts for attestation:"
-    The output should include "build/libs/app-1.0.jar"
-    The output should include "build/distributions/app-1.0.zip"
+    The lines of stdout should equal 6
+    The line 1 should equal "::group::Capturing built artifacts for attestation"
+    The line 2 should equal "Found artifacts for attestation:"
+    The line 3 should equal "./build/distributions/app-1.0.zip"
+    The line 4 should equal "./build/libs/app-1.0.jar"
+    The line 5 should equal "./build/reports/dependency-check.json"
+    The line 6 should equal "::endgroup::"
     The contents of file "$GITHUB_OUTPUT" should include "artifact-paths<<EOF"
     The contents of file "$GITHUB_OUTPUT" should include "build/libs/app-1.0.jar"
     The contents of file "$GITHUB_OUTPUT" should include "build/distributions/app-1.0.zip"

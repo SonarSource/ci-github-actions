@@ -156,13 +156,15 @@ Describe 'export_built_artifacts()'
     rm -rf .attestation-artifacts
     mkdir -p .attestation-artifacts
     touch .attestation-artifacts/test-1.2.3.tgz
-    echo "should-deploy=true" >> "$GITHUB_OUTPUT"
+    echo "deployed=true" >> "$GITHUB_OUTPUT"
 
     When call export_built_artifacts
     The status should be success
-    The output should include "Capturing built artifacts for attestation"
-    The output should include "Found artifact(s) for attestation:"
-    The output should include ".attestation-artifacts/test-1.2.3.tgz"
+    The lines of stdout should equal 4
+    The line 1 should equal "::group::Capturing built artifacts for attestation"
+    The line 2 should equal "Found artifact(s) for attestation:"
+    The line 3 should equal ".attestation-artifacts/test-1.2.3.tgz"
+    The line 4 should equal "::endgroup::"
     The contents of file "$GITHUB_OUTPUT" should include "artifact-paths<<EOF"
     The contents of file "$GITHUB_OUTPUT" should include ".attestation-artifacts/test-1.2.3.tgz"
   End
@@ -173,7 +175,7 @@ Describe 'export_built_artifacts()'
     rm -rf .attestation-artifacts
     mkdir -p .attestation-artifacts
     touch .attestation-artifacts/ignored-1.0.0.tgz
-    echo "should-deploy=false" >> "$GITHUB_OUTPUT"
+    echo "deployed=false" >> "$GITHUB_OUTPUT"
 
     When call export_built_artifacts
     The status should be success
