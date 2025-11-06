@@ -244,13 +244,10 @@ runs:
         name: problems-report-${{ github.job }}${{ strategy.job-index }}
         path: build/reports/problems/problems-report.html
         if-no-files-found: ignore
-
     - name: Generate provenance attestation
-      if: |
-        ${{
-          inputs.provenance == 'true' &&
-          (inputs.provenance-artifact-paths != '' || steps.build.outputs.artifact-paths != '')
-        }}
+      if: >-
+        ${{ inputs.provenance == 'true' && steps.build.outputs.deployed == 'true' &&
+            (inputs.provenance-artifact-paths != '' || steps.build.outputs.artifact-paths != '') }}
       uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
       with:
         subject-path: >-

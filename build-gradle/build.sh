@@ -263,11 +263,20 @@ export_built_artifacts() {
   echo "::group::Capturing built artifacts for attestation"
 
   # Find all built artifacts, excluding sources/javadoc/tests JARs
-  local artifacts
-  artifacts=$(/usr/bin/find . \( -path '*/build/libs/*' -o -path '*/build/distributions/*' -o -path '*/build/reports/*' \) \
+  local artifacts find_bin
+  find_bin="/bin/find"
+  if [[ ! -x "$find_bin" ]]; then
+    find_bin="/usr/bin/find"
+  fi
+  artifacts=$("$find_bin" . \( -path '*/build/libs/*' -o -path '*/build/distributions/*' -o -path '*/build/reports/*' \) \
     \( -name '*.jar' -o -name '*.war' -o -name '*.ear' -o -name '*.zip' -o -name '*.tar.gz' -o -name '*.tar' -o -name '*.json' \) \
     ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-tests.jar' \
-    -type f 2>/dev/null | sort -u || true)
+    -type f 2>/dev/null)
+
+  # Sort and deduplicate (avoid Windows sort.exe)
+  if [[ -n "$artifacts" ]]; then
+    artifacts=$(echo "$artifacts" | /usr/bin/sort -u)
+  fi
 
   if [[ -z "$artifacts" ]]; then
     echo "::warning title=No artifacts found::No artifacts found for attestation in build output directories"
