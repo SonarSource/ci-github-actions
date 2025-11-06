@@ -197,15 +197,6 @@ export_built_artifacts() {
 
   echo "::group::Capturing built artifacts for attestation"
 
-  # Check if maven.deploy.skip is set to true (modules not meant for deployment)
-  local deploy_skip
-  deploy_skip=$(mvn help:evaluate -Dexpression=maven.deploy.skip -q -DforceStdout 2>/dev/null || echo "false")
-  if [[ "$deploy_skip" == "true" ]]; then
-    echo "maven.deploy.skip=true detected - skipping attestation for non-deployable module"
-    echo "::endgroup::"
-    return 0
-  fi
-
   # Query Maven for build directory name, fallback to 'target'
   local build_dir
   build_dir=$(mvn help:evaluate -Dexpression=project.build.directory -q -DforceStdout 2>/dev/null | xargs basename 2>/dev/null || echo "target")
@@ -216,7 +207,7 @@ export_built_artifacts() {
   artifacts=$(/usr/bin/find . -path "*/${build_dir}/*" \
     \( -name '*.jar' -o -name '*.war' -o -name '*.ear' -o -name '*.zip' -o -name '*.tar.gz' -o -name '*.tar' -o -name '*.pom' -o -name '*.asc' -o -name '*.json' \) \
     ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-tests.jar' \
-    -type f 2>/dev/null || true)
+    -type f 2>/dev/null | sort -u || true)
 
   if [[ -z "$artifacts" ]]; then
     echo "::warning title=No artifacts found::No artifacts found for attestation in build output directories"
