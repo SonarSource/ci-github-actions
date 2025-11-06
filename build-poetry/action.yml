@@ -43,14 +43,16 @@ inputs:
   working-directory:
     description: Relative path under github.workspace to execute the build in
     default: .
-  generate-provenance:
+  provenance:
     description: Whether to generate provenance attestation for built artifacts
     default: 'false'
-  provenance-on-pr:
-    description: Developer mode - Allow provenance generation on PRs/branches (bypass master-only restriction)
+  provenance-pull-request:
+    description: Whether to generate provenance attestation on pull requests (similar to deploy-pull-request)
     default: 'false'
-  provenance-subject-path:
-    description: Override the default subject-path for provenance attestation (glob pattern)
+  provenance-artifact-paths:
+    description: >-
+      Relative paths of the artifacts for which to generate a provenance attestation (glob pattern).
+      Default is collected from 'dist/' directory
     default: ''
 
 outputs:
@@ -164,12 +166,14 @@ runs:
     - name: Generate provenance attestation
       if: |
         ${{
-          inputs.generate-provenance == 'true' &&
-          (inputs.provenance-subject-path != '' || steps.build.outputs.artifact-paths != '')
+          inputs.provenance == 'true' &&
+          (inputs.provenance-artifact-paths != '' || steps.build.outputs.artifact-paths != '')
         }}
       uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
       with:
-        subject-path: ${{ inputs.provenance-subject-path != '' && inputs.provenance-subject-path || steps.build.outputs.artifact-paths }}
+        subject-path: >-
+          ${{ inputs.provenance-artifact-paths != '' && inputs.provenance-artifact-paths || steps.build.outputs.artifact-paths }}
+        show-summary: true
 
     - name: Generate workflow summary
       if: always()
