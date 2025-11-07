@@ -110,7 +110,7 @@ should_deploy() {
 
   # Disable deployment when shadow scans are enabled to prevent duplicate artifacts
   if [[ "${RUN_SHADOW_SCANS}" = "true" ]]; then
-    echo "Shadow scans enabled - disabling deployment"
+    echo "Shadow scans enabled - disabling deployment" >&2
     return 1
   fi
 

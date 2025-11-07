@@ -235,8 +235,8 @@ Describe 'should_deploy'
     export RUN_SHADOW_SCANS="true"
     When call should_deploy
     The status should be failure
-    The lines of stdout should equal 1
-    The line 1 should equal "Shadow scans enabled - disabling deployment"
+    The lines of stderr should equal 1
+    The line 1 of stderr should equal "Shadow scans enabled - disabling deployment"
   End
 End
 

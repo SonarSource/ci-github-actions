@@ -419,7 +419,7 @@ Describe 'build_maven()'
     It 'disables deployment when shadow scans are enabled'
       When call build_maven
       The status should be success
-      The output should include "Shadow scans enabled - disabling deployment"
+      The stderr should include "Shadow scans enabled - disabling deployment"
       The output should include "Maven command: mvn install"
       The output should not include "Maven command: mvn deploy"
     End
