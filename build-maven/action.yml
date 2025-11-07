@@ -158,7 +158,7 @@ runs:
       shell: bash
       run: |
         rm -rf "$MAVEN_CONFIG/repository/org/sonarsource/"
-        rm -rf "$MAVEN_CONFIG/repository/repository/com/sonarsource/"
+        rm -rf "$MAVEN_CONFIG/repository/com/sonarsource/"
         /usr/bin/find "$MAVEN_CONFIG/repository" -name resolver-status.properties -delete
 
     - name: Generate workflow summary
