@@ -241,7 +241,7 @@ Describe 'check_settings_xml()'
     When call check_settings_xml
     The status should be success
     The output should be blank
-    # Cleanup
+
     rm -rf "$temp_home"
   End
 
@@ -254,7 +254,7 @@ Describe 'check_settings_xml()'
     The status should be failure
     The lines of output should equal 1
     The output should include "Missing Maven settings.xml::Maven settings.xml file not found at $HOME/.m2/settings.xml"
-    # Cleanup
+
     rm -rf "$temp_home"
   End
 
@@ -266,7 +266,7 @@ Describe 'check_settings_xml()'
     The status should be failure
     The lines of output should equal 1
     The output should include "Missing Maven settings.xml::Maven settings.xml file not found at $HOME/.m2/settings.xml"
-    # Cleanup
+
     rm -rf "$temp_home"
   End
 End

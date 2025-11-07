@@ -398,7 +398,7 @@ Describe 'gradle_build'
     The output should include "Gradle executed with:"
     The output should not include "=== ORCHESTRATOR:"
 
-    # Cleanup
+
     rm -f gradle-mock gradle.properties
   End
 End
@@ -429,7 +429,7 @@ Describe 'export_built_artifacts()'
     The status should be success
     The output should be blank
 
-    # Cleanup
+
     rm -rf build
   End
 
@@ -454,7 +454,7 @@ Describe 'export_built_artifacts()'
     The contents of file "$GITHUB_OUTPUT" should include "build/libs/app-1.0.jar"
     The contents of file "$GITHUB_OUTPUT" should include "build/distributions/app-1.0.zip"
 
-    # Cleanup
+
     rm -rf build
   End
 End
