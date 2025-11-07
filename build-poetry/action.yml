@@ -165,7 +165,9 @@ runs:
 
     - name: Generate provenance attestation
       if: >-
-        ${{ inputs.provenance == 'true' && steps.build.outputs.deployed == 'true' &&
+        ${{ inputs.provenance == 'true' &&
+            github.event_name != 'pull_request' &&
+            steps.build.outputs.deployed == 'true' &&
             (inputs.provenance-artifact-paths != '' || steps.build.outputs.artifact-paths != '') }}
       uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
       with:
