@@ -121,11 +121,11 @@ runs:
           ${{ inputs.use-develocity == 'true' && 'development/kv/data/develocity token | DEVELOCITY_TOKEN;' || '' }}
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
-          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} username | ARTIFACTORY_DEPLOY_USERNAME;
-          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;
-          development/kv/data/sign key | SIGN_KEY;
-          development/kv/data/sign passphrase | PGP_PASSPHRASE;
-          development/kv/data/sign key_id | SIGN_KEY_ID;
+          ${{ inputs.deploy == 'true' && 'development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} username | ARTIFACTORY_DEPLOY_USERNAME;' || '' }}
+          ${{ inputs.deploy == 'true' && 'development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;' || '' }}
+          ${{ inputs.deploy == 'true' && 'development/kv/data/sign key | SIGN_KEY;' || '' }}
+          ${{ inputs.deploy == 'true' && 'development/kv/data/sign passphrase | PGP_PASSPHRASE;' || '' }}
+          ${{ inputs.deploy == 'true' && 'development/kv/data/sign key_id | SIGN_KEY_ID;' || '' }}
         # yamllint enable rule:line-length
 
     # Configure Gradle for comprehensive caching and build summary reporting. It does not install Gradle.
