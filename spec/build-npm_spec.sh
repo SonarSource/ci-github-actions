@@ -98,6 +98,8 @@ Describe 'build-npm/build.sh'
     The output should equal ""
   End
   It 'runs main function when executed directly'
+    GITHUB_OUTPUT=$(mktemp)
+    export GITHUB_OUTPUT
     When run script build-npm/build.sh
     The status should be success
     The output should include "=== NPM Build, Deploy, and Analyze ==="
@@ -144,6 +146,40 @@ Describe 'git_fetch_unshallow()'
     The status should be success
     The lines of stdout should equal 1
     The line 1 should equal "Skipping git fetch (Sonar analysis disabled)"
+  End
+End
+
+Describe 'export_built_artifacts()'
+  It 'captures artifacts when should-deploy=true and writes to GITHUB_OUTPUT'
+    GITHUB_OUTPUT=$(mktemp)
+    export GITHUB_OUTPUT
+    rm -rf .attestation-artifacts
+    mkdir -p .attestation-artifacts
+    touch .attestation-artifacts/test-1.2.3.tgz
+    echo "deployed=true" >> "$GITHUB_OUTPUT"
+
+    When call export_built_artifacts
+    The status should be success
+    The lines of stdout should equal 4
+    The line 1 should equal "::group::Capturing built artifacts for attestation"
+    The line 2 should equal "Found artifact(s) for attestation:"
+    The line 3 should equal ".attestation-artifacts/test-1.2.3.tgz"
+    The line 4 should equal "::endgroup::"
+    The contents of file "$GITHUB_OUTPUT" should include "artifact-paths<<EOF"
+    The contents of file "$GITHUB_OUTPUT" should include ".attestation-artifacts/test-1.2.3.tgz"
+  End
+
+  It 'skips silently when should-deploy=false'
+    GITHUB_OUTPUT=$(mktemp)
+    export GITHUB_OUTPUT
+    rm -rf .attestation-artifacts
+    mkdir -p .attestation-artifacts
+    touch .attestation-artifacts/ignored-1.0.0.tgz
+    echo "deployed=false" >> "$GITHUB_OUTPUT"
+
+    When call export_built_artifacts
+    The status should be success
+    The output should be blank
   End
 End
 

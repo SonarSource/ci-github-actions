@@ -246,7 +246,9 @@ get_build_config() {
   # Export the configuration for use by build_poetry
   export BUILD_ENABLE_SONAR="$enable_sonar"
   export BUILD_ENABLE_DEPLOY="$enable_deploy"
-  echo "should-deploy=$enable_deploy" >> "$GITHUB_OUTPUT"
+  if [[ "$enable_deploy" = "true" ]]; then
+    echo "deployed=true" >> "$GITHUB_OUTPUT"
+  fi
   export BUILD_SONAR_ARGS="${sonar_args[*]:-}"
 }
 
@@ -293,9 +295,42 @@ build_poetry() {
 
   if [ "${BUILD_ENABLE_DEPLOY}" = "true" ]; then
     jfrog_poetry_publish
+    export_built_artifacts
   fi
 
   echo "=== Build completed successfully ==="
+}
+
+export_built_artifacts() {
+  local deployed
+  deployed=$(grep "deployed=" "$GITHUB_OUTPUT" 2>/dev/null | cut -d= -f2)
+  [[ "$deployed" != "true" ]] && return 0
+
+  echo "::group::Capturing built artifacts for attestation"
+
+  local artifacts find_bin
+  find_bin="/bin/find"
+  if [[ ! -x "$find_bin" ]]; then
+    find_bin="/usr/bin/find"
+  fi
+  artifacts=$("$find_bin" dist -type f \( -name '*.tar.gz' -o -name '*.whl' -o -name '*.json' \) 2>/dev/null || true)
+
+  if [[ -z "$artifacts" ]]; then
+    echo "::warning title=No artifacts found::No artifacts found for attestation in build output directories"
+    echo "::endgroup::"
+    return 0
+  fi
+
+  echo "Found artifacts for attestation:"
+  echo "$artifacts"
+
+  {
+    echo "artifact-paths<<EOF"
+    echo "$artifacts"
+    echo "EOF"
+  } >> "$GITHUB_OUTPUT"
+
+  echo "::endgroup::"
 }
 
 main() {

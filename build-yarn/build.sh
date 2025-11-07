@@ -165,6 +165,14 @@ jfrog_yarn_publish() {
   jf config add repox --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_DEPLOY_ACCESS_TOKEN"
   jf npm-config --repo-resolve "npm" --repo-deploy "$ARTIFACTORY_DEPLOY_REPO"
 
+  # Create a local tarball and preserve it for attestation
+  echo "Creating local tarball for attestation..."
+  yarn pack
+
+  # Copy to safe location before jf npm publish deletes it
+  mkdir -p .attestation-artifacts
+  cp -v ./*.tgz .attestation-artifacts/ 2>/dev/null || true
+
   echo "::debug::Publishing Yarn package..."
   jf npm publish --build-name="$PROJECT" --build-number="$BUILD_NUMBER"
 
@@ -220,12 +228,14 @@ get_build_config() {
   fi
 
   # Disable deployment when shadow scans are enabled to prevent duplicate artifacts
-  if [ "${RUN_SHADOW_SCANS}" = "true" ]; then
+  if [[ "${RUN_SHADOW_SCANS}" = "true" ]]; then
     echo "======= Shadow scans enabled - disabling deployment to prevent duplicate artifacts ======="
     enable_deploy=false
   fi
 
-  echo "should-deploy=$enable_deploy" >> "$GITHUB_OUTPUT"
+  if [[ "$enable_deploy" = "true" ]]; then
+    echo "deployed=true" >> "$GITHUB_OUTPUT"
+  fi
   # Export the configuration for use by run_standard_pipeline
   export BUILD_ENABLE_SONAR="$enable_sonar"
   export BUILD_ENABLE_DEPLOY="$enable_deploy"
@@ -255,6 +265,7 @@ run_standard_pipeline() {
 
   if [ "${BUILD_ENABLE_DEPLOY}" = "true" ]; then
     jfrog_yarn_publish
+    export_built_artifacts
   fi
 }
 
@@ -272,6 +283,37 @@ build_yarn() {
   run_standard_pipeline
 
   echo "=== Build completed successfully ==="
+}
+
+export_built_artifacts() {
+  local deployed
+  deployed=$(grep "deployed=" "$GITHUB_OUTPUT" 2>/dev/null | cut -d= -f2)
+  [[ "$deployed" != "true" ]] && return 0
+
+  echo "::group::Capturing built artifacts for attestation"
+
+  local artifacts find_bin
+  find_bin="/bin/find"
+  if [[ ! -x "$find_bin" ]]; then
+    find_bin="/usr/bin/find"
+  fi
+  artifacts=$("$find_bin" .attestation-artifacts -name '*.tgz' -type f 2>/dev/null || true)
+
+  if [[ -z "$artifacts" ]]; then
+    echo "::warning title=No artifacts found::No artifacts found for attestation in build output directories"
+    echo "::endgroup::"
+    return 0
+  fi
+
+  echo "Found artifact(s) for attestation:"
+  echo "$artifacts"
+  {
+    echo "artifact-paths<<EOF"
+    echo "$artifacts"
+    echo "EOF"
+  } >> "$GITHUB_OUTPUT"
+
+  echo "::endgroup::"
 }
 
 main() {

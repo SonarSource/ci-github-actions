@@ -174,6 +174,7 @@ build_maven() {
 
   if should_deploy; then
     echo "deployed=true" >> "$GITHUB_OUTPUT"
+    export_built_artifacts
   fi
 
   # Execute SonarQube analysis if enabled
@@ -187,6 +188,52 @@ build_maven() {
     # This will call back to shared sonar_scanner_implementation() function
     orchestrate_sonar_platforms "${sonar_args[@]+"${sonar_args[@]}"}" "$@"
   fi
+}
+
+export_built_artifacts() {
+  local deployed
+  deployed=$(grep "deployed=" "$GITHUB_OUTPUT" 2>/dev/null | cut -d= -f2)
+  [[ "$deployed" != "true" ]] && return 0
+
+  echo "::group::Capturing built artifacts for attestation"
+
+  # Query Maven for build directory name, fallback to 'target'
+  local build_dir
+  build_dir=$(mvn help:evaluate -Dexpression=project.build.directory -q -DforceStdout 2>/dev/null | xargs basename 2>/dev/null || echo "target")
+  echo "Scanning for artifacts in: */${build_dir}/*"
+
+  # Find all built artifacts (excluding sources, javadoc, tests)
+  local artifacts find_bin
+  find_bin="/bin/find"
+  if [[ ! -x "$find_bin" ]]; then
+    find_bin="/usr/bin/find"
+  fi
+  artifacts=$("$find_bin" . -path "*/${build_dir}/*" \
+    \( -name '*.jar' -o -name '*.war' -o -name '*.ear' -o -name '*.zip' -o -name '*.tar.gz' -o -name '*.tar' -o -name '*.pom' -o -name '*.asc' -o -name '*.json' \) \
+    ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-tests.jar' \
+    -type f 2>/dev/null)
+
+  # Sort and deduplicate (avoid Windows sort.exe)
+  if [[ -n "$artifacts" ]]; then
+    artifacts=$(echo "$artifacts" | /usr/bin/sort -u)
+  fi
+
+  if [[ -z "$artifacts" ]]; then
+    echo "::warning title=No artifacts found::No artifacts found for attestation in build output directories"
+    echo "::endgroup::"
+    return 0
+  fi
+
+  echo "Found artifacts for attestation:"
+  echo "$artifacts"
+
+  {
+    echo "artifact-paths<<EOF"
+    echo "$artifacts"
+    echo "EOF"
+  } >> "$GITHUB_OUTPUT"
+
+  echo "::endgroup::"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

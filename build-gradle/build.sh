@@ -227,6 +227,7 @@ gradle_build_and_analyze() {
   "$GRADLE_CMD" "${gradle_args[@]}"
   if should_deploy; then
     echo "deployed=true" >> "$GITHUB_OUTPUT"
+    export_built_artifacts
   fi
 }
 
@@ -252,6 +253,47 @@ gradle_build() {
     # shellcheck disable=SC2119
     orchestrate_sonar_platforms
   fi
+}
+
+export_built_artifacts() {
+  if ! should_deploy; then
+    return 0
+  fi
+
+  echo "::group::Capturing built artifacts for attestation"
+
+  # Find all built artifacts, excluding sources/javadoc/tests JARs
+  local artifacts find_bin
+  find_bin="/bin/find"
+  if [[ ! -x "$find_bin" ]]; then
+    find_bin="/usr/bin/find"
+  fi
+  artifacts=$("$find_bin" . \( -path '*/build/libs/*' -o -path '*/build/distributions/*' -o -path '*/build/reports/*' \) \
+    \( -name '*.jar' -o -name '*.war' -o -name '*.ear' -o -name '*.zip' -o -name '*.tar.gz' -o -name '*.tar' -o -name '*.json' \) \
+    ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-tests.jar' \
+    -type f 2>/dev/null)
+
+  # Sort and deduplicate (avoid Windows sort.exe)
+  if [[ -n "$artifacts" ]]; then
+    artifacts=$(echo "$artifacts" | /usr/bin/sort -u)
+  fi
+
+  if [[ -z "$artifacts" ]]; then
+    echo "::warning title=No artifacts found::No artifacts found for attestation in build output directories"
+    echo "::endgroup::"
+    return 0
+  fi
+
+  echo "Found artifacts for attestation:"
+  echo "$artifacts"
+
+  {
+    echo "artifact-paths<<EOF"
+    echo "$artifacts"
+    echo "EOF"
+  } >> "$GITHUB_OUTPUT"
+
+  echo "::endgroup::"
 }
 
 main() {

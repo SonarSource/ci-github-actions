@@ -40,6 +40,9 @@ export SQC_EU_URL="https://sonarcloud.io"
 export SQC_EU_TOKEN="sqc-eu-token"
 export RUN_SHADOW_SCANS="false"
 
+# Constant outputs (exported so mocks run in subshells can access it)
+export JQ_VERSION_OUTPUT="jq-1.8.1"
+
 Describe 'build-poetry/build.sh'
   It 'does not run build_poetry() if the script is sourced'
     When run source build-poetry/build.sh
@@ -58,6 +61,11 @@ Describe 'build-poetry/build.sh'
     Mock git
       echo "git $*"
     End
+    Mock jq
+      echo "$JQ_VERSION_OUTPUT"
+    End
+    GITHUB_OUTPUT=$(mktemp)
+    export GITHUB_OUTPUT
     When run script build-poetry/build.sh
       The status should be success
       The lines of stdout should equal 26
@@ -116,6 +124,58 @@ Describe 'set_build_env()'
     The line 1 should equal "PROJECT: my-repo"
     The line 2 should equal "Fetch main for SonarQube analysis..."
     The variable PROJECT should equal "my-repo"
+  End
+End
+
+Describe 'export_built_artifacts()'
+  setup() {
+    # shellcheck disable=SC2317
+    mkdir -p dist
+    # shellcheck disable=SC2317
+    return 0
+  }
+
+  cleanup() {
+    # shellcheck disable=SC2317
+    [[ -f "$GITHUB_OUTPUT" ]] && rm -f "$GITHUB_OUTPUT"
+    # shellcheck disable=SC2317
+    rm -rf dist
+    # shellcheck disable=SC2317
+    return 0
+  }
+  Before 'setup'
+  After 'cleanup'
+
+  It 'captures built artifacts when deployment is enabled'
+    GITHUB_OUTPUT=$(mktemp)
+    export GITHUB_OUTPUT
+    echo "should-deploy=true" >> "$GITHUB_OUTPUT"
+    touch dist/pkg-1.0.0.42.whl
+    Mock grep
+      echo "should-deploy=true"
+    End
+
+    When call export_built_artifacts
+    The status should be success
+    The lines of stdout should equal 4
+    The line 1 should equal "::group::Capturing built artifacts for attestation"
+    The line 2 should equal "Found artifacts for attestation:"
+    The line 3 should equal "dist/pkg-1.0.0.42.whl"
+    The line 4 should equal "::endgroup::"
+    The contents of file "$GITHUB_OUTPUT" should include "artifact-paths<<EOF"
+    The contents of file "$GITHUB_OUTPUT" should include "dist/pkg-1.0.0.42.whl"
+  End
+
+  It 'skips silently when deployment is disabled'
+    GITHUB_OUTPUT=$(mktemp)
+    export GITHUB_OUTPUT
+    echo "should-deploy=false" >> "$GITHUB_OUTPUT"
+    touch dist/ignored.whl
+
+    When call export_built_artifacts
+    The status should be success
+    The output should be blank
+    The contents of file "$GITHUB_OUTPUT" should not include "artifact-paths<<EOF"
   End
 End
 
@@ -225,10 +285,12 @@ End
 
 Describe 'build_poetry()'
   setup() {
+    # shellcheck disable=SC2317
     mkdir -p dist
   }
 
   cleanup() {
+    # shellcheck disable=SC2317
     rm -rf dist
   }
   Before 'setup'
@@ -441,7 +503,7 @@ Describe 'build_poetry()'
   Describe 'main()'
     It 'runs tool checks and calls build_poetry'
       Mock jq
-        echo "jq-1.8.1"
+        echo "$JQ_VERSION_OUTPUT"
       End
       Mock python
         echo "Python 3.11.0"
@@ -458,6 +520,8 @@ Describe 'build_poetry()'
           *) echo "git $*" ;;
         esac
       End
+      GITHUB_OUTPUT=$(mktemp)
+      export GITHUB_OUTPUT
       When run script build-poetry/build.sh
       The status should be success
       The output should include "jq-1.8.1"
@@ -470,7 +534,7 @@ Describe 'build_poetry()'
     It 'executes main when script is run directly'
       # This test ensures the conditional execution path is covered
       Mock jq
-        echo "jq-1.8.1"
+        echo "$JQ_VERSION_OUTPUT"
       End
       Mock python
         echo "Python 3.11.0"
@@ -487,6 +551,8 @@ Describe 'build_poetry()'
           *) echo "git $*" ;;
         esac
       End
+      GITHUB_OUTPUT=$(mktemp)
+      export GITHUB_OUTPUT
       When run script build-poetry/build.sh
       The status should be success
       The output should include "=== Poetry Build, Deploy, and Analyze ==="

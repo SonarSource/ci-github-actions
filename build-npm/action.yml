@@ -42,6 +42,17 @@ inputs:
   build-name:
     description: Name of the build to publish. Defaults to the repository name.
     default: ''
+  provenance:
+    description: Whether to generate provenance attestation for built artifacts
+    default: 'false'
+  provenance-pull-request:
+    description: Whether to generate provenance attestation on pull requests (similar to deploy-pull-request)
+    default: 'false'
+  provenance-artifact-paths:
+    description: >-
+      Relative paths of the artifacts for which to generate a provenance attestation (glob pattern).
+      Default is collected from '.attestation-artifacts/' directory
+    default: ''
 
 outputs:
   BUILD_NUMBER:
@@ -53,6 +64,12 @@ outputs:
   project-version:
     description: The project version with build number (after replacement). Also set as environment variable PROJECT_VERSION.
     value: ${{ steps.config.outputs.project-version }}
+  deployed:
+    description: Whether artifacts were deployed
+    value: ${{ steps.build.outputs.deployed }}
+  artifact-paths:
+    description: Newline-separated list of artifact paths for provenance attestation
+    value: ${{ steps.build.outputs.artifact-paths }}
 
 runs:
   using: composite
@@ -152,6 +169,16 @@ runs:
         name: npm-logs-${{ github.job }}${{ strategy.job-index }}
         path: ~/.npm/_logs/
         if-no-files-found: ignore
+
+    - name: Generate provenance attestation
+      if: >-
+        ${{ inputs.provenance == 'true' && steps.build.outputs.deployed == 'true' &&
+            (inputs.provenance-artifact-paths != '' || steps.build.outputs.artifact-paths != '') }}
+      uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
+      with:
+        subject-path: >-
+          ${{ inputs.provenance-artifact-paths != '' && inputs.provenance-artifact-paths || steps.build.outputs.artifact-paths }}
+        show-summary: true
 
     - name: Generate workflow summary
       if: always()

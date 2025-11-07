@@ -398,7 +398,7 @@ Describe 'gradle_build'
     The output should include "Gradle executed with:"
     The output should not include "=== ORCHESTRATOR:"
 
-    # Cleanup
+
     rm -f gradle-mock gradle.properties
   End
 End
@@ -407,6 +407,7 @@ Describe 'sonar_scanner_implementation()'
   It 'runs gradle with sonar for current platform'
     export GRADLE_ARGS=""
     export SONAR_HOST_URL="https://next.sonarqube.com"
+    export DEPLOY="false"
     Mock build_gradle_args
       echo "--no-daemon build sonar"
     End
@@ -414,6 +415,47 @@ Describe 'sonar_scanner_implementation()'
     When call sonar_scanner_implementation
     The line 2 should include "gradle --no-daemon build sonar"
     The lines of stdout should equal 2
+  End
+End
+
+
+Describe 'export_built_artifacts()'
+  It 'skips silently on non-deployable branch'
+    export GITHUB_REF_NAME="feature/test"
+    mkdir -p build/libs
+    touch build/libs/app-1.0.jar
+
+    When call export_built_artifacts
+    The status should be success
+    The output should be blank
+
+
+    rm -rf build
+  End
+
+  It 'captures artifacts on deployable branch and writes to GITHUB_OUTPUT'
+    export GITHUB_REF_NAME="master"
+    export DEPLOY="true"
+    mkdir -p build/libs build/distributions build/reports
+    touch build/libs/app-1.0.jar
+    touch build/distributions/app-1.0.zip
+    touch build/reports/dependency-check.json
+
+    When call export_built_artifacts
+    The status should be success
+    The lines of stdout should equal 6
+    The line 1 should equal "::group::Capturing built artifacts for attestation"
+    The line 2 should equal "Found artifacts for attestation:"
+    The line 3 should equal "./build/distributions/app-1.0.zip"
+    The line 4 should equal "./build/libs/app-1.0.jar"
+    The line 5 should equal "./build/reports/dependency-check.json"
+    The line 6 should equal "::endgroup::"
+    The contents of file "$GITHUB_OUTPUT" should include "artifact-paths<<EOF"
+    The contents of file "$GITHUB_OUTPUT" should include "build/libs/app-1.0.jar"
+    The contents of file "$GITHUB_OUTPUT" should include "build/distributions/app-1.0.zip"
+
+
+    rm -rf build
   End
 End
 
@@ -485,6 +527,7 @@ End
 Describe 'main function'
   It 'executes full sequence'
     unset GRADLE_CMD
+    export DEPLOY="false"
     Mock check_tool
       case "$1" in
         java) echo "java ok" ;;

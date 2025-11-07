@@ -58,6 +58,17 @@ inputs:
   disable-caching:
     description: Whether to disable Gradle caching entirely
     default: 'false'
+  provenance:
+    description: Whether to generate provenance attestation for built artifacts
+    default: 'false'
+  provenance-pull-request:
+    description: Whether to generate provenance attestation on pull requests (similar to deploy-pull-request)
+    default: 'false'
+  provenance-artifact-paths:
+    description: >-
+      Relative paths of the artifacts for which to generate a provenance attestation (glob pattern).
+      Default is collected from '*/build/libs/*', '*/build/distributions/*', and '*/build/reports/*'
+    default: ''
 
 outputs:
   project-version:
@@ -69,6 +80,9 @@ outputs:
   deployed:
     description: Whether artifacts were deployed
     value: ${{ steps.build.outputs.deployed }}
+  artifact-paths:
+    description: Newline-separated list of artifact paths for provenance attestation
+    value: ${{ steps.build.outputs.artifact-paths }}
 
 runs:
   using: composite
@@ -230,6 +244,15 @@ runs:
         name: problems-report-${{ github.job }}${{ strategy.job-index }}
         path: build/reports/problems/problems-report.html
         if-no-files-found: ignore
+    - name: Generate provenance attestation
+      if: >-
+        ${{ inputs.provenance == 'true' && steps.build.outputs.deployed == 'true' &&
+            (inputs.provenance-artifact-paths != '' || steps.build.outputs.artifact-paths != '') }}
+      uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
+      with:
+        subject-path: >-
+          ${{ inputs.provenance-artifact-paths != '' && inputs.provenance-artifact-paths || steps.build.outputs.artifact-paths }}
+        show-summary: true
 
     - name: Generate workflow summary
       if: always()
