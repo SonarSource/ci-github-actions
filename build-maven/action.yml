@@ -154,6 +154,11 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       run: $ACTION_PATH_BUILD_MAVEN/build.sh $USER_MAVEN_ARGS
 
+    - name: print contents of MAVEN_CONFIG/repository
+      shell: bash
+      run: |
+        ls -la "$MAVEN_CONFIG/repository"
+
     - name: Cleanup Maven repository before caching
       shell: bash
       run: |
