@@ -128,19 +128,16 @@ Describe 'set_build_env()'
 End
 
 Describe 'export_built_artifacts()'
+  # shellcheck disable=SC2329,SC2317  # Function invoked indirectly by Before
   setup() {
-    # shellcheck disable=SC2317
     mkdir -p dist
-    # shellcheck disable=SC2317
     return 0
   }
 
+  # shellcheck disable=SC2329,SC2317  # Function invoked indirectly by After
   cleanup() {
-    # shellcheck disable=SC2317
     [[ -f "$GITHUB_OUTPUT" ]] && rm -f "$GITHUB_OUTPUT"
-    # shellcheck disable=SC2317
     rm -rf dist
-    # shellcheck disable=SC2317
     return 0
   }
   Before 'setup'

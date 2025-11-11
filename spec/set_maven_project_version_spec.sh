@@ -40,16 +40,18 @@ Describe 'get_current_version()'
 End
 
 Describe 'set_project_version()'
+  # shellcheck disable=SC2329,SC2317  # Function invoked indirectly by BeforeEach
   common_setup() {
-    export BUILD_NUMBER="999"
+    BUILD_NUMBER="999"
     GITHUB_OUTPUT=$(mktemp)
-    export GITHUB_OUTPUT
     GITHUB_ENV=$(mktemp)
-    export GITHUB_ENV
+    return 0
   }
+  # shellcheck disable=SC2329,SC2317  # Function invoked indirectly by AfterEach
   common_cleanup() {
     [[ -f "$GITHUB_OUTPUT" ]] && rm "$GITHUB_OUTPUT"
     [[ -f "$GITHUB_ENV" ]] && rm "$GITHUB_ENV"
+    return 0
   }
 
   BeforeEach 'common_setup'
@@ -136,31 +138,76 @@ Describe 'set_project_version()'
     The line 1 of output should include "Could not get 'project.version' from Maven project"
     The line 2 of output should start with "ERROR:"
   End
-
-  It 'skips version update when already set in environment'
-    export CURRENT_VERSION="1.2.3-SNAPSHOT"
-    export PROJECT_VERSION="1.2.3-42"
-    export BUILD_NUMBER="42"
-    When call set_project_version
-    The status should be success
-    The line 1 should equal "Using provided CURRENT_VERSION 1.2.3-SNAPSHOT and PROJECT_VERSION 1.2.3-42 without changes."
-    The contents of file "$GITHUB_OUTPUT" should include "current-version=1.2.3-SNAPSHOT"
-    The contents of file "$GITHUB_OUTPUT" should include "project-version=1.2.3-42"
-  End
 End
 
 Describe 'main()'
-  Mock get_current_version
-    echo "1.2.3-SNAPSHOT"
+  common_setup() {
+    BUILD_NUMBER="1"
+    GITHUB_OUTPUT=$(mktemp)
+    GITHUB_ENV=$(mktemp)
+    return 0
+  }
+
+  common_cleanup() {
+    rm -f "$GITHUB_OUTPUT" "$GITHUB_ENV"
+    return 0
+  }
+
+  BeforeEach 'common_setup'
+  AfterEach 'common_cleanup'
+
+  Mock mvn
+    if [[ "$*" == "--version" ]]; then
+      echo "mvn --version"
+    elif [[ "$*" == *"exec-maven-plugin"* ]]; then
+      echo "1.2.3-SNAPSHOT"
+    elif [[ "$*" == *"versions-maven-plugin"* ]]; then
+      echo "mvn versions"
+    fi
   End
+
   It 'runs tool checks and calls set_project_version'
-    export CURRENT_VERSION="1.2.3-SNAPSHOT"
-    export PROJECT_VERSION="1.2.3-42"
     When run script config-maven/set_maven_project_version.sh
     The status should be success
-    The lines of stdout should equal 3
+    The lines of output should equal 7
     The line 1 should include "mvn"
     The line 2 should equal "mvn --version"
-    The line 3 should start with "Using provided CURRENT_VERSION 1.2.3-SNAPSHOT and PROJECT_VERSION 1.2.3-42 without changes."
+    The line 3 should equal "CURRENT_VERSION=1.2.3-SNAPSHOT (from pom.xml)"
+    The line 4 should equal "Replacing version 1.2.3-SNAPSHOT with 1.2.3.1"
+    The line 5 should start with "Maven command:"
+    The line 6 should equal "mvn versions"
+    The line 7 should equal "PROJECT_VERSION=1.2.3.1"
+  End
+
+  It 'uses provided CURRENT_VERSION and PROJECT_VERSION without changes'
+    export BUILD_NUMBER="999"
+    export CURRENT_VERSION="1.2.3-SNAPSHOT"
+    export PROJECT_VERSION="1.2.3.999"
+
+    When run script config-maven/set_maven_project_version.sh
+    The status should be success
+    The lines of output should equal 1
+    The line 1 should equal "Using provided CURRENT_VERSION 1.2.3-SNAPSHOT and PROJECT_VERSION 1.2.3.999 without changes."
+    The lines of contents of file "$GITHUB_OUTPUT" should equal 2
+    The line 1 of contents of file "$GITHUB_OUTPUT" should equal "current-version=1.2.3-SNAPSHOT"
+    The line 2 of contents of file "$GITHUB_OUTPUT" should equal "project-version=1.2.3.999"
+  End
+
+  It 'proceeds normally when only CURRENT_VERSION is provided'
+    export BUILD_NUMBER="999"
+    export CURRENT_VERSION="1.2.3-SNAPSHOT"
+
+    When run script config-maven/set_maven_project_version.sh
+    The status should be success
+    The lines of output should equal 7
+  End
+
+  It 'proceeds normally when only PROJECT_VERSION is provided'
+    export BUILD_NUMBER="999"
+    export PROJECT_VERSION="1.2.3.999"
+
+    When run script config-maven/set_maven_project_version.sh
+    The status should be success
+    The lines of output should equal 7
   End
 End
