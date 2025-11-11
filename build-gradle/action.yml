@@ -87,12 +87,25 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Set local action
+    - name: Set local action paths
+      id: set-path
       shell: bash
       run: |
+        echo "::group::Fix for using local actions"
+        echo "GITHUB_ACTION_PATH=$GITHUB_ACTION_PATH"
+        echo "github.action_path=${{ github.action_path }}"
+        ACTION_PATH_BUILD_GRADLE="${{ github.action_path }}"
+        echo "ACTION_PATH_BUILD_GRADLE=$ACTION_PATH_BUILD_GRADLE"
+        echo "ACTION_PATH_BUILD_GRADLE=$ACTION_PATH_BUILD_GRADLE" >> "$GITHUB_ENV"
+        host_actions_root="$(dirname "$ACTION_PATH_BUILD_GRADLE")"
+        echo "host_actions_root=$host_actions_root" >> "$GITHUB_OUTPUT"
+
         mkdir -p ".actions"
-        ln -s "${{github.action_path}}/../config-gradle" .actions/config-gradle
-        ln -s "${{github.action_path}}/../shared" .actions/shared
+        ln -sf "$host_actions_root/config-gradle" .actions/config-gradle
+        ln -sf "$host_actions_root/shared" .actions/shared
+        ls -la .actions/*
+        echo "::endgroup::"
+
     - name: Set build parameters
       shell: bash
       env:
@@ -136,6 +149,7 @@ runs:
       uses: ./.actions/config-gradle
       id: config-gradle
       with:
+        host-actions-root: ${{ steps.set-path.outputs.host_actions_root }}
         artifactory-reader-role: ${{ inputs.artifactory-reader-role }}
         use-develocity: ${{ inputs.use-develocity }}
         develocity-url: ${{ inputs.develocity-url }}
