@@ -73,7 +73,7 @@ inputs:
 outputs:
   project-version:
     description: The release version set as Gradle project version in gradle.properties
-    value: ${{ steps.build.outputs.project-version }}
+    value: ${{ steps.config-gradle.outputs.project-version }}
   BUILD_NUMBER:
     description: The build number, incremented or reused if already cached
     value: ${{ steps.config-gradle.outputs.BUILD_NUMBER }}

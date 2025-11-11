@@ -34,13 +34,6 @@ get_current_version() {
 # Update current_version variable with the current project version.
 # Then remove the -SNAPSHOT suffix if present, complete with '.0' if needed, and append the build number at the end.
 set_project_version() {
-  if [[ -n "${CURRENT_VERSION:-}" && -n "${PROJECT_VERSION:-}" ]]; then
-    echo "Using provided CURRENT_VERSION $CURRENT_VERSION and PROJECT_VERSION $PROJECT_VERSION without changes."
-    echo "current-version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
-    echo "project-version=$PROJECT_VERSION" >> "$GITHUB_OUTPUT"
-    return 0
-  fi
-
   local current_version
   if ! current_version=$(get_current_version 2>&1); then
     echo -e "::error file=pom.xml,title=Maven project version::Could not get 'project.version' from Maven project\nERROR: $current_version"
@@ -79,6 +72,12 @@ set_project_version() {
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-  check_tool mvn --version
-  set_project_version
+  if [[ -n "${CURRENT_VERSION:-}" && -n "${PROJECT_VERSION:-}" ]]; then
+    echo "Using provided CURRENT_VERSION $CURRENT_VERSION and PROJECT_VERSION $PROJECT_VERSION without changes."
+    echo "current-version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
+    echo "project-version=$PROJECT_VERSION" >> "$GITHUB_OUTPUT"
+  else
+    check_tool mvn --version
+    set_project_version
+  fi
 fi

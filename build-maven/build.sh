@@ -17,6 +17,7 @@
 # - ARTIFACTORY_DEPLOY_REPO: Deployment repository name
 # - ARTIFACTORY_DEPLOY_USERNAME: Username used by artifactory-maven-plugin
 # - ARTIFACTORY_DEPLOY_PASSWORD: Access token to deploy to the repository
+# - CURRENT_VERSION: Current project version as in pom.xml
 # - DEFAULT_BRANCH: Default branch name (e.g. main)
 # - PULL_REQUEST: Pull request number (e.g. 1234) or empty string
 #

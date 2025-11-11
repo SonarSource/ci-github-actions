@@ -137,13 +137,13 @@ Describe 'build-yarn/build.sh'
 
     It 'skips silently when should-deploy=false'
       echo "should-deploy=false" >> "$GITHUB_OUTPUT"
-      rm -rf .attestation-artifacts
       mkdir -p .attestation-artifacts
       touch .attestation-artifacts/ignored-1.0.0.tgz
 
       When call export_built_artifacts
       The status should be success
       The output should be blank
+      rm -rf .attestation-artifacts
     End
   End
 
