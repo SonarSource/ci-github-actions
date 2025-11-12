@@ -88,11 +88,6 @@ sonar_scanner_implementation() {
 
 # Unshallow and fetch all commit history for SonarQube analysis and issue assignment
 git_fetch_unshallow() {
-  if [ "$SONAR_PLATFORM" = "none" ]; then
-    echo "Skipping git fetch (Sonar analysis disabled)"
-    return 0
-  fi
-
   if git rev-parse --is-shallow-repository --quiet >/dev/null 2>&1; then
     echo "Fetch Git references for SonarQube analysis..."
     git fetch --unshallow || true # Ignore errors like "fatal: --unshallow on a complete repository does not make sense"
@@ -100,6 +95,7 @@ git_fetch_unshallow() {
     echo "Fetch ${GITHUB_BASE_REF:?} for SonarQube analysis..."
     git fetch origin "${GITHUB_BASE_REF}"
   fi
+  return 0
 }
 
 check_settings_xml() {
@@ -133,6 +129,9 @@ should_deploy() {
 }
 
 should_scan() {
+  if [ "$SONAR_PLATFORM" = "none" ]; then
+    return 1
+  fi
   is_default_branch || is_maintenance_branch || is_pull_request || is_long_lived_feature_branch
   return $?
 }
@@ -140,7 +139,12 @@ should_scan() {
 build_maven() {
   check_tool mvn --version
   check_settings_xml
-  git_fetch_unshallow
+
+  if should_scan; then
+    git_fetch_unshallow
+  else
+    echo "Skipping git fetch (Sonar analysis disabled)"
+  fi
 
   local maven_command_args
   if should_deploy; then

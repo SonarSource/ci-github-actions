@@ -83,20 +83,15 @@ Describe 'build.sh'
     Mock check_settings_xml
       true
     End
-    Mock git_fetch_unshallow
-      echo "Fetch Git references for SonarQube analysis..."
-      echo "git fetch --unshallow"
-    End
     When call build_maven
     The status should be success
-      The lines of stdout should equal 7
+      The lines of stdout should equal 6
       The line 1 should include "mvn"
       The line 2 should include "mvn --version"
-      The line 3 should include "Fetch Git references"
-      The line 4 should include "git fetch"
-      The line 5 should include "Build, no analysis, no deploy"
-      The line 6 should include "Maven command: mvn verify"
-      The line 7 should match pattern "mvn verify"
+      The line 3 should include "Skipping git fetch (Sonar analysis disabled)"
+      The line 4 should include "Build, no analysis, no deploy"
+      The line 5 should include "Maven command: mvn verify"
+      The line 6 should match pattern "mvn verify"
   End
 
   It 'runs build_maven() for windows'
@@ -104,20 +99,15 @@ Describe 'build.sh'
     Mock check_settings_xml
       true
     End
-    Mock git_fetch_unshallow
-      echo "Fetch Git references for SonarQube analysis..."
-      echo "git fetch --unshallow"
-    End
     When call build_maven
     The status should be success
-      The lines of stdout should equal 7
+      The lines of stdout should equal 6
       The line 1 should include "mvn"
       The line 2 should include "mvn --version"
-      The line 3 should include "Fetch Git references"
-      The line 4 should include "git fetch"
-      The line 5 should include "Build, no analysis, no deploy"
-      The line 6 should include "Maven command: mvn verify"
-      The line 7 should match pattern "mvn verify"
+      The line 3 should include "Skipping git fetch (Sonar analysis disabled)"
+      The line 4 should include "Build, no analysis, no deploy"
+      The line 5 should include "Maven command: mvn verify"
+      The line 6 should match pattern "mvn verify"
   End
 End
 
@@ -294,14 +284,6 @@ Describe 'git_fetch_unshallow()'
     The line 1 should start with "Fetch def_main"
     The line 2 should equal "git fetch origin def_main"
   End
-
-  It 'skips git fetch when sonar platform is none'
-    export SONAR_PLATFORM="none"
-    When call git_fetch_unshallow
-    The status should be success
-    The lines of stdout should equal 1
-    The line 1 should equal "Skipping git fetch (Sonar analysis disabled)"
-  End
 End
 
 Describe 'build_maven()'
@@ -421,21 +403,23 @@ Describe 'build_maven()'
 
     It 'builds and deploy'
       When call build_maven
-      The lines of stdout should equal 3
-      The line 1 should include "Build dogfood branch dogfood-on-something"
-      The line 2 should start with "Maven command: mvn deploy"
-      The line 3 should start with "mvn deploy"
-      The line 3 should include "-Pdeploy-sonarsource -Prelease"
+      The lines of stdout should equal 4
+      The line 1 should include "Skipping git fetch (Sonar analysis disabled)"
+      The line 2 should include "Build dogfood branch dogfood-on-something"
+      The line 3 should start with "Maven command: mvn deploy"
+      The line 4 should start with "mvn deploy"
+      The line 4 should include "-Pdeploy-sonarsource -Prelease"
     End
 
     It 'builds when DEPLOY is false'
       export DEPLOY="false"
       When call build_maven
-      The lines of stdout should equal 3
-      The line 1 should include "Build dogfood branch dogfood-on-something"
-      The line 2 should start with "Maven command: mvn install"
-      The line 3 should start with "mvn install"
-      The line 3 should include "-Prelease"
+      The lines of stdout should equal 4
+      The line 1 should include "Skipping git fetch (Sonar analysis disabled)"
+      The line 2 should include "Build dogfood branch dogfood-on-something"
+      The line 3 should start with "Maven command: mvn install"
+      The line 4 should start with "mvn install"
+      The line 4 should include "-Prelease"
     End
   End
 
@@ -458,10 +442,11 @@ Describe 'build_maven()'
 
     It 'builds only'
       When call build_maven
-      The lines of stdout should equal 3
-      The line 1 should include "Build, no analysis, no deploy some-branch"
-      The line 2 should start with "Maven command: mvn verify"
-      The line 3 should start with "mvn verify"
+      The lines of stdout should equal 4
+      The line 1 should include "Skipping git fetch (Sonar analysis disabled)"
+      The line 2 should include "Build, no analysis, no deploy some-branch"
+      The line 3 should start with "Maven command: mvn verify"
+      The line 4 should start with "mvn verify"
     End
   End
 
@@ -475,6 +460,20 @@ Describe 'build_maven()'
       The stderr should include "Shadow scans enabled - disabling deployment"
       The output should include "Maven command: mvn install"
       The output should not include "Maven command: mvn deploy"
+    End
+  End
+
+  Describe 'scan depends on the sonar platform and branch'
+    It 'returns false'
+      export SONAR_PLATFORM="none"
+      When call should_scan
+      The status should be failure
+    End
+    It 'returns true'
+      export SONAR_PLATFORM="next"
+      export GITHUB_REF_NAME="def_main"
+      When call should_scan
+      The status should be success
     End
   End
 End
