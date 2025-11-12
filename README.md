@@ -233,6 +233,18 @@ Build and deploy a Maven project with SonarQube analysis and Artifactory deploym
 - The Java and Maven tools must be pre-installed. Use of `mise` is recommended.
 - The "Sonar parent POM" (`[org|com].sonarsource.parent:parent`) must be used. There's a public POM (org) and a private POM (com),
   respectively for public or private code.
+- **Develocity**: In order to access Develocity from GitHub hosted runner e.g. `github-ubuntu-latest-s` you need to adjust your
+  Develocity plugin configuration to use the following URL:
+
+```yaml
+  <develocity>
+    <server>
+      <url>https://develocity-public.sonar.build</url>
+    </server>
+  </develocity>
+```
+
+**You also need to provide the same url in `develocity-url` parameter.**
 
 ### Usage
 
@@ -534,6 +546,18 @@ Build and publish a Gradle project with SonarQube analysis and Artifactory deplo
 
 **Gradle**: Not pre-installed in the runner image. We recommend including the Gradle wrapper (`gradlew`) in your repository, which will be
 used automatically. If the Gradle wrapper is not available, you can install Gradle using `mise` in your pipeline.
+
+**Develocity**: In order to access Develocity from GitHub hosted runner e.g. `github-ubuntu-latest-s` you need to adjust your
+Develocity plugin configuration to use the following URL:
+
+```yaml
+  develocity {
+    server = "https://develocity-public.sonar.build"
+    ...
+  }
+```
+
+**You also need to provide the same url in `develocity-url` parameter.**
 
 **Additional Configuration**: The Gradle Artifactory plugin configuration is required in `build.gradle` file.
 
