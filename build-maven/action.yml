@@ -55,6 +55,9 @@ inputs:
   cache-paths:
     description: Cache paths to use (multiline).
     default: ~/.m2/repository
+  cache-cleanup:
+    description: Whether to clean up the cache before saving it
+    default: 'true'
   disable-caching:
     description: Whether to disable Maven caching entirely
     default: 'false'
@@ -79,6 +82,9 @@ outputs:
   artifact-paths:
     description: Newline-separated list of artifact paths for provenance attestation
     value: ${{ steps.build.outputs.artifact-paths }}
+  installed-artifacts:
+    description: Newline-separated list of artifacts produced by Maven and installed in the local repository
+    value: ${{ steps.build.outputs.installed-artifacts }}
 
 runs:
   using: composite
@@ -169,6 +175,7 @@ runs:
       run: $ACTION_PATH_BUILD_MAVEN/build.sh $USER_MAVEN_ARGS
 
     - name: Cleanup Maven repository before caching
+      if: ${{ inputs.cache-cleanup == 'true' }}
       shell: bash
       run: |
         rm -rf "$MAVEN_CONFIG/repository/org/sonarsource/"
