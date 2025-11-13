@@ -60,9 +60,6 @@ outputs:
   deployed:
     description: Whether artifacts were deployed
     value: ${{ steps.build.outputs.deployed }}
-  artifact-paths:
-    description: Newline-separated list of artifact paths for provenance attestation
-    value: ${{ steps.build.outputs.artifact-paths }}
 
 runs:
   using: composite

@@ -63,8 +63,14 @@ inputs:
   cache-paths:
     description: Cache paths to use (multiline).
     default: ~/.m2/repository
+  cache-cleanup:
+    description: Whether to clean up the cache before saving it
+    default: 'true'
   disable-caching:
     description: Whether to disable Maven caching entirely
+    default: 'false'
+  mixed-privacy:
+    description: Whether the repository contains both public and private modules
     default: 'false'
 
 outputs:
@@ -77,9 +83,6 @@ outputs:
   deployed:
     description: Whether artifacts were deployed
     value: ${{ steps.build.outputs.deployed }}
-  artifact-paths:
-    description: Newline-separated list of artifact paths for provenance attestation
-    value: ${{ steps.build.outputs.artifact-paths }}
 
 runs:
   using: composite
@@ -119,12 +122,31 @@ runs:
 
     - name: Set build parameters
       shell: bash
+      id: params
       env:
+        USER_MAVEN_ARGS: ${{ inputs.maven-args }}
+        ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo != '' && inputs.artifactory-deploy-repo ||
+          (github.event.repository.visibility == 'public' || inputs.mixed-privacy == 'true') && 'sonarsource-public-qa' ||
+          'sonarsource-private-qa' }}
         ARTIFACTORY_DEPLOYER_ROLE: ${{ inputs.artifactory-deployer-role != '' && inputs.artifactory-deployer-role ||
-          (github.event.repository.visibility == 'public' && 'public-deployer' || 'qa-deployer') }}
+          (github.event.repository.visibility == 'public' || inputs.mixed-privacy == 'true') && 'public-deployer' ||
+          'qa-deployer' }}
+      # yamllint disable rule:line-length
       run: |
-        echo "ARTIFACTORY_DEPLOYER_ROLE=${ARTIFACTORY_DEPLOYER_ROLE}" >> "$GITHUB_ENV"
+        {
+          if [[ "${{ inputs.mixed-privacy }}" == 'true' ]]; then
+            USER_MAVEN_ARGS="${USER_MAVEN_ARGS} -Dartifactory.publish.artifacts=false"
+            echo "ARTIFACTORY_PRIVATE_DEPLOY_REPO=${ARTIFACTORY_PRIVATE_DEPLOY_REPO:=sonarsource-private-qa}"
+            echo "ARTIFACTORY_PRIVATE_DEPLOY_ACCESS_TOKEN_VAULT=development/artifactory/token/{REPO_OWNER_NAME_DASH}-${ARTIFACTORY_PRIVATE_DEPLOYER_ROLE:=qa-deployer} access_token | ARTIFACTORY_PRIVATE_DEPLOY_ACCESS_TOKEN;"
+          fi
+          echo "USER_MAVEN_ARGS=${USER_MAVEN_ARGS}"
+          echo "ARTIFACTORY_DEPLOY_REPO=${ARTIFACTORY_DEPLOY_REPO}"
+          echo "ARTIFACTORY_DEPLOY_USERNAME_VAULT=development/artifactory/token/{REPO_OWNER_NAME_DASH}-${ARTIFACTORY_DEPLOYER_ROLE} username | ARTIFACTORY_DEPLOY_USERNAME;"
+          echo "ARTIFACTORY_DEPLOY_ACCESS_TOKEN_VAULT=development/artifactory/token/{REPO_OWNER_NAME_DASH}-${ARTIFACTORY_DEPLOYER_ROLE} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;"
+        } >> "$GITHUB_OUTPUT"
         echo "SONARSOURCE_REPOSITORY_URL=${ARTIFACTORY_URL}/sonarsource" >> "$GITHUB_ENV"
+      # yamllint enable rule:line-length
+
     - uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
       id: secrets
       with:
@@ -136,8 +158,9 @@ runs:
           ${{ inputs.sonar-platform != 'none' && 'development/kv/data/sonarqube-us token | SQC_US_TOKEN;' || '' }}
           ${{ inputs.sonar-platform != 'none' && 'development/kv/data/sonarcloud url | SQC_EU_URL;' || '' }}
           ${{ inputs.sonar-platform != 'none' && 'development/kv/data/sonarcloud token | SQC_EU_TOKEN;' || '' }}
-          ${{ inputs.deploy != 'false' && inputs.run-shadow-scans != 'true' && format('development/artifactory/token/{{REPO_OWNER_NAME_DASH}}-{0} username | ARTIFACTORY_DEPLOY_USERNAME;', env.ARTIFACTORY_DEPLOYER_ROLE) || '' }}
-          ${{ inputs.deploy != 'false' && inputs.run-shadow-scans != 'true' && format('development/artifactory/token/{{REPO_OWNER_NAME_DASH}}-{0} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;', env.ARTIFACTORY_DEPLOYER_ROLE) || '' }}
+          ${{ inputs.deploy != 'false' && inputs.run-shadow-scans != 'true' && steps.params.outputs.ARTIFACTORY_DEPLOY_USERNAME_VAULT || '' }}
+          ${{ inputs.deploy != 'false' && inputs.run-shadow-scans != 'true' && steps.params.outputs.ARTIFACTORY_DEPLOY_ACCESS_TOKEN_VAULT || '' }}
+          ${{ inputs.deploy != 'false' && inputs.mixed-privacy == 'true' && steps.params.outputs.ARTIFACTORY_PRIVATE_DEPLOY_ACCESS_TOKEN_VAULT || '' }}
           development/kv/data/sign key | SIGN_KEY;
           development/kv/data/sign passphrase | PGP_PASSPHRASE;
         # yamllint enable rule:line-length
@@ -154,12 +177,11 @@ runs:
         # Action inputs
         DEPLOY: ${{ inputs.deploy }}
         DEPLOY_PULL_REQUEST: ${{ inputs.deploy-pull-request }}
-        USER_MAVEN_ARGS: ${{ inputs.maven-args }}
+        USER_MAVEN_ARGS: ${{ steps.params.outputs.USER_MAVEN_ARGS }}
         SONAR_SCANNER_JAVA_OPTS: ${{ inputs.scanner-java-opts }}
         SONAR_PLATFORM: ${{ inputs.sonar-platform }}
         RUN_SHADOW_SCANS: ${{ inputs.run-shadow-scans }}
-        ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo != '' && inputs.artifactory-deploy-repo ||
-          github.event.repository.visibility == 'public' && 'sonarsource-public-qa' || 'sonarsource-private-qa' }}
+        ARTIFACTORY_DEPLOY_REPO: ${{ steps.params.outputs.ARTIFACTORY_DEPLOY_REPO }}
 
         # Vault secrets
         ARTIFACTORY_DEPLOY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_USERNAME }}
@@ -176,7 +198,21 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       run: $ACTION_PATH_BUILD_MAVEN/build.sh
 
+    - name: Artifacts upload
+      shell: bash
+      if: |
+        inputs.mixed-privacy == 'true' && steps.build.outputs.deployed == 'true' &&
+        (github.event_name != 'pull_request' || inputs.deploy-pull-request == 'true')
+      env:
+        ARTIFACTORY_DEPLOY_REPO: ${{ steps.params.outputs.ARTIFACTORY_DEPLOY_REPO }}
+        ARTIFACTORY_DEPLOY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN }}
+        ARTIFACTORY_PRIVATE_DEPLOY_REPO: ${{ steps.params.outputs.ARTIFACTORY_PRIVATE_DEPLOY_REPO }}
+        ARTIFACTORY_PRIVATE_DEPLOY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_PRIVATE_DEPLOY_ACCESS_TOKEN }}
+        INSTALLED_ARTIFACTS: ${{ steps.build.outputs.installed-artifacts }}
+      run: ${GITHUB_ACTION_PATH}/deploy-artifacts.sh
+
     - name: Cleanup Maven repository before caching
+      if: inputs.cache-cleanup == 'true'
       shell: bash
       run: |
         rm -rf "$MAVEN_CONFIG/repository/org/sonarsource/"
@@ -184,11 +220,9 @@ runs:
         /usr/bin/find "$MAVEN_CONFIG/repository" -name resolver-status.properties -delete
 
     - name: Generate provenance attestation
-      if: >-
-        ${{ inputs.provenance == 'true' &&
-            github.event_name != 'pull_request' &&
-            steps.build.outputs.deployed == 'true' &&
-            (inputs.provenance-artifact-paths != '' || steps.build.outputs.artifact-paths != '') }}
+      if: |
+        inputs.provenance == 'true' && github.event_name != 'pull_request' && steps.build.outputs.deployed == 'true' &&
+        (inputs.provenance-artifact-paths != '' || steps.build.outputs.artifact-paths != '')
       uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
       with:
         subject-path: >-

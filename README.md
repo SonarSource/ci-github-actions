@@ -260,31 +260,59 @@ steps:
 
 ### Input Environment Variables
 
+| Environment Variable                | Description                                                                                 | Default                  |
+|-------------------------------------|---------------------------------------------------------------------------------------------|--------------------------|
+| `ARTIFACTORY_PRIVATE_DEPLOY_REPO`   | Only if `mixed-privacy == true`. Repository to deploy private artifacts.                    | `sonarsource-private-qa` |
+| `ARTIFACTORY_PRIVATE_DEPLOYER_ROLE` | Only if `mixed-privacy == true`. Suffix for the Artifactory private deployer role in Vault. | `qa-deployer`            |
+
 See also [`config-maven`](#config-maven) input environment variables.
 
 ### Inputs
 
-| Input                       | Description                                                                                                                | Default                                                                                     |
-|-----------------------------|----------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
-| `public`                    | Deprecated                                                                                                                 | Repository visibility                                                                       |
-| `artifactory-deploy-repo`   | Deployment repository                                                                                                      | `sonarsource-private-qa` for private repositories, `sonarsource-public-qa` for public repos |
-| `artifactory-reader-role`   | Suffix for the Artifactory reader role in Vault                                                                            | `private-reader` for private repos, `public-reader` for public repos                        |
-| `artifactory-deployer-role` | Suffix for the Artifactory deployer role in Vault                                                                          | `qa-deployer` for private repos, `public-deployer` for public repos                         |
-| `deploy`                    | Whether to deploy on master, maintenance, dogfood and long-lived branches                                                  | `true`                                                                                      |
-| `deploy-pull-request`       | Whether to also deploy for pull requests. If deploy is false, this has no effect.                                          | `false`                                                                                     |
-| `maven-args`                | Additional arguments to pass to Maven                                                                                      | (optional)                                                                                  |
-| `scanner-java-opts`         | Additional Java options for the Sonar scanner (`SONAR_SCANNER_JAVA_OPTS`)                                                  | `-Xmx512m`                                                                                  |
-| `repox-url`                 | URL for Repox                                                                                                              | `https://repox.jfrog.io`                                                                    |
-| `repox-artifactory-url`     | URL for Repox Artifactory API (overrides repox-url/artifactory if provided)                                                | (optional)                                                                                  |
-| `use-develocity`            | Whether to use Develocity for build tracking                                                                               | `false`                                                                                     |
-| `develocity-url`            | URL for Develocity                                                                                                         | `https://develocity.sonar.build/`                                                           |
-| `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', 'sqc-us', or 'none'. Use 'none' to skip sonar scans                         | `next`                                                                                      |
-| `working-directory`         | Relative path under github.workspace to execute the build in                                                               | `.`                                                                                         |
-| `run-shadow-scans`          | If true, run SonarQube analysis on all 3 platforms (next, sqc-eu, sqc-us); if false, only on the selected `sonar-platform` | `false`                                                                                     |
-| `cache-paths`               | Custom cache paths (multiline). Overrides default `~/.m2/repository`.                                                      | (optional)                                                                                  |
-| `disable-caching`           | Whether to disable Maven caching entirely                                                                                  | `false`                                                                                     |
-| `provenance`                | Whether to generate provenance attestation for built artifacts                                                             | `false`                                                                                     |
+| Input                       | Description                                                                                                                  | Default                                                                                     |
+|-----------------------------|------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
+| `artifactory-deploy-repo`   | Deployment repository                                                                                                        | `sonarsource-private-qa` for private repositories, `sonarsource-public-qa` for public repos |
+| `artifactory-reader-role`   | Suffix for the Artifactory reader role in Vault                                                                              | `private-reader` for private repos, `public-reader` for public repos                        |
+| `artifactory-deployer-role` | Suffix for the Artifactory deployer role in Vault                                                                            | `qa-deployer` for private repos, `public-deployer` for public repos                         |
+| `deploy`                    | Whether to deploy on master, maintenance, dogfood and long-lived branches                                                    | `true`                                                                                      |
+| `deploy-pull-request`       | Whether to also deploy for pull requests. If deploy is false, this has no effect.                                            | `false`                                                                                     |
+| `maven-args`                | Additional arguments to pass to Maven                                                                                        | (optional)                                                                                  |
+| `scanner-java-opts`         | Additional Java options for the Sonar scanner (`SONAR_SCANNER_JAVA_OPTS`)                                                    | `-Xmx512m`                                                                                  |
+| `repox-url`                 | URL for Repox                                                                                                                | `https://repox.jfrog.io`                                                                    |
+| `repox-artifactory-url`     | URL for Repox Artifactory API (overrides repox-url/artifactory if provided)                                                  | (optional)                                                                                  |
+| `use-develocity`            | Whether to use Develocity for build tracking                                                                                 | `false`                                                                                     |
+| `develocity-url`            | URL for Develocity                                                                                                           | `https://develocity.sonar.build/`                                                           |
+| `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', 'sqc-us', or 'none'. Use 'none' to skip sonar scans                           | `next`                                                                                      |
+| `working-directory`         | Relative path under github.workspace to execute the build in                                                                 | `.`                                                                                         |
+| `run-shadow-scans`          | If true, run SonarQube analysis on all 3 platforms (next, sqc-eu, sqc-us); if false, only on the selected `sonar-platform`   | `false`                                                                                     |
+| `cache-paths`               | Custom cache paths (multiline). Overrides default `~/.m2/repository`.                                                        | (optional)                                                                                  |
+| `cache-cleanup`             | Whether to clean up the cache before saving it.                                                                              | `true`                                                                                      |
+| `disable-caching`           | Whether to disable Maven caching entirely                                                                                    | `false`                                                                                     |
+| `provenance`                | Whether to generate provenance attestation for built artifacts                                                               | `false`                                                                                     |
 | `provenance-artifact-paths` | Relative paths of artifacts for provenance attestation (glob pattern). See [Provenance Attestation](#provenance-attestation) | (optional)                                                                                  |
+| `mixed-privacy`             | Whether the repository contains both public and private code                                                                 | `false`                                                                                     |
+
+#### `cache-cleanup`
+
+Adds an extra step to delete the `<org|com>/sonarsource` artifacts from the cache before saving it.
+
+This is useful for avoiding the caching of Sonar artifacts which are built in the same repository and will not be reused. However, they may
+need to be kept, or deleted later in the workflow, if other steps depend on them.
+
+#### `mixed-privacy`
+
+When set to `true`, this input option configures the build to handle both public and private artifacts.
+
+- The Maven Artifactory plugin will not publish the artifacts.
+- The artifacts are individually deployed after the build with the JFrog CLI to their respective repositories.
+
+It is possible to customize the target public and private repository names and the roles used for deployment by setting the input parameters
+for the public values, and by setting the environment variables for the private values:
+
+- `artifactory-deploy-repo` input
+- `artifactory-deployer-role` input
+- `ARTIFACTORY_PRIVATE_DEPLOY_REPO` environment variable
+- `ARTIFACTORY_PRIVATE_DEPLOYER_ROLE` environment variable
 
 ### Outputs
 
@@ -293,7 +321,6 @@ See also [`config-maven`](#config-maven) input environment variables.
 | `project-version` | The project version with build number (after replacement). Also set as environment variable `PROJECT_VERSION` |
 | `BUILD_NUMBER`    | The current build number. Also set as environment variable `BUILD_NUMBER`                                     |
 | `deployed`        | `true` if the build succeed and was supposed to deploy                                                        |
-| `artifact-paths`  | Newline-separated list of artifact paths for provenance attestation                                           |
 
 ### Output Environment Variables
 
@@ -316,6 +343,7 @@ See also [`config-maven`](#config-maven) output environment variables.
   - **dogfood** (`dogfood-on-*`): Deploy only with dogfood profiles
   - **feature** (`feature/long/*`): Verify + SonarQube analysis only
   - **default**: Basic verify goal only
+- Mixed privacy repository support for combined public and private artifacts
 
 ## `build-poetry`
 
@@ -411,7 +439,6 @@ jobs:
 | `BUILD_NUMBER`   | The current build number. Also set as environment variable `BUILD_NUMBER`                                    |
 | `project-version`| The project version from pyproject.toml with build number. Also set as environment variable `PROJECT_VERSION`|
 | `deployed`       | `true` if the build succeed and was supposed to deploy                                                       |
-| `artifact-paths` | Newline-separated list of artifact paths for provenance attestation                                          |
 
 ## `config-gradle`
 
@@ -666,7 +693,6 @@ See also [`config-gradle`](#config-gradle) input environment variables.
 | `project-version` | The project version from gradle.properties                                |
 | `BUILD_NUMBER`    | The current build number. Also set as environment variable `BUILD_NUMBER` |
 | `deployed`        | `true` if the build succeed and was supposed to deploy                    |
-| `artifact-paths`  | Newline-separated list of artifact paths for provenance attestation       |
 
 ### Features
 
@@ -944,7 +970,6 @@ See also [`config-npm`](#config-npm) input environment variables.
 | `project-version` | The project version with build number (after replacement) |
 | `BUILD_NUMBER`    | The current build number                                  |
 | `deployed`        | `true` if the build succeed and was supposed to deploy    |
-| `artifact-paths`  | Newline-separated list of artifact paths for provenance attestation |
 
 ### Output Environment Variables
 
@@ -1053,7 +1078,6 @@ jobs:
 | `BUILD_NUMBER`    | The current build number. Also set as environment variable `BUILD_NUMBER` |
 | `project-version` | The project version from package.json                     |
 | `deployed`        | `true` if the build succeed and was supposed to deploy    |
-| `artifact-paths`  | Newline-separated list of artifact paths for provenance attestation |
 
 ### Features
 

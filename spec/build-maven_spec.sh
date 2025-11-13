@@ -62,7 +62,6 @@ Describe 'build-maven/build.sh'
     touch "$HOME/.m2/settings.xml"
     GITHUB_OUTPUT=$(mktemp)
     export GITHUB_OUTPUT
-    echo "should-deploy=false" > "$GITHUB_OUTPUT"
     Mock git
       echo "git $*"
     End
@@ -85,13 +84,13 @@ Describe 'build.sh'
     End
     When call build_maven
     The status should be success
-      The lines of stdout should equal 6
-      The line 1 should include "mvn"
-      The line 2 should include "mvn --version"
-      The line 3 should include "Skipping git fetch (Sonar analysis disabled)"
-      The line 4 should include "Build, no analysis, no deploy"
-      The line 5 should include "Maven command: mvn verify"
-      The line 6 should match pattern "mvn verify"
+    The lines of stdout should equal 6
+    The line 1 should include "mvn"
+    The line 2 should include "mvn --version"
+    The line 3 should include "Skipping git fetch (Sonar analysis disabled)"
+    The line 4 should include "Build, no analysis, no deploy"
+    The line 5 should include "Maven command: mvn verify"
+    The line 6 should match pattern "mvn verify"
   End
 
   It 'runs build_maven() for windows'
@@ -101,21 +100,22 @@ Describe 'build.sh'
     End
     When call build_maven
     The status should be success
-      The lines of stdout should equal 6
-      The line 1 should include "mvn"
-      The line 2 should include "mvn --version"
-      The line 3 should include "Skipping git fetch (Sonar analysis disabled)"
-      The line 4 should include "Build, no analysis, no deploy"
-      The line 5 should include "Maven command: mvn verify"
-      The line 6 should match pattern "mvn verify"
+    The lines of stdout should equal 6
+    The line 1 should include "mvn"
+    The line 2 should include "mvn --version"
+    The line 3 should include "Skipping git fetch (Sonar analysis disabled)"
+    The line 4 should include "Build, no analysis, no deploy"
+    The line 5 should include "Maven command: mvn verify"
+    The line 6 should match pattern "mvn verify"
   End
 End
 
 Describe 'export_built_artifacts()'
-  It 'skips silently when should-deploy=false'
+  It "skips silently when $DEPLOYED_OUTPUT_KEY=false"
     GITHUB_OUTPUT=$(mktemp)
     export GITHUB_OUTPUT
-    echo "should-deploy=false" > "$GITHUB_OUTPUT"
+    mvn_output="/dev/null"
+    echo "$DEPLOYED_OUTPUT_KEY=false" > "$GITHUB_OUTPUT"
 
     When call export_built_artifacts
     The status should be success
@@ -123,10 +123,10 @@ Describe 'export_built_artifacts()'
     rm -f "$GITHUB_OUTPUT"
   End
 
-  It 'captures artifacts when should-deploy=true and writes to GITHUB_OUTPUT'
+  It "captures artifacts when $DEPLOYED_OUTPUT_KEY=true and writes to GITHUB_OUTPUT"
     GITHUB_OUTPUT=$(mktemp)
     export GITHUB_OUTPUT
-    echo "should-deploy=true" > "$GITHUB_OUTPUT"
+    echo "$DEPLOYED_OUTPUT_KEY=true" >> "$GITHUB_OUTPUT"
 
     # Mock mvn evaluations used by export_built_artifacts
     Mock mvn
@@ -136,11 +136,12 @@ Describe 'export_built_artifacts()'
         *) echo "mvn $*" ;;
       esac
     End
-    # Ensure should-deploy is detected regardless of file parsing quirks
-    Mock grep
-      echo "should-deploy=true"
-    End
-
+    mvn_output=$(mktemp)
+    {
+      echo "[INFO] Installing /home/runner/work/test-repo/pom.xml to /home/runner/.m2/repository/org/sonarsource/app/1.0/app-1.0.pom"
+      echo "[INFO] Installing /home/runner/work/test-repo/target/app-1.0.jar to /home/runner/.m2/repository/org/sonarsource/app/1.0/app-1.0.jar"
+      echo "[INFO] Installing /home/runner/work/test-repo/target/app-1.0-sources.jar to /home/runner/.m2/repository/org/sonarsource/app/1.0/app-1.0-sources.jar"
+    } > "$mvn_output"
     mkdir -p target
     touch target/app-1.0.jar
     touch target/app-1.0-sources.jar
@@ -153,12 +154,12 @@ Describe 'export_built_artifacts()'
     The line 3 should equal "Found artifacts for attestation:"
     The line 4 should equal "./target/app-1.0.jar"
     The line 5 should equal "::endgroup::"
-    The lines of contents of file "$GITHUB_OUTPUT" should equal 4
-    The lines of contents of file "$GITHUB_OUTPUT" should not include "app-1.0-sources.jar"
-    The line 1 of contents of file "$GITHUB_OUTPUT" should equal "should-deploy=true"
-    The line 2 of contents of file "$GITHUB_OUTPUT" should equal "artifact-paths<<EOF"
-    The line 3 of contents of file "$GITHUB_OUTPUT" should equal "./target/app-1.0.jar"
-    The line 4 of contents of file "$GITHUB_OUTPUT" should equal "EOF"
+    The lines of contents of file "$GITHUB_OUTPUT" should equal 9
+    The line 1 of contents of file "$GITHUB_OUTPUT" should equal "$DEPLOYED_OUTPUT_KEY=true"
+    The line 2 of contents of file "$GITHUB_OUTPUT" should equal "installed-artifacts<<EOF"
+    The line 7 of contents of file "$GITHUB_OUTPUT" should equal "artifact-paths<<EOF"
+    The line 8 of contents of file "$GITHUB_OUTPUT" should equal "./target/app-1.0.jar"
+    The line 9 of contents of file "$GITHUB_OUTPUT" should equal "EOF"
 
     rm -rf target "$GITHUB_OUTPUT"
   End
@@ -166,7 +167,8 @@ Describe 'export_built_artifacts()'
   It 'reports no artifacts found when build directory is empty'
     GITHUB_OUTPUT=$(mktemp)
     export GITHUB_OUTPUT
-    echo "should-deploy=true" > "$GITHUB_OUTPUT"
+    mvn_output="/dev/null"
+    echo "$DEPLOYED_OUTPUT_KEY=true" > "$GITHUB_OUTPUT"
 
     # Mock mvn evaluations used by export_built_artifacts
     Mock mvn
@@ -175,10 +177,6 @@ Describe 'export_built_artifacts()'
         *"help:evaluate -Dexpression=project.build.directory -q -DforceStdout"*) echo "target" ;;
         *) echo "mvn $*" ;;
       esac
-    End
-    # Ensure should-deploy is detected regardless of file parsing quirks
-    Mock grep
-      echo "should-deploy=true"
     End
 
     mkdir -p target
@@ -190,8 +188,8 @@ Describe 'export_built_artifacts()'
     The line 2 should equal "Scanning for artifacts in: */target/*"
     The line 3 should equal "::warning title=No artifacts found::No artifacts found for attestation in build output directories"
     The line 4 should equal "::endgroup::"
-    The lines of contents of file "$GITHUB_OUTPUT" should equal 1
-    The line 1 of contents of file "$GITHUB_OUTPUT" should equal "should-deploy=true"
+    The lines of contents of file "$GITHUB_OUTPUT" should equal 4
+    The line 1 of contents of file "$GITHUB_OUTPUT" should equal "$DEPLOYED_OUTPUT_KEY=true"
     rm -rf target "$GITHUB_OUTPUT"
   End
 End
