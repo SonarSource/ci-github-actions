@@ -37,13 +37,13 @@ inputs:
 outputs:
   BUILD_NUMBER:
     description: The current build number. Also set as environment variable BUILD_NUMBER
-    value: ${{ steps.get_build_number.outputs.BUILD_NUMBER }}
+    value: ${{ steps.get-build-number.outputs.BUILD_NUMBER }}
   current-version:
     description: The project version set in the pom.xml (before replacement). Also set as environment variable CURRENT_VERSION
-    value: ${{ steps.config.outputs.current-version }}
+    value: ${{ steps.set-version.outputs.current-version }}
   project-version:
     description: The project version with build number (after replacement). Also set as environment variable PROJECT_VERSION
-    value: ${{ steps.config.outputs.project-version }}
+    value: ${{ steps.set-version.outputs.project-version }}
 
 runs:
   using: composite
@@ -74,7 +74,7 @@ runs:
         echo "::endgroup::"
 
     - uses: ./.actions/get-build-number
-      id: get_build_number
+      id: get-build-number
       with:
         host-actions-root: ${{ steps.set-path.outputs.host_actions_root }}
 
@@ -173,7 +173,7 @@ runs:
         restore-keys: maven-${{ runner.os }}-${{ github.workflow }}-
 
     - name: Update project version and set current-version and project-version variables
-      id: config
+      id: set-version
       if: steps.from-env.outputs.skip != 'true'
       shell: bash
       working-directory: ${{ inputs.working-directory }}

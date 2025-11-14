@@ -172,7 +172,6 @@ Describe 'export_built_artifacts()'
   It 'skips silently when should-deploy=false'
     GITHUB_OUTPUT=$(mktemp)
     export GITHUB_OUTPUT
-    rm -rf .attestation-artifacts
     mkdir -p .attestation-artifacts
     touch .attestation-artifacts/ignored-1.0.0.tgz
     echo "deployed=false" >> "$GITHUB_OUTPUT"
@@ -180,6 +179,7 @@ Describe 'export_built_artifacts()'
     When call export_built_artifacts
     The status should be success
     The output should be blank
+    rm -rf .attestation-artifacts
   End
 End
 

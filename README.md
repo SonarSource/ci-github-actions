@@ -19,6 +19,7 @@ for details on how to use it.
 - [`config-maven`](#config-maven)
 - [`build-maven`](#build-maven)
 - [`build-poetry`](#build-poetry)
+- [`config-gradle`](#config-gradle)
 - [`build-gradle`](#build-gradle)
 - [`config-npm`](#config-npm)
 - [`build-npm`](#build-npm)
@@ -92,18 +93,19 @@ No inputs are required for this action.
 
 ## `config-maven`
 
-Call [`get-build-number`](#get-build-number).
-
 Configure Maven build environment with build number, authentication, and default settings.
+
+> **Note:** This action automatically calls [`get-build-number`](#get-build-number) to manage the build number.
 
 This action sets up the complete Maven environment for SonarSource projects, including:
 
-- Build number management and project version configuration
+- Build number management
 - Artifactory authentication and repository setup
 - Maven settings configuration for Repox
 - Maven local repository caching
 - Common Maven flags and JVM options
-- Sets the project version by replacing `-SNAPSHOT` with the build number
+- Project version management: Automatically replaces `-SNAPSHOT` versions with the build number (skipped if both `CURRENT_VERSION` and
+  `PROJECT_VERSION` environment variables are set)
 
 ### Caching Configuration
 
@@ -112,7 +114,7 @@ By default, Maven caches `~/.m2/repository`. You can customize this behavior:
 **Cache custom directories:**
 
 ```yaml
-- uses: SonarSource/ci-github-actions/build-maven@v1
+- uses: SonarSource/ci-github-actions/config-maven@v1
   with:
     cache-paths: |
       ~/.m2/repository
@@ -123,7 +125,7 @@ By default, Maven caches `~/.m2/repository`. You can customize this behavior:
 **Disable caching entirely:**
 
 ```yaml
-- uses: SonarSource/ci-github-actions/build-maven@v1
+- uses: SonarSource/ci-github-actions/config-maven@v1
   with:
     disable-caching: 'true'
 ```
@@ -159,6 +161,7 @@ steps:
 
 | Environment Variable                    | Description                                                                       |
 |-----------------------------------------|-----------------------------------------------------------------------------------|
+| `BUILD_NUMBER`                          | If present, it will be reused by the [`get-build-number`](#get-build-number) action. |
 | `CURRENT_VERSION` and `PROJECT_VERSION` | If both are set, they will be used as-is and no version update will be performed. |
 | `MAVEN_OPTS`                            | JVM options for Maven execution. Defaults to `-Xmx1536m -Xms128m`.                |
 | `JAVA_TOOL_OPTIONS`                     | JVM options. Defaults to `-XX:-UseContainerSupport`.                              |
@@ -197,7 +200,7 @@ steps:
 | `ARTIFACTORY_URL`             | Artifactory (Repox) URL. E.x.: `https://repox.jfrog.io/artifactory`                                                                       |
 | `BASH_ENV`                    | Path to the bash profile with mvn function for adding common flags to Maven calls                                                         |
 | `CURRENT_VERSION`             | The original project version from pom.xml                                                                                                 |
-| `DEVELOCITY_ACCESS_KEY`       | The Develocity access key when `use-develicty` is true                                                                                    |
+| `DEVELOCITY_ACCESS_KEY`       | The Develocity access key when `use-develocity` is true                                                                                   |
 | `MAVEN_OPTS`                  | JVM options for Maven execution.                                                                                                          |
 | `PROJECT_VERSION`             | The project version with build number (after replacement)                                                                                 |
 | `SONARSOURCE_REPOSITORY_URL`  | URL for SonarSource Artifactory root virtual repository (i.e.: `sonarsource-qa` for public builds or `sonarsource-qa` for private builds) |
@@ -208,25 +211,24 @@ See also [`get-build-number`](#get-build-number) output environment variables.
 
 ## `build-maven`
 
-Call [`config-maven`](#config-maven).
-
 Build and deploy a Maven project with SonarQube analysis and Artifactory deployment.
 
-### Required GitHub Permissions
+> **Note:** This action automatically calls [`config-maven`](#config-maven) to set up the Maven environment.
+
+### Requirements
+
+#### Required GitHub Permissions
 
 - `id-token: write`
 - `contents: write`
 
-### Required Vault Permissions
+#### Required Vault Permissions
 
 - `public-reader` or `private-reader`: Artifactory role for reading dependencies.
 - `public-deployer` or `qa-deployer`: Artifactory role for deployment.
-- `development/kv/data/next`, `development/kv/data/sonarcloud`, and `development/kv/data/sonarqube-us`: SonarQube credentials (only
-  fetched when `sonar-platform` is not `none`)
-- `development/kv/data/sign`: Artifact signing credentials (key and passphrase).
 - `development/kv/data/develocity`: Develocity access token (only fetched when `use-develocity: true`).
 
-### Other Dependencies
+#### Other Dependencies
 
 - The Java and Maven tools must be pre-installed. Use of `mise` is recommended.
 - The "Sonar parent POM" (`[org|com].sonarsource.parent:parent`) must be used. There's a public POM (org) and a private POM (com),
@@ -269,13 +271,17 @@ See also [`config-maven`](#config-maven) input environment variables.
 | `run-shadow-scans`          | If true, run SonarQube analysis on all 3 platforms (next, sqc-eu, sqc-us); if false, only on the selected `sonar-platform` | `false`                                                                                     |
 | `cache-paths`               | Custom cache paths (multiline). Overrides default `~/.m2/repository`.                                                      | (optional)                                                                                  |
 | `disable-caching`           | Whether to disable Maven caching entirely                                                                                  | `false`                                                                                     |
+| `provenance`                | Whether to generate provenance attestation for built artifacts                                                             | `false`                                                                                     |
+| `provenance-pull-request`   | Whether to generate provenance attestation on pull requests (similar to deploy-pull-request)                               | `false`                                                                                     |
+| `provenance-artifact-paths` | Relative paths of artifacts for provenance attestation (glob pattern). See [Provenance Attestation](#provenance-attestation) | (optional)                                                                                  |
 
 ### Outputs
 
-| Output         | Description                                                               |
-|----------------|---------------------------------------------------------------------------|
-| `BUILD_NUMBER` | The current build number. Also set as environment variable `BUILD_NUMBER` |
-| `deployed`     | `true` if the build succeed and was supposed to deploy                    |
+| Output           | Description                                                               |
+|------------------|---------------------------------------------------------------------------|
+| `BUILD_NUMBER`   | The current build number. Also set as environment variable `BUILD_NUMBER` |
+| `deployed`       | `true` if the build succeed and was supposed to deploy                    |
+| `artifact-paths` | Newline-separated list of artifact paths for provenance attestation       |
 
 ### Output Environment Variables
 
@@ -286,8 +292,8 @@ See also [`config-maven`](#config-maven) output environment variables.
 ### Features
 
 - Build context detection with automatic deployment strategies
-- SonarQube analysis with credentials from Vault
-- Artifact signing with GPG keys from Vault
+- SonarQube analysis for code quality
+- Artifact signing with GPG keys
 - Conditional deployment based on branch patterns
 - Develocity integration for build optimization (optional)
 - Maven local repository caching with customization options
@@ -312,8 +318,6 @@ Build, analyze, and publish a Python project using Poetry with SonarQube integra
 
 #### Required Vault Permissions
 
-- `development/kv/data/next`, `development/kv/data/sonarcloud`, and `development/kv/data/sonarqube-us`: SonarQube credentials (only
-  fetched when `sonar-platform` is not `none`)
 - `public-reader` or `private-reader`: Artifactory role for reading dependencies
 - `public-deployer` or `qa-deployer`: Artifactory role for deployment
 
@@ -376,15 +380,58 @@ jobs:
 | `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', sqc-us, or 'none'. Use 'none' to skip sonar scans                                                                                              | `next`                                                                                                |
 | `run-shadow-scans`          | If true, run sonar scanner on all 3 platforms using the provided URL and token. If false, run on the platform provided by sonar-platform. When enabled, the sonar-platform setting is ignored | `false`                                                                                               |
 | `working-directory`         | Relative path under github.workspace to execute the build in                                                                                                                                  | `.`                                                                                                   |
+| `provenance`                | Whether to generate provenance attestation for built artifacts                                                                                                                                | `false`                                                                                               |
+| `provenance-pull-request`   | Whether to generate provenance attestation on pull requests (similar to deploy-pull-request)                                                                                                  | `false`                                                                                               |
+| `provenance-artifact-paths` | Relative paths of artifacts for provenance attestation (glob pattern). See [Provenance Attestation](#provenance-attestation)                                                                  | (optional)                                                                                            |
 
 ### Outputs
 
-- `project-version`: The project version from pyproject.toml with build number. The same is also exposed as `PROJECT_VERSION` environment
-  variable.
+| Output           | Description                                                                                                  |
+|------------------|--------------------------------------------------------------------------------------------------------------|
+| `BUILD_NUMBER`   | The current build number. Also set as environment variable `BUILD_NUMBER`                                    |
+| `project-version`| The project version from pyproject.toml with build number. Also set as environment variable `PROJECT_VERSION`|
+| `deployed`       | `true` if the build succeed and was supposed to deploy                                                       |
+| `artifact-paths` | Newline-separated list of artifact paths for provenance attestation                                          |
 
-## `build-gradle`
+## `config-gradle`
 
-Build and publish a Gradle project with SonarQube analysis and Artifactory deployment.
+Configure Gradle build environment with build number, authentication, and default settings.
+
+> **Note:** This action automatically calls [`get-build-number`](#get-build-number) to manage the build number.
+
+This action sets up the complete Gradle environment for SonarSource projects, including:
+
+- Build number management
+- Artifactory authentication and repository setup
+- Gradle authentication configuration for Repox
+- Gradle caching (caches and wrapper directories)
+- JVM options configuration
+- Develocity integration for build tracking (optional)
+- Project version management: Automatically replaces `-SNAPSHOT` versions with the build number (skipped if both `CURRENT_VERSION` and
+  `PROJECT_VERSION` environment variables are set)
+
+### Caching Configuration
+
+By default, Gradle caches `~/.gradle/caches` and `~/.gradle/wrapper`. You can customize this behavior:
+
+**Cache custom directories:**
+
+```yaml
+- uses: SonarSource/ci-github-actions/config-gradle@v1
+  with:
+    cache-paths: |
+      ~/.gradle/caches
+      ~/.gradle/wrapper
+      ~/custom/directory
+```
+
+**Disable caching entirely:**
+
+```yaml
+- uses: SonarSource/ci-github-actions/config-gradle@v1
+  with:
+    disable-caching: 'true'
+```
 
 ### Requirements
 
@@ -395,9 +442,88 @@ Build and publish a Gradle project with SonarQube analysis and Artifactory deplo
 
 #### Required Vault Permissions
 
-- `development/kv/data/next`, `development/kv/data/sonarcloud`, and `development/kv/data/sonarqube-us`: SonarQube credentials (only
-  fetched when `sonar-platform` is not `none`)
-- `development/kv/data/sign`: Artifact signing credentials (key, passphrase, and key_id)
+- `public-reader` or `private-reader`: Artifactory role for reading dependencies.
+- `development/kv/data/develocity`: Develocity access token (only fetched when `use-develocity: true`).
+
+#### Other Dependencies
+
+**Java**: Must be pre-installed in the runner image. We recommend using `mise` to install and manage Java versions.
+
+**Gradle**: Must be pre-installed in the runner image. We recommend including the Gradle wrapper (`gradlew`) in your repository,
+which will be used automatically. If the Gradle wrapper is not available, you can install Gradle using `mise` in your pipeline.
+
+### Usage
+
+```yaml
+permissions:
+  id-token: write
+  contents: write
+steps:
+  - uses: actions/checkout@v5
+  - uses: SonarSource/ci-github-actions/config-gradle@v1
+  - run: ./gradlew build
+```
+
+### Input Environment Variables
+
+| Environment Variable                    | Description                                                                       |
+|-----------------------------------------|-----------------------------------------------------------------------------------|
+| `BUILD_NUMBER`                          | If present, it will be reused by the [`get-build-number`](#get-build-number) action. |
+| `CURRENT_VERSION` and `PROJECT_VERSION` | If both are set, they will be used as-is and no version update will be performed. |
+
+### Inputs
+
+| Input                     | Description                                                                 | Default                                                              |
+|---------------------------|-----------------------------------------------------------------------------|----------------------------------------------------------------------|
+| `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault                             | `private-reader` for private repos, `public-reader` for public repos |
+| `use-develocity`          | Whether to use Develocity for build tracking                                | `false`                                                              |
+| `develocity-url`          | URL for Develocity                                                          | `https://develocity.sonar.build/`                                    |
+| `repox-url`               | URL for Repox                                                               | `https://repox.jfrog.io`                                             |
+| `repox-artifactory-url`   | URL for Repox Artifactory API (overrides repox-url/artifactory if provided) | (optional)                                                           |
+| `cache-paths`             | Custom cache paths (multiline).                                             | `~/.gradle/caches`<br>`~/.gradle/wrapper`                            |
+| `disable-caching`         | Whether to disable Gradle caching entirely                                  | `false`                                                              |
+
+### Outputs
+
+| Output            | Description                                                                                                     |
+|-------------------|-----------------------------------------------------------------------------------------------------------------|
+| `BUILD_NUMBER`    | The current build number. Also set as environment variable `BUILD_NUMBER`                                       |
+| `current-version` | The project version set in gradle.properties (before replacement). Also set as environment variable `CURRENT_VERSION` |
+| `project-version` | The project version with build number (after replacement). Also set as environment variable `PROJECT_VERSION`   |
+
+### Output Environment Variables
+
+| Environment Variable          | Description                                                         |
+|-------------------------------|---------------------------------------------------------------------|
+| `BUILD_NUMBER`                | The current build number.                                           |
+| `CURRENT_VERSION`             | The original project version from gradle.properties                 |
+| `PROJECT_VERSION`             | The project version with build number (after replacement)           |
+| `ARTIFACTORY_READER_ROLE`     | Reader role for Artifactory authentication                          |
+| `ARTIFACTORY_USERNAME`        | Username for Artifactory authentication                             |
+| `ARTIFACTORY_ACCESS_TOKEN`    | Access token for Artifactory authentication                         |
+| `ARTIFACTORY_URL`             | Artifactory (Repox) URL. E.x.: `https://repox.jfrog.io/artifactory` |
+| `ARTIFACTORY_ACCESS_USERNAME` | Deprecated alias for `ARTIFACTORY_USERNAME`                         |
+| `ARTIFACTORY_PASSWORD`        | Deprecated alias for `ARTIFACTORY_ACCESS_TOKEN`                     |
+| `DEVELOCITY_ACCESS_KEY`       | The Develocity access key when `use-develocity` is true             |
+| `GRADLE_CACHE_KEY`            | The Gradle cache key generated from all gradle files                |
+
+See also [`get-build-number`](#get-build-number) output environment variables.
+
+## `build-gradle`
+
+Build and publish a Gradle project with SonarQube analysis and Artifactory deployment.
+
+> **Note:** This action automatically calls [`config-gradle`](#config-gradle) to set up the Gradle environment.
+
+### Requirements
+
+#### Required GitHub Permissions
+
+- `id-token: write`
+- `contents: write`
+
+#### Required Vault Permissions
+
 - `development/kv/data/develocity`: Develocity access token (only fetched when `use-develocity: true`)
 - `public-reader` or `private-reader`: Artifactory role for reading dependencies
 - `public-deployer` or `qa-deployer`: Artifactory role for deployment
@@ -472,6 +598,9 @@ jobs:
 | `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding)            | `false`                                                                                     |
 | `cache-paths`               | Custom cache paths (multiline).                                                           | `~/.gradle/caches`<br>`~/.gradle/wrapper`                                                   |
 | `disable-caching`           | Whether to disable Gradle caching entirely                                                | `false`                                                                                     |
+| `provenance`                | Whether to generate provenance attestation for built artifacts                            | `false`                                                                                     |
+| `provenance-pull-request`   | Whether to generate provenance attestation on pull requests (similar to deploy-pull-request) | `false`                                                                                     |
+| `provenance-artifact-paths` | Relative paths of artifacts for provenance attestation (glob pattern). See [Provenance Attestation](#provenance-attestation) | (optional)                                                                                  |
 
 > [!TIP]
 > When using `working-directory`, Java must be available at root due to a limitation
@@ -496,7 +625,8 @@ jobs:
 |-------------------|---------------------------------------------------------------------------|
 | `project-version` | The project version from gradle.properties                                |
 | `BUILD_NUMBER`    | The current build number. Also set as environment variable `BUILD_NUMBER` |
-| `deployed`     | `true` if the build succeed and was supposed to deploy                    |
+| `deployed`        | `true` if the build succeed and was supposed to deploy                    |
+| `artifact-paths`  | Newline-separated list of artifact paths for provenance attestation       |
 
 ### Features
 
@@ -607,10 +737,10 @@ artifactory {
 
 ## `config-npm`
 
-Call [`get-build-number`](#get-build-number).
-
 Configure NPM and JFrog build environment with build number, authentication, and settings.
 Set the project version in `package.json` with the build number.
+
+> **Note:** This action automatically calls [`get-build-number`](#get-build-number) to manage the build number.
 
 ### Requirements
 
@@ -648,6 +778,7 @@ config:
 
 | Environment Variable                    | Description                                                                       |
 |-----------------------------------------|-----------------------------------------------------------------------------------|
+| `BUILD_NUMBER`                          | If present, it will be reused by the [`get-build-number`](#get-build-number) action. |
 | `CURRENT_VERSION` and `PROJECT_VERSION` | If both are set, they will be used as-is and no version update will be performed. |
 
 See also [`get-build-number`](#get-build-number) input environment variables.
@@ -681,9 +812,9 @@ See also [`get-build-number`](#get-build-number) output environment variables.
 
 ## `build-npm`
 
-Call [`config-npm`](#config-npm).
+Build, test, analyze with SonarQube, and deploy an NPM project to JFrog Artifactory.
 
-Then build, test, analyze with SonarQube, and deploy an NPM project to JFrog Artifactory.
+> **Note:** This action automatically calls [`config-npm`](#config-npm) to set up the NPM environment.
 
 ### Requirements
 
@@ -694,8 +825,6 @@ Then build, test, analyze with SonarQube, and deploy an NPM project to JFrog Art
 
 #### Required Vault Permissions
 
-- `development/kv/data/next`, `development/kv/data/sonarcloud`, and `development/kv/data/sonarqube-us`: SonarQube credentials (only
-  fetched when `sonar-platform` is not `none`)
 - `public-reader` or `private-reader`: Artifactory role for reading dependencies
 - `public-deployer` or `qa-deployer`: Artifactory role for deployment
 
@@ -763,6 +892,9 @@ See also [`config-npm`](#config-npm) input environment variables.
 | `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', or 'sqc-us'                     | `next`                                                                                       |
 | `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding) | `false`                                                                                      |
 | `build-name`                | Name of the JFrog build to publish.                                            | `<Repository name>`                                                                          |
+| `provenance`                | Whether to generate provenance attestation for built artifacts                 | `false`                                                                                      |
+| `provenance-pull-request`   | Whether to generate provenance attestation on pull requests (similar to deploy-pull-request) | `false`                                                                                      |
+| `provenance-artifact-paths` | Relative paths of artifacts for provenance attestation (glob pattern). See [Provenance Attestation](#provenance-attestation) | (optional)                                                                                   |
 
 ### Outputs
 
@@ -771,6 +903,8 @@ See also [`config-npm`](#config-npm) input environment variables.
 | `current-version` | The project version from package.json                     |
 | `project-version` | The project version with build number (after replacement) |
 | `BUILD_NUMBER`    | The current build number                                  |
+| `deployed`        | `true` if the build succeed and was supposed to deploy    |
+| `artifact-paths`  | Newline-separated list of artifact paths for provenance attestation |
 
 ### Output Environment Variables
 
@@ -806,8 +940,6 @@ Build, test, analyze, and deploy a Yarn project with SonarQube integration and A
 
 #### Required Vault Permissions
 
-- `development/kv/data/next`, `development/kv/data/sonarcloud`, and `development/kv/data/sonarqube-us`: SonarQube credentials (only
-  fetched when `sonar-platform` is not `none`)
 - `public-reader` or `private-reader`: Artifactory role for reading dependencies
 - `public-deployer` or `qa-deployer`: Artifactory role for deployment
 
@@ -870,12 +1002,18 @@ jobs:
 | `repox-artifactory-url`     | URL for Repox Artifactory API (overrides repox-url/artifactory if provided)                        | (optional)                                                                                  |
 | `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', 'sqc-us', or 'none'. Use 'none' to skip sonar scans | `next`                                                                                      |
 | `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding)                     | `false`                                                                                     |
+| `provenance`                | Whether to generate provenance attestation for built artifacts                                     | `false`                                                                                     |
+| `provenance-pull-request`   | Whether to generate provenance attestation on pull requests (similar to deploy-pull-request)       | `false`                                                                                     |
+| `provenance-artifact-paths` | Relative paths of artifacts for provenance attestation (glob pattern). See [Provenance Attestation](#provenance-attestation) | (optional)                                                                                  |
 
 ### Outputs
 
-| Output            | Description                           |
-|-------------------|---------------------------------------|
-| `project-version` | The project version from package.json |
+| Output            | Description                                               |
+|-------------------|-----------------------------------------------------------|
+| `BUILD_NUMBER`    | The current build number. Also set as environment variable `BUILD_NUMBER` |
+| `project-version` | The project version from package.json                     |
+| `deployed`        | `true` if the build succeed and was supposed to deploy    |
+| `artifact-paths`  | Newline-separated list of artifact paths for provenance attestation |
 
 ### Features
 

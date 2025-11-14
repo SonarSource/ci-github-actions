@@ -73,10 +73,10 @@ inputs:
 outputs:
   project-version:
     description: The release version set as Gradle project version in gradle.properties
-    value: ${{ steps.build.outputs.project-version }}
+    value: ${{ steps.config-gradle.outputs.project-version }}
   BUILD_NUMBER:
     description: The build number, incremented or reused if already cached
-    value: ${{ steps.get_build_number.outputs.BUILD_NUMBER }}
+    value: ${{ steps.config-gradle.outputs.BUILD_NUMBER }}
   deployed:
     description: Whether artifacts were deployed
     value: ${{ steps.build.outputs.deployed }}
@@ -101,26 +101,18 @@ runs:
         echo "host_actions_root=$host_actions_root" >> "$GITHUB_OUTPUT"
 
         mkdir -p ".actions"
-        ln -sf "$host_actions_root/get-build-number" .actions/get-build-number
+        ln -sf "$host_actions_root/config-gradle" .actions/config-gradle
         ln -sf "$host_actions_root/shared" .actions/shared
-        ln -sf "$host_actions_root/cache" .actions/cache
         ls -la .actions/*
         echo "::endgroup::"
 
     - name: Set build parameters
       shell: bash
       env:
-        ARTIFACTORY_READER_ROLE: ${{ inputs.artifactory-reader-role != '' && inputs.artifactory-reader-role ||
-          (github.event.repository.visibility == 'public' && 'public-reader' || 'private-reader') }}
         ARTIFACTORY_DEPLOYER_ROLE: ${{ inputs.artifactory-deployer-role != '' && inputs.artifactory-deployer-role ||
           (github.event.repository.visibility == 'public' && 'public-deployer' || 'qa-deployer') }}
       run: |
-        echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_DEPLOYER_ROLE=${ARTIFACTORY_DEPLOYER_ROLE}" >> "$GITHUB_ENV"
-    - uses: ./.actions/get-build-number
-      id: get_build_number
-      with:
-        host-actions-root: ${{ steps.set-path.outputs.host_actions_root }}
     - uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
       id: secrets
       with:
@@ -132,9 +124,6 @@ runs:
           ${{ inputs.sonar-platform != 'none' && 'development/kv/data/sonarqube-us token | SQC_US_TOKEN;' || '' }}
           ${{ inputs.sonar-platform != 'none' && 'development/kv/data/sonarcloud url | SQC_EU_URL;' || '' }}
           ${{ inputs.sonar-platform != 'none' && 'development/kv/data/sonarcloud token | SQC_EU_TOKEN;' || '' }}
-          ${{ inputs.use-develocity == 'true' && 'development/kv/data/develocity token | DEVELOCITY_TOKEN;' || '' }}
-          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
-          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} username | ARTIFACTORY_DEPLOY_USERNAME;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;
           development/kv/data/sign key | SIGN_KEY;
@@ -142,57 +131,32 @@ runs:
           development/kv/data/sign key_id | SIGN_KEY_ID;
         # yamllint enable rule:line-length
 
-    # Configure Gradle for comprehensive caching and build summary reporting. It does not install Gradle.
+    - name: Setup environment for deployment
+      shell: bash
+      env:
+        # Deployment secrets
+        ARTIFACTORY_DEPLOY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_USERNAME }}
+        ARTIFACTORY_DEPLOY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN }}
+        ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo != '' && inputs.artifactory-deploy-repo ||
+          github.event.repository.visibility == 'public' && 'sonarsource-public-qa' || 'sonarsource-private-qa' }}
+      run: |
+        echo "ARTIFACTORY_DEPLOY_USERNAME=$ARTIFACTORY_DEPLOY_USERNAME" >> "$GITHUB_ENV"
+        echo "ARTIFACTORY_DEPLOY_ACCESS_TOKEN=$ARTIFACTORY_DEPLOY_ACCESS_TOKEN" >> "$GITHUB_ENV"
+        echo "ARTIFACTORY_DEPLOY_PASSWORD=$ARTIFACTORY_DEPLOY_ACCESS_TOKEN" >> "$GITHUB_ENV"  # deprecated, backward compliance
+        echo "ARTIFACTORY_DEPLOY_REPO=${ARTIFACTORY_DEPLOY_REPO}" >> "$GITHUB_ENV"
+
     - name: Configure Gradle
-      uses: gradle/actions/setup-gradle@748248ddd2a24f49513d8f472f81c3a07d4d50e1 # v4.4.4
+      uses: ./.actions/config-gradle
+      id: config-gradle
       with:
-        develocity-injection-enabled: ${{ inputs.use-develocity == 'true' }}
-        cache-disabled: true
-        develocity-plugin-version: '4.0'
-
-    - name: Generate Gradle Cache Key
-      if: ${{ inputs.disable-caching != 'true' }}
-      shell: bash
-      working-directory: ${{ inputs.working-directory }}
-      run: |
-        /usr/bin/find . \( -name '*.gradle' -o -name '*.gradle.kts' \) -type f -exec md5sum {} \; > gradle-md5-sums.txt
-        md5sum gradle/libs.versions.toml gradle/wrapper/gradle-wrapper.properties 2>/dev/null >> gradle-md5-sums.txt || true
-        GRADLE_CACHE_KEY=$(md5sum gradle-md5-sums.txt | awk '{ print $1 }')
-        echo "🔑 Generated cache key: ${GRADLE_CACHE_KEY}"
-        echo "GRADLE_CACHE_KEY=${GRADLE_CACHE_KEY}" >> "$GITHUB_ENV"
-        rm -f gradle-md5-sums.txt
-
-    - name: Restore Gradle Cache
-      if: ${{ inputs.disable-caching != 'true' }}
-      uses: ./.actions/cache
-      id: gradle-cache-restore
-      with:
-        path: ${{ inputs.cache-paths }}
-        key: gradle-${{ runner.os }}-${{ github.workflow }}-${{ env.GRADLE_CACHE_KEY }}
-        restore-keys: |
-          gradle-${{ runner.os }}-${{ github.workflow }}-
-
-    # $GRADLE_USER_HOME is typically set to ~/.gradle/ by gradle/actions/setup-gradle
-    - name: Configure Gradle Authentication
-      shell: bash
-      run: |
-        GRADLE_INIT_DIR="$GRADLE_USER_HOME/init.d"
-        mkdir -p "$GRADLE_INIT_DIR"
-        cp "$ACTION_PATH_BUILD_GRADLE/resources/repoxAuth.init.gradle.kts" "$GRADLE_INIT_DIR/"
-
-    - name: Extract Develocity hostname
-      id: develocity-hostname
-      if: ${{ inputs.use-develocity == 'true' }}
-      shell: bash
-      run: echo "hostname=$(echo '${{ inputs.develocity-url }}' | sed 's|https://||' | sed 's|/$||')" >> $GITHUB_OUTPUT
-
-    - name: Deactivate UseContainerSupport on github-ubuntu-* runners
-      if: runner.os == 'Linux' && runner.environment == 'github-hosted'
-      shell: bash
-      run: |
-        echo "::warning title=Deactivating UseContainerSupport::The GitHub-hosted Ubuntu runners have an issue with Java's" \
-          "UseContainerSupport feature."
-        echo "JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS:=-XX:-UseContainerSupport}" >> "$GITHUB_ENV"
+        host-actions-root: ${{ steps.set-path.outputs.host_actions_root }}
+        artifactory-reader-role: ${{ inputs.artifactory-reader-role }}
+        use-develocity: ${{ inputs.use-develocity }}
+        develocity-url: ${{ inputs.develocity-url }}
+        repox-url: ${{ inputs.repox-url }}
+        repox-artifactory-url: ${{ inputs.repox-artifactory-url }}
+        cache-paths: ${{ inputs.cache-paths }}
+        disable-caching: ${{ inputs.disable-caching }}
 
     - name: Build, analyze and deploy
       id: build
@@ -205,17 +169,6 @@ runs:
         DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
 
         # Action inputs
-        ARTIFACTORY_URL: ${{ inputs.repox-artifactory-url != '' && inputs.repox-artifactory-url ||
-          format('{0}/artifactory', inputs.repox-url) }}
-        ARTIFACTORY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME }} # unused; present for backward compliance
-        ARTIFACTORY_ACCESS_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME }} # deprecated, backward compliance
-        ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
-        ARTIFACTORY_PASSWORD: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }} # deprecated, backward compliance
-        ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo != '' && inputs.artifactory-deploy-repo ||
-          github.event.repository.visibility == 'public' && 'sonarsource-public-qa' || 'sonarsource-private-qa' }}
-        ARTIFACTORY_DEPLOY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_USERNAME }}
-        ARTIFACTORY_DEPLOY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN }}
-        ARTIFACTORY_DEPLOY_PASSWORD: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN }} # used in parent POM
         DEPLOY: ${{ inputs.deploy }}
         DEPLOY_PULL_REQUEST: ${{ inputs.deploy-pull-request }}
         SKIP_TESTS: ${{ inputs.skip-tests }}
@@ -230,12 +183,11 @@ runs:
         SQC_EU_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SQC_EU_TOKEN }}
         SONAR_PLATFORM: ${{ inputs.sonar-platform }}
         RUN_SHADOW_SCANS: ${{ inputs.run-shadow-scans }}
+
         ORG_GRADLE_PROJECT_signingKey: ${{ fromJSON(steps.secrets.outputs.vault).SIGN_KEY }}
         ORG_GRADLE_PROJECT_signingPassword: ${{ fromJSON(steps.secrets.outputs.vault).PGP_PASSPHRASE }}
         ORG_GRADLE_PROJECT_signingKeyId: ${{ fromJSON(steps.secrets.outputs.vault).SIGN_KEY_ID }}
-        DEVELOCITY_ACCESS_KEY: ${{ inputs.use-develocity == 'true' &&
-          format('{0}={1}', steps.develocity-hostname.outputs.hostname, fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN) || '' }}
-      run: $ACTION_PATH_BUILD_GRADLE/build.sh
+      run: ${GITHUB_ACTION_PATH}/build.sh
 
     - name: Archive problems report
       if: always()

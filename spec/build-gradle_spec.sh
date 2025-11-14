@@ -62,6 +62,7 @@ export DEPLOY_PULL_REQUEST="false"
 export SKIP_TESTS="false"
 export GRADLE_ARGS=""
 export GITHUB_OUTPUT=/dev/null
+export CURRENT_VERSION="1.2.3-SNAPSHOT"
 # Duplicate environment variables removed
 GITHUB_EVENT_PATH=$(mktemp)
 export GITHUB_EVENT_PATH
@@ -126,59 +127,6 @@ Describe 'set_build_env'
     The output should include "PROJECT: my-repo"
     The output should include "Skipping git fetch (Sonar analysis disabled)"
     The output should not include "Fetching commit history for SonarQube analysis..."
-  End
-End
-
-Describe 'set_project_version'
-  It 'processes version correctly'
-    echo "version=1.0-SNAPSHOT" > gradle.properties
-    When call set_project_version
-    The output should include "Replacing version 1.2.3-SNAPSHOT with 1.2.3.42"
-    The variable CURRENT_VERSION should equal "1.2.3-SNAPSHOT"
-    The variable PROJECT_VERSION should equal "1.2.3.42"
-    rm -f gradle.properties gradle.properties.bak
-  End
-
-  It 'adds .0 to two-digit version'
-    echo "version=1.2-SNAPSHOT" > gradle.properties
-    Mock gradle
-      echo "version: 1.2-SNAPSHOT"
-    End
-    When call set_project_version
-    The output should include "Replacing version 1.2-SNAPSHOT with 1.2.0.42"
-    The variable CURRENT_VERSION should equal "1.2-SNAPSHOT"
-    The variable PROJECT_VERSION should equal "1.2.0.42"
-    rm -f gradle.properties gradle.properties.bak
-  End
-
-  It 'fails when version is empty'
-    echo "version=1.0-SNAPSHOT" > gradle.properties
-    Mock gradle
-      if [[ "$*" == "properties --no-scan --no-daemon --console plain" ]]; then
-        echo "version: "
-      else
-        echo "gradle $*"
-      fi
-    End
-    When run set_project_version
-    The status should be failure
-    The stderr should include "ERROR: Could not get valid version from Gradle properties"
-    rm -f gradle.properties gradle.properties.bak
-  End
-
-  It 'fails when version is unspecified'
-    echo "version=1.0-SNAPSHOT" > gradle.properties
-    Mock gradle
-      if [[ "$*" == "properties --no-scan --no-daemon --console plain" ]]; then
-        echo "version: unspecified"
-      else
-        echo "gradle $*"
-      fi
-    End
-    When run set_project_version
-    The status should be failure
-    The stderr should include "ERROR: Could not get valid version from Gradle properties. Got: 'unspecified'"
-    rm -f gradle.properties gradle.properties.bak
   End
 End
 
@@ -537,9 +485,6 @@ Describe 'main function'
     Mock set_build_env
       echo "env set"
     End
-    Mock set_project_version
-      echo "version set"
-    End
     Mock gradle_build
       echo "build done"
     End
@@ -549,8 +494,7 @@ Describe 'main function'
     The line 1 should equal "java ok"
     The line 2 should equal "gradle ok"
     The line 3 should equal "env set"
-    The line 4 should equal "version set"
-    The line 5 should equal "build done"
+    The line 4 should equal "build done"
   End
 End
 

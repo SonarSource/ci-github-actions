@@ -12,6 +12,7 @@
 # - SQC_EU_URL: URL of SonarQube server for sqc-eu platform
 # - SQC_EU_TOKEN: Access token to send analysis reports to SonarQube for sqc-eu platform
 # - RUN_SHADOW_SCANS: If true, run sonar scanner on all 3 platforms. If false, run on the platform provided by SONAR_PLATFORM.
+# - CURRENT_VERSION: Current project version as in gradle.properties
 # - ARTIFACTORY_ACCESS_TOKEN: Access token to read Repox repositories
 # - ARTIFACTORY_DEPLOY_REPO: Name of deployment repository
 # - ARTIFACTORY_DEPLOY_USERNAME: Username to deploy to Artifactory
@@ -52,6 +53,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 : "${GITHUB_OUTPUT:?}"
 : "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}"
 : "${RUN_SHADOW_SCANS:?}"
+: "${CURRENT_VERSION:?}"
 if [[ "${SONAR_PLATFORM:?}" != "none" ]]; then
   : "${NEXT_URL:?}" "${NEXT_TOKEN:?}" "${SQC_US_URL:?}" "${SQC_US_TOKEN:?}" "${SQC_EU_URL:?}" "${SQC_EU_TOKEN:?}"
 fi
@@ -80,26 +82,6 @@ set_build_env() {
   export PROJECT=${GITHUB_REPOSITORY#*/}
   echo "PROJECT: $PROJECT"
   git_fetch_unshallow
-}
-
-set_project_version() {
-  current_version=$($GRADLE_CMD properties --no-scan --no-daemon --console plain | grep 'version:' | tr -d "[:space:]" | cut -d ":" -f 2)
-  if [[ -z "$current_version" || "$current_version" == "unspecified" ]]; then
-    echo "ERROR: Could not get valid version from Gradle properties. Got: '$current_version'" >&2
-    exit 1
-  fi
-  export CURRENT_VERSION=$current_version
-  release_version="${current_version/-SNAPSHOT/}"
-  if [[ "${release_version}" =~ ^[0-9]+\.[0-9]+$ ]]; then
-    release_version="${release_version}.0"
-  fi
-  release_version="${release_version}.${BUILD_NUMBER}"
-  echo "Replacing version $current_version with $release_version"
-  sed -i.bak "s/$current_version/$release_version/g" gradle.properties
-  echo "project-version=$release_version" >> "$GITHUB_OUTPUT"
-  echo "PROJECT_VERSION=$release_version" >> "$GITHUB_ENV"
-  echo "PROJECT_VERSION=$release_version"
-  export PROJECT_VERSION=$release_version
 }
 
 should_deploy() {
@@ -300,7 +282,6 @@ main() {
   check_tool java -version
   set_gradle_cmd
   set_build_env
-  set_project_version
   gradle_build
 }
 
