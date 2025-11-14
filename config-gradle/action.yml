@@ -145,7 +145,7 @@ runs:
       shell: bash
       run: |
         # Generate cache key from all Gradle files
-        find . \( -name '*.gradle' -o -name '*.gradle.kts' \) -type f -exec md5sum {} \; | sort > gradle-md5-sums.txt
+        /usr/bin/find . \( -name '*.gradle' -o -name '*.gradle.kts' \) -type f -exec md5sum {} \; | sort > gradle-md5-sums.txt
         md5sum gradle/libs.versions.toml gradle/wrapper/gradle-wrapper.properties 2>/dev/null >> gradle-md5-sums.txt || true
 
         GRADLE_CACHE_KEY=$(md5sum gradle-md5-sums.txt | awk '{ print $1 }')
