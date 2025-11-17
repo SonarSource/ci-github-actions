@@ -208,12 +208,8 @@ export_built_artifacts() {
   echo "Scanning for artifacts in: */${build_dir}/*"
 
   # Find all built artifacts (excluding sources, javadoc, tests)
-  local artifacts find_bin
-  find_bin="/bin/find"
-  if [[ ! -x "$find_bin" ]]; then
-    find_bin="/usr/bin/find"
-  fi
-  artifacts=$("$find_bin" . -path "*/${build_dir}/*" \
+  local artifacts
+  artifacts=$(/usr/bin/find . -path "*/${build_dir}/*" \
     \( -name '*.jar' -o -name '*.war' -o -name '*.ear' -o -name '*.zip' -o -name '*.tar.gz' -o -name '*.tar' -o -name '*.pom' -o -name '*.asc' -o -name '*.json' \) \
     ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-tests.jar' \
     -type f 2>/dev/null)
