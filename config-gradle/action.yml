@@ -104,7 +104,7 @@ runs:
       id: develocity-hostname
       if: steps.config-gradle-completed.outputs.skip != 'true' && inputs.use-develocity == 'true'
       shell: bash
-      run: echo "hostname=$(echo '${{ inputs.develocity-url }}' | sed 's|https://||' | sed 's|/$||')" >> $GITHUB_OUTPUT
+      run: echo "hostname=$(echo '${{ inputs.develocity-url }}' | sed -e 's|https://||' -e 's|/$||')" >> $GITHUB_OUTPUT
 
     - name: Set environment variables for Artifactory authentication
       if: steps.config-gradle-completed.outputs.skip != 'true'

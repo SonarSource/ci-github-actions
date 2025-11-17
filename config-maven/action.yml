@@ -102,6 +102,12 @@ runs:
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
           ${{ inputs.use-develocity == 'true' && 'development/kv/data/develocity token | DEVELOCITY_TOKEN;' || '' }}
 
+    - name: Extract Develocity hostname
+      id: develocity-hostname
+      if: steps.from-env.outputs.skip != 'true' && inputs.use-develocity == 'true'
+      shell: bash
+      run: echo "hostname=$(echo '${{ inputs.develocity-url }}' | sed -e 's|https://||' -e 's|/$||')" >> $GITHUB_OUTPUT
+
     - name: Set environment variables for Artifactory authentication
       if: steps.from-env.outputs.skip != 'true'
       shell: bash
@@ -113,7 +119,7 @@ runs:
         DEVELOCITY_TOKEN: ${{ inputs.use-develocity == 'true' && steps.secrets.outputs.vault &&
           fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN || '' }}
       run: |
-        if [[ "${DEVELOCITY_ACCESS_KEY:-}" == "develocity.sonar.build=" ]]; then
+        if [[ "${DEVELOCITY_ACCESS_KEY:-}" == "${{ steps.develocity-hostname.outputs.hostname }}=" ]]; then
           echo "::warning title=Found invalid DEVELOCITY_ACCESS_KEY::DEVELOCITY_ACCESS_KEY should not be set manually in the environment."
           echo "[WARNING] DEVELOCITY_ACCESS_KEY is set in the environment with an empty token. This is a deprecated configuration." \
           "The Develocity token is configured by config-maven. Please remove external configuration of DEVELOCITY_ACCESS_KEY."
@@ -125,7 +131,7 @@ runs:
         echo "ARTIFACTORY_ACCESS_TOKEN=$ARTIFACTORY_ACCESS_TOKEN" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_PASSWORD=$ARTIFACTORY_ACCESS_TOKEN" >> "$GITHUB_ENV"  # deprecated, backward compliance
         if [[ -n "${DEVELOCITY_TOKEN:-}" ]]; then
-          echo "DEVELOCITY_ACCESS_KEY=develocity.sonar.build=$DEVELOCITY_TOKEN" >> "$GITHUB_ENV"
+          echo "DEVELOCITY_ACCESS_KEY=${{ steps.develocity-hostname.outputs.hostname }}=$DEVELOCITY_TOKEN" >> "$GITHUB_ENV"
         fi
 
     - name: Configure Maven settings and set repository URL
