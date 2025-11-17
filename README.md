@@ -284,7 +284,6 @@ See also [`config-maven`](#config-maven) input environment variables.
 | `cache-paths`               | Custom cache paths (multiline). Overrides default `~/.m2/repository`.                                                      | (optional)                                                                                  |
 | `disable-caching`           | Whether to disable Maven caching entirely                                                                                  | `false`                                                                                     |
 | `provenance`                | Whether to generate provenance attestation for built artifacts                                                             | `false`                                                                                     |
-| `provenance-pull-request`   | Whether to generate provenance attestation on pull requests (similar to deploy-pull-request)                               | `false`                                                                                     |
 | `provenance-artifact-paths` | Relative paths of artifacts for provenance attestation (glob pattern). See [Provenance Attestation](#provenance-attestation) | (optional)                                                                                  |
 
 ### Outputs
@@ -393,7 +392,6 @@ jobs:
 | `run-shadow-scans`          | If true, run sonar scanner on all 3 platforms using the provided URL and token. If false, run on the platform provided by sonar-platform. When enabled, the sonar-platform setting is ignored | `false`                                                                                               |
 | `working-directory`         | Relative path under github.workspace to execute the build in                                                                                                                                  | `.`                                                                                                   |
 | `provenance`                | Whether to generate provenance attestation for built artifacts                                                                                                                                | `false`                                                                                               |
-| `provenance-pull-request`   | Whether to generate provenance attestation on pull requests (similar to deploy-pull-request)                                                                                                  | `false`                                                                                               |
 | `provenance-artifact-paths` | Relative paths of artifacts for provenance attestation (glob pattern). See [Provenance Attestation](#provenance-attestation)                                                                  | (optional)                                                                                            |
 
 ### Outputs
@@ -623,7 +621,6 @@ jobs:
 | `cache-paths`               | Custom cache paths (multiline).                                                           | `~/.gradle/caches`<br>`~/.gradle/wrapper`                                                   |
 | `disable-caching`           | Whether to disable Gradle caching entirely                                                | `false`                                                                                     |
 | `provenance`                | Whether to generate provenance attestation for built artifacts                            | `false`                                                                                     |
-| `provenance-pull-request`   | Whether to generate provenance attestation on pull requests (similar to deploy-pull-request) | `false`                                                                                     |
 | `provenance-artifact-paths` | Relative paths of artifacts for provenance attestation (glob pattern). See [Provenance Attestation](#provenance-attestation) | (optional)                                                                                  |
 
 > [!TIP]
@@ -917,7 +914,6 @@ See also [`config-npm`](#config-npm) input environment variables.
 | `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding) | `false`                                                                                      |
 | `build-name`                | Name of the JFrog build to publish.                                            | `<Repository name>`                                                                          |
 | `provenance`                | Whether to generate provenance attestation for built artifacts                 | `false`                                                                                      |
-| `provenance-pull-request`   | Whether to generate provenance attestation on pull requests (similar to deploy-pull-request) | `false`                                                                                      |
 | `provenance-artifact-paths` | Relative paths of artifacts for provenance attestation (glob pattern). See [Provenance Attestation](#provenance-attestation) | (optional)                                                                                   |
 
 ### Outputs
@@ -1027,7 +1023,6 @@ jobs:
 | `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', 'sqc-us', or 'none'. Use 'none' to skip sonar scans | `next`                                                                                      |
 | `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding)                     | `false`                                                                                     |
 | `provenance`                | Whether to generate provenance attestation for built artifacts                                     | `false`                                                                                     |
-| `provenance-pull-request`   | Whether to generate provenance attestation on pull requests (similar to deploy-pull-request)       | `false`                                                                                     |
 | `provenance-artifact-paths` | Relative paths of artifacts for provenance attestation (glob pattern). See [Provenance Attestation](#provenance-attestation) | (optional)                                                                                  |
 
 ### Outputs

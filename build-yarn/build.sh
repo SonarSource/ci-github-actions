@@ -292,12 +292,8 @@ export_built_artifacts() {
 
   echo "::group::Capturing built artifacts for attestation"
 
-  local artifacts find_bin
-  find_bin="/bin/find"
-  if [[ ! -x "$find_bin" ]]; then
-    find_bin="/usr/bin/find"
-  fi
-  artifacts=$("$find_bin" .attestation-artifacts -name '*.tgz' -type f 2>/dev/null || true)
+  local artifacts
+  artifacts=$(/usr/bin/find .attestation-artifacts -name '*.tgz' -type f 2>/dev/null || true)
 
   if [[ -z "$artifacts" ]]; then
     echo "::warning title=No artifacts found::No artifacts found for attestation in build output directories"
