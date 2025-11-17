@@ -1216,6 +1216,42 @@ jobs:
           restore-keys: cache-${{ runner.os }}-
 ```
 
+## How Restore Keys Work (S3 cache for private repositories)
+
+**Important**: To enable fallback to default branch caches, you **must** use the `restore-keys` property.
+
+### Cache Key Resolution Order
+
+When you provide `restore-keys`, the action searches for cache entries in this order:
+
+1. **Primary key**: `${BRANCH_NAME}/${key}`
+2. **Branch-specific restore keys**: `${BRANCH_NAME}/${restore-key}` (for each restore key)
+3. **Default branch fallbacks**:
+    - `refs/heads/${DEFAULT_BRANCH}/${restore-key}` (for each restore key, where `DEFAULT_BRANCH` is dynamically obtained from the repository)
+
+### Example
+
+```yaml
+- uses: SonarSource/ci-github-actions/cache@v1
+  with:
+    path: ~/.npm
+    key: node-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
+    restore-keys: |
+      node-${{ runner.os }}
+```
+
+For a feature branch `feature/new-ui`, this will search for:
+
+1. `feature/new-ui/node-linux-abc123...` (exact match)
+2. `feature/new-ui/node-linux` (branch-specific partial match)
+3. `refs/heads/main/node-linux` (default branch fallback, assuming `main` is the repository's default branch)
+
+### Key Differences from Standard Cache Action
+
+- **Fallback requires restore-keys**: Without `restore-keys`, the action only looks for branch-specific cache entries
+- **Dynamic default branch detection**: The action detects your default branch using the GitHub API and uses it for fallback
+- **Branch isolation**: Each branch maintains its own cache namespace, preventing cross-branch cache pollution
+
 ### Inputs
 
 | Input                  | Description                                                                                                  | Default    |
