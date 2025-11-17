@@ -36,7 +36,7 @@
 # - DEPLOY: Whether to deploy (default: true)
 # - DEPLOY_PULL_REQUEST: Whether to deploy pull request artifacts (default: false)
 # - SONAR_SCANNER_JAVA_OPTS: JVM options for SonarQube scanner (e.g. -Xmx512m)
-# - SCANNER_VERSION: SonarQube Maven plugin version (default: 5.1.0.4751)
+# - SCANNER_VERSION: SonarQube Maven plugin version (default: 5.3.0.6276)
 # - USER_MAVEN_ARGS: Additional arguments to pass to Maven
 # shellcheck source-path=SCRIPTDIR
 
@@ -67,7 +67,7 @@ export ARTIFACTORY_URL DEPLOY_PULL_REQUEST
 export BUILD_ID=$BUILD_NUMBER
 
 # SonarQube parameters
-: "${SCANNER_VERSION:=5.1.0.4751}"
+: "${SCANNER_VERSION:=5.3.0.6276}"
 readonly SONAR_GOAL="org.sonarsource.scanner.maven:sonar-maven-plugin:${SCANNER_VERSION}:sonar"
 
 # CALLBACK IMPLEMENTATION: SonarQube scanner execution

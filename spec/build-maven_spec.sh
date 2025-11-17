@@ -45,7 +45,7 @@ export SQC_US_TOKEN="sqc-us-token"
 export SQC_EU_URL="https://sonarqube.eu.sonarsource.com"
 export SQC_EU_TOKEN="sqc-eu-token"
 export RUN_SHADOW_SCANS="false"
-export SCANNER_VERSION="5.1.0.4751"
+export SCANNER_VERSION="5.3.0.6276"
 export CURRENT_VERSION="1.2.3-SNAPSHOT"
 export PROJECT_VERSION="1.2.3.42"
 
@@ -206,7 +206,7 @@ Describe 'run_sonar_scanner()'
     When call sonar_scanner_implementation
     The status should be success
     The line 2 should include "mvn"
-    The line 2 should include "org.sonarsource.scanner.maven:sonar-maven-plugin:5.1.0.4751:sonar"
+    The line 2 should include "org.sonarsource.scanner.maven:sonar-maven-plugin:5.3.0.6276:sonar"
     The line 2 should include "-Dsonar.host.url=https://test.sonarqube.com"
     The line 2 should include "-Dsonar.token=test-token"
     The line 2 should include "-Dsonar.projectVersion=1.2.3-SNAPSHOT"
