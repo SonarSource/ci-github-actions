@@ -485,6 +485,7 @@ steps:
 
 | Input                     | Description                                                                 | Default                                                              |
 |---------------------------|-----------------------------------------------------------------------------|----------------------------------------------------------------------|
+| `working-directory`       | Relative path under github.workspace to execute the build in                | `.`                                                                                                                     |
 | `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault                             | `private-reader` for private repos, `public-reader` for public repos |
 | `use-develocity`          | Whether to use Develocity for build tracking                                | `false`                                                              |
 | `develocity-url`          | URL for Develocity                                                          | `https://develocity.sonar.build/`                                    |
