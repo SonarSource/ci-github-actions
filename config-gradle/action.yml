@@ -2,6 +2,9 @@
 name: Configure Gradle
 description: GitHub Action to configure Gradle build environment with build number, authentication, and default settings
 inputs:
+  working-directory:
+    description: Relative path under github.workspace to execute the build in
+    default: .
   artifactory-reader-role:
     description: Suffix for the Artifactory reader role in Vault. Defaults to `private-reader` for private repositories,
       and `public-reader` for public repositories.
@@ -186,6 +189,7 @@ runs:
       id: set-version
       if: steps.config-gradle-completed.outputs.skip != 'true'
       shell: bash
+      working-directory: ${{ inputs.working-directory }}
       run: ${GITHUB_ACTION_PATH}/set_gradle_project_version.sh
 
     - name: Deactivate UseContainerSupport on github-ubuntu-* runners

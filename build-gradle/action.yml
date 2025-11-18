@@ -147,6 +147,7 @@ runs:
       id: config-gradle
       with:
         host-actions-root: ${{ steps.set-path.outputs.host_actions_root }}
+        working-directory: ${{ inputs.working-directory }}
         artifactory-reader-role: ${{ inputs.artifactory-reader-role }}
         use-develocity: ${{ inputs.use-develocity }}
         develocity-url: ${{ inputs.develocity-url }}
