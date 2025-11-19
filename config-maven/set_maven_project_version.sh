@@ -14,7 +14,7 @@
 set -euo pipefail
 
 : "${BUILD_NUMBER:?}"
-: "${GITHUB_OUTPUT:?}" "${GITHUB_ENV:?}"
+: "${GITHUB_OUTPUT:?}" "${GITHUB_ENV:?}" "${SKIP:=false}"
 
 # shellcheck source=SCRIPTDIR/../shared/common-functions.sh
 source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
@@ -44,7 +44,7 @@ set_project_version() {
   # This is used by the sonar-scanner to set the value of sonar.projectVersion without the build number
   echo "current-version=$current_version" >> "$GITHUB_OUTPUT"
   echo "CURRENT_VERSION=$current_version" >> "$GITHUB_ENV"
-  echo "CURRENT_VERSION=${current_version} (from pom.xml)"
+  echo "CURRENT_VERSION=$current_version (from pom.xml)"
   export CURRENT_VERSION="$current_version"
 
   local release_version="${current_version%"-SNAPSHOT"}"
@@ -60,7 +60,7 @@ set_project_version() {
     return 1
   fi
   release_version="${release_version}.${BUILD_NUMBER}"
-  echo "Replacing version ${current_version} with ${release_version}"
+  echo "Replacing version $current_version with $release_version"
   echo "Maven command: mvn org.codehaus.mojo:versions-maven-plugin:2.7:set -DnewVersion=$release_version" \
     "-DgenerateBackupPoms=false --batch-mode --no-transfer-progress --errors"
   mvn org.codehaus.mojo:versions-maven-plugin:2.7:set -DnewVersion="$release_version" \
@@ -72,7 +72,7 @@ set_project_version() {
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-  if [[ -n "${CURRENT_VERSION:-}" && -n "${PROJECT_VERSION:-}" ]]; then
+  if [[ -n "${CURRENT_VERSION:-}" && -n "${PROJECT_VERSION:-}" || "$SKIP" == "true" ]]; then
     echo "Using provided CURRENT_VERSION $CURRENT_VERSION and PROJECT_VERSION $PROJECT_VERSION without changes."
     echo "current-version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
     echo "project-version=$PROJECT_VERSION" >> "$GITHUB_OUTPUT"

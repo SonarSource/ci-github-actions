@@ -186,8 +186,9 @@ get_build_type() {
 
 set_gradle_cmd() {
   if [[ -f "./gradlew" ]]; then
+    check_tool ./gradlew --version
     export GRADLE_CMD="./gradlew"
-  elif check_tool gradle; then
+  elif check_tool gradle --version; then
     export GRADLE_CMD="gradle"
   else
     echo "Neither ./gradlew nor gradle command found!" >&2
@@ -246,10 +247,11 @@ export_built_artifacts() {
 
   # Find all built artifacts, excluding sources/javadoc/tests JARs
   local artifacts
-  artifacts=$(/usr/bin/find . \( -path '*/build/libs/*' -o -path '*/build/distributions/*' -o -path '*/build/reports/*' \) \
-    \( -name '*.jar' -o -name '*.war' -o -name '*.ear' -o -name '*.zip' -o -name '*.tar.gz' -o -name '*.tar' -o -name '*.json' \) \
-    ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-tests.jar' \
-    -type f 2>/dev/null)
+  local path_includes=(-path '*/build/libs/*' -o -path '*/build/distributions/*' -o -path '*/build/reports/*')
+  local name_includes=(-name '*.jar' -o -name '*.war' -o -name '*.ear' -o -name '*.zip' -o -name '*.tar.gz' -o -name '*.tar')
+  name_includes+=(-o -name '*.json')
+  local name_excludes=(! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-tests.jar')
+  artifacts=$(/usr/bin/find . \( "${path_includes[@]}" \) \( "${name_includes[@]}" \) "${name_excludes[@]}" -type f 2>/dev/null)
 
   # Sort and deduplicate (avoid Windows sort.exe)
   if [[ -n "$artifacts" ]]; then

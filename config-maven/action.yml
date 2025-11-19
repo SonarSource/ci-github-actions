@@ -6,8 +6,8 @@ inputs:
     description: Relative path under github.workspace to execute the build in
     default: .
   artifactory-reader-role:
-    description: Suffix for the Artifactory reader role in Vault.
-      Defaults to `private-reader` for private repositories, and `public-reader` for public repositories.
+    description: Suffix for the Artifactory reader role in Vault. Defaults to `private-reader` for private repositories, and `public-reader`
+      for public repositories.
     default: ''
   common-mvn-flags:
     description: Maven flags for all subsequent mvn calls
@@ -78,7 +78,7 @@ runs:
       with:
         host-actions-root: ${{ steps.set-path.outputs.host_actions_root }}
 
-    - id: from-env
+    - id: config-maven-completed
       if: env.CONFIG_MAVEN_COMPLETED != ''
       shell: bash
       run: |
@@ -86,7 +86,7 @@ runs:
         echo "skip=true" >> $GITHUB_OUTPUT
 
     - name: Set parameter for Vault
-      if: steps.from-env.outputs.skip != 'true'
+      if: steps.config-maven-completed.outputs.skip != 'true'
       shell: bash
       env:
         ARTIFACTORY_READER_ROLE: ${{ inputs.artifactory-reader-role != '' && inputs.artifactory-reader-role ||
@@ -94,7 +94,7 @@ runs:
       run: |
         echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
     - uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
-      if: steps.from-env.outputs.skip != 'true'
+      if: steps.config-maven-completed.outputs.skip != 'true'
       id: secrets
       with:
         secrets: |
@@ -104,12 +104,12 @@ runs:
 
     - name: Extract Develocity hostname
       id: develocity-hostname
-      if: steps.from-env.outputs.skip != 'true' && inputs.use-develocity == 'true'
+      if: steps.config-maven-completed.outputs.skip != 'true' && inputs.use-develocity == 'true'
       shell: bash
       run: echo "hostname=$(echo '${{ inputs.develocity-url }}' | sed -e 's|https://||' -e 's|/$||')" >> $GITHUB_OUTPUT
 
     - name: Set environment variables for Artifactory authentication
-      if: steps.from-env.outputs.skip != 'true'
+      if: steps.config-maven-completed.outputs.skip != 'true'
       shell: bash
       env:
         ARTIFACTORY_URL: ${{ inputs.repox-artifactory-url != '' && inputs.repox-artifactory-url ||
@@ -135,7 +135,7 @@ runs:
         fi
 
     - name: Configure Maven settings and set repository URL
-      if: steps.from-env.outputs.skip != 'true'
+      if: steps.config-maven-completed.outputs.skip != 'true'
       shell: bash
       run: |
         MAVEN_CONFIG="$HOME/.m2"
@@ -171,22 +171,22 @@ runs:
 
     - name: Cache local Maven repository
       uses: ./.actions/cache
-      if: steps.from-env.outputs.skip != 'true' && inputs.disable-caching == 'false'
+      if: steps.config-maven-completed.outputs.skip != 'true' && inputs.disable-caching == 'false'
       with:
-        path: |-
-          ${{ inputs.cache-paths }}
+        path: ${{ inputs.cache-paths }}
         key: maven-${{ runner.os }}-${{ github.workflow }}-${{ hashFiles(format('{0}/**/pom.xml', inputs.working-directory)) }}
         restore-keys: maven-${{ runner.os }}-${{ github.workflow }}-
 
     - name: Update project version and set current-version and project-version variables
       id: set-version
-      if: steps.from-env.outputs.skip != 'true'
       shell: bash
       working-directory: ${{ inputs.working-directory }}
+      env:
+        SKIP: ${{ steps.config-maven-completed.outputs.skip }}
       run: $ACTION_PATH_CONFIG_MAVEN/set_maven_project_version.sh
 
     - name: Deactivate UseContainerSupport on github-ubuntu-* runners
-      if: runner.os == 'Linux' && runner.environment == 'github-hosted' && steps.from-env.outputs.skip != 'true'
+      if: steps.config-maven-completed.outputs.skip != 'true' && runner.os == 'Linux' && runner.environment == 'github-hosted'
       shell: bash
       run: |
         echo "::warning title=Deactivating UseContainerSupport::The GitHub-hosted Ubuntu runners have an issue with Java's" \
@@ -194,7 +194,7 @@ runs:
         echo "JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS:=-XX:-UseContainerSupport}" >> "$GITHUB_ENV"
 
     - name: Create mvn wrapper function with common Maven flags and set MAVEN_OPTS
-      if: steps.from-env.outputs.skip != 'true'
+      if: steps.config-maven-completed.outputs.skip != 'true'
       shell: bash
       env:
         COMMON_MVN_FLAGS: ${{ inputs.common-mvn-flags }}

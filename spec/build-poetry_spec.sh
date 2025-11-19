@@ -174,6 +174,24 @@ Describe 'export_built_artifacts()'
     The output should be blank
     The contents of file "$GITHUB_OUTPUT" should not include "artifact-paths<<EOF"
   End
+
+  It 'reports no artifacts found when build directory is empty'
+    GITHUB_OUTPUT=$(mktemp)
+    export GITHUB_OUTPUT
+    echo "should-deploy=true" >> "$GITHUB_OUTPUT"
+    Mock grep
+      echo "should-deploy=true"
+    End
+
+    When call export_built_artifacts
+    The status should be success
+    The lines of stdout should equal 3
+    The line 1 should equal "::group::Capturing built artifacts for attestation"
+    The line 2 should equal "::warning title=No artifacts found::No artifacts found for attestation in build output directories"
+    The line 3 should equal "::endgroup::"
+    The lines of contents of file "$GITHUB_OUTPUT" should equal 1
+    The line 1 of contents of file "$GITHUB_OUTPUT" should equal "should-deploy=true"
+  End
 End
 
 Describe 'set_sonar_platform_vars() - poetry specific'
