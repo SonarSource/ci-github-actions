@@ -120,7 +120,6 @@ Describe 'export_built_artifacts()'
     When call export_built_artifacts
     The status should be success
     The output should be blank
-
     rm -f "$GITHUB_OUTPUT"
   End
 
@@ -144,6 +143,7 @@ Describe 'export_built_artifacts()'
 
     mkdir -p target
     touch target/app-1.0.jar
+    touch target/app-1.0-sources.jar
 
     When call export_built_artifacts
     The status should be success
@@ -153,9 +153,45 @@ Describe 'export_built_artifacts()'
     The line 3 should equal "Found artifacts for attestation:"
     The line 4 should equal "./target/app-1.0.jar"
     The line 5 should equal "::endgroup::"
-    The contents of file "$GITHUB_OUTPUT" should include "artifact-paths<<EOF"
-    The contents of file "$GITHUB_OUTPUT" should include "./target/app-1.0.jar"
+    The lines of contents of file "$GITHUB_OUTPUT" should equal 4
+    The lines of contents of file "$GITHUB_OUTPUT" should not include "app-1.0-sources.jar"
+    The line 1 of contents of file "$GITHUB_OUTPUT" should equal "should-deploy=true"
+    The line 2 of contents of file "$GITHUB_OUTPUT" should equal "artifact-paths<<EOF"
+    The line 3 of contents of file "$GITHUB_OUTPUT" should equal "./target/app-1.0.jar"
+    The line 4 of contents of file "$GITHUB_OUTPUT" should equal "EOF"
 
+    rm -rf target "$GITHUB_OUTPUT"
+  End
+
+  It 'reports no artifacts found when build directory is empty'
+    GITHUB_OUTPUT=$(mktemp)
+    export GITHUB_OUTPUT
+    echo "should-deploy=true" > "$GITHUB_OUTPUT"
+
+    # Mock mvn evaluations used by export_built_artifacts
+    Mock mvn
+      case "$*" in
+        *"help:evaluate -Dexpression=maven.deploy.skip -q -DforceStdout"*) echo "false" ;;
+        *"help:evaluate -Dexpression=project.build.directory -q -DforceStdout"*) echo "target" ;;
+        *) echo "mvn $*" ;;
+      esac
+    End
+    # Ensure should-deploy is detected regardless of file parsing quirks
+    Mock grep
+      echo "should-deploy=true"
+    End
+
+    mkdir -p target
+
+    When call export_built_artifacts
+    The status should be success
+    The lines of stdout should equal 4
+    The line 1 should equal "::group::Capturing built artifacts for attestation"
+    The line 2 should equal "Scanning for artifacts in: */target/*"
+    The line 3 should equal "::warning title=No artifacts found::No artifacts found for attestation in build output directories"
+    The line 4 should equal "::endgroup::"
+    The lines of contents of file "$GITHUB_OUTPUT" should equal 1
+    The line 1 of contents of file "$GITHUB_OUTPUT" should equal "should-deploy=true"
     rm -rf target "$GITHUB_OUTPUT"
   End
 End

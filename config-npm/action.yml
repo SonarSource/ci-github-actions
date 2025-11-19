@@ -6,8 +6,8 @@ inputs:
     description: Relative path under github.workspace to execute the build in
     default: .
   artifactory-reader-role:
-    description: Suffix for the Artifactory reader role in Vault.
-      Defaults to `private-reader` for private repositories, and `public-reader` for public repositories.
+    description: Suffix for the Artifactory reader role in Vault. Defaults to `private-reader` for private repositories, and `public-reader`
+      for public repositories.
     default: ''
   cache-npm:
     description: Whether to cache NPM dependencies

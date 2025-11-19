@@ -9,20 +9,20 @@ inputs:
     description: Suffix for the Artifactory reader role in Vault. Defaults to `private-reader` for private repositories,
       and `public-reader` for public repositories.
     default: ''
-  use-develocity:
-    description: Whether to use Develocity for build tracking.
-    default: 'false'
-  develocity-url:
-    description: URL for Develocity
-    default: https://develocity.sonar.build/
   repox-url:
     description: URL for Repox
     default: https://repox.jfrog.io
   repox-artifactory-url:
     description: URL for Repox Artifactory API (overrides repox-url/artifactory if provided)
     default: ''
+  use-develocity:
+    description: Whether to use Develocity for build tracking.
+    default: 'false'
+  develocity-url:
+    description: URL for Develocity
+    default: https://develocity.sonar.build/
   cache-paths:
-    description: Cache paths to use (multiline). If provided, overrides the default Gradle cache directories
+    description: Cache paths to use (multiline).
     default: |-
       ~/.gradle/caches
       ~/.gradle/wrapper
@@ -35,7 +35,7 @@ inputs:
 
 outputs:
   BUILD_NUMBER:
-    description: The build number, incremented or reused if already cached
+    description: The current build number. Also set as environment variable BUILD_NUMBER
     value: ${{ steps.get-build-number.outputs.BUILD_NUMBER }}
   current-version:
     description: The project version set in the gradle.properties (before replacement). Also set as environment variable CURRENT_VERSION
@@ -67,13 +67,13 @@ runs:
 
         mkdir -p ".actions"
         ln -sf "$host_actions_root/get-build-number" .actions/get-build-number
+        ln -sf "$host_actions_root/cache" .actions/cache
         ln -sf "$host_actions_root/shared" .actions/shared
         ls -la .actions/*
         echo "::endgroup::"
 
-    - name: Get build number
+    - uses: ./.actions/get-build-number
       id: get-build-number
-      uses: ./.actions/get-build-number
       with:
         host-actions-root: ${{ steps.set-path.outputs.host_actions_root }}
 
@@ -92,11 +92,9 @@ runs:
           (github.event.repository.visibility == 'public' && 'public-reader' || 'private-reader') }}
       run: |
         echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
-
-    - name: Get secrets from Vault
-      id: secrets
+    - uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
       if: steps.config-gradle-completed.outputs.skip != 'true'
-      uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
+      id: secrets
       with:
         secrets: |
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
@@ -113,17 +111,12 @@ runs:
       if: steps.config-gradle-completed.outputs.skip != 'true'
       shell: bash
       env:
-        ARTIFACTORY_URL:
-          ${{ inputs.repox-artifactory-url != '' && inputs.repox-artifactory-url  || format('{0}/artifactory', inputs.repox-url) }}
-        ARTIFACTORY_USERNAME:
-          ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME || '' }}
-        ARTIFACTORY_ACCESS_TOKEN:
-          ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN || '' }}
-        DEVELOCITY_TOKEN:
-          ${{ inputs.use-develocity == 'true'
-            && steps.secrets.outputs.vault
-            && fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN
-            || '' }}
+        ARTIFACTORY_URL: ${{ inputs.repox-artifactory-url != '' && inputs.repox-artifactory-url ||
+          format('{0}/artifactory', inputs.repox-url) }}
+        ARTIFACTORY_USERNAME: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME || '' }}
+        ARTIFACTORY_ACCESS_TOKEN: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN || '' }}
+        DEVELOCITY_TOKEN: ${{ inputs.use-develocity == 'true' && steps.secrets.outputs.vault &&
+          fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN || '' }}
       run: |
         if [[ "${DEVELOCITY_ACCESS_KEY:-}" == "${{ steps.develocity-hostname.outputs.hostname }}=" ]]; then
           echo "::warning title=Found invalid DEVELOCITY_ACCESS_KEY::DEVELOCITY_ACCESS_KEY should not be set manually in the environment."
@@ -140,7 +133,6 @@ runs:
           echo "DEVELOCITY_ACCESS_KEY=${{ steps.develocity-hostname.outputs.hostname }}=$DEVELOCITY_TOKEN" >> "$GITHUB_ENV"
         fi
 
-    # Configure Gradle for comprehensive caching and build summary reporting. It does not install Gradle.
     - name: Configure Gradle
       if: steps.config-gradle-completed.outputs.skip != 'true'
       uses: gradle/actions/setup-gradle@748248ddd2a24f49513d8f472f81c3a07d4d50e1 # v4.4.4
@@ -166,15 +158,13 @@ runs:
 
         rm -f gradle-md5-sums.txt
 
-    - name: Restore Gradle Cache
-      if: steps.config-gradle-completed.outputs.skip != 'true' && inputs.disable-caching != 'true'
-      uses: SonarSource/gh-action_cache@v1
-      id: gradle-cache-restore
+    - name: Gradle Cache
+      uses: ./.actions/cache
+      if: steps.config-gradle-completed.outputs.skip != 'true' && inputs.disable-caching == 'false'
       with:
         path: ${{ inputs.cache-paths }}
         key: gradle-${{ runner.os }}-${{ github.workflow }}-${{ env.GRADLE_CACHE_KEY }}
-        restore-keys: |
-          gradle-${{ runner.os }}-${{ github.workflow }}-
+        restore-keys: gradle-${{ runner.os }}-${{ github.workflow }}-
 
     # $GRADLE_USER_HOME is typically set to ~/.gradle/ by gradle/actions/setup-gradle
     - name: Configure Gradle Authentication
@@ -187,9 +177,10 @@ runs:
 
     - name: Update project version and set current-version and project-version variables
       id: set-version
-      if: steps.config-gradle-completed.outputs.skip != 'true'
       shell: bash
       working-directory: ${{ inputs.working-directory }}
+      env:
+        SKIP: ${{ steps.config-gradle-completed.outputs.skip }}
       run: ${GITHUB_ACTION_PATH}/set_gradle_project_version.sh
 
     - name: Deactivate UseContainerSupport on github-ubuntu-* runners

@@ -27,10 +27,12 @@ Include config-gradle/set_gradle_project_version.sh
 Describe 'set_gradle_cmd()'
   It 'uses gradlew when available'
     touch ./gradlew
+    chmod +x ./gradlew
 
     When call set_gradle_cmd
     The status should be success
-    The lines of output should equal 0
+    The lines of output should equal 1
+    The line 1 should equal "./gradlew"
     The variable GRADLE_CMD should equal "./gradlew"
 
     rm -f ./gradlew
@@ -92,8 +94,9 @@ Describe 'set_project_version()'
     The line 3 should equal "PROJECT_VERSION=1.2.3.42"
     The variable CURRENT_VERSION should equal "1.2.3-SNAPSHOT"
     The variable PROJECT_VERSION should equal "1.2.3.42"
-    The lines of contents of file "$GITHUB_OUTPUT" should equal 1
-    The line 1 of contents of file "$GITHUB_OUTPUT" should equal "project-version=1.2.3.42"
+    The lines of contents of file "$GITHUB_OUTPUT" should equal 2
+    The line 1 of contents of file "$GITHUB_OUTPUT" should equal "current-version=1.2.3-SNAPSHOT"
+    The line 2 of contents of file "$GITHUB_OUTPUT" should equal "project-version=1.2.3.42"
     The lines of contents of file "$GITHUB_ENV" should equal 2
     The line 1 of contents of file "$GITHUB_ENV" should equal "CURRENT_VERSION=1.2.3-SNAPSHOT"
     The line 2 of contents of file "$GITHUB_ENV" should equal "PROJECT_VERSION=1.2.3.42"
@@ -111,8 +114,9 @@ Describe 'set_project_version()'
     The line 3 should equal "PROJECT_VERSION=1.2.0.42"
     The variable CURRENT_VERSION should equal "1.2-SNAPSHOT"
     The variable PROJECT_VERSION should equal "1.2.0.42"
-    The lines of contents of file "$GITHUB_OUTPUT" should equal 1
-    The line 1 of contents of file "$GITHUB_OUTPUT" should equal "project-version=1.2.0.42"
+    The lines of contents of file "$GITHUB_OUTPUT" should equal 2
+    The line 1 of contents of file "$GITHUB_OUTPUT" should equal "current-version=1.2-SNAPSHOT"
+    The line 2 of contents of file "$GITHUB_OUTPUT" should equal "project-version=1.2.0.42"
     The lines of contents of file "$GITHUB_ENV" should equal 2
     The line 1 of contents of file "$GITHUB_ENV" should equal "CURRENT_VERSION=1.2-SNAPSHOT"
     The line 2 of contents of file "$GITHUB_ENV" should equal "PROJECT_VERSION=1.2.0.42"
@@ -124,9 +128,10 @@ Describe 'set_project_version()'
     End
     When run set_project_version
     The status should be failure
-    The lines of output should equal 0
-    The lines of error should equal 1
-    The line 1 of error should equal "ERROR: Could not get valid version from Gradle properties. Got: ''"
+    The lines of output should equal 2
+    The line 1 should equal "::error title=Gradle project version::Could not get valid version from Gradle properties"
+    The line 2 should equal "ERROR: version:"
+    The lines of error should equal 0
   End
 
   It 'fails when version is unspecified'
@@ -135,9 +140,10 @@ Describe 'set_project_version()'
     End
     When run set_project_version
     The status should be failure
-    The lines of output should equal 0
-    The lines of error should equal 1
-    The line 1 of error should equal "ERROR: Could not get valid version from Gradle properties. Got: 'unspecified'"
+    The lines of output should equal 2
+    The line 1 should equal "::error title=Gradle project version::Could not get valid version from Gradle properties"
+    The line 2 should equal "ERROR: version: unspecified"
+    The lines of error should equal 0
   End
 End
 

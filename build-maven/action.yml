@@ -25,17 +25,25 @@ inputs:
   sonar-platform:
     description: SonarQube primary platform (next, sqc-eu, sqc-us, or none). Use 'none' to skip sonar scans.
     default: next
-  working-directory:
-    description: Relative path under github.workspace to execute the build in
-    default: .
   run-shadow-scans:
     description: If true, run SonarQube analysis on all three platforms (next, sqc-eu, sqc-us).
       If false, run analysis on the platform specified with sonar-platform.
     default: 'false'
+  provenance:
+    description: Whether to generate provenance attestation for built artifacts
+    default: 'false'
+  provenance-artifact-paths:
+    description: >-
+      Relative paths of the artifacts for which to generate a provenance attestation (glob pattern).
+      Default is collected from '*/target/*' (or custom build directory from pom.xml)
+    default: ''
   # Inputs passed to config-maven
+  working-directory:
+    description: Relative path under github.workspace to execute the build in
+    default: .
   artifactory-reader-role:
-    description: Suffix for the Artifactory reader role in Vault.
-      Defaults to `private-reader` for private repositories, and `public-reader` for public repositories.
+    description: Suffix for the Artifactory reader role in Vault. Defaults to `private-reader` for private repositories, and `public-reader`
+      for public repositories.
     default: ''
   common-mvn-flags:
     description: Maven flags for all subsequent mvn calls
@@ -58,15 +66,11 @@ inputs:
   disable-caching:
     description: Whether to disable Maven caching entirely
     default: 'false'
-  provenance:
-    description: Whether to generate provenance attestation for built artifacts
-    default: 'false'
-  provenance-artifact-paths:
-    description: >-
-      Relative paths of the artifacts for which to generate a provenance attestation (glob pattern).
-      Default is collected from '*/target/*' (or custom build directory from pom.xml)
-    default: ''
+
 outputs:
+  project-version:
+    description: The release version set as Gradle project version in gradle.properties
+    value: ${{ steps.config.outputs.project-version }}
   BUILD_NUMBER:
     description: The build number, incremented or reused if already cached
     value: ${{ steps.config.outputs.BUILD_NUMBER }}
@@ -112,6 +116,7 @@ runs:
         develocity-url: ${{ inputs.develocity-url }}
         cache-paths: ${{ inputs.cache-paths }}
         disable-caching: ${{ inputs.disable-caching }}
+
     - name: Set build parameters
       shell: bash
       env:
@@ -122,8 +127,8 @@ runs:
         echo "SONARSOURCE_REPOSITORY_URL=${ARTIFACTORY_URL}/sonarsource" >> "$GITHUB_ENV"
     - uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
       id: secrets
-      # yamllint disable rule:line-length
       with:
+        # yamllint disable rule:line-length
         secrets: |
           ${{ inputs.sonar-platform != 'none' && 'development/kv/data/next url | NEXT_URL;' || '' }}
           ${{ inputs.sonar-platform != 'none' && 'development/kv/data/next token | NEXT_TOKEN;' || '' }}
@@ -135,35 +140,41 @@ runs:
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;
           development/kv/data/sign key | SIGN_KEY;
           development/kv/data/sign passphrase | PGP_PASSPHRASE;
-      # yamllint enable rule:line-length
-    - name: Build, Analyze and deploy
+        # yamllint enable rule:line-length
+
+    - name: Build, analyze and deploy
       shell: bash
       id: build
       env:
+        # GitHub context
+        PULL_REQUEST: ${{ github.event.pull_request.number || '' }}
+        PULL_REQUEST_SHA: ${{ github.event.pull_request.base.sha || '' }}
         DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+
+        # Action inputs
+        DEPLOY: ${{ inputs.deploy }}
+        DEPLOY_PULL_REQUEST: ${{ inputs.deploy-pull-request }}
+        USER_MAVEN_ARGS: ${{ inputs.maven-args }}
+        SONAR_SCANNER_JAVA_OPTS: ${{ inputs.scanner-java-opts }}
+        SONAR_PLATFORM: ${{ inputs.sonar-platform }}
+        RUN_SHADOW_SCANS: ${{ inputs.run-shadow-scans }}
         ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo != '' && inputs.artifactory-deploy-repo ||
           github.event.repository.visibility == 'public' && 'sonarsource-public-qa' || 'sonarsource-private-qa' }}
+
+        # Vault secrets
         ARTIFACTORY_DEPLOY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_USERNAME }}
         ARTIFACTORY_DEPLOY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN }}
         ARTIFACTORY_DEPLOY_PASSWORD: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN }} # used in parent POM
-        SIGN_KEY: ${{ fromJSON(steps.secrets.outputs.vault).SIGN_KEY }}
-        SQC_EU_URL: ${{ fromJSON(steps.secrets.outputs.vault).SQC_EU_URL }}
-        SQC_US_URL: ${{ fromJSON(steps.secrets.outputs.vault).SQC_US_URL }}
         NEXT_URL: ${{ fromJSON(steps.secrets.outputs.vault).NEXT_URL }}
         NEXT_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).NEXT_TOKEN }}
+        SQC_EU_URL: ${{ fromJSON(steps.secrets.outputs.vault).SQC_EU_URL }}
         SQC_EU_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SQC_EU_TOKEN }}
+        SQC_US_URL: ${{ fromJSON(steps.secrets.outputs.vault).SQC_US_URL }}
         SQC_US_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SQC_US_TOKEN }}
-        SONAR_PLATFORM: ${{ inputs.sonar-platform }}
-        RUN_SHADOW_SCANS: ${{ inputs.run-shadow-scans }}
+        SIGN_KEY: ${{ fromJSON(steps.secrets.outputs.vault).SIGN_KEY }}
         PGP_PASSPHRASE: ${{ fromJSON(steps.secrets.outputs.vault).PGP_PASSPHRASE }}
-        DEPLOY: ${{ inputs.deploy }}
-        DEPLOY_PULL_REQUEST: ${{ inputs.deploy-pull-request }}
-        PULL_REQUEST: ${{ github.event.pull_request.number || '' }}
-        PULL_REQUEST_SHA: ${{ github.event.pull_request.base.sha || '' }}
-        USER_MAVEN_ARGS: ${{ inputs.maven-args }}
-        SONAR_SCANNER_JAVA_OPTS: ${{ inputs.scanner-java-opts }}
       working-directory: ${{ inputs.working-directory }}
-      run: $ACTION_PATH_BUILD_MAVEN/build.sh $USER_MAVEN_ARGS
+      run: $ACTION_PATH_BUILD_MAVEN/build.sh
 
     - name: Cleanup Maven repository before caching
       shell: bash

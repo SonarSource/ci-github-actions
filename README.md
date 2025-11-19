@@ -288,11 +288,12 @@ See also [`config-maven`](#config-maven) input environment variables.
 
 ### Outputs
 
-| Output           | Description                                                               |
-|------------------|---------------------------------------------------------------------------|
-| `BUILD_NUMBER`   | The current build number. Also set as environment variable `BUILD_NUMBER` |
-| `deployed`       | `true` if the build succeed and was supposed to deploy                    |
-| `artifact-paths` | Newline-separated list of artifact paths for provenance attestation       |
+| Output            | Description                                                                                                   |
+|-------------------|---------------------------------------------------------------------------------------------------------------|
+| `project-version` | The project version with build number (after replacement). Also set as environment variable `PROJECT_VERSION` |
+| `BUILD_NUMBER`    | The current build number. Also set as environment variable `BUILD_NUMBER`                                     |
+| `deployed`        | `true` if the build succeed and was supposed to deploy                                                        |
+| `artifact-paths`  | Newline-separated list of artifact paths for provenance attestation                                           |
 
 ### Output Environment Variables
 
@@ -496,11 +497,11 @@ steps:
 
 ### Outputs
 
-| Output            | Description                                                                                                     |
-|-------------------|-----------------------------------------------------------------------------------------------------------------|
-| `BUILD_NUMBER`    | The current build number. Also set as environment variable `BUILD_NUMBER`                                       |
+| Output            | Description                                                                                                           |
+|-------------------|-----------------------------------------------------------------------------------------------------------------------|
+| `BUILD_NUMBER`    | The current build number. Also set as environment variable `BUILD_NUMBER`                                             |
 | `current-version` | The project version set in gradle.properties (before replacement). Also set as environment variable `CURRENT_VERSION` |
-| `project-version` | The project version with build number (after replacement). Also set as environment variable `PROJECT_VERSION`   |
+| `project-version` | The project version with build number (after replacement). Also set as environment variable `PROJECT_VERSION`         |
 
 ### Output Environment Variables
 
@@ -604,7 +605,6 @@ jobs:
 
 | Input                       | Description                                                                               | Default                                                                                     |
 |-----------------------------|-------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
-| `public`                    | Deprecated                                                                                | Repository visibility                                                                       |
 | `artifactory-deploy-repo`   | Deployment repository                                                                     | `sonarsource-private-qa` for private repositories, `sonarsource-public-qa` for public repos |
 | `artifactory-reader-role`   | Suffix for the Artifactory reader role in Vault                                           | `private-reader` for private repos, `public-reader` for public repos                        |
 | `artifactory-deployer-role` | Suffix for the Artifactory deployer role in Vault                                         | `qa-deployer` for private repos, `public-deployer` for public repos                         |
