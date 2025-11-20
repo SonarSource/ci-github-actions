@@ -37,7 +37,6 @@
 # - DEPLOY_PULL_REQUEST: Whether to deploy pull request artifacts (default: false)
 # - SONAR_SCANNER_JAVA_OPTS: JVM options for SonarQube scanner (e.g. -Xmx512m)
 # - SCANNER_VERSION: SonarQube Maven plugin version (default: 5.1.0.4751)
-# - USER_MAVEN_ARGS: Additional arguments to pass to Maven
 # shellcheck source-path=SCRIPTDIR
 
 set -euo pipefail
@@ -60,7 +59,6 @@ fi
 : "${RUN_SHADOW_SCANS:?}"
 : "${DEPLOY_PULL_REQUEST:=false}"
 : "${DEPLOY:=true}"
-: "${USER_MAVEN_ARGS:=}"
 export ARTIFACTORY_URL DEPLOY_PULL_REQUEST
 
 # FIXME Workaround for SonarSource parent POM; it can be removed after releases of parent 73+ and parent-oss 84+
@@ -240,6 +238,5 @@ export_built_artifacts() {
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-  # shellcheck disable=SC2086
-  build_maven $USER_MAVEN_ARGS
+  build_maven "$@"
 fi

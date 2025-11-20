@@ -174,7 +174,7 @@ runs:
         SIGN_KEY: ${{ fromJSON(steps.secrets.outputs.vault).SIGN_KEY }}
         PGP_PASSPHRASE: ${{ fromJSON(steps.secrets.outputs.vault).PGP_PASSPHRASE }}
       working-directory: ${{ inputs.working-directory }}
-      run: $ACTION_PATH_BUILD_MAVEN/build.sh
+      run: $ACTION_PATH_BUILD_MAVEN/build.sh $USER_MAVEN_ARGS
 
     - name: Cleanup Maven repository before caching
       shell: bash
