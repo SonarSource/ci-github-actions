@@ -149,7 +149,7 @@ build_maven() {
     echo "Skipping git fetch (Sonar analysis disabled)"
   fi
 
-  local maven_command_args
+  local maven_command_args mvn_output
   if should_deploy; then
     maven_command_args=("deploy" "-Pdeploy-sonarsource")
   else
@@ -176,8 +176,9 @@ build_maven() {
   fi
 
   # Execute the main Maven build
+  mvn_output=$(mktemp)
   echo "Maven command: mvn ${maven_command_args[*]} $*"
-  mvn "${maven_command_args[@]}" "$@"
+  mvn "${maven_command_args[@]}" "$@" | tee "$mvn_output"
 
   if should_deploy; then
     echo "deployed=true" >> "$GITHUB_OUTPUT"
@@ -198,14 +199,22 @@ build_maven() {
 }
 
 export_built_artifacts() {
-  local deployed
+  local installed_artifacts deployed build_dir artifacts
+
+  installed_artifacts=$(grep Installing "$mvn_output" | sed 's,.*\.m2/repository/,,')
+  {
+    echo "installed-artifacts<<EOF"
+    echo "$installed_artifacts"
+    echo "EOF"
+  } >> "$GITHUB_OUTPUT"
+
+  # FIXME the following to use public_artifacts and private_artifacts arrays as in deploy-artifacts.sh
   deployed=$(grep "deployed=" "$GITHUB_OUTPUT" 2>/dev/null | cut -d= -f2)
   [[ "$deployed" != "true" ]] && return 0
 
   echo "::group::Capturing built artifacts for attestation"
 
   # Query Maven for build directory name, fallback to 'target'
-  local build_dir
   build_dir=$(mvn help:evaluate -Dexpression=project.build.directory -q -DforceStdout 2>/dev/null | xargs basename 2>/dev/null || echo "target")
   echo "Scanning for artifacts in: */${build_dir}/*"
 
