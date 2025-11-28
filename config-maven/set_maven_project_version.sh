@@ -21,10 +21,10 @@ source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 
 get_current_version() {
   local expression="project.version"
-  if ! mvn --quiet --non-recursive org.codehaus.mojo:exec-maven-plugin:1.3.1:exec 2>/dev/null \
+  if ! command mvn --quiet --non-recursive org.codehaus.mojo:exec-maven-plugin:1.3.1:exec 2>/dev/null \
       -Dexec.executable="echo" -Dexec.args="\${$expression}"; then
     echo "Failed to evaluate Maven expression '$expression'" >&2
-    mvn --debug --non-recursive org.codehaus.mojo:exec-maven-plugin:1.3.1:exec \
+    command mvn --debug --non-recursive org.codehaus.mojo:exec-maven-plugin:1.3.1:exec \
       -Dexec.executable="echo" -Dexec.args="\${$expression}"
     return 1
   fi
