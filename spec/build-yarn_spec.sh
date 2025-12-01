@@ -54,7 +54,7 @@ End
 # Setup environment
 export GITHUB_REPOSITORY="my-org/test-project" GITHUB_REF_NAME="main" GITHUB_EVENT_NAME="push"
 export BUILD_NUMBER="42" GITHUB_RUN_ID="12345" GITHUB_SHA="abc123" GITHUB_OUTPUT=/dev/null
-export ARTIFACTORY_URL="https://repox.jfrog.io/artifactory" ARTIFACTORY_ACCESS_TOKEN="reader-token"
+export ARTIFACTORY_URL="https://repox.jfrog.io/artifactory" ARTIFACTORY_USERNAME="cool-reader" ARTIFACTORY_ACCESS_TOKEN="reader-token"
 export ARTIFACTORY_DEPLOY_REPO="test-repo" ARTIFACTORY_DEPLOY_ACCESS_TOKEN="deploy-token"
 export SONAR_PLATFORM="next"
 export RUN_SHADOW_SCANS="false"

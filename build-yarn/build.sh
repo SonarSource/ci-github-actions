@@ -13,6 +13,7 @@
 # - SQC_EU_TOKEN: Access token to send analysis reports to SonarQube for sqc-eu platform
 # - RUN_SHADOW_SCANS: If true, run sonar scanner on all 3 platforms. If false, run on the platform provided by SONAR_PLATFORM.
 # - ARTIFACTORY_URL: URL to Artifactory repository
+# - ARTIFACTORY_USERNAME: Username that matches the access token to read Repox repositories
 # - ARTIFACTORY_ACCESS_TOKEN: Access token to read Repox repositories
 # - ARTIFACTORY_DEPLOY_ACCESS_TOKEN: Access token to deploy to Artifactory
 # - ARTIFACTORY_DEPLOY_REPO: Name of deployment repository
@@ -43,7 +44,8 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 
 : "${ARTIFACTORY_URL:?}"
-: "${ARTIFACTORY_ACCESS_TOKEN:?}" "${ARTIFACTORY_DEPLOY_REPO:?}" "${ARTIFACTORY_DEPLOY_ACCESS_TOKEN:?}"
+: "${ARTIFACTORY_USERNAME:?}" "${ARTIFACTORY_ACCESS_TOKEN:?}"
+: "${ARTIFACTORY_DEPLOY_REPO:?}" "${ARTIFACTORY_DEPLOY_ACCESS_TOKEN:?}"
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_RUN_ID:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}" "${GITHUB_SHA:?}"
 : "${GITHUB_OUTPUT:?}"
 : "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}"
@@ -88,6 +90,9 @@ set_build_env() {
   echo "::debug::Configuring JFrog and NPM repositories..."
   npm config set registry "$ARTIFACTORY_URL/api/npm/npm"
   npm config set "${ARTIFACTORY_URL//https:}/api/npm/:_authToken=$ARTIFACTORY_ACCESS_TOKEN"
+  yarn config set npmRegistryServer "${ARTIFACTORY_URL}/api/npm/npm"
+  yarn config set npmAlwaysAuth true
+  yarn config set npmAuthIdent "${ARTIFACTORY_USERNAME}:${ARTIFACTORY_ACCESS_TOKEN}"
   jf config remove repox > /dev/null 2>&1 || true # Do not log if the repox config were not present
   jf config add repox --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_ACCESS_TOKEN"
   jf config use repox

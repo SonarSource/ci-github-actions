@@ -125,6 +125,7 @@ runs:
           ${{ inputs.sonar-platform != 'none' && 'development/kv/data/sonarqube-us token | SQC_US_TOKEN;' || '' }}
           ${{ inputs.sonar-platform != 'none' && 'development/kv/data/sonarcloud url | SQC_EU_URL;' || '' }}
           ${{ inputs.sonar-platform != 'none' && 'development/kv/data/sonarcloud token | SQC_EU_TOKEN;' || '' }}
+          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;
       # yamllint enable rule:line-length
@@ -142,6 +143,7 @@ runs:
           format('{0}/artifactory', inputs.repox-url) }}
         ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo != '' && inputs.artifactory-deploy-repo ||
           github.event.repository.visibility == 'public' && 'sonarsource-public-qa' || 'sonarsource-private-qa' }}
+        ARTIFACTORY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME }}
         ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
         ARTIFACTORY_DEPLOY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN }}
         DEPLOY_PULL_REQUEST: ${{ inputs.deploy-pull-request }}
