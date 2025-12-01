@@ -1,6 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <settings xmlns="http://maven.apache.org/SETTINGS/1.2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.2.0 http://maven.apache.org/xsd/settings-1.2.0.xsd">
+  <mirrors>
+    <mirror>
+      <id>sonarsource</id>
+      <mirrorOf>*</mirrorOf>
+      <name>Repox mirror for all repositories</name>
+      <url>${env.SONARSOURCE_REPOSITORY_URL}</url>
+    </mirror>
+  </mirrors>
   <servers>
     <server>
       <id>sonarsource</id>
