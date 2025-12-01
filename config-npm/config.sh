@@ -22,7 +22,6 @@ PACKAGE_JSON="package.json"
 source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 
 : "${ARTIFACTORY_URL:?}" "${ARTIFACTORY_ACCESS_TOKEN:?}"
-: "${BUILD_NUMBER:?}"
 : "${GITHUB_REPOSITORY:?}" "${GITHUB_OUTPUT:?}" "${GITHUB_ENV:?}"
 
 set_build_env() {
@@ -44,6 +43,12 @@ check_version_format() {
 }
 
 set_project_version() {
+  if [[ ! -f "$PACKAGE_JSON" ]]; then
+    echo "No $PACKAGE_JSON file. Skipping project version update."
+    return 0
+  fi
+
+  : "${BUILD_NUMBER:?}"
   echo "Setting project version..."
   if [[ -n "${CURRENT_VERSION:-}" && -n "${PROJECT_VERSION:-}" ]]; then
     echo "Using provided CURRENT_VERSION $CURRENT_VERSION and PROJECT_VERSION $PROJECT_VERSION without changes."

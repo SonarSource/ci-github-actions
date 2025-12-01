@@ -61,8 +61,20 @@ runs:
         ls -la .actions/*
         echo "::endgroup::"
 
+    - name: Check for package.json
+      id: check_package_json
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        if [[ -f "package.json" ]]; then
+          echo "exists=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "exists=false" >> "$GITHUB_OUTPUT"
+        fi
+
     - uses: ./.actions/get-build-number
       id: get_build_number
+      if: ${{ steps.check_package_json.outputs.exists == 'true' }}
       with:
         host-actions-root: ${{ steps.set-path.outputs.host_actions_root }}
 
