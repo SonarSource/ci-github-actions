@@ -86,8 +86,9 @@ set_build_env() {
   fi
 
   echo "::debug::Configuring JFrog and NPM repositories..."
-  npm config set registry "$ARTIFACTORY_URL/api/npm/npm"
-  npm config set "${ARTIFACTORY_URL//https:}/api/npm/:_authToken=$ARTIFACTORY_ACCESS_TOKEN"
+  yarn config set npmRegistryServer "${ARTIFACTORY_URL}/api/npm/npm"
+  yarn config set npmAlwaysAuth true
+  yarn config set npmAuthIdent ${ARTIFACTORY_USERNAME}:${ARTIFACTORY_ACCESS_TOKEN}
   jf config remove repox > /dev/null 2>&1 || true # Do not log if the repox config were not present
   jf config add repox --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_ACCESS_TOKEN"
   jf config use repox
