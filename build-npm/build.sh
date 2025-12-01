@@ -188,7 +188,7 @@ get_build_config() {
 # Complete build pipeline with optional steps
 run_standard_pipeline() {
   echo "Installing npm dependencies..."
-  npm ci
+  npm ci --ignore-scripts
 
   if [ "$SKIP_TESTS" != "true" ]; then
     echo "Running tests..."

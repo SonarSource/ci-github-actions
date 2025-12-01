@@ -245,7 +245,7 @@ get_build_config() {
 # Complete build pipeline with optional steps
 run_standard_pipeline() {
   echo "Installing yarn dependencies..."
-  yarn install --immutable
+  yarn install --immutable --ignore-scripts
 
   if [ "$SKIP_TESTS" != "true" ]; then
     echo "Running tests..."
