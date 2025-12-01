@@ -760,7 +760,8 @@ artifactory {
 ## `config-npm`
 
 Configure NPM and JFrog build environment with build number, authentication, and settings.
-Set the project version in `package.json` with the build number.
+
+Set the project version in `package.json` with the build number if the file exists.
 
 > **Note:** This action automatically calls [`get-build-number`](#get-build-number) to manage the build number.
 

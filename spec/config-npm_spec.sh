@@ -190,6 +190,18 @@ Describe 'set_project_version()'
     The line 2 should equal "CURRENT_VERSION=1.2-SNAPSHOT (from package.json)"
     The line 3 should equal "Replacing version 1.2-SNAPSHOT with 1.2.0-42"
   End
+
+  It 'skips version update when package.json does not exist'
+    mv package.json package.json.bak
+    export BUILD_NUMBER="42"
+    export GITHUB_REF_NAME="main"
+    When call set_project_version
+    The status should be success
+    The line 1 should equal "No package.json file. Skipping project version update."
+    The variable CURRENT_VERSION should be undefined
+    The variable PROJECT_VERSION should be undefined
+    mv package.json.bak package.json
+  End
 End
 
 Describe 'main()'
