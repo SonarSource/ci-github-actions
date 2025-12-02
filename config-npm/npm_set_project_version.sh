@@ -2,12 +2,9 @@
 # Config script for SonarSource NPM projects.
 #
 # Required environment variables (must be explicitly provided):
-# - ARTIFACTORY_URL: URL to Artifactory repository
-# - ARTIFACTORY_ACCESS_TOKEN: Access token to read Repox repositories
 # - BUILD_NUMBER: Build number for versioning
 #
 # GitHub Actions auto-provided:
-# - GITHUB_REPOSITORY: Repository name in format "owner/repo"
 # - GITHUB_OUTPUT: Path to GitHub Actions output file
 # - GITHUB_ENV: Path to GitHub Actions environment file
 #
@@ -21,18 +18,8 @@ PACKAGE_JSON="package.json"
 # shellcheck source=SCRIPTDIR/../shared/common-functions.sh
 source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 
-: "${ARTIFACTORY_URL:?}" "${ARTIFACTORY_ACCESS_TOKEN:?}"
-: "${GITHUB_REPOSITORY:?}" "${GITHUB_OUTPUT:?}" "${GITHUB_ENV:?}"
-
-set_build_env() {
-  echo "Configuring JFrog and NPM repositories..."
-  npm config set registry "$ARTIFACTORY_URL/api/npm/npm"
-  npm config set "${ARTIFACTORY_URL//https:}/api/npm/:_authToken=$ARTIFACTORY_ACCESS_TOKEN"
-  jf config remove repox > /dev/null 2>&1 || true # Ignore inexistent configuration
-  jf config add repox --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_ACCESS_TOKEN"
-  jf config use repox
-  jf npm-config --repo-resolve "npm"
-}
+: "${BUILD_NUMBER:?}"
+: "${GITHUB_OUTPUT:?}" "${GITHUB_ENV:?}"
 
 check_version_format() {
   local version="$1"
@@ -40,15 +27,10 @@ check_version_format() {
   if [[ ! $version =~ ^[0-9]+\.[0-9]+\.[0-9]+(-.*)?$ ]]; then
     echo "WARN: Version '${version}' does not match semantic versioning format (e.g., '1.2.3' or '1.2.3-beta.1')." >&2
   fi
+  return 0
 }
 
 set_project_version() {
-  if [[ ! -f "$PACKAGE_JSON" ]]; then
-    echo "No $PACKAGE_JSON file. Skipping project version update."
-    return 0
-  fi
-
-  : "${BUILD_NUMBER:?}"
   echo "Setting project version..."
   if [[ -n "${CURRENT_VERSION:-}" && -n "${PROJECT_VERSION:-}" ]]; then
     echo "Using provided CURRENT_VERSION $CURRENT_VERSION and PROJECT_VERSION $PROJECT_VERSION without changes."
@@ -59,7 +41,7 @@ set_project_version() {
 
   local current_version release_version digit_count
   current_version=$(jq -r .version "$PACKAGE_JSON")
-  if [ -z "${current_version}" ] || [ "${current_version}" == "null" ]; then
+  if [[ -z "${current_version}" ]] || [[ "${current_version}" == "null" ]]; then
     echo "Could not get version from ${PACKAGE_JSON}" >&2
     exit 1
   fi
@@ -75,7 +57,7 @@ set_project_version() {
     else
       release_version="${current_version%"-SNAPSHOT"}"
       digit_count=$(echo "${release_version//./ }" | wc -w)
-      if [ "${digit_count}" -lt 3 ]; then
+      if [[ "${digit_count}" -lt 3 ]]; then
           release_version="${release_version}.0"
       fi
       release_version="${release_version}-${BUILD_NUMBER}"
@@ -91,17 +73,11 @@ set_project_version() {
 }
 
 main() {
-  echo "::group::Check tools"
-  check_tool jq --version
-  check_tool jf --version
-  check_tool npm --version
-  echo "::endgroup::"
-  echo "::group::Setup build environment"
-  set_build_env
-  echo "::endgroup::"
   echo "::group::Set project version"
+  check_tool npm --version
   set_project_version
   echo "::endgroup::"
+  return 0
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
