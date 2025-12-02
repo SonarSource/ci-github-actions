@@ -52,39 +52,55 @@ export ARTIFACTORY_ACCESS_TOKEN="reader-token"
 # Create mock package.json
 echo '{"version": "1.2.3-SNAPSHOT", "name": "test-project"}' > package.json
 
-Describe 'config-npm/config.sh'
+Describe 'config-npm/npm_set_project_version.sh'
   It 'does not run main when sourced'
-    When run source config-npm/config.sh
+    When run source config-npm/npm_set_project_version.sh
+    The status should be success
+    The output should equal ""
+  End
+End
+Describe 'config-npm/npm_config.sh'
+  It 'does not run main when sourced'
+    When run source config-npm/npm_config.sh
     The status should be success
     The output should equal ""
   End
 End
 
-Include config-npm/config.sh
+Include config-npm/npm_set_project_version.sh
+Include config-npm/npm_config.sh
 
 common_setup() {
   GITHUB_OUTPUT=$(mktemp)
   export GITHUB_OUTPUT
   GITHUB_ENV=$(mktemp)
   export GITHUB_ENV
+  # Create temporary HOME directory to avoid modifying real ~/.npmrc
+  TEMP_HOME=$(mktemp -d)
+  export HOME="$TEMP_HOME"
 }
 
 common_cleanup() {
   [[ -f "$GITHUB_OUTPUT" ]] && rm "$GITHUB_OUTPUT"
   [[ -f "$GITHUB_ENV" ]] && rm "$GITHUB_ENV"
+  [[ -d "${TEMP_HOME:-}" ]] && rm -rf "$TEMP_HOME"
 }
 
 Describe 'set_build_env()'
+  BeforeEach 'common_setup'
+  AfterEach 'common_cleanup'
+
   It 'sets up build environment correctly'
     export GITHUB_REPOSITORY="my-org/test-project"
     When call set_build_env
     The status should be success
+    The file "$HOME/.npmrc" should be exist
+    The contents of file "$HOME/.npmrc" should include "registry=https://repox.jfrog.io/artifactory/api/npm/npm"
+    The contents of file "$HOME/.npmrc" should include "//repox.jfrog.io/artifactory/api/npm/:_authToken=reader-token"
     The line 1 should include "Configuring JFrog and NPM repositories"
-    The line 2 should equal "npm config set registry https://repox.jfrog.io/artifactory/api/npm/npm"
-    The line 3 should equal "npm config set //repox.jfrog.io/artifactory/api/npm/:_authToken=reader-token"
-    The line 4 should equal "jf config add repox --artifactory-url https://repox.jfrog.io/artifactory --access-token reader-token"
-    The line 5 should equal "jf config use repox"
-    The line 6 should equal "jf npm-config --repo-resolve npm"
+    The line 2 should equal "jf config add repox --artifactory-url https://repox.jfrog.io/artifactory --access-token reader-token"
+    The line 3 should equal "jf config use repox"
+    The line 4 should equal "jf npm-config --repo-resolve npm"
   End
 End
 
@@ -190,38 +206,41 @@ Describe 'set_project_version()'
     The line 2 should equal "CURRENT_VERSION=1.2-SNAPSHOT (from package.json)"
     The line 3 should equal "Replacing version 1.2-SNAPSHOT with 1.2.0-42"
   End
+End
 
-  It 'skips version update when package.json does not exist'
-    mv package.json package.json.bak
-    export BUILD_NUMBER="42"
+Describe 'main()'
+  BeforeEach 'common_setup'
+  AfterEach 'common_cleanup'
+
+  It 'runs tool checks and calls set_build_env()'
     export GITHUB_REF_NAME="main"
-    When call set_project_version
+    When run script config-npm/npm_config.sh
     The status should be success
-    The line 1 should equal "No package.json file. Skipping project version update."
-    The variable CURRENT_VERSION should be undefined
-    The variable PROJECT_VERSION should be undefined
-    mv package.json.bak package.json
+    The line 1 should include "Setup build environment"
+    The line 2 should include "jq"
+    The line 3 should start with "jq-"
+    The line 4 should include "jf"
+    The line 5 should start with "jf version"
+    The line 6 should include "Configuring JFrog and NPM repositories"
+    The file "$HOME/.npmrc" should be exist
   End
 End
 
 Describe 'main()'
-  It 'runs tool checks and calls set_build_env and set_project_version'
+  BeforeEach 'common_setup'
+  AfterEach 'common_cleanup'
+
+  It 'runs tool checks and calls set_project_version()'
     export GITHUB_REF_NAME="main"
-    When run script config-npm/config.sh
+    export BUILD_NUMBER="42"
+    When run script config-npm/npm_set_project_version.sh
     The status should be success
-    The lines of stdout should equal 23
-    The line 1 should include "Check tools"
-    The line 2 should include "jq"
-    The line 3 should equal "jq-1.8.1"
-    The line 4 should include "jf"
-    The line 5 should equal "jf version 2.77.0"
-    The line 6 should include "npm"
-    The line 7 should equal "10.2.4"
-    The line 9 should include "Setup build environment"
-    The line 10 should include "Configuring JFrog and NPM repositories"
-    The line 17 should include "Set project version"
-    The line 19 should equal "CURRENT_VERSION=1.2.3-SNAPSHOT (from package.json)"
-    The line 20 should include "Replacing version"
+    The line 1 should include "Set project version"
+    The line 2 should include "npm"
+    The line 3 should equal "10.2.4"
+    The line 4 should equal "Setting project version..."
+    The line 5 should equal "CURRENT_VERSION=1.2.3-SNAPSHOT (from package.json)"
+    The line 6 should include "Replacing version"
   End
 End
 

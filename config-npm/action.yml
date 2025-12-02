@@ -28,17 +28,19 @@ outputs:
     value: ${{ steps.get_build_number.outputs.BUILD_NUMBER }}
   current-version:
     description: The project version set in package.json (before replacement). Also set as environment variable CURRENT_VERSION.
-    value: ${{ steps.config.outputs.current-version }}
+    value: ${{ steps.set_version.outputs.current-version }}
   project-version:
     description: The project version with build number (after replacement). Also set as environment variable PROJECT_VERSION.
-    value: ${{ steps.config.outputs.project-version }}
+    value: ${{ steps.set_version.outputs.project-version }}
 
 runs:
   using: composite
   steps:
-    - name: Set local action paths
-      id: set-path
+    - id: setup
       shell: bash
+      env:
+        ARTIFACTORY_READER_ROLE: ${{ inputs.artifactory-reader-role != '' && inputs.artifactory-reader-role ||
+          (github.event.repository.visibility == 'public' && 'public-reader' || 'private-reader') }}
       run: |
         echo "::group::Fix for using local actions"
         echo "GITHUB_ACTION_PATH=$GITHUB_ACTION_PATH"
@@ -61,31 +63,14 @@ runs:
         ls -la .actions/*
         echo "::endgroup::"
 
-    - name: Check for package.json
-      id: check_package_json
-      shell: bash
-      working-directory: ${{ inputs.working-directory }}
-      run: |
-        if [[ -f "package.json" ]]; then
-          echo "exists=true" >> "$GITHUB_OUTPUT"
-        else
-          echo "exists=false" >> "$GITHUB_OUTPUT"
-        fi
-
-    - uses: ./.actions/get-build-number
-      id: get_build_number
-      if: ${{ steps.check_package_json.outputs.exists == 'true' }}
-      with:
-        host-actions-root: ${{ steps.set-path.outputs.host_actions_root }}
-
-    - name: Set parameters
-      shell: bash
-      env:
-        ARTIFACTORY_READER_ROLE: ${{ inputs.artifactory-reader-role != '' && inputs.artifactory-reader-role ||
-          (github.event.repository.visibility == 'public' && 'public-reader' || 'private-reader') }}
-      run: |
-        echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
+        echo "::group::Backup mise files to configure NPM without interference"
+        mise_backup=$(mktemp -d)
+        echo "MISE_BACKUP=$mise_backup" >> "$GITHUB_OUTPUT"
+        mv mise.* .mise.* mise/ .mise/ .tool-versions "$mise_backup/" 2>/dev/null || true
         cp "$ACTION_PATH_CONFIG_NPM/mise.local.toml" mise.local.toml
+        echo "::endgroup::"
+
+        echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
 
     - uses: jdx/mise-action@5ac50f778e26fac95da98d50503682459e86d566 # v3.2.0
       with:
@@ -98,6 +83,21 @@ runs:
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
 
+    - name: Configure NPM authentication
+      shell: bash
+      env:
+        ARTIFACTORY_URL: ${{ inputs.repox-artifactory-url != '' && inputs.repox-artifactory-url ||
+          format('{0}/artifactory', inputs.repox-url) }}
+        ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
+      run: |
+        $ACTION_PATH_CONFIG_NPM/npm_config.sh
+
+        echo "::group::Restore mise files"
+        rm mise.local.toml
+        mv "${{ steps.setup.outputs.MISE_BACKUP }}"/* "${{ steps.setup.outputs.MISE_BACKUP }}"/.* ./ 2>/dev/null || true
+        rmdir "${{ steps.setup.outputs.MISE_BACKUP }}"
+        echo "::endgroup::"
+
     - name: Cache NPM dependencies
       uses: ./.actions/cache
       if: ${{ inputs.cache-npm == 'true' }}
@@ -106,14 +106,29 @@ runs:
         key: npm-${{ runner.os }}-${{ github.workflow }}-${{ hashFiles('**/package-lock.json') }}
         restore-keys: npm-${{ runner.os }}-${{ github.workflow }}-
 
+    - name: Check for package.json
+      id: check_package_json
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        if [[ -f "package.json" ]]; then
+          echo "exists=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "No package.json file. Skipping project version update."
+          echo "exists=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - uses: ./.actions/get-build-number
+      id: get_build_number
+      if: ${{ steps.check_package_json.outputs.exists == 'true' }}
+      with:
+        host-actions-root: ${{ steps.setup.outputs.host_actions_root }}
+
     - name: Update project version and set current-version and project-version variables
-      id: config
+      id: set_version
+      if: ${{ steps.check_package_json.outputs.exists == 'true' }}
       shell: bash
       env:
         DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-        ARTIFACTORY_URL: ${{ inputs.repox-artifactory-url != '' && inputs.repox-artifactory-url ||
-          format('{0}/artifactory', inputs.repox-url) }}
-        ARTIFACTORY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME }}
-        ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
       working-directory: ${{ inputs.working-directory }}
-      run: $ACTION_PATH_CONFIG_NPM/config.sh
+      run: $ACTION_PATH_CONFIG_NPM/npm_set_project_version.sh
