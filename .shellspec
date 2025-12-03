@@ -1,5 +1,5 @@
 # kcov (coverage) options
---kcov-options "--include-pattern=build-poetry,get-build-number,pr_cleanup,promote,build-gradle,config-maven,build-maven,config-npm,build-npm,build-yarn,shared,config-gradle"
+--kcov-options "--include-pattern=build-poetry,get-build-number,pr_cleanup,promote,build-gradle,config-maven,build-maven,config-npm,build-npm,build-yarn,shared,config-gradle,config-pip"
 # --kcov-options "--exclude-pattern=.github,.idea,.git"
 
 # define minimum coverage (fail otherwise)
