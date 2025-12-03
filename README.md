@@ -191,21 +191,21 @@ steps:
 
 ### Output Environment Variables
 
-| Environment Variable          | Description                                                                                                                               |
-|-------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------|
-| `ARTIFACTORY_ACCESS_TOKEN`    | Access token for Artifactory authentication                                                                                               |
-| `ARTIFACTORY_ACCESS_USERNAME` | Deprecated alias for `ARTIFACTORY_USERNAME`                                                                                               |
-| `ARTIFACTORY_USERNAME`        | Username for Artifactory authentication                                                                                                   |
-| `ARTIFACTORY_PASSWORD`        | Deprecated alias for `ARTIFACTORY_ACCESS_TOKEN`                                                                                           |
-| `ARTIFACTORY_URL`             | Artifactory (Repox) URL. E.x.: `https://repox.jfrog.io/artifactory`                                                                       |
-| `BASH_ENV`                    | Path to the bash profile with mvn function for adding common flags to Maven calls                                                         |
-| `CURRENT_VERSION`             | The original project version from pom.xml                                                                                                 |
-| `DEVELOCITY_ACCESS_KEY`       | The Develocity access key when `use-develocity` is true                                                                                   |
-| `MAVEN_OPTS`                  | JVM options for Maven execution.                                                                                                          |
-| `PROJECT_VERSION`             | The project version with build number (after replacement)                                                                                 |
-| `SONARSOURCE_REPOSITORY_URL`  | URL for SonarSource Artifactory root virtual repository (i.e.: `sonarsource-qa` for public builds or `sonarsource-qa` for private builds) |
-| `CONFIG_MAVEN_COMPLETED`      | For internal use. If set, the action is skipped                                                                                           |
-| `MAVEN_CONFIG`                | Path to m2 root `$HOME/.m2`                                                                                                               |
+| Environment Variable          | Description                                                                                                                                                                                                                               |
+|-------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `ARTIFACTORY_ACCESS_TOKEN`    | Access token for Artifactory authentication                                                                                                                                                                                               |
+| `ARTIFACTORY_ACCESS_USERNAME` | Deprecated alias for `ARTIFACTORY_USERNAME`                                                                                                                                                                                               |
+| `ARTIFACTORY_USERNAME`        | Username for Artifactory authentication                                                                                                                                                                                                   |
+| `ARTIFACTORY_PASSWORD`        | Deprecated alias for `ARTIFACTORY_ACCESS_TOKEN`                                                                                                                                                                                           |
+| `ARTIFACTORY_URL`             | Artifactory (Repox) URL. E.x.: `https://repox.jfrog.io/artifactory`                                                                                                                                                                       |
+| `BASH_ENV`                    | Path to the bash profile with mvn function for adding common flags to Maven calls                                                                                                                                                         |
+| `CURRENT_VERSION`             | The original project version from pom.xml                                                                                                                                                                                                 |
+| `DEVELOCITY_ACCESS_KEY`       | The Develocity access key when `use-develocity` is true                                                                                                                                                                                   |
+| `MAVEN_OPTS`                  | JVM options for Maven execution.                                                                                                                                                                                                          |
+| `PROJECT_VERSION`             | The project version with build number (after replacement)                                                                                                                                                                                 |
+| `SONARSOURCE_REPOSITORY_URL`  | URL for SonarSource Artifactory root virtual repository (i.e.: [`sonarsource`](https://repox.jfrog.io/artifactory/sonarsource) for release builds or [`sonarsource-qa`](https://repox.jfrog.io/artifactory/sonarsource-qa) for QA builds) |
+| `CONFIG_MAVEN_COMPLETED`      | For internal use. If set, the action is skipped                                                                                                                                                                                           |
+| `MAVEN_CONFIG`                | Path to m2 root `$HOME/.m2`                                                                                                                                                                                                               |
 
 See also [`get-build-number`](#get-build-number) output environment variables.
 
@@ -477,10 +477,17 @@ steps:
 
 ### Input Environment Variables
 
-| Environment Variable                    | Description                                                                       |
-|-----------------------------------------|-----------------------------------------------------------------------------------|
+| Environment Variable                    | Description                                                                          |
+|-----------------------------------------|--------------------------------------------------------------------------------------|
 | `BUILD_NUMBER`                          | If present, it will be reused by the [`get-build-number`](#get-build-number) action. |
-| `CURRENT_VERSION` and `PROJECT_VERSION` | If both are set, they will be used as-is and no version update will be performed. |
+| `CURRENT_VERSION` and `PROJECT_VERSION` | If both are set, they will be used as-is and no version update will be performed.    |
+| `ARTIFACTORY_URL`                       | Artifactory (Repox) URL. Default: `https://repox.jfrog.io/artifactory`               |
+| `SONARSOURCE_REPOSITORY`                | SonarSource Repox repository (e.x.: `sonarsource` (default) or `sonarsource-qa`)     |
+
+If provided, `ARTIFACTORY_URL` is used at runtime by the Gradle init script to configure the Artifactory URL. `artifactoryUrl` Gradle
+property can also be used instead.
+
+If provided, `SONARSOURCE_REPOSITORY` is used at runtime by the Gradle init script to configure the source repository for artifacts.
 
 ### Inputs
 
@@ -600,6 +607,8 @@ jobs:
 | Environment Variable | Description                                          |
 |----------------------|------------------------------------------------------|
 | `JAVA_TOOL_OPTIONS`  | JVM options. Defaults to `-XX:-UseContainerSupport`. |
+
+See also [`config-gradle`](#config-gradle) input environment variables.
 
 ### Inputs
 
@@ -799,10 +808,10 @@ config:
 
 ### Input Environment Variables
 
-| Environment Variable                    | Description                                                                       |
-|-----------------------------------------|-----------------------------------------------------------------------------------|
+| Environment Variable                    | Description                                                                          |
+|-----------------------------------------|--------------------------------------------------------------------------------------|
 | `BUILD_NUMBER`                          | If present, it will be reused by the [`get-build-number`](#get-build-number) action. |
-| `CURRENT_VERSION` and `PROJECT_VERSION` | If both are set, they will be used as-is and no version update will be performed. |
+| `CURRENT_VERSION` and `PROJECT_VERSION` | If both are set, they will be used as-is and no version update will be performed.    |
 
 See also [`get-build-number`](#get-build-number) input environment variables.
 

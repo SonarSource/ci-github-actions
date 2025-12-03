@@ -159,25 +159,14 @@ fun RepositoryHandler.addRepoxRepositoryIfMissing(providers: ProviderFactory) {
     }
 
     if (!hasRepoxRepo) {
-        val baseUrl = System.getenv("ARTIFACTORY_URL")
-            ?: providers.gradleProperty("artifactoryUrl").orNull
-
-        if (baseUrl != null) {
-            val artifactoryUrl = baseUrl.trimEnd('/') + "/sonarsource"
-            maven {
-                name = "Repox"
-                url = uri(artifactoryUrl)
-            }
-            logger.info(
-                "Added Repox repository at '{}'",
-                artifactoryUrl
-            )
-        } else {
-            throw GradleException(
-                "No Repox repository found and ARTIFACTORY_URL/artifactoryUrl not set. " +
-                    "Please configure ARTIFACTORY_URL environment variable or artifactoryUrl Gradle property."
-            )
+        val baseUrl =
+            System.getenv("ARTIFACTORY_URL") ?: providers.gradleProperty("artifactoryUrl").orNull ?: "https://repox.jfrog.io/artifactory"
+        val artifactoryUrl = baseUrl.trimEnd('/') + "/" + (System.getenv("SONARSOURCE_REPOSITORY") ?: "sonarsource")
+        maven {
+            name = "Repox"
+            url = uri(artifactoryUrl)
         }
+        logger.info("Added Repox repository at '{}'", artifactoryUrl)
     }
 }
 
