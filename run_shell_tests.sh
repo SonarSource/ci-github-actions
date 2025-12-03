@@ -1,3 +1,3 @@
 #!/bin/bash
 LANG=
-shellspec --kcov spec "$@"
+shellspec --kcov spec "$@" --shell bash

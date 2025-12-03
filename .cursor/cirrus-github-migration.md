@@ -73,7 +73,7 @@ Update this section when newer versions are released:
 
 #### Core GitHub Actions
 
-- [ ] `actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8`
+- [ ] `actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0`
 - [ ] `actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2`
 - [ ] `actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0`
 
@@ -394,7 +394,7 @@ build_task:
 jobs:
   build:
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       # Step 1: Retrieve secrets from Vault
       - name: Vault
@@ -951,7 +951,7 @@ jobs:
   build:
     runs-on: github-ubuntu-latest-s
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - run: echo "Custom GitHub-hosted runner"
 ```
 
@@ -977,7 +977,7 @@ jobs:
   build:
     runs-on: sonar-m
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - run: echo "Private self-hosted (new generation)"
 ```
 
@@ -1192,7 +1192,7 @@ permissions:
 
 Standard order:
 
-1. `actions/checkout@v4`
+1. `actions/checkout`
 2. `jdx/mise-action` (tool setup)
 3. Build action (`build-maven@v1`, etc.)
 4. `promote@v1` (promote job only)

@@ -24,6 +24,7 @@ for details on how to use it.
 - [`config-npm`](#config-npm)
 - [`build-npm`](#build-npm)
 - [`build-yarn`](#build-yarn)
+- [`config-pip`](#config-pip)
 - [`promote`](#promote)
 - [`pr_cleanup`](#pr_cleanup)
 - [`cache`](#cache)
@@ -152,7 +153,7 @@ permissions:
   id-token: write
   contents: write
 steps:
-  - uses: actions/checkout@v5
+  - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
   - uses: SonarSource/ci-github-actions/config-maven@v1
   - run: mvn verify
 ```
@@ -253,7 +254,7 @@ permissions:
   id-token: write
   contents: write
 steps:
-  - uses: actions/checkout@v5
+  - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
   - uses: SonarSource/ci-github-actions/config-maven@v1
   - uses: SonarSource/ci-github-actions/build-maven@v1
 ```
@@ -362,7 +363,7 @@ jobs:
       id-token: write
       contents: write
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - uses: SonarSource/ci-github-actions/build-poetry@v1
         with:
           public: false                                        # Defaults to `true` if the repository is public
@@ -470,7 +471,7 @@ permissions:
   id-token: write
   contents: write
 steps:
-  - uses: actions/checkout@v5
+  - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
   - uses: SonarSource/ci-github-actions/config-gradle@v1
   - run: ./gradlew build
 ```
@@ -593,7 +594,7 @@ jobs:
       id-token: write
       contents: write
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - uses: SonarSource/ci-github-actions/build-gradle@v1
         with:
           # Enable shadow scans for unified platform dogfooding (optional)
@@ -889,7 +890,7 @@ jobs:
       id-token: write
       contents: write
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - uses: SonarSource/ci-github-actions/build-npm@v1
         with:
           # Enable shadow scans for unified platform dogfooding (optional)
@@ -1003,7 +1004,7 @@ jobs:
       id-token: write
       contents: write
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - uses: SonarSource/ci-github-actions/build-yarn@v1
         with:
           # Enable shadow scans for unified platform dogfooding (optional)
@@ -1057,6 +1058,107 @@ jobs:
 - JFrog build info publishing with UI links
 - Support for different branch types (default, maintenance, PR, dogfood, long-lived feature)
 - Comprehensive build logging and error handling
+
+## `config-pip`
+
+Configure pip build environment with build number, authentication, and default settings.
+
+This action configures pip to pull packages from the internal JFrog Artifactory registry instead of the default PyPI.
+
+> **Note:** This action automatically calls [`get-build-number`](#get-build-number) to manage the build number.
+> **Note:** This action replaces the deprecated `configure-pipx-repox` action from `sonarqube-cloud-github-actions` repository.
+
+### Requirements
+
+#### Required GitHub Permissions
+
+- `id-token: write`
+- `contents: read`
+
+#### Required Vault Permissions
+
+- `public-reader` or `private-reader`: Artifactory role for reading dependencies.
+
+### Usage
+
+```yaml
+permissions:
+  id-token: write
+  contents: read
+steps:
+  - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+  - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+    with:
+      python-version: 3.12
+  - uses: SonarSource/ci-github-actions/config-pip@v1
+  - run: pip install pipenv
+```
+
+### With Custom Artifactory Reader Role
+
+```yaml
+steps:
+  - uses: SonarSource/ci-github-actions/config-pip@v1
+    with:
+      artifactory-reader-role: custom-reader
+```
+
+### With Working Directory and Caching Options
+
+```yaml
+steps:
+  - uses: SonarSource/ci-github-actions/config-pip@v1
+    with:
+      working-directory: ./python-project
+      disable-caching: false
+```
+
+### Inputs
+
+| Input                     | Description                                                                 | Default                                                              |
+|---------------------------|-----------------------------------------------------------------------------|----------------------------------------------------------------------|
+| `working-directory`       | Relative path under github.workspace to execute the build in                | `.`                                                                  |
+| `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault                             | `private-reader` for private repos, `public-reader` for public repos |
+| `repox-url`               | URL for Repox                                                               | `https://repox.jfrog.io`                                             |
+| `repox-artifactory-url`   | URL for Repox Artifactory API (overrides repox-url/artifactory if provided) | (optional)                                                           |
+| `cache-paths`             | Cache paths to use (multiline)                                              | `~/.cache/pip`                                                       |
+| `disable-caching`         | Whether to disable pip caching entirely                                     | `false`                                                              |
+
+### Outputs
+
+| Output         | Description                                                               |
+|----------------|---------------------------------------------------------------------------|
+| `BUILD_NUMBER` | The current build number. Also set as environment variable `BUILD_NUMBER` |
+
+### Output Environment Variables
+
+| Environment Variable | Description              |
+|----------------------|--------------------------|
+| `BUILD_NUMBER`       | The current build number |
+
+See also [`get-build-number`](#get-build-number) output environment variables.
+
+### Features
+
+- Build number management via [`get-build-number`](#get-build-number)
+- Automatic Artifactory authentication via Vault
+- Auto-detection of reader role based on repository visibility
+- Pip dependency caching with customization options
+- Global pip configuration for all subsequent `pip install` commands
+
+### Migration from configure-pipx-repox
+
+If you're currently using `SonarSource/sonarqube-cloud-github-actions/configure-pipx-repox@master`, you can replace it with:
+
+```yaml
+# Old
+- uses: SonarSource/sonarqube-cloud-github-actions/configure-pipx-repox@master
+
+# New
+- uses: SonarSource/ci-github-actions/config-pip@v1
+```
+
+Both actions produce the same configuration and are functionally equivalent.
 
 ## `promote`
 
