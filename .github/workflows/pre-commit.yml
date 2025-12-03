@@ -6,9 +6,8 @@ jobs:
   pre-commit:
     runs-on: github-ubuntu-latest-s
     steps:
-      - uses: jdx/mise-action@5ac50f778e26fac95da98d50503682459e86d566 # v3.2.0
-        with:
-          version: 2025.7.12
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: ./config-npm
       - uses: SonarSource/gh-action_pre-commit@0ecedc4e4070444a95f6b6714ddc3ebcdde697c4 # 1.1.0
         with:
           extra-args: >
