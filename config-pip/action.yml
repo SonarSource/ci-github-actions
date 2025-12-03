@@ -1,0 +1,69 @@
+---
+name: Config Pip
+description: GitHub Action to configure pip build environment with authentication for Artifactory
+inputs:
+  artifactory-reader-role:
+    description:
+      Suffix for the Artifactory reader role in Vault. Defaults to `private-reader` for private repositories, and `public-reader`
+      for public repositories.
+    default: ''
+  repox-url:
+    description: URL for Repox
+    default: https://repox.jfrog.io
+  repox-artifactory-url:
+    description: URL for Repox Artifactory API (overrides repox-url/artifactory if provided)
+    default: ''
+  host-actions-root:
+    description: Path to the actions folder on the host (used when called from another local action)
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Set local action paths
+      id: set-path
+      shell: bash
+      run: |
+        echo "::group::Set local action paths"
+        echo "GITHUB_ACTION_PATH=$GITHUB_ACTION_PATH"
+        echo "github.action_path=${{ github.action_path }}"
+
+        ACTION_PATH_CONFIG_PIP="${{ github.action_path }}"
+        HOST_ACTIONS_ROOT="${{ inputs.host-actions-root }}"
+        if [ -n "$HOST_ACTIONS_ROOT" ]; then
+          ACTION_PATH_CONFIG_PIP="$HOST_ACTIONS_ROOT/config-pip"
+        fi
+
+        echo "ACTION_PATH_CONFIG_PIP=$ACTION_PATH_CONFIG_PIP"
+        echo "ACTION_PATH_CONFIG_PIP=$ACTION_PATH_CONFIG_PIP" >> "$GITHUB_ENV"
+        echo "::endgroup::"
+
+    - name: Set Artifactory reader role
+      shell: bash
+      env:
+        # Use custom role if provided, otherwise auto-detect based on repository visibility
+        ARTIFACTORY_READER_ROLE:
+          ${{ inputs.artifactory-reader-role != '' && inputs.artifactory-reader-role ||
+          (github.event.repository.visibility == 'public' && 'public-reader' || 'private-reader') }}
+      run: |
+        echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
+
+    - name: Fetch Artifactory credentials from Vault
+      id: secrets
+      uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
+      with:
+        secrets: |
+          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
+          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
+
+    - name: Run pip configuration script
+      id: config
+      shell: bash
+      env:
+        # Use custom Artifactory URL if provided, otherwise construct from repox-url
+        ARTIFACTORY_URL:
+          ${{ inputs.repox-artifactory-url != '' && inputs.repox-artifactory-url ||
+          format('{0}/artifactory', inputs.repox-url) }}
+        ARTIFACTORY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME }}
+        ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
+      run: $ACTION_PATH_CONFIG_PIP/config.sh
