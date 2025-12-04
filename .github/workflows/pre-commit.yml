@@ -1,7 +1,9 @@
 name: Pre-commit Checks
 on:
   pull_request:
-
+permissions:
+  id-token: write
+  contents: read
 jobs:
   pre-commit:
     runs-on: github-ubuntu-latest-s
