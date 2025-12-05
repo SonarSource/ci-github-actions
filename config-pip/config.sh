@@ -30,9 +30,8 @@ fi
 configure_pip() {
   echo "Configuring pip to use Artifactory..."
 
-  # Extract the host from ARTIFACTORY_URL (remove /artifactory suffix and protocol)
-  local repox_host="${ARTIFACTORY_URL%/artifactory}"
-  repox_host="${repox_host#https://}"
+  # Extract the host from ARTIFACTORY_URL
+  local repox_host="${ARTIFACTORY_URL#https://}"
   repox_host="${repox_host#http://}"
 
   echo "Repox host: $repox_host"

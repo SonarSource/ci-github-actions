@@ -59,7 +59,7 @@ Describe 'configure_pip()'
     The output should include "Configuring pip to use Artifactory..."
     The output should include "✓ pip configuration completed successfully"
     The contents of file "${HOME}/.pip/pip.conf" should equal "[global]
-index-url = https://test-user:test-token@repox.jfrog.io/api/pypi/sonarsource-pypi/simple"
+index-url = https://test-user:test-token@repox.jfrog.io/artifactory/api/pypi/sonarsource-pypi/simple"
   End
 
   It 'creates correct pip.conf content without /artifactory suffix'
@@ -90,8 +90,8 @@ index-url = https://test-user:test-token@repox.jfrog.io/api/pypi/sonarsource-pyp
     export ARTIFACTORY_ACCESS_TOKEN="test-token"
     When call configure_pip
     The status should equal 0
-    The line 2 should equal "Repox host: repox.jfrog.io:8080"
-    The contents of file "${HOME}/.pip/pip.conf" should include "https://test-user:test-token@repox.jfrog.io:8080/api/pypi/sonarsource-pypi/simple"
+    The line 2 should equal "Repox host: repox.jfrog.io:8080/artifactory"
+    The contents of file "${HOME}/.pip/pip.conf" should include "https://test-user:test-token@repox.jfrog.io:8080/artifactory/api/pypi/sonarsource-pypi/simple"
   End
 End
 
@@ -152,6 +152,6 @@ Describe 'main()'
     The output should include "✓ pip configuration completed successfully"
     The path "${HOME}/.pip/pip.conf" should be file
     The contents of file "${HOME}/.pip/pip.conf" should equal "[global]
-index-url = https://my-user:my-secret-token@repox.jfrog.io/api/pypi/sonarsource-pypi/simple"
+index-url = https://my-user:my-secret-token@repox.jfrog.io/artifactory/api/pypi/sonarsource-pypi/simple"
   End
 End
