@@ -1,7 +1,10 @@
 ---
 name: Config Pip
-description: GitHub Action to configure pip build environment with authentication for Artifactory
+description: GitHub Action to configure pip build environment with build number, authentication, and default settings
 inputs:
+  working-directory:
+    description: Relative path under github.workspace to execute the build in
+    default: .
   artifactory-reader-role:
     description:
       Suffix for the Artifactory reader role in Vault. Defaults to `private-reader` for private repositories, and `public-reader`
@@ -13,9 +16,20 @@ inputs:
   repox-artifactory-url:
     description: URL for Repox Artifactory API (overrides repox-url/artifactory if provided)
     default: ''
+  cache-paths:
+    description: Cache paths to use (multiline).
+    default: ~/.cache/pip
+  disable-caching:
+    description: Whether to disable pip caching entirely
+    default: 'false'
   host-actions-root:
     description: Path to the actions folder on the host (used when called from another local action)
     default: ''
+
+outputs:
+  BUILD_NUMBER:
+    description: The current build number. Also set as environment variable BUILD_NUMBER
+    value: ${{ steps.get-build-number.outputs.BUILD_NUMBER }}
 
 runs:
   using: composite
@@ -24,19 +38,31 @@ runs:
       id: set-path
       shell: bash
       run: |
-        echo "::group::Set local action paths"
+        echo "::group::Fix for using local actions"
         echo "GITHUB_ACTION_PATH=$GITHUB_ACTION_PATH"
         echo "github.action_path=${{ github.action_path }}"
-
         ACTION_PATH_CONFIG_PIP="${{ github.action_path }}"
-        HOST_ACTIONS_ROOT="${{ inputs.host-actions-root }}"
-        if [ -n "$HOST_ACTIONS_ROOT" ]; then
-          ACTION_PATH_CONFIG_PIP="$HOST_ACTIONS_ROOT/config-pip"
+        host_actions_root="${{ inputs.host-actions-root }}"
+        if [ -z "$host_actions_root" ]; then
+          host_actions_root="$(dirname "$ACTION_PATH_CONFIG_PIP")"
+        else
+          ACTION_PATH_CONFIG_PIP="$host_actions_root/config-pip"
         fi
-
         echo "ACTION_PATH_CONFIG_PIP=$ACTION_PATH_CONFIG_PIP"
         echo "ACTION_PATH_CONFIG_PIP=$ACTION_PATH_CONFIG_PIP" >> "$GITHUB_ENV"
+        echo "host_actions_root=$host_actions_root" >> "$GITHUB_OUTPUT"
+
+        mkdir -p ".actions"
+        ln -sf "$host_actions_root/get-build-number" .actions/get-build-number
+        ln -sf "$host_actions_root/cache" .actions/cache
+        ln -sf "$host_actions_root/shared" .actions/shared
+        ls -la .actions/*
         echo "::endgroup::"
+
+    - uses: ./.actions/get-build-number
+      id: get-build-number
+      with:
+        host-actions-root: ${{ steps.set-path.outputs.host_actions_root }}
 
     - name: Set Artifactory reader role
       shell: bash
@@ -59,6 +85,7 @@ runs:
     - name: Run pip configuration script
       id: config
       shell: bash
+      working-directory: ${{ inputs.working-directory }}
       env:
         # Use custom Artifactory URL if provided, otherwise construct from repox-url
         ARTIFACTORY_URL:
@@ -67,3 +94,13 @@ runs:
         ARTIFACTORY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME }}
         ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
       run: $ACTION_PATH_CONFIG_PIP/config.sh
+
+    - name: Cache pip dependencies
+      uses: ./.actions/cache
+      if: inputs.disable-caching == 'false'
+      with:
+        path: ${{ inputs.cache-paths }}
+        key: pip-${{ runner.os }}-${{ github.workflow }}-${{ hashFiles(format('{0}/requirements*.txt', inputs.working-directory),
+          format('{0}/Pipfile.lock', inputs.working-directory), format('{0}/poetry.lock', inputs.working-directory),
+          format('{0}/pyproject.toml', inputs.working-directory)) }}
+        restore-keys: pip-${{ runner.os }}-${{ github.workflow }}-

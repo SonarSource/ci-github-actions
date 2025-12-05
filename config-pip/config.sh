@@ -37,7 +37,7 @@ configure_pip() {
   echo "Repox host: $repox_host"
 
   # Create pip config directory
-  mkdir -p ~/.pip
+  mkdir -p "$HOME/.pip"
 
   # Write pip configuration with Artifactory credentials
   cat > ~/.pip/pip.conf <<EOF
