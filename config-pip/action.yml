@@ -95,12 +95,19 @@ runs:
         ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
       run: $ACTION_PATH_CONFIG_PIP/config.sh
 
+    - name: Prepare cache inputs
+      id: cache-inputs
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        echo "path=${{ inputs.cache-paths }}" >> "$GITHUB_OUTPUT"
+        echo "restore-keys=pip-${{ runner.os }}-${{ github.workflow }}-" >> "$GITHUB_OUTPUT"
+        echo "key=pip-${{ runner.os }}-${{ github.workflow }}-${{ hashFiles(format('{0}/requirements*.txt', inputs.working-directory), format('{0}/Pipfile.lock', inputs.working-directory), format('{0}/poetry.lock', inputs.working-directory), format('{0}/pyproject.toml', inputs.working-directory)) }}" >> "$GITHUB_OUTPUT"
+
     - name: Cache pip dependencies
       uses: ./.actions/cache
       if: inputs.disable-caching == 'false'
       with:
-        path: ${{ inputs.cache-paths }}
-        key: pip-${{ runner.os }}-${{ github.workflow }}-${{ hashFiles(format('{0}/requirements*.txt', inputs.working-directory),
-          format('{0}/Pipfile.lock', inputs.working-directory), format('{0}/poetry.lock', inputs.working-directory),
-          format('{0}/pyproject.toml', inputs.working-directory)) }}
-        restore-keys: pip-${{ runner.os }}-${{ github.workflow }}-
+        path: ${{ steps.cache-inputs.outputs.path }}
+        key: ${{ steps.cache-inputs.outputs.key }}
+        restore-keys: ${{ steps.cache-inputs.outputs.restore-keys }}
