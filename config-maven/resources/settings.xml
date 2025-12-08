@@ -4,7 +4,7 @@
   <mirrors>
     <mirror>
       <id>sonarsource</id>
-      <mirrorOf>*</mirrorOf>
+      <mirrorOf>*,!eclipse-target-site</mirrorOf>
       <name>Repox mirror for all repositories</name>
       <url>${env.SONARSOURCE_REPOSITORY_URL}</url>
     </mirror>
@@ -20,6 +20,11 @@
           </property>
         </httpHeaders>
       </configuration>
+    </server>
+    <server>
+      <id>eclipse-target-site</id>
+      <username>${env.ARTIFACTORY_USERNAME}</username>
+      <password>${env.ARTIFACTORY_ACCESS_TOKEN}</password>
     </server>
   </servers>
   <profiles>
