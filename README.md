@@ -645,7 +645,7 @@ See also [`config-gradle`](#config-gradle) input environment variables.
 >          cp <working-directory>/mise.toml mise.toml
 >      - uses: jdx/mise-action@5ac50f778e26fac95da98d50503682459e86d566 # v3.2.0
 >        with:
->          version: 2025.7.12
+>          version: 2025.11.1
 >      - uses: SonarSource/ci-github-actions/build-gradle@v1
 >        with:
 >          working-directory: <working-directory>
@@ -803,7 +803,7 @@ config:
     - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
     - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
       with:
-        version: 2025.7.12
+        version: 2025.11.1
     - uses: SonarSource/ci-github-actions/config-npm@v1
 ```
 
