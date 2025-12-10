@@ -48,17 +48,22 @@ set -euo pipefail
 # shellcheck source=../shared/common-functions.sh
 source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 
-: "${ARTIFACTORY_ACCESS_TOKEN:?}" "${ARTIFACTORY_DEPLOY_REPO:?}" "${ARTIFACTORY_DEPLOY_USERNAME:?}" "${ARTIFACTORY_DEPLOY_ACCESS_TOKEN:?}"
+: "${ARTIFACTORY_ACCESS_TOKEN:?}"
+: "${ARTIFACTORY_DEPLOY_REPO:?}"
+: "${DEPLOY:=true}"
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_RUN_ID:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}" "${GITHUB_SHA:?}"
 : "${GITHUB_OUTPUT:?}"
 : "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}"
 : "${RUN_SHADOW_SCANS:?}"
+if [[ "$DEPLOY" != "false" && "$RUN_SHADOW_SCANS" != "true" ]]; then
+  : "${ARTIFACTORY_DEPLOY_USERNAME:?}" "${ARTIFACTORY_DEPLOY_ACCESS_TOKEN:?}"
+fi
 : "${CURRENT_VERSION:?}"
 if [[ "${SONAR_PLATFORM:?}" != "none" ]]; then
   : "${NEXT_URL:?}" "${NEXT_TOKEN:?}" "${SQC_US_URL:?}" "${SQC_US_TOKEN:?}" "${SQC_EU_URL:?}" "${SQC_EU_TOKEN:?}"
 fi
 : "${ORG_GRADLE_PROJECT_signingKey:?}" "${ORG_GRADLE_PROJECT_signingPassword:?}" "${ORG_GRADLE_PROJECT_signingKeyId:?}"
-: "${DEPLOY_PULL_REQUEST:=false}" "${DEPLOY:=true}"
+: "${DEPLOY_PULL_REQUEST:=false}"
 export DEPLOY_PULL_REQUEST
 : "${SKIP_TESTS:=false}"
 : "${GRADLE_ARGS:=}"

@@ -47,7 +47,8 @@ source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 
 : "${ARTIFACTORY_URL:?}"
 # Required by maven-enforcer-plugin in SonarSource parent POM
-: "${ARTIFACTORY_DEPLOY_REPO:?}" "${ARTIFACTORY_DEPLOY_USERNAME:?}" "${ARTIFACTORY_DEPLOY_PASSWORD:?}"
+: "${ARTIFACTORY_DEPLOY_REPO:?}"
+: "${DEPLOY:=true}"
 : "${CURRENT_VERSION:?}"
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_RUN_ID:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}"
 : "${GITHUB_SHA:?}"
@@ -58,8 +59,10 @@ if [[ "${SONAR_PLATFORM:?}" != "none" ]]; then
   : "${NEXT_URL:?}" "${NEXT_TOKEN:?}" "${SQC_US_URL:?}" "${SQC_US_TOKEN:?}" "${SQC_EU_URL:?}" "${SQC_EU_TOKEN:?}"
 fi
 : "${RUN_SHADOW_SCANS:?}"
+if [[ "$DEPLOY" != "false" && "$RUN_SHADOW_SCANS" != "true" ]]; then
+  : "${ARTIFACTORY_DEPLOY_USERNAME:?}" "${ARTIFACTORY_DEPLOY_PASSWORD:?}"
+fi
 : "${DEPLOY_PULL_REQUEST:=false}"
-: "${DEPLOY:=true}"
 : "${USER_MAVEN_ARGS:=}"
 export ARTIFACTORY_URL DEPLOY_PULL_REQUEST
 
