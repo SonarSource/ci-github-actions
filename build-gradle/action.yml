@@ -132,8 +132,8 @@ runs:
           ${{ inputs.sonar-platform != 'none' && 'development/kv/data/sonarqube-us token | SQC_US_TOKEN;' || '' }}
           ${{ inputs.sonar-platform != 'none' && 'development/kv/data/sonarcloud url | SQC_EU_URL;' || '' }}
           ${{ inputs.sonar-platform != 'none' && 'development/kv/data/sonarcloud token | SQC_EU_TOKEN;' || '' }}
-          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} username | ARTIFACTORY_DEPLOY_USERNAME;
-          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;
+          ${{ inputs.deploy != 'false' && inputs.run-shadow-scans != 'true' && format('development/artifactory/token/{{REPO_OWNER_NAME_DASH}}-{0} username | ARTIFACTORY_DEPLOY_USERNAME;', env.ARTIFACTORY_DEPLOYER_ROLE) || '' }}
+          ${{ inputs.deploy != 'false' && inputs.run-shadow-scans != 'true' && format('development/artifactory/token/{{REPO_OWNER_NAME_DASH}}-{0} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;', env.ARTIFACTORY_DEPLOYER_ROLE) || '' }}
           development/kv/data/sign key | SIGN_KEY;
           development/kv/data/sign passphrase | PGP_PASSPHRASE;
           development/kv/data/sign key_id | SIGN_KEY_ID;
