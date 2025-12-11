@@ -79,7 +79,6 @@ runs:
 
         mkdir -p ".actions"
         ln -sf "$host_actions_root/get-build-number" .actions/get-build-number
-        ln -sf "$host_actions_root/cache" .actions/cache
         ln -sf "$host_actions_root/shared" .actions/shared
         ls -la .actions/*
         echo "::endgroup::"
@@ -106,7 +105,7 @@ runs:
         version: 2025.11.1
 
     - name: Cache Yarn dependencies
-      uses: ./.actions/cache
+      uses: SonarSource/gh-action_cache@v1
       if: ${{ inputs.cache-yarn == 'true' }}
       with:
         path: |

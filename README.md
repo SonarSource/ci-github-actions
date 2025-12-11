@@ -27,7 +27,6 @@ for details on how to use it.
 - [`config-pip`](#config-pip)
 - [`promote`](#promote)
 - [`pr_cleanup`](#pr_cleanup)
-- [`cache`](#cache)
 - [`code-signing`](#code-signing)
 
 ## `get-build-number`
@@ -1294,103 +1293,6 @@ No outputs are provided by this action.
 - Show before/after state of caches and artifacts
 - Automatic triggering on PR closure
 
-## `cache`
-
-Adaptive cache action that automatically chooses the appropriate caching backend based on repository visibility and ownership.
-
-### Requirements
-
-#### Required Vault Permissions
-
-No Vault permissions required for this action.
-
-#### Other Dependencies
-
-The only requirement for the action is `jq` installed.
-
-### Usage
-
-```yaml
-jobs:
-  build:
-    runs-on: sonar-xs  # Private repos default; use github-ubuntu-latest-s for public repos
-    steps:
-      - uses: SonarSource/ci-github-actions/cache@v1
-        with:
-          path: |
-            ~/.cache/pip
-            ~/.cache/maven
-          key: cache-${{ runner.os }}-${{ hashFiles('**/requirements.txt', '**/pom.xml') }}
-          restore-keys: cache-${{ runner.os }}-
-```
-
-## How Restore Keys Work (S3 cache for private repositories)
-
-**Important**: To enable fallback to default branch caches, you **must** use the `restore-keys` property.
-
-### Cache Key Resolution Order
-
-When you provide `restore-keys`, the action searches for cache entries in this order:
-
-1. **Primary key**: `${BRANCH_NAME}/${key}`
-2. **Branch-specific restore keys**: `${BRANCH_NAME}/${restore-key}` (for each restore key)
-3. **Default branch fallbacks**:
-    - `refs/heads/${DEFAULT_BRANCH}/${restore-key}` (for each restore key, where `DEFAULT_BRANCH` is dynamically obtained from the repository)
-
-### Example
-
-```yaml
-- uses: SonarSource/ci-github-actions/cache@v1
-  with:
-    path: ~/.npm
-    key: node-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
-    restore-keys: |
-      node-${{ runner.os }}
-```
-
-For a feature branch `feature/new-ui`, this will search for:
-
-1. `feature/new-ui/node-linux-abc123...` (exact match)
-2. `feature/new-ui/node-linux` (branch-specific partial match)
-3. `refs/heads/main/node-linux` (default branch fallback, assuming `main` is the repository's default branch)
-
-### Key Differences from Standard Cache Action
-
-- **Fallback requires restore-keys**: Without `restore-keys`, the action only looks for branch-specific cache entries
-- **Dynamic default branch detection**: The action detects your default branch using the GitHub API and uses it for fallback
-- **Branch isolation**: Each branch maintains its own cache namespace, preventing cross-branch cache pollution
-
-### Inputs
-
-| Input                  | Description                                                                                                  | Default    |
-|------------------------|--------------------------------------------------------------------------------------------------------------|------------|
-| `path`                 | A list of files, directories, and wildcard patterns to cache and restore                                     | (required) |
-| `key`                  | An explicit key for restoring and saving the cache                                                           | (required) |
-| `restore-keys`         | An ordered list of prefix-matched keys to use for restoring stale cache if no cache hit occurred for key     | (optional) |
-| `upload-chunk-size`    | The chunk size used to split up large files during upload, in bytes                                          | (optional) |
-| `enableCrossOsArchive` | When enabled, allows to save or restore caches that can be restored or saved respectively on other platforms | `false`    |
-| `fail-on-cache-miss`   | Fail the workflow if cache entry is not found                                                                | `false`    |
-| `lookup-only`          | Check if a cache entry exists for the given input(s) without downloading the cache                           | `false`    |
-
-### Outputs
-
-| Output      | Description                                                              |
-|-------------|--------------------------------------------------------------------------|
-| `cache-hit` | A boolean value to indicate an exact match was found for the primary key |
-
-### Features
-
-- Automatically uses GitHub Actions cache for public repositories
-- Uses SonarSource S3 cache for private/internal SonarSource repositories
-- Seamless API compatibility with standard GitHub Actions cache
-- Supports all standard cache inputs and outputs
-- Automatic repository visibility detection
-
-### Cleanup Policy
-
-The AWS S3 bucket lifecycle rules apply to delete the old files. The content from default branches expires in 60 days and for feature
-branches in 30 days.
-
 ## `code-signing`
 
 Install and configure DigiCert smctl and jsign tools for code signing with caching support.
@@ -1526,7 +1428,31 @@ Example with a build action (same idea applies to other actions):
 
     Increase the **patch** number for **fixes**, the **minor** number for **new features**, and the **major** number for **breaking changes**.
 
-    Edit the generated release notes to curate the highlights and key fixes, add notes, provide samples of new usage if applicable...
+    Edit the generated release notes to curate the highlights and key fixes. Make sure that the notes are clear and informative.
+
+    ```markdown
+    ## What's Changed
+    ### New Features
+    * BUILD-... by @username in https://github.com/SonarSource/ci-github-actions/pull/...
+
+    ### Improvements
+    * ...
+
+    ### Bug Fixes
+    * ...
+
+    ### Documentation
+    * ...
+
+    ## New Contributors
+    * ...
+
+   ---
+
+   Additional notes, examples, or references if applicable.
+
+    **Full Changelog**: https://github.com/SonarSource/ci-github-actions/compare/...
+   ```
 
    Make sure to include any **breaking changes** in the notes.
 

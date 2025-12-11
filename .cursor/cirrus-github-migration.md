@@ -814,7 +814,7 @@ The SonarQube platform used for analysis is based on the `SONAR_HOST_URL` in you
 Adaptive cache action that automatically chooses the appropriate caching backend based on repository visibility.
 
 ```yaml
-- uses: SonarSource/ci-github-actions/cache@v1
+- uses: SonarSource/gh-action_cache@v1
   with:
     path: |
       ~/.m2/repository
