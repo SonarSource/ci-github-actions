@@ -120,7 +120,6 @@ runs:
 
     - uses: ./.actions/get-build-number
       id: get_build_number
-      if: ${{ steps.check_package_json.outputs.exists == 'true' }}
       with:
         host-actions-root: ${{ steps.setup.outputs.host_actions_root }}
 
