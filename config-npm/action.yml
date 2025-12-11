@@ -58,7 +58,6 @@ runs:
 
         mkdir -p ".actions"
         ln -sf "$host_actions_root/get-build-number" .actions/get-build-number
-        ln -sf "$host_actions_root/cache" .actions/cache
         ln -sf "$host_actions_root/shared" .actions/shared
         ls -la .actions/*
         echo "::endgroup::"
@@ -99,7 +98,7 @@ runs:
         echo "::endgroup::"
 
     - name: Cache NPM dependencies
-      uses: ./.actions/cache
+      uses: SonarSource/gh-action_cache@v1
       if: ${{ inputs.cache-npm == 'true' }}
       with:
         path: ~/.npm
