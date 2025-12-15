@@ -51,6 +51,9 @@ inputs:
       Relative paths of the artifacts for which to generate a provenance attestation (glob pattern).
       Default is collected from 'dist/' directory
     default: ''
+  disable-caching:
+    description: Whether to disable Poetry caching entirely
+    default: 'false'
 
 outputs:
   project-version:
@@ -105,6 +108,7 @@ runs:
         host-actions-root: ${{ steps.set-path.outputs.host_actions_root }}
     - name: Cache local Poetry cache
       uses: SonarSource/gh-action_cache@v1
+      if: inputs.disable-caching == 'false'
       with:
         path: ${{ github.workspace }}/${{ inputs.poetry-cache-dir }}
         key: poetry-${{ runner.os }}-${{ hashFiles('poetry.lock') }}
