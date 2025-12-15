@@ -376,6 +376,14 @@ jobs:
           run-shadow-scans: false                              # Run SonarQube scans on all 3 platforms (next, sqc-eu, sqc-us)
 ```
 
+**Disable caching entirely:**
+
+```yaml
+- uses: SonarSource/ci-github-actions/build-poetry@v1
+  with:
+    disable-caching: 'true'
+```
+
 ### Inputs
 
 | Input                       | Description                                                                                                                                                                                   | Default                                                                                               |
@@ -392,6 +400,7 @@ jobs:
 | `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', sqc-us, or 'none'. Use 'none' to skip sonar scans                                                                                              | `next`                                                                                                |
 | `run-shadow-scans`          | If true, run sonar scanner on all 3 platforms using the provided URL and token. If false, run on the platform provided by sonar-platform. When enabled, the sonar-platform setting is ignored | `false`                                                                                               |
 | `working-directory`         | Relative path under github.workspace to execute the build in                                                                                                                                  | `.`                                                                                                   |
+| `disable-caching`           | Whether to disable Poetry caching entirely                                                                                                                                                    | `false`                                                                                               |
 | `provenance`                | Whether to generate provenance attestation for built artifacts                                                                                                                                | `false`                                                                                               |
 | `provenance-artifact-paths` | Relative paths of artifacts for provenance attestation (glob pattern). See [Provenance Attestation](#provenance-attestation)                                                                  | (optional)                                                                                            |
 
