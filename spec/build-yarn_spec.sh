@@ -129,7 +129,7 @@ Describe 'build-yarn/build.sh'
       The lines of stdout should equal 4
       The line 1 should equal "::group::Capturing built artifacts for attestation"
       The line 2 should equal "Found artifact(s) for attestation:"
-      The line 3 should equal ".attestation-artifacts/test-1.2.3.tgz"
+      The line 3 should equal "$PWD/.attestation-artifacts/test-1.2.3.tgz"
       The line 4 should equal "::endgroup::"
       The contents of file "$GITHUB_OUTPUT" should include "artifact-paths<<EOF"
       The contents of file "$GITHUB_OUTPUT" should include ".attestation-artifacts/test-1.2.3.tgz"
