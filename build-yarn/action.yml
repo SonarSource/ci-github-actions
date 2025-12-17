@@ -2,6 +2,9 @@
 name: Build Yarn
 description: GitHub Action to build, analyze, and deploy a Yarn project with SonarQube integration
 inputs:
+  working-directory:
+    description: Relative path under github.workspace to execute the build in
+    default: .
   public:
     description: Deprecated. Use `artifactory-reader-role`, `artifactory-deployer-role`, and `artifactory-deploy-repo` instead.
     default: ${{ github.event.repository.visibility == 'public' && 'true' || 'false' }}
@@ -95,6 +98,7 @@ runs:
           (github.event.repository.visibility == 'public' && 'public-reader' || 'private-reader') }}
         ARTIFACTORY_DEPLOYER_ROLE: ${{ inputs.artifactory-deployer-role != '' && inputs.artifactory-deployer-role ||
           (github.event.repository.visibility == 'public' && 'public-deployer' || 'qa-deployer') }}
+      working-directory: ${{ inputs.working-directory }}
       run: |
         echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_DEPLOYER_ROLE=${ARTIFACTORY_DEPLOYER_ROLE}" >> "$GITHUB_ENV"
@@ -103,6 +107,7 @@ runs:
     - uses: jdx/mise-action@5ac50f778e26fac95da98d50503682459e86d566 # v3.2.0
       with:
         version: 2025.11.1
+        working_directory: ${{ inputs.working-directory }}
 
     - name: Cache Yarn dependencies
       uses: SonarSource/gh-action_cache@v1
@@ -157,7 +162,9 @@ runs:
         SQC_US_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SQC_US_TOKEN }}
         SONAR_PLATFORM: ${{ inputs.sonar-platform }}
         RUN_SHADOW_SCANS: ${{ inputs.run-shadow-scans }}
+      working-directory: ${{ inputs.working-directory }}
       run: $ACTION_PATH_BUILD_YARN/build.sh
+
     - name: Generate provenance attestation
       if: >-
         ${{ inputs.provenance == 'true' &&
