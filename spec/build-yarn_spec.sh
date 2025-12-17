@@ -71,6 +71,9 @@ common_setup() {
   export GITHUB_OUTPUT
   GITHUB_ENV=$(mktemp)
   export GITHUB_ENV
+  # Create temporary HOME directory to avoid modifying real ~/.npmrc
+  TEMP_HOME=$(mktemp -d)
+  export HOME="$TEMP_HOME"
   echo '{"version": "1.2.3-SNAPSHOT", "name": "test-project"}' > package.json
   touch yarn.lock
 }
@@ -78,6 +81,8 @@ common_setup() {
 common_cleanup() {
   [[ -f "$GITHUB_OUTPUT" ]] && rm "$GITHUB_OUTPUT"
   [[ -f "$GITHUB_ENV" ]] && rm "$GITHUB_ENV"
+  [[ -d "${TEMP_HOME:-}" ]] && rm -rf "$TEMP_HOME"
+  rm -f .yarnrc.yml
 }
 
 BeforeEach 'common_setup'

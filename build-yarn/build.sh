@@ -40,6 +40,8 @@
 
 set -euo pipefail
 
+PACKAGE_JSON="package.json"
+
 # shellcheck source=../shared/common-functions.sh
 source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 
@@ -88,18 +90,24 @@ set_build_env() {
   fi
 
   echo "::debug::Configuring JFrog and NPM repositories..."
-  npm config set registry "$ARTIFACTORY_URL/api/npm/npm"
-  npm config set "${ARTIFACTORY_URL//https:}/api/npm/:_authToken=$ARTIFACTORY_ACCESS_TOKEN"
-  yarn config set npmRegistryServer "${ARTIFACTORY_URL}/api/npm/npm"
-  yarn config set npmAlwaysAuth true
-  yarn config set npmAuthIdent "${ARTIFACTORY_USERNAME}:${ARTIFACTORY_ACCESS_TOKEN}"
+  NPM_ARTIFACTORY_URL="${ARTIFACTORY_URL}/api/npm/npm"
+  cat <<EOF > ~/.npmrc
+registry=$NPM_ARTIFACTORY_URL
+${ARTIFACTORY_URL#https:}/api/npm/:_authToken=${ARTIFACTORY_ACCESS_TOKEN}
+EOF
+  cat <<EOF > .yarnrc.yml
+npmRegistryServer: "$NPM_ARTIFACTORY_URL"
+npmPublishRegistry: "$NPM_ARTIFACTORY_URL"
+npmRegistries:
+  "${NPM_ARTIFACTORY_URL#https:}":
+    npmAlwaysAuth: true
+    npmAuthToken: "${ARTIFACTORY_ACCESS_TOKEN}"
+EOF
   jf config remove repox > /dev/null 2>&1 || true # Do not log if the repox config were not present
   jf config add repox --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_ACCESS_TOKEN"
   jf config use repox
   jf npm-config --repo-resolve "npm"
 }
-
-PACKAGE_JSON="package.json"
 
 set_project_version() {
   local current_version release_version digit_count
