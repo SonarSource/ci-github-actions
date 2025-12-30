@@ -112,7 +112,7 @@ runs:
         restore-keys: poetry-${{ runner.os }}-
     - uses: jdx/mise-action@146a28175021df8ca24f8ee1828cc2a60f980bd5 # v3.5.1
       with:
-        version: 2025.12.12
+        version: 2025.12.13
     - uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
       id: secrets
       # yamllint disable rule:line-length
