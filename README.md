@@ -836,9 +836,6 @@ config:
     contents: write
   steps:
     - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-    - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
-      with:
-        version: 2025.11.1
     - uses: SonarSource/ci-github-actions/config-npm@v1
 ```
 
