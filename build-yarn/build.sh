@@ -95,7 +95,7 @@ set_build_env() {
 registry=$NPM_ARTIFACTORY_URL
 ${ARTIFACTORY_URL#https:}/api/npm/:_authToken=${ARTIFACTORY_ACCESS_TOKEN}
 EOF
-  cat <<EOF > .yarnrc.yml
+  cat <<EOF >> .yarnrc.yml
 npmRegistryServer: "$NPM_ARTIFACTORY_URL"
 npmPublishRegistry: "$NPM_ARTIFACTORY_URL"
 npmRegistries:
