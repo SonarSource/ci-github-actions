@@ -305,6 +305,7 @@ When set to `true`, this input option configures the build to handle both public
 
 - The Maven Artifactory plugin will not publish the artifacts.
 - The artifacts are individually deployed after the build with the JFrog CLI to their respective repositories.
+- This feature relies on Maven install being enabled (`maven.install.skip=false`).
 
 It is possible to customize the target public and private repository names and the roles used for deployment by setting the input parameters
 for the public values, and by setting the environment variables for the private values:
