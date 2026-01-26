@@ -12,13 +12,21 @@
   <servers>
     <server>
       <id>sonarsource</id>
+      <username>${env.ARTIFACTORY_USERNAME}</username>
+      <password>${env.ARTIFACTORY_ACCESS_TOKEN}</password>
       <configuration>
-        <httpHeaders>
-          <property>
-            <name>Authorization</name>
-            <value>Bearer ${env.ARTIFACTORY_ACCESS_TOKEN}</value>
-          </property>
-        </httpHeaders>
+        <wagonProvider>httpclient</wagonProvider>
+        <httpConfiguration>
+          <all>
+            <params>
+              <param>
+                <name>http.authentication.preemptive</name>
+                <value>false</value>
+              </param>
+            </params>
+            <usePreemptive>true</usePreemptive>
+          </all>
+        </httpConfiguration>
       </configuration>
     </server>
   </servers>
