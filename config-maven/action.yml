@@ -173,7 +173,7 @@ runs:
       if: steps.config-maven-completed.outputs.skip != 'true' && inputs.disable-caching == 'false'
       with:
         path: ${{ inputs.cache-paths }}
-        key: maven-${{ runner.os }}-${{ github.workflow }}-${{ hashFiles(format('{0}/**/pom.xml', inputs.working-directory)) }}
+        key: maven-${{ runner.os }}-${{ github.workflow }}-${{ hashFiles(format('{0}/{1}/**/pom.xml', github.workspace, inputs.working-directory)) }}
         restore-keys: maven-${{ runner.os }}-${{ github.workflow }}-
 
     - name: Update project version and set current-version and project-version variables
