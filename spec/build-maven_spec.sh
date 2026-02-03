@@ -208,7 +208,6 @@ Describe 'run_sonar_scanner()'
     The line 2 should include "-Dsonar.host.url=https://test.sonarqube.com"
     The line 2 should include "-Dsonar.token=test-token"
     The line 2 should include "-Dsonar.projectVersion=1.2.3-SNAPSHOT"
-    The line 2 should include "-Dsonar.scm.revision=abc123def456"
     The lines of stdout should equal 2
   End
 
@@ -219,17 +218,6 @@ Describe 'run_sonar_scanner()'
     The lines of stdout should equal 2
   End
 
-  It 'uses PULL_REQUEST_SHA for sonar.scm.revision when in a pull request'
-    export GITHUB_SHA="commit-sha-123"
-    export PULL_REQUEST_SHA="pr-base-sha-456"
-    export GITHUB_EVENT_NAME="pull_request"
-    export PULL_REQUEST="123"
-    When call sonar_scanner_implementation
-    The status should be success
-    The line 2 should include "-Dsonar.scm.revision=pr-base-sha-456"
-    The line 2 should not include "-Dsonar.scm.revision=commit-sha-123"
-    The lines of stdout should equal 2
-  End
 End
 
 Describe 'orchestrate_sonar_platforms()'

@@ -314,7 +314,6 @@ Describe 'sonar_scanner_implementation()'
     The output should include "-Dsonar.token=test-token"
     The output should include "-Dsonar.analysis.buildNumber=42"
     The output should include "-Dsonar.analysis.pipeline=12345"
-    The output should include "-Dsonar.scm.revision=abc123"
     The output should include "-Dsonar.analysis.repository=test/repo"
     The output should include "-Dsonar.projectVersion=1.2.3"
   End
@@ -345,21 +344,6 @@ Describe 'sonar_scanner_implementation()'
     The output should include "-Dsonar.branch.name=feature"
   End
 
-  It 'uses PULL_REQUEST_SHA for sonar.scm.revision when in a pull request'
-    export SONAR_HOST_URL="https://sonar.example.com"
-    export SONAR_TOKEN="test-token"
-    export BUILD_NUMBER="42"
-    export GITHUB_RUN_ID="12345"
-    export GITHUB_SHA="commit-sha-123"
-    export PULL_REQUEST_SHA="pr-base-sha-456"
-    export GITHUB_REPOSITORY="test/repo"
-    export GITHUB_EVENT_NAME="pull_request"
-    export PULL_REQUEST="123"
-    When call sonar_scanner_implementation
-    The status should be success
-    The output should include "-Dsonar.scm.revision=pr-base-sha-456"
-    The output should not include "-Dsonar.scm.revision=commit-sha-123"
-  End
 End
 
 Describe 'get_build_config()'

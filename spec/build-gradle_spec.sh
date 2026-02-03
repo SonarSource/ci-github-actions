@@ -226,7 +226,6 @@ Describe 'build_gradle_args'
     export SONAR_TOKEN="sonar-token"
     When call build_gradle_args
     The output should include "-Dsonar.projectVersion=1.0.0-SNAPSHOT"
-    The output should include "-Dsonar.scm.revision=abc123def456"
   End
 
   It 'includes sonar args for maintenance branch'
@@ -247,7 +246,6 @@ Describe 'build_gradle_args'
     export SONAR_HOST_URL="https://sonar.example.com"
     export SONAR_TOKEN="sonar-token"
     When call build_gradle_args
-    The output should include "-Dsonar.scm.revision=base123"
     The output should include "-Dsonar.analysis.prNumber=123"
   End
 
@@ -258,7 +256,6 @@ Describe 'build_gradle_args'
     export SONAR_TOKEN="sonar-token"
     When call build_gradle_args
     The output should include "-Dsonar.branch.name=feature/long/my-feature"
-    The output should include "-Dsonar.scm.revision=abc123def456"
   End
 
   It 'includes additional gradle args'

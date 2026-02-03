@@ -108,12 +108,6 @@ set_sonar_platform_vars() {
 
 run_sonar_scanner() {
     local additional_params=("$@")
-    local sonar_sha
-    if is_pull_request; then
-        sonar_sha="${PULL_REQUEST_SHA:?}"
-    else
-        sonar_sha="${GITHUB_SHA}"
-    fi
 
     # Install pysonar into Poetry's virtual environment without modifying project files
     poetry run pip install pysonar
@@ -121,7 +115,6 @@ run_sonar_scanner() {
         "-Dsonar.host.url=${SONAR_HOST_URL}" \
         "-Dsonar.analysis.buildNumber=${BUILD_NUMBER}" \
         "-Dsonar.analysis.pipeline=${GITHUB_RUN_ID}" \
-        "-Dsonar.scm.revision=${sonar_sha}" \
         "-Dsonar.analysis.repository=${GITHUB_REPOSITORY}" \
         "${additional_params[@]+${additional_params[@]}}"
     poetry run pysonar \
@@ -129,7 +122,6 @@ run_sonar_scanner() {
         -Dsonar.token="${SONAR_TOKEN}" \
         -Dsonar.analysis.buildNumber="${BUILD_NUMBER}" \
         -Dsonar.analysis.pipeline="${GITHUB_RUN_ID}" \
-        -Dsonar.scm.revision="${sonar_sha}" \
         -Dsonar.analysis.repository="${GITHUB_REPOSITORY}" \
         "${additional_params[@]+${additional_params[@]}}"
 }
