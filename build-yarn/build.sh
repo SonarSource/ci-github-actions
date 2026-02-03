@@ -156,11 +156,6 @@ sonar_scanner_implementation() {
     scanner_args+=("-Dsonar.token=${SONAR_TOKEN}")
     scanner_args+=("-Dsonar.analysis.buildNumber=${BUILD_NUMBER}")
     scanner_args+=("-Dsonar.analysis.pipeline=${GITHUB_RUN_ID}")
-    if is_pull_request; then
-        scanner_args+=("-Dsonar.scm.revision=${PULL_REQUEST_SHA:?}")
-    else
-        scanner_args+=("-Dsonar.scm.revision=${GITHUB_SHA}")
-    fi
     scanner_args+=("-Dsonar.analysis.repository=${GITHUB_REPOSITORY}")
     scanner_args+=("-Dsonar.projectVersion=${CURRENT_VERSION}")
 

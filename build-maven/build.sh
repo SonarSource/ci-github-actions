@@ -87,11 +87,6 @@ sonar_scanner_implementation() {
     # Build sonar properties (using orchestrator-provided SONAR_HOST_URL/SONAR_TOKEN)
     local sonar_props=("-Dsonar.host.url=${SONAR_HOST_URL}" "-Dsonar.token=${SONAR_TOKEN}")
     sonar_props+=("-Dsonar.projectVersion=${CURRENT_VERSION}")
-    if is_pull_request; then
-        sonar_props+=("-Dsonar.scm.revision=${PULL_REQUEST_SHA:?}")
-    else
-        sonar_props+=("-Dsonar.scm.revision=${GITHUB_SHA}")
-    fi
     sonar_props+=("${additional_params[@]+"${additional_params[@]}"}")
 
     echo "Maven command: mvn $SONAR_GOAL ${sonar_props[*]}"
