@@ -288,6 +288,39 @@ Describe 'set_project_version()'
   End
 End
 
+Describe 'run_sonar_scanner()'
+  export SONAR_HOST_URL="https://test.sonarqube.com"
+  export SONAR_TOKEN="test-token"
+  export BUILD_NUMBER="42"
+  export GITHUB_RUN_ID="run-123"
+  export GITHUB_REPOSITORY="my-org/my-repo"
+
+  It 'uses GITHUB_SHA for sonar.scm.revision by default'
+    export GITHUB_SHA="commit-sha-abc"
+    export PULL_REQUEST=""
+    Mock poetry
+      echo "poetry $*"
+    End
+    When call run_sonar_scanner
+    The status should be success
+    The output should include "-Dsonar.scm.revision=commit-sha-abc"
+  End
+
+  It 'uses PULL_REQUEST_SHA for sonar.scm.revision when in a pull request'
+    export GITHUB_SHA="commit-sha-123"
+    export PULL_REQUEST_SHA="pr-base-sha-456"
+    export GITHUB_EVENT_NAME="pull_request"
+    export PULL_REQUEST="123"
+    Mock poetry
+      echo "poetry $*"
+    End
+    When call run_sonar_scanner
+    The status should be success
+    The output should include "-Dsonar.scm.revision=pr-base-sha-456"
+    The output should not include "-Dsonar.scm.revision=commit-sha-123"
+  End
+End
+
 Describe 'jfrog_poetry_install()'
   export PROJECT="my-repo"
   It 'installs Poetry dependencies using JFrog CLI'
@@ -337,7 +370,7 @@ Describe 'build_poetry()'
     The line 10 should equal '=== Running Sonar analysis on selected platform: next ==='
     The line 12 should equal 'Using Sonar platform: next (URL: https://next.sonarqube.com)'
     The line 13 should equal 'poetry run pip install pysonar'
-    The line 15 should equal 'poetry run pysonar -Dsonar.host.url=https://next.sonarqube.com -Dsonar.token=next-token -Dsonar.analysis.buildNumber=42 -Dsonar.analysis.pipeline=dummy-run-id -Dsonar.analysis.sha1=dummy-sha -Dsonar.analysis.repository=my-org/my-repo'
+    The line 15 should equal 'poetry run pysonar -Dsonar.host.url=https://next.sonarqube.com -Dsonar.token=next-token -Dsonar.analysis.buildNumber=42 -Dsonar.analysis.pipeline=dummy-run-id -Dsonar.scm.revision=dummy-sha -Dsonar.analysis.repository=my-org/my-repo'
     The line 17 should equal 'jf config remove repox'
     The line 18 should equal 'jf config add repox --artifactory-url https://dummy.repox --access-token <deploy token>'
     The line 19 should include '/dist'
@@ -351,6 +384,7 @@ Describe 'build_poetry()'
   It 'skips deploy when on a PR and DEPLOY_PULL_REQUEST is not true'
     export GITHUB_EVENT_NAME="pull_request"
     export PULL_REQUEST="123"
+    export PULL_REQUEST_SHA="dummy-sha"
     export GITHUB_REF_NAME="123/merge"
 
     When call build_poetry
@@ -365,7 +399,7 @@ Describe 'build_poetry()'
     The line 11 should equal '=== Running Sonar analysis on selected platform: next ==='
     The line 13 should equal 'Using Sonar platform: next (URL: https://next.sonarqube.com)'
     The line 14 should equal 'poetry run pip install pysonar'
-    The line 16 should equal 'poetry run pysonar -Dsonar.host.url=https://next.sonarqube.com -Dsonar.token=next-token -Dsonar.analysis.buildNumber=42 -Dsonar.analysis.pipeline=dummy-run-id -Dsonar.analysis.sha1=dummy-sha -Dsonar.analysis.repository=my-org/my-repo -Dsonar.analysis.prNumber=123'
+    The line 16 should equal 'poetry run pysonar -Dsonar.host.url=https://next.sonarqube.com -Dsonar.token=next-token -Dsonar.analysis.buildNumber=42 -Dsonar.analysis.pipeline=dummy-run-id -Dsonar.scm.revision=dummy-sha -Dsonar.analysis.repository=my-org/my-repo -Dsonar.analysis.prNumber=123'
     The line 18 should equal '=== Build completed successfully ==='
     The status should be success
   End
@@ -373,6 +407,7 @@ Describe 'build_poetry()'
   It 'builds and publishes when on a PR and DEPLOY_PULL_REQUEST is true'
     export GITHUB_EVENT_NAME="pull_request"
     export PULL_REQUEST="123"
+    export PULL_REQUEST_SHA="dummy-sha"
     export GITHUB_REF_NAME="123/merge"
     export DEPLOY_PULL_REQUEST="true"
 
@@ -388,7 +423,7 @@ Describe 'build_poetry()'
     The line 11 should equal '=== Running Sonar analysis on selected platform: next ==='
     The line 13 should equal 'Using Sonar platform: next (URL: https://next.sonarqube.com)'
     The line 14 should equal 'poetry run pip install pysonar'
-    The line 16 should equal 'poetry run pysonar -Dsonar.host.url=https://next.sonarqube.com -Dsonar.token=next-token -Dsonar.analysis.buildNumber=42 -Dsonar.analysis.pipeline=dummy-run-id -Dsonar.analysis.sha1=dummy-sha -Dsonar.analysis.repository=my-org/my-repo -Dsonar.analysis.prNumber=123'
+    The line 16 should equal 'poetry run pysonar -Dsonar.host.url=https://next.sonarqube.com -Dsonar.token=next-token -Dsonar.analysis.buildNumber=42 -Dsonar.analysis.pipeline=dummy-run-id -Dsonar.scm.revision=dummy-sha -Dsonar.analysis.repository=my-org/my-repo -Dsonar.analysis.prNumber=123'
     The line 18 should equal "jf config remove repox"
     The line 19 should equal "jf config add repox --artifactory-url https://dummy.repox --access-token <deploy token>"
     The line 20 should include "/dist"
@@ -469,15 +504,15 @@ Describe 'build_poetry()'
     The line 12 should equal '--- ORCHESTRATOR: Analyzing with platform: next ---'
     The line 13 should equal 'Using Sonar platform: next (URL: https://next.sonarqube.com)'
     The line 14 should equal 'poetry run pip install pysonar'
-    The line 16 should equal 'poetry run pysonar -Dsonar.host.url=https://next.sonarqube.com -Dsonar.token=next-token -Dsonar.analysis.buildNumber=42 -Dsonar.analysis.pipeline=dummy-run-id -Dsonar.analysis.sha1=dummy-sha -Dsonar.analysis.repository=my-org/my-repo'
+    The line 16 should equal 'poetry run pysonar -Dsonar.host.url=https://next.sonarqube.com -Dsonar.token=next-token -Dsonar.analysis.buildNumber=42 -Dsonar.analysis.pipeline=dummy-run-id -Dsonar.scm.revision=dummy-sha -Dsonar.analysis.repository=my-org/my-repo'
     The line 19 should equal '--- ORCHESTRATOR: Analyzing with platform: sqc-us ---'
     The line 20 should equal 'Using Sonar platform: sqc-us (URL: https://sonarqube-us.com)'
     The line 21 should equal 'poetry run pip install pysonar'
-    The line 23 should equal 'poetry run pysonar -Dsonar.host.url=https://sonarqube-us.com -Dsonar.token=sqc-us-token -Dsonar.analysis.buildNumber=42 -Dsonar.analysis.pipeline=dummy-run-id -Dsonar.analysis.sha1=dummy-sha -Dsonar.analysis.repository=my-org/my-repo'
+    The line 23 should equal 'poetry run pysonar -Dsonar.host.url=https://sonarqube-us.com -Dsonar.token=sqc-us-token -Dsonar.analysis.buildNumber=42 -Dsonar.analysis.pipeline=dummy-run-id -Dsonar.scm.revision=dummy-sha -Dsonar.analysis.repository=my-org/my-repo'
     The line 26 should equal '--- ORCHESTRATOR: Analyzing with platform: sqc-eu ---'
     The line 27 should equal 'Using Sonar platform: sqc-eu (URL: https://sonarcloud.io)'
     The line 28 should equal 'poetry run pip install pysonar'
-    The line 30 should equal 'poetry run pysonar -Dsonar.host.url=https://sonarcloud.io -Dsonar.token=sqc-eu-token -Dsonar.analysis.buildNumber=42 -Dsonar.analysis.pipeline=dummy-run-id -Dsonar.analysis.sha1=dummy-sha -Dsonar.analysis.repository=my-org/my-repo'
+    The line 30 should equal 'poetry run pysonar -Dsonar.host.url=https://sonarcloud.io -Dsonar.token=sqc-eu-token -Dsonar.analysis.buildNumber=42 -Dsonar.analysis.pipeline=dummy-run-id -Dsonar.scm.revision=dummy-sha -Dsonar.analysis.repository=my-org/my-repo'
     The line 32 should equal '=== Completed Sonar analysis on all platforms ==='
     The status should be success
   End

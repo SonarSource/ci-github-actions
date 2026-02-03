@@ -133,27 +133,14 @@ build_gradle_args() {
     args+=("-Dsonar.analysis.pipeline=$GITHUB_RUN_ID")
     args+=("-Dsonar.analysis.repository=$GITHUB_REPOSITORY")
     args+=("-Dsonar.projectVersion=${CURRENT_VERSION}")
-    args+=("-Dsonar.scm.revision=$GITHUB_SHA")
-
-    # Add branch-specific sonar arguments
-    if is_default_branch; then
-      # Master branch analysis
-      args+=("-Dsonar.analysis.sha1=$GITHUB_SHA")
-
-    elif is_maintenance_branch; then
-      # Maintenance branch analysis
-      args+=("-Dsonar.branch.name=$GITHUB_REF_NAME")
-      args+=("-Dsonar.analysis.sha1=$GITHUB_SHA")
-
-    elif is_pull_request; then
-      # Pull request analysis
-      args+=("-Dsonar.analysis.sha1=$PULL_REQUEST_SHA")
+    if is_pull_request; then
+      args+=("-Dsonar.scm.revision=${PULL_REQUEST_SHA:?}")
       args+=("-Dsonar.analysis.prNumber=$PULL_REQUEST")
-
-    elif is_long_lived_feature_branch; then
-      # Long-lived feature branch analysis
-      args+=("-Dsonar.branch.name=$GITHUB_REF_NAME")
-      args+=("-Dsonar.analysis.sha1=$GITHUB_SHA")
+    else
+      args+=("-Dsonar.scm.revision=$GITHUB_SHA")
+      if is_maintenance_branch || is_long_lived_feature_branch; then
+        args+=("-Dsonar.branch.name=$GITHUB_REF_NAME")
+      fi
     fi
   fi
 
