@@ -8,7 +8,7 @@ jobs:
   test-resources:
     runs-on: github-ubuntu-latest-s
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       # Create test file and directory for cache
       - name: Create test file for cache
         run: |
@@ -16,13 +16,13 @@ jobs:
           echo "Test content for cache" > test-cache/test.txt
 
       - name: Save test cache
-        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache/save@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           path: ./test-cache
           key: test-cache-${{ github.event.pull_request.number }}
 
       - name: Create and upload test artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: test-artifact-${{ github.event.pull_request.number }}
           path: test-cache/test.txt
@@ -34,7 +34,7 @@ jobs:
     permissions:
       actions: write  # Required for cache/artifact operations
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Run PR cleanup
         uses: ./pr_cleanup
 
