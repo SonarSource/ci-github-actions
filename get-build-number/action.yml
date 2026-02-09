@@ -52,7 +52,7 @@ runs:
         enableCrossOsArchive: true
 
     # Otherwise, increment the build number
-    - uses: SonarSource/vault-action-wrapper@c210d4012f44361e2d2a28aa2d97a75fd90b6214 # 3.1.1
+    - uses: SonarSource/vault-action-wrapper@545e7cfbb5528e7009a1edcc83e073898d292627 # 3.2.0
       id: secrets
       if: steps.from-env.outputs.skip != 'true' && steps.current-build-number.outputs.cache-hit != 'true'
       with:

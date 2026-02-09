@@ -22,7 +22,7 @@ runs:
         echo "JSIGN_CACHE_PATH=/tmp/jsign-cache" >> "$GITHUB_ENV"
 
     - name: Cache code signing tools
-      uses: SonarSource/gh-action_cache@v1
+      uses: SonarSource/gh-action_cache@v1.1.4
       id: tools-cache
       with:
         path: |
@@ -32,7 +32,7 @@ runs:
 
     - name: Get DigiCert secrets from Vault
       id: secrets
-      uses: SonarSource/vault-action-wrapper@c210d4012f44361e2d2a28aa2d97a75fd90b6214 # 3.1.1
+      uses: SonarSource/vault-action-wrapper@545e7cfbb5528e7009a1edcc83e073898d292627 # 3.2.0
       with:
         secrets: |
           development/kv/data/sign/digicert apikey | SM_API_KEY;

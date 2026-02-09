@@ -107,7 +107,7 @@ runs:
         working_directory: ${{ inputs.working-directory }}
 
     - name: Cache Yarn dependencies
-      uses: SonarSource/gh-action_cache@v1
+      uses: SonarSource/gh-action_cache@v1.1.4
       if: ${{ inputs.cache-yarn == 'true' }}
       with:
         path: |
@@ -115,7 +115,7 @@ runs:
         key: yarn-${{ runner.os }}-${{ hashFiles('**/yarn.lock') }}
         restore-keys: yarn-${{ runner.os }}-
 
-    - uses: SonarSource/vault-action-wrapper@c210d4012f44361e2d2a28aa2d97a75fd90b6214 # 3.1.1
+    - uses: SonarSource/vault-action-wrapper@545e7cfbb5528e7009a1edcc83e073898d292627 # 3.2.0
       id: secrets
       # yamllint disable rule:line-length
       with:
