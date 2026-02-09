@@ -118,7 +118,7 @@ runs:
           (github.event.repository.visibility == 'public' && 'public-deployer' || 'qa-deployer') }}
       run: |
         echo "ARTIFACTORY_DEPLOYER_ROLE=${ARTIFACTORY_DEPLOYER_ROLE}" >> "$GITHUB_ENV"
-    - uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
+    - uses: SonarSource/vault-action-wrapper@c210d4012f44361e2d2a28aa2d97a75fd90b6214 # 3.1.1
       id: secrets
       with:
         # yamllint disable rule:line-length
@@ -185,7 +185,7 @@ runs:
             github.event_name != 'pull_request' &&
             steps.build.outputs.deployed == 'true' &&
             (inputs.provenance-artifact-paths != '' || steps.build.outputs.artifact-paths != '') }}
-      uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
+      uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
       with:
         subject-path: >-
           ${{ inputs.provenance-artifact-paths != '' && inputs.provenance-artifact-paths || steps.build.outputs.artifact-paths }}

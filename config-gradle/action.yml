@@ -91,7 +91,7 @@ runs:
           (github.event.repository.visibility == 'public' && 'public-reader' || 'private-reader') }}
       run: |
         echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
-    - uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
+    - uses: SonarSource/vault-action-wrapper@c210d4012f44361e2d2a28aa2d97a75fd90b6214 # 3.1.1
       if: steps.config-gradle-completed.outputs.skip != 'true'
       id: secrets
       with:
