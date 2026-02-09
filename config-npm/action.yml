@@ -98,7 +98,7 @@ runs:
         echo "::endgroup::"
 
     - name: Cache NPM dependencies
-      uses: SonarSource/gh-action_cache@v1.1.4
+      uses: SonarSource/gh-action_cache@9d7be1f2fc68602dc3119349305f61c1367cd335 # v1.1.4
       if: ${{ inputs.cache-npm == 'true' }}
       with:
         path: ~/.npm
