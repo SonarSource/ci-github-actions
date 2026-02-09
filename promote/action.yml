@@ -44,13 +44,13 @@ runs:
     - uses: ./.actions/get-build-number
       with:
         host-actions-root: ${{ steps.set-path.outputs.host_actions_root }}
-    - uses: SonarSource/vault-action-wrapper@320bd31b03e5dacaac6be51bbbb15adf7caccc32 # 3.1.0
+    - uses: SonarSource/vault-action-wrapper@c210d4012f44361e2d2a28aa2d97a75fd90b6214 # 3.1.1
       id: secrets
       with:
         secrets: |
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-promoter access_token | ARTIFACTORY_PROMOTE_ACCESS_TOKEN;
           development/github/token/{REPO_OWNER_NAME_DASH}-promotion token | GITHUB_TOKEN;
-    - uses: jdx/mise-action@146a28175021df8ca24f8ee1828cc2a60f980bd5 # v3.5.1
+    - uses: jdx/mise-action@6d1e696aa24c1aa1bcc1adea0212707c71ab78a8 # v3.6.1
       with:
         version: 2026.1.0
     - name: Promote artifacts
