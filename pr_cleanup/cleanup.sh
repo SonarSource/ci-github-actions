@@ -44,10 +44,10 @@ envsubst '$GITHUB_HEAD_REF' < "$CURDIR"/artifact_template.tpl > "$tpl_tmp_file"
 ARTIFACT_TEMPLATE="$(cat "$tpl_tmp_file")"
 
 ARTIFACT_API_URL="/repos/$GITHUB_REPOSITORY/actions/artifacts"
-gh api "$ARTIFACT_API_URL" --paginate --slurp --jq '[.[].artifacts[] | select(.workflow_run.head_branch == "'"$GITHUB_HEAD_REF"'")] | {artifacts: .}' --template "$ARTIFACT_TEMPLATE"
+gh api "$ARTIFACT_API_URL" --paginate --template "$ARTIFACT_TEMPLATE"
 echo
 
-artifactIds="$(gh api "$ARTIFACT_API_URL" --paginate --slurp --jq '.[].artifacts[] | select(.workflow_run.head_branch == "'"$GITHUB_HEAD_REF"'") | .id')"
+artifactIds="$(gh api "$ARTIFACT_API_URL" --paginate --jq '.artifacts[] | select(.workflow_run.head_branch == "'"$GITHUB_HEAD_REF"'") | .id')"
 echo "Deleting artifacts..."
 for artifactId in $artifactIds
 do
@@ -57,5 +57,5 @@ done
 echo
 
 echo "Fetching list of artifacts after deletion"
-gh api "$ARTIFACT_API_URL" --paginate --slurp --jq '[.[].artifacts[] | select(.workflow_run.head_branch == "'"$GITHUB_HEAD_REF"'")] | {artifacts: .}' --template "$ARTIFACT_TEMPLATE"
+gh api "$ARTIFACT_API_URL" --paginate --template "$ARTIFACT_TEMPLATE"
 echo "::endgroup::"
