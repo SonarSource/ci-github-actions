@@ -14,14 +14,15 @@ set -euo pipefail
 : "${GITHUB_HEAD_REF:?Required environment variable not set}"
 
 CURDIR=$(dirname "$0")
+readonly CACHE_LIST_LIMIT=100000
 
 echo "::group::Cache Cleanup"
 echo "Fetching list of cache keys on $GITHUB_REPOSITORY for $CACHE_REF"
 CACHE_TEMPLATE="$(cat "$CURDIR"/cache_template.tpl)"
-gh cache list --repo "$GITHUB_REPOSITORY" --ref "$CACHE_REF" --json id,key,sizeInBytes --template "$CACHE_TEMPLATE"
+gh cache list --repo "$GITHUB_REPOSITORY" --ref "$CACHE_REF" --limit "$CACHE_LIST_LIMIT" --json id,key,sizeInBytes --template "$CACHE_TEMPLATE"
 echo
 
-cacheKeysForPR="$(gh cache list --repo "$GITHUB_REPOSITORY" --ref "$CACHE_REF" --json id --jq '.[].id')"
+cacheKeysForPR="$(gh cache list --repo "$GITHUB_REPOSITORY" --ref "$CACHE_REF" --limit "$CACHE_LIST_LIMIT" --json id --jq '.[].id')"
 echo "Deleting caches..."
 for cacheKey in $cacheKeysForPR
 do
@@ -31,7 +32,7 @@ done
 echo
 
 echo "Fetching list of cache keys after deletion"
-gh cache list --repo "$GITHUB_REPOSITORY" --ref "$CACHE_REF" --json id,key,sizeInBytes --template "$CACHE_TEMPLATE"
+gh cache list --repo "$GITHUB_REPOSITORY" --ref "$CACHE_REF" --limit "$CACHE_LIST_LIMIT" --json id,key,sizeInBytes --template "$CACHE_TEMPLATE"
 echo
 echo "::endgroup::"
 
@@ -43,10 +44,10 @@ envsubst '$GITHUB_HEAD_REF' < "$CURDIR"/artifact_template.tpl > "$tpl_tmp_file"
 ARTIFACT_TEMPLATE="$(cat "$tpl_tmp_file")"
 
 ARTIFACT_API_URL="/repos/$GITHUB_REPOSITORY/actions/artifacts"
-gh api -X GET "$ARTIFACT_API_URL" --template "$ARTIFACT_TEMPLATE"
+gh api "$ARTIFACT_API_URL" --paginate --template "$ARTIFACT_TEMPLATE"
 echo
 
-artifactIds="$(gh api -X GET "$ARTIFACT_API_URL" --jq '.artifacts[] | select(.workflow_run.head_branch == "'"$GITHUB_HEAD_REF"'") | .id')"
+artifactIds="$(gh api "$ARTIFACT_API_URL" --paginate --jq '.artifacts[] | select(.workflow_run.head_branch == "'"$GITHUB_HEAD_REF"'") | .id')"
 echo "Deleting artifacts..."
 for artifactId in $artifactIds
 do
@@ -56,5 +57,5 @@ done
 echo
 
 echo "Fetching list of artifacts after deletion"
-gh api -X GET "$ARTIFACT_API_URL" --template "$ARTIFACT_TEMPLATE"
+gh api "$ARTIFACT_API_URL" --paginate --template "$ARTIFACT_TEMPLATE"
 echo "::endgroup::"

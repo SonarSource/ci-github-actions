@@ -19,7 +19,7 @@ Describe "cleanup.sh"
         cat "$CACHE_KEY_TO_DELETE"
       elif [[ "$*" =~ "cache delete" ]]; then
         echo "" > "$CACHE_KEY_TO_DELETE"
-      elif [[ "$*" =~ "api -X GET" ]]; then
+      elif [[ "$*" =~ "api /repos/".*/actions/artifacts.*--paginate ]]; then
         cat "$ARTIFACT_TO_DELETE"
       elif [[ "$*" =~ "api -X DELETE" ]]; then
         echo "" > "$ARTIFACT_TO_DELETE"
