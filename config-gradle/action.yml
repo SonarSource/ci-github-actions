@@ -158,7 +158,7 @@ runs:
         rm -f gradle-md5-sums.txt
 
     - name: Gradle Cache
-      uses: SonarSource/gh-action_cache@v1.1.4
+      uses: SonarSource/gh-action_cache@v1.2.0
       if: steps.config-gradle-completed.outputs.skip != 'true' && inputs.disable-caching == 'false'
       with:
         path: ${{ inputs.cache-paths }}
