@@ -172,7 +172,7 @@ runs:
       run: |
         GRADLE_INIT_DIR="$GRADLE_USER_HOME/init.d"
         mkdir -p "$GRADLE_INIT_DIR"
-        cp "${GITHUB_ACTION_PATH}/resources/repoxAuth.init.gradle.kts" "$GRADLE_INIT_DIR/"
+        cp "$ACTION_PATH_CONFIG_GRADLE/resources/repoxAuth.init.gradle.kts" "$GRADLE_INIT_DIR/"
 
     - name: Update project version and set current-version and project-version variables
       id: set-version
@@ -180,7 +180,7 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       env:
         SKIP: ${{ steps.config-gradle-completed.outputs.skip }}
-      run: ${GITHUB_ACTION_PATH}/set_gradle_project_version.sh
+      run: $ACTION_PATH_CONFIG_GRADLE/set_gradle_project_version.sh
 
     - name: Deactivate UseContainerSupport on github-ubuntu-* runners
       if: steps.config-gradle-completed.outputs.skip != 'true' && runner.os == 'Linux' && runner.environment == 'github-hosted'
