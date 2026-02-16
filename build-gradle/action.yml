@@ -169,7 +169,7 @@ runs:
         ORG_GRADLE_PROJECT_signingPassword: ${{ fromJSON(steps.secrets.outputs.vault).PGP_PASSPHRASE }}
         ORG_GRADLE_PROJECT_signingKeyId: ${{ fromJSON(steps.secrets.outputs.vault).SIGN_KEY_ID }}
       working-directory: ${{ inputs.working-directory }}
-      run: ${GITHUB_ACTION_PATH}/build.sh
+      run: $ACTION_PATH_BUILD_GRADLE/build.sh
 
     - name: Archive problems report
       if: always()

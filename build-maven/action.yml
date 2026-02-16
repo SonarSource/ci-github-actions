@@ -209,7 +209,7 @@ runs:
         ARTIFACTORY_PRIVATE_DEPLOY_REPO: ${{ steps.params.outputs.ARTIFACTORY_PRIVATE_DEPLOY_REPO }}
         ARTIFACTORY_PRIVATE_DEPLOY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_PRIVATE_DEPLOY_ACCESS_TOKEN }}
         INSTALLED_ARTIFACTS: ${{ steps.build.outputs.installed-artifacts }}
-      run: ${GITHUB_ACTION_PATH}/deploy-artifacts.sh
+      run: $ACTION_PATH_BUILD_MAVEN/deploy-artifacts.sh
 
     - name: Cleanup Maven repository before caching
       if: inputs.cache-cleanup == 'true'
