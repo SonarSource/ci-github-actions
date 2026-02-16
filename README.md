@@ -2,6 +2,47 @@
 
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=SonarSource_ci-github-actions&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=SonarSource_ci-github-actions)
 
+## Dogfooding Status
+
+These badges show the status of workflows in dummy repositories that use (or should use) `ci-github-actions@master`:
+
+### sonar-dummy (Maven)
+
+[![Build](https://github.com/SonarSource/sonar-dummy/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/SonarSource/sonar-dummy/actions/workflows/build.yml)
+[![pre-commit](https://github.com/SonarSource/sonar-dummy/actions/workflows/pre-commit.yml/badge.svg?branch=master)](https://github.com/SonarSource/sonar-dummy/actions/workflows/pre-commit.yml)
+[![Cleanup caches and artifacts on PR close](https://github.com/SonarSource/sonar-dummy/actions/workflows/pr-cleanup.yml/badge.svg?branch=master)](https://github.com/SonarSource/sonar-dummy/actions/workflows/pr-cleanup.yml)
+[![Integration Test](https://github.com/SonarSource/sonar-dummy/actions/workflows/integration-test.yml/badge.svg?branch=master)](https://github.com/SonarSource/sonar-dummy/actions/workflows/integration-test.yml)
+[![Unified Dogfooding scans](https://github.com/SonarSource/sonar-dummy/actions/workflows/unified-dogfooding.yml/badge.svg?branch=master)](https://github.com/SonarSource/sonar-dummy/actions/workflows/unified-dogfooding.yml)
+
+### sonar-dummy-gradle-oss (Gradle)
+
+[![Build](https://github.com/SonarSource/sonar-dummy-gradle-oss/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/SonarSource/sonar-dummy-gradle-oss/actions/workflows/build.yml)
+[![Cleanup caches and artifacts on PR close](https://github.com/SonarSource/sonar-dummy-gradle-oss/actions/workflows/pr-cleanup.yml/badge.svg?branch=master)](https://github.com/SonarSource/sonar-dummy-gradle-oss/actions/workflows/pr-cleanup.yml)
+[![Unified Dogfooding scans](https://github.com/SonarSource/sonar-dummy-gradle-oss/actions/workflows/unified-dogfooding.yml/badge.svg?branch=master)](https://github.com/SonarSource/sonar-dummy-gradle-oss/actions/workflows/unified-dogfooding.yml)
+
+### sonar-dummy-js (NPM)
+
+[![Build](https://github.com/SonarSource/sonar-dummy-js/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/SonarSource/sonar-dummy-js/actions/workflows/build.yml)
+[![Unified Dogfooding scans](https://github.com/SonarSource/sonar-dummy-js/actions/workflows/unified-dogfooding.yml/badge.svg?branch=master)](https://github.com/SonarSource/sonar-dummy-js/actions/workflows/unified-dogfooding.yml)
+
+### sonar-dummy-maven-enterprise (Maven)
+
+[![Build](https://github.com/SonarSource/sonar-dummy-maven-enterprise/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/SonarSource/sonar-dummy-maven-enterprise/actions/workflows/build.yml)
+[![Unified Dogfooding scans](https://github.com/SonarSource/sonar-dummy-maven-enterprise/actions/workflows/unified-dogfooding.yml/badge.svg?branch=master)](https://github.com/SonarSource/sonar-dummy-maven-enterprise/actions/workflows/unified-dogfooding.yml)
+[![pre-commit](https://github.com/SonarSource/sonar-dummy-maven-enterprise/actions/workflows/pre-commit.yml/badge.svg?branch=master)](https://github.com/SonarSource/sonar-dummy-maven-enterprise/actions/workflows/pre-commit.yml)
+
+### sonar-dummy-python-oss (Python)
+
+[![Build](https://github.com/SonarSource/sonar-dummy-python-oss/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/SonarSource/sonar-dummy-python-oss/actions/workflows/build.yml)
+[![Cleanup caches and artifacts on PR close](https://github.com/SonarSource/sonar-dummy-python-oss/actions/workflows/pr-cleanup.yml/badge.svg?branch=master)](https://github.com/SonarSource/sonar-dummy-python-oss/actions/workflows/pr-cleanup.yml)
+[![Unified Dogfooding scans](https://github.com/SonarSource/sonar-dummy-python-oss/actions/workflows/unified-dogfooding.yml/badge.svg?branch=master)](https://github.com/SonarSource/sonar-dummy-python-oss/actions/workflows/unified-dogfooding.yml)
+
+### sonar-dummy-yarn (Yarn)
+
+[![Build](https://github.com/SonarSource/sonar-dummy-yarn/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/SonarSource/sonar-dummy-yarn/actions/workflows/build.yml)
+[![Pre-commit checks](https://github.com/SonarSource/sonar-dummy-yarn/actions/workflows/pre-commit.yml/badge.svg?branch=master)](https://github.com/SonarSource/sonar-dummy-yarn/actions/workflows/pre-commit.yml)
+[![Unified Dogfooding scans](https://github.com/SonarSource/sonar-dummy-yarn/actions/workflows/unified-dogfooding.yml/badge.svg?branch=master)](https://github.com/SonarSource/sonar-dummy-yarn/actions/workflows/unified-dogfooding.yml)
+
 ## Using AI for Cirrus CI to GitHub Actions Migration
 
 It is recommended to use AI tools like Cursor or Claude code to assist with Cirrus CI to GitHub actions migration.
@@ -159,13 +200,13 @@ steps:
 
 ### Input Environment Variables
 
-| Environment Variable                    | Description                                                                       |
-|-----------------------------------------|-----------------------------------------------------------------------------------|
+| Environment Variable                    | Description                                                                          |
+|-----------------------------------------|--------------------------------------------------------------------------------------|
 | `BUILD_NUMBER`                          | If present, it will be reused by the [`get-build-number`](#get-build-number) action. |
-| `CURRENT_VERSION` and `PROJECT_VERSION` | If both are set, they will be used as-is and no version update will be performed. |
-| `MAVEN_OPTS`                            | JVM options for Maven execution. Defaults to `-Xmx1536m -Xms128m`.                |
-| `JAVA_TOOL_OPTIONS`                     | JVM options. Defaults to `-XX:-UseContainerSupport`.                              |
-| `CONFIG_MAVEN_COMPLETED`                | For internal use. If set, the action is skipped                                   |
+| `CURRENT_VERSION` and `PROJECT_VERSION` | If both are set, they will be used as-is and no version update will be performed.    |
+| `MAVEN_OPTS`                            | JVM options for Maven execution. Defaults to `-Xmx1536m -Xms128m`.                   |
+| `JAVA_TOOL_OPTIONS`                     | JVM options. Defaults to `-XX:-UseContainerSupport`.                                 |
+| `CONFIG_MAVEN_COMPLETED`                | For internal use. If set, the action is skipped                                      |
 
 ### Inputs
 
@@ -177,8 +218,8 @@ steps:
 | `repox-url`               | URL for Repox                                                               | `https://repox.jfrog.io`                                                                                                |
 | `repox-artifactory-url`   | URL for Repox Artifactory API (overrides repox-url/artifactory if provided) | (optional)                                                                                                              |
 | `use-develocity`          | Whether to use Develocity for build tracking                                | `false`                                                                                                                 |
-| `develocity-url`          | URL for Develocity                                                          | `https://develocity.sonar.build/`                                                                                                         |
-| `cache-paths`             | Custom cache paths (multiline).                                             | (optional)                                                  |
+| `develocity-url`          | URL for Develocity                                                          | `https://develocity.sonar.build/`                                                                                       |
+| `cache-paths`             | Custom cache paths (multiline).                                             | (optional)                                                                                                              |
 | `disable-caching`         | Whether to disable Maven caching entirely                                   | `false`                                                                                                                 |
 
 ### Outputs
@@ -236,12 +277,12 @@ Build and deploy a Maven project with SonarQube analysis and Artifactory deploym
 - **Develocity**: In order to access Develocity from GitHub hosted runner e.g. `github-ubuntu-latest-s` you need to adjust your
   Develocity plugin configuration to use the following URL:
 
-```yaml
-  <develocity>
-    <server>
-      <url>https://develocity-public.sonar.build</url>
-    </server>
-  </develocity>
+```xml
+<develocity>
+  <server>
+    <url>https://develocity-public.sonar.build</url>
+  </server>
+</develocity>
 ```
 
 **You also need to provide the same url in `develocity-url` parameter.**
@@ -325,7 +366,8 @@ for the public values, and by setting the environment variables for the private 
 
 ### Output Environment Variables
 
-- `SONARSOURCE_REPOSITORY_URL`: URL for SonarSource Artifactory root virtual repository is set to [`sonarsource`](https://repox.jfrog.io/artifactory/sonarsource)
+- `SONARSOURCE_REPOSITORY_URL`: URL for SonarSource Artifactory root virtual repository is set to
+  [`sonarsource`](https://repox.jfrog.io/artifactory/sonarsource)
 
 See also [`config-maven`](#config-maven) output environment variables.
 
@@ -435,11 +477,11 @@ jobs:
 
 ### Outputs
 
-| Output           | Description                                                                                                  |
-|------------------|--------------------------------------------------------------------------------------------------------------|
-| `BUILD_NUMBER`   | The current build number. Also set as environment variable `BUILD_NUMBER`                                    |
-| `project-version`| The project version from pyproject.toml with build number. Also set as environment variable `PROJECT_VERSION`|
-| `deployed`       | `true` if the build succeed and was supposed to deploy                                                       |
+| Output            | Description                                                                                                   |
+|-------------------|---------------------------------------------------------------------------------------------------------------|
+| `BUILD_NUMBER`    | The current build number. Also set as environment variable `BUILD_NUMBER`                                     |
+| `project-version` | The project version from pyproject.toml with build number. Also set as environment variable `PROJECT_VERSION` |
+| `deployed`        | `true` if the build succeed and was supposed to deploy                                                        |
 
 ## `config-gradle`
 
@@ -530,7 +572,7 @@ If provided, `SONARSOURCE_REPOSITORY` is used at runtime by the Gradle init scri
 
 | Input                     | Description                                                                 | Default                                                              |
 |---------------------------|-----------------------------------------------------------------------------|----------------------------------------------------------------------|
-| `working-directory`       | Relative path under github.workspace to execute the build in                | `.`                                                                                                                     |
+| `working-directory`       | Relative path under github.workspace to execute the build in                | `.`                                                                  |
 | `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault                             | `private-reader` for private repos, `public-reader` for public repos |
 | `use-develocity`          | Whether to use Develocity for build tracking                                | `false`                                                              |
 | `develocity-url`          | URL for Develocity                                                          | `https://develocity.sonar.build/`                                    |
@@ -594,10 +636,10 @@ used automatically. If the Gradle wrapper is not available, you can install Grad
 **Develocity**: In order to access Develocity from GitHub hosted runner e.g. `github-ubuntu-latest-s` you need to adjust your
 Develocity plugin configuration to use the following URL:
 
-```yaml
+```kotlin
   develocity {
     server = "https://develocity-public.sonar.build"
-    ...
+    // ...
   }
 ```
 
@@ -649,25 +691,25 @@ See also [`config-gradle`](#config-gradle) input environment variables.
 
 ### Inputs
 
-| Input                       | Description                                                                               | Default                                                                                     |
-|-----------------------------|-------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
-| `artifactory-deploy-repo`   | Deployment repository                                                                     | `sonarsource-private-qa` for private repositories, `sonarsource-public-qa` for public repos |
-| `artifactory-reader-role`   | Suffix for the Artifactory reader role in Vault                                           | `private-reader` for private repos, `public-reader` for public repos                        |
-| `artifactory-deployer-role` | Suffix for the Artifactory deployer role in Vault                                         | `qa-deployer` for private repos, `public-deployer` for public repos                         |
-| `deploy`                    | Whether to deploy on master, maintenance, dogfood and long-lived branches                 | `true`                                                                                      |
-| `deploy-pull-request`       | Whether to also deploy for pull requests. If deploy is false, this has no effect.         | `false`                                                                                     |
-| `skip-tests`                | Whether to skip running tests                                                             | `false`                                                                                     |
-| `use-develocity`            | Whether to use Develocity for build tracking                                              | `false`                                                                                     |
-| `gradle-args`               | Additional arguments to pass to Gradle                                                    | (optional)                                                                                  |
-| `develocity-url`            | URL for Develocity                                                                        | `https://develocity.sonar.build/`                                                           |
-| `repox-url`                 | URL for Repox                                                                             | `https://repox.jfrog.io`                                                                    |
-| `repox-artifactory-url`     | URL for Repox Artifactory API (overrides repox-url/artifactory if provided)               | (optional)                                                                                  |
-| `sonar-platform`            | SonarQube variant - 'next', 'sqc-eu', 'sqc-us', or 'none'. Use 'none' to skip sonar scans | `next`                                                                                      |
-| `working-directory`         | Relative path under github.workspace to execute the build in                              | `.`                                                                                         |
-| `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding)            | `false`                                                                                     |
-| `cache-paths`               | Custom cache paths (multiline).                                                           | `~/.gradle/caches`<br>`~/.gradle/wrapper`                                                   |
-| `disable-caching`           | Whether to disable Gradle caching entirely                                                | `false`                                                                                     |
-| `provenance`                | Whether to generate provenance attestation for built artifacts                            | `false`                                                                                     |
+| Input                       | Description                                                                                                                  | Default                                                                                     |
+|-----------------------------|------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
+| `artifactory-deploy-repo`   | Deployment repository                                                                                                        | `sonarsource-private-qa` for private repositories, `sonarsource-public-qa` for public repos |
+| `artifactory-reader-role`   | Suffix for the Artifactory reader role in Vault                                                                              | `private-reader` for private repos, `public-reader` for public repos                        |
+| `artifactory-deployer-role` | Suffix for the Artifactory deployer role in Vault                                                                            | `qa-deployer` for private repos, `public-deployer` for public repos                         |
+| `deploy`                    | Whether to deploy on master, maintenance, dogfood and long-lived branches                                                    | `true`                                                                                      |
+| `deploy-pull-request`       | Whether to also deploy for pull requests. If deploy is false, this has no effect.                                            | `false`                                                                                     |
+| `skip-tests`                | Whether to skip running tests                                                                                                | `false`                                                                                     |
+| `use-develocity`            | Whether to use Develocity for build tracking                                                                                 | `false`                                                                                     |
+| `gradle-args`               | Additional arguments to pass to Gradle                                                                                       | (optional)                                                                                  |
+| `develocity-url`            | URL for Develocity                                                                                                           | `https://develocity.sonar.build/`                                                           |
+| `repox-url`                 | URL for Repox                                                                                                                | `https://repox.jfrog.io`                                                                    |
+| `repox-artifactory-url`     | URL for Repox Artifactory API (overrides repox-url/artifactory if provided)                                                  | (optional)                                                                                  |
+| `sonar-platform`            | SonarQube variant - 'next', 'sqc-eu', 'sqc-us', or 'none'. Use 'none' to skip sonar scans                                    | `next`                                                                                      |
+| `working-directory`         | Relative path under github.workspace to execute the build in                                                                 | `.`                                                                                         |
+| `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding)                                               | `false`                                                                                     |
+| `cache-paths`               | Custom cache paths (multiline).                                                                                              | `~/.gradle/caches`<br>`~/.gradle/wrapper`                                                   |
+| `disable-caching`           | Whether to disable Gradle caching entirely                                                                                   | `false`                                                                                     |
+| `provenance`                | Whether to generate provenance attestation for built artifacts                                                               | `false`                                                                                     |
 | `provenance-artifact-paths` | Relative paths of artifacts for provenance attestation (glob pattern). See [Provenance Attestation](#provenance-attestation) | (optional)                                                                                  |
 
 > [!TIP]
@@ -933,31 +975,29 @@ jobs:
 
 ### Input Environment Variables
 
-| Environment Variable                    | Description                                                                       | Default |
-|-----------------------------------------|-----------------------------------------------------------------------------------|---------|
-| `SQ_SCANNER_VERSION`                    | SonarQube scanner version.                                                        | '4.3.0' |
+| Environment Variable | Description                | Default |
+|----------------------|----------------------------|---------|
+| `SQ_SCANNER_VERSION` | SonarQube scanner version. | '4.3.0' |
 
 See also [`config-npm`](#config-npm) input environment variables.
 
 ### Inputs
 
-| Input                       | Description                                                                    | Default                                                                                      |
-|-----------------------------|--------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
-| `working-directory`         | Relative path under github.workspace to execute the build in                   | `.`                                                                                          |
-| `artifactory-reader-role`   | Suffix for the Artifactory reader role in Vault                                | `private-reader` for private repos, `public-reader` for public repos                         |
-| `artifactory-deployer-role` | Suffix for the Artifactory deployer role in Vault                              | `qa-deployer` for private repos, `public-deployer` for public repos                          |
-| `artifactory-deploy-repo`   | Deployment repository                                                          | `sonarsource-private-qa` for private repositories, `sonarsource-public-qa` for public repos  |
-| `artifactory-reader-role`   | Suffix for the Artifactory reader role in Vault                                | `private-reader` for private repos, `public-reader` for public repos                         |
-| `artifactory-deployer-role` | Suffix for the Artifactory deployer role in Vault                              | `sonarsource-npm-private-qa` for private repos, `sonarsource-npm-public-qa` for public repos |
-| `deploy-pull-request`       | Whether to deploy pull request artifacts                                       | `false`                                                                                      |
-| `skip-tests`                | Whether to skip running tests                                                  | `false`                                                                                      |
-| `cache-npm`                 | Whether to cache NPM dependencies                                              | `true`                                                                                       |
-| `repox-url`                 | URL for Repox                                                                  | `https://repox.jfrog.io`                                                                     |
-| `repox-artifactory-url`     | URL for Repox Artifactory API (overrides repox-url/artifactory if provided)    | (optional)                                                                                   |
-| `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', or 'sqc-us'                     | `next`                                                                                       |
-| `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding) | `false`                                                                                      |
-| `build-name`                | Name of the JFrog build to publish.                                            | `<Repository name>`                                                                          |
-| `provenance`                | Whether to generate provenance attestation for built artifacts                 | `false`                                                                                      |
+| Input                       | Description                                                                                                                  | Default                                                                                      |
+|-----------------------------|------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
+| `working-directory`         | Relative path under github.workspace to execute the build in                                                                 | `.`                                                                                          |
+| `artifactory-reader-role`   | Suffix for the Artifactory reader role in Vault                                                                              | `private-reader` for private repos, `public-reader` for public repos                         |
+| `artifactory-deployer-role` | Suffix for the Artifactory deployer role in Vault                                                                            | `qa-deployer` for private repos, `public-deployer` for public repos                          |
+| `artifactory-deploy-repo`   | Deployment repository                                                                                                        | `sonarsource-npm-private-qa` for private repos, `sonarsource-npm-public-qa` for public repos |
+| `deploy-pull-request`       | Whether to deploy pull request artifacts                                                                                     | `false`                                                                                      |
+| `skip-tests`                | Whether to skip running tests                                                                                                | `false`                                                                                      |
+| `cache-npm`                 | Whether to cache NPM dependencies                                                                                            | `true`                                                                                       |
+| `repox-url`                 | URL for Repox                                                                                                                | `https://repox.jfrog.io`                                                                     |
+| `repox-artifactory-url`     | URL for Repox Artifactory API (overrides repox-url/artifactory if provided)                                                  | (optional)                                                                                   |
+| `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', or 'sqc-us'                                                                   | `next`                                                                                       |
+| `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding)                                               | `false`                                                                                      |
+| `build-name`                | Name of the JFrog build to publish.                                                                                          | `<Repository name>`                                                                          |
+| `provenance`                | Whether to generate provenance attestation for built artifacts                                                               | `false`                                                                                      |
 | `provenance-artifact-paths` | Relative paths of artifacts for provenance attestation (glob pattern). See [Provenance Attestation](#provenance-attestation) | (optional)                                                                                   |
 
 ### Outputs
@@ -1046,9 +1086,9 @@ jobs:
 
 ### Input Environment Variables
 
-| Environment Variable                    | Description                                                                       | Default |
-|-----------------------------------------|-----------------------------------------------------------------------------------|---------|
-| `SQ_SCANNER_VERSION`                    | SonarQube scanner version.                                                        | '4.3.0' |
+| Environment Variable | Description                | Default |
+|----------------------|----------------------------|---------|
+| `SQ_SCANNER_VERSION` | SonarQube scanner version. | '4.3.0' |
 
 ### Inputs
 
@@ -1071,11 +1111,11 @@ jobs:
 
 ### Outputs
 
-| Output            | Description                                               |
-|-------------------|-----------------------------------------------------------|
+| Output            | Description                                                               |
+|-------------------|---------------------------------------------------------------------------|
 | `BUILD_NUMBER`    | The current build number. Also set as environment variable `BUILD_NUMBER` |
-| `project-version` | The project version from package.json                     |
-| `deployed`        | `true` if the build succeed and was supposed to deploy    |
+| `project-version` | The project version from package.json                                     |
+| `deployed`        | `true` if the build succeed and was supposed to deploy                    |
 
 ### Features
 
@@ -1253,9 +1293,9 @@ promote:
 
 ### Input Environment Variables
 
-| Environment Variable | Description                                                                                                               |
-|----------------------|---------------------------------------------------------------------------------------------------------------------------|
-| `PROJECT_VERSION`    | Version of the project (e.g. 1.2.3). If set, it takes precedence over the version from JFrog build info.                 |
+| Environment Variable | Description                                                                                              |
+|----------------------|----------------------------------------------------------------------------------------------------------|
+| `PROJECT_VERSION`    | Version of the project (e.g. 1.2.3). If set, it takes precedence over the version from JFrog build info. |
 
 ### Inputs
 
@@ -1458,9 +1498,10 @@ Example with a build action (same idea applies to other actions):
 
 1. Create a new GitHub release on <https://github.com/SonarSource/ci-github-actions/releases>
 
-    Increase the **patch** number for **fixes**, the **minor** number for **new features**, and the **major** number for **breaking changes**.
+   Increase the **patch** number for **fixes**, the **minor** number for **new features**, and the **major** number for
+   **breaking changes**.
 
-    Edit the generated release notes to curate the highlights and key fixes. Make sure that the notes are clear and informative.
+   Edit the generated release notes to curate the highlights and key fixes. Make sure that the notes are clear and informative.
 
     ```markdown
     ## What's Changed
