@@ -169,7 +169,7 @@ runs:
         fi
 
     - name: Cache local Maven repository
-      uses: SonarSource/gh-action_cache@v1.2.0
+      uses: SonarSource/gh-action_cache@v1.2.1
       if: steps.config-maven-completed.outputs.skip != 'true' && inputs.disable-caching == 'false'
       with:
         path: ${{ inputs.cache-paths }}
