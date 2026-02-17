@@ -145,18 +145,25 @@ promote_mono() {
 }
 
 github_notify_promotion() {
-  local project_version longDescription shortDescription buildUrl githubApiUrl
+  local project_version longDescription shortDescription buildUrl githubApiUrl check_context
   project_version="$PROJECT_VERSION"
   longDescription="Latest promoted build of '${project_version}' from branch '${GITHUB_REF}'"
   shortDescription=${longDescription:0:140} # required for GH API endpoint (max 140 chars)
   buildUrl="${ARTIFACTORY_URL%/*}/ui/builds/${BUILD_NAME}/${BUILD_NUMBER}/"
   githubApiUrl="https://api.github.com/repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}"
+  # Include BUILD_NAME in context so multiple parallel promote jobs (e.g. monorepo matrix builds) each get a unique check.
+  # Fallback to ref-only when BUILD_NAME is empty (defensive; script normally requires BUILD_NAME earlier).
+  if [[ -n "${BUILD_NAME}" ]]; then
+    check_context="repox-${BUILD_NAME}-${GITHUB_REF_NAME}"
+  else
+    check_context="repox-${GITHUB_REF_NAME}"
+  fi
   gh api -X POST -H "$GH_API_VERSION_HEADER" "$githubApiUrl" -H "Content-Type: application/json" --input - <<EOF
 {
   "state": "success",
   "target_url": "$buildUrl",
   "description": "$shortDescription",
-  "context": "repox-${GITHUB_REF_NAME}"
+  "context": "$check_context"
 }
 EOF
 }
