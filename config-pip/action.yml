@@ -92,7 +92,7 @@ runs:
       run: $ACTION_PATH_CONFIG_PIP/config.sh
 
     - name: Cache pip dependencies
-      uses: SonarSource/gh-action_cache@v1.2.1
+      uses: SonarSource/gh-action_cache@v1
       if: inputs.disable-caching == 'false'
       with:
         path: ${{ inputs.cache-paths }}
