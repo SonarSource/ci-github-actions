@@ -166,12 +166,16 @@ build_maven() {
 
   if is_default_branch || is_maintenance_branch; then
     echo "======= Build and analyze $GITHUB_REF_NAME ======="
-    maven_command_args+=("-Prelease,sign")
+    if [[ "${RUN_SHADOW_SCANS}" != "true" ]]; then
+      maven_command_args+=("-Prelease,sign")
+    fi
   elif is_pull_request; then
     echo "======= Build and analyze pull request $PULL_REQUEST ($GITHUB_HEAD_REF) ======="
   elif is_dogfood_branch; then
     echo "======= Build dogfood branch $GITHUB_REF_NAME ======="
-    maven_command_args+=("-Prelease")
+    if [[ "${RUN_SHADOW_SCANS}" != "true" ]]; then
+      maven_command_args+=("-Prelease")
+    fi
   elif is_long_lived_feature_branch; then
     echo "======= Build and analyze long lived feature branch $GITHUB_REF_NAME ======="
   else
