@@ -495,6 +495,28 @@ Describe 'build_maven()'
       The output should include "Maven command: mvn install"
       The output should not include "Maven command: mvn deploy"
     End
+
+    It 'excludes release and sign profiles when shadow scans are enabled'
+      When call build_maven
+      The status should be success
+      The stderr should include "Shadow scans enabled - disabling deployment"
+      The output should include "Maven command: mvn install -Pcoverage"
+      The output should not include "release"
+      The output should not include "sign"
+    End
+  End
+
+  Describe 'dogfood branch with shadow scans'
+    export GITHUB_REF_NAME="dogfood-on-next"
+    export RUN_SHADOW_SCANS="true"
+
+    It 'excludes release profile when shadow scans are enabled'
+      When call build_maven
+      The status should be success
+      The stderr should include "Shadow scans enabled - disabling deployment"
+      The output should include "Maven command: mvn install"
+      The output should not include "release"
+    End
   End
 
   Describe 'scan depends on the sonar platform and branch'
