@@ -255,12 +255,16 @@ get_build_config() {
 
 # Complete build pipeline with optional steps
 run_standard_pipeline() {
+  echo "::group::Install dependencies"
   echo "Installing yarn dependencies..."
   yarn install --immutable
+  echo "::endgroup::"
 
   if [ "$SKIP_TESTS" != "true" ]; then
+    echo "::group::Run tests"
     echo "Running tests..."
     yarn test
+    echo "::endgroup::"
   else
     echo "Skipping tests (SKIP_TESTS=true)"
   fi
@@ -268,14 +272,19 @@ run_standard_pipeline() {
   if [ "${BUILD_ENABLE_SONAR}" = "true" ]; then
     read -ra sonar_args <<< "$BUILD_SONAR_ARGS"
     # This will call back to shared sonar_scanner_implementation() function
+    # orchestrate_sonar_platforms emits its own groups
     orchestrate_sonar_platforms "${sonar_args[@]+${sonar_args[@]}}"
   fi
 
+  echo "::group::Build project"
   echo "Building project..."
   yarn build
+  echo "::endgroup::"
 
   if [ "${BUILD_ENABLE_DEPLOY}" = "true" ]; then
+    echo "::group::Publish to Artifactory"
     jfrog_yarn_publish
+    echo "::endgroup::"
     export_built_artifacts
   fi
 }
@@ -289,7 +298,10 @@ build_yarn() {
   echo "Sonar Platform: ${SONAR_PLATFORM}"
   echo "Run Shadow Scans: ${RUN_SHADOW_SCANS}"
 
+  echo "::group::Set project version"
   set_project_version
+  echo "::endgroup::"
+
   get_build_config
   run_standard_pipeline
 
@@ -324,10 +336,16 @@ export_built_artifacts() {
 }
 
 main() {
+  echo "::group::Check tools"
   check_tool jq --version
   check_tool jf --version
   check_tool yarn --version
+  echo "::endgroup::"
+
+  echo "::group::Configure build environment"
   set_build_env
+  echo "::endgroup::"
+
   build_yarn
 }
 

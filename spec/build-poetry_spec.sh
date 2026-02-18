@@ -68,32 +68,42 @@ Describe 'build-poetry/build.sh'
     export GITHUB_OUTPUT
     When run script build-poetry/build.sh
       The status should be success
-      The lines of stdout should equal 26
-      The line 1 should include "jq"
+      The lines of stdout should equal 36
+      The line 1 should equal "::group::Check tools"
       The line 2 should include "jq"
-      The line 3 should include "python"
+      The line 3 should include "jq"
       The line 4 should include "python"
-      The line 5 should include "poetry"
+      The line 5 should include "python"
       The line 6 should include "poetry"
-      The line 7 should include "jf"
+      The line 7 should include "poetry"
       The line 8 should include "jf"
-      The line 9 should equal "PROJECT: my-repo"
-      The line 10 should equal "Fetch Git references for SonarQube analysis..."
-      The line 11 should equal "git fetch --unshallow"
-      The line 12 should equal "=== Poetry Build, Deploy, and Analyze ==="
-      The line 13 should equal "Branch: any-branch"
-      The line 14 should equal "Pull Request: "
-      The line 15 should equal "Deploy Pull Request: false"
-      The line 16 should equal "Replacing version 1.2 with 1.2.0.42"
-      The line 17 should equal "poetry version 1.2.0.42"
-      The line 18 should equal "PROJECT_VERSION=1.2.0.42"
-      The line 19 should equal "======= Build other branch ======="
-      The line 20 should equal "Installing dependencies..."
-      The line 21 should equal "jf config add repox --artifactory-url https://dummy.repox --access-token dummy access token"
-      The line 22 should equal "jf poetry-config --server-id-resolve repox --repo-resolve <repox pypi repo>"
-      The line 23 should equal "jf poetry install --build-name=my-repo --build-number=42"
-      The line 25 should equal "poetry build"
-      The line 26 should equal "=== Build completed successfully ==="
+      The line 9 should include "jf"
+      The line 10 should equal "::endgroup::"
+      The line 11 should equal "::group::Configure build environment"
+      The line 12 should equal "PROJECT: my-repo"
+      The line 13 should equal "Fetch Git references for SonarQube analysis..."
+      The line 14 should equal "git fetch --unshallow"
+      The line 15 should equal "::endgroup::"
+      The line 16 should equal "=== Poetry Build, Deploy, and Analyze ==="
+      The line 17 should equal "Branch: any-branch"
+      The line 18 should equal "Pull Request: "
+      The line 19 should equal "Deploy Pull Request: false"
+      The line 20 should equal "::group::Set project version"
+      The line 21 should equal "Replacing version 1.2 with 1.2.0.42"
+      The line 22 should equal "poetry version 1.2.0.42"
+      The line 23 should equal "PROJECT_VERSION=1.2.0.42"
+      The line 24 should equal "::endgroup::"
+      The line 25 should equal "======= Build other branch ======="
+      The line 26 should equal "::group::Install dependencies"
+      The line 27 should equal "Installing dependencies..."
+      The line 28 should equal "jf config add repox --artifactory-url https://dummy.repox --access-token dummy access token"
+      The line 29 should equal "jf poetry-config --server-id-resolve repox --repo-resolve <repox pypi repo>"
+      The line 30 should equal "jf poetry install --build-name=my-repo --build-number=42"
+      The line 31 should equal "::endgroup::"
+      The line 32 should equal "::group::Build project"
+      The line 34 should equal "poetry build"
+      The line 35 should equal "::endgroup::"
+      The line 36 should equal "=== Build completed successfully ==="
     End
 End
 
@@ -331,20 +341,32 @@ Describe 'build_poetry()'
     The line 2 should equal 'Branch: main'
     The line 3 should equal 'Pull Request: '
     The line 4 should equal 'Deploy Pull Request: false'
-    The line 5 should equal '======= Building main branch ======='
-    The line 8 should equal 'poetry build'
-    The line 9 should equal 'run_sonar_analysis()'
-    The line 10 should equal '=== Running Sonar analysis on selected platform: next ==='
-    The line 12 should equal 'Using Sonar platform: next (URL: https://next.sonarqube.com)'
-    The line 13 should equal 'poetry run pip install pysonar'
-    The line 15 should equal 'poetry run pysonar -Dsonar.host.url=https://next.sonarqube.com -Dsonar.token=next-token -Dsonar.analysis.buildNumber=42 -Dsonar.analysis.pipeline=dummy-run-id -Dsonar.analysis.repository=my-org/my-repo'
-    The line 17 should equal 'jf config remove repox'
-    The line 18 should equal 'jf config add repox --artifactory-url https://dummy.repox --access-token <deploy token>'
-    The line 19 should include '/dist'
-    The line 20 should equal 'jf rt upload ./ <deploy repo>/poetry/1.0.0.42/ --module=poetry:1.0.0.42 --build-name=my-repo --build-number=42'
-    The line 22 should equal 'jf rt build-collect-env my-repo 42'
-    The line 23 should include 'jf rt build-publish my-repo 42'
-    The line 24 should include '=== Build completed successfully ==='
+    The line 5 should equal '::group::Set project version'
+    The line 6 should equal '::endgroup::'
+    The line 7 should equal '======= Building main branch ======='
+    The line 8 should equal '::group::Install dependencies'
+    The line 9 should equal 'Installing dependencies...'
+    The line 10 should equal '::endgroup::'
+    The line 11 should equal '::group::Build project'
+    The line 12 should equal 'Building project...'
+    The line 13 should equal 'poetry build'
+    The line 14 should equal '::endgroup::'
+    The line 15 should equal 'run_sonar_analysis()'
+    The line 16 should equal '=== Running Sonar analysis on selected platform: next ==='
+    The line 17 should equal '::group::Sonar analysis on next'
+    The line 18 should equal 'Using Sonar platform: next (URL: https://next.sonarqube.com)'
+    The line 19 should equal 'poetry run pip install pysonar'
+    The line 21 should equal 'poetry run pysonar -Dsonar.host.url=https://next.sonarqube.com -Dsonar.token=next-token -Dsonar.analysis.buildNumber=42 -Dsonar.analysis.pipeline=dummy-run-id -Dsonar.analysis.repository=my-org/my-repo'
+    The line 22 should equal '::endgroup::'
+    The line 23 should equal '::group::Publish to Artifactory'
+    The line 24 should equal 'jf config remove repox'
+    The line 25 should equal 'jf config add repox --artifactory-url https://dummy.repox --access-token <deploy token>'
+    The line 26 should include '/dist'
+    The line 27 should equal 'jf rt upload ./ <deploy repo>/poetry/1.0.0.42/ --module=poetry:1.0.0.42 --build-name=my-repo --build-number=42'
+    The line 29 should equal 'jf rt build-collect-env my-repo 42'
+    The line 30 should include 'jf rt build-publish my-repo 42'
+    The line 31 should equal '::endgroup::'
+    The line 32 should include '=== Build completed successfully ==='
     The status should be success
   End
 
@@ -359,15 +381,25 @@ Describe 'build_poetry()'
     The line 2 should equal 'Branch: 123/merge'
     The line 3 should equal 'Pull Request: 123'
     The line 4 should equal 'Deploy Pull Request: false'
-    The line 5 should equal '======= Building pull request ======='
-    The line 6 should equal '======= no deploy ======='
-    The line 9 should equal 'poetry build'
-    The line 10 should equal 'run_sonar_analysis()'
-    The line 11 should equal '=== Running Sonar analysis on selected platform: next ==='
-    The line 13 should equal 'Using Sonar platform: next (URL: https://next.sonarqube.com)'
-    The line 14 should equal 'poetry run pip install pysonar'
-    The line 16 should equal 'poetry run pysonar -Dsonar.host.url=https://next.sonarqube.com -Dsonar.token=next-token -Dsonar.analysis.buildNumber=42 -Dsonar.analysis.pipeline=dummy-run-id -Dsonar.analysis.repository=my-org/my-repo -Dsonar.analysis.prNumber=123'
-    The line 18 should equal '=== Build completed successfully ==='
+    The line 5 should equal '::group::Set project version'
+    The line 6 should equal '::endgroup::'
+    The line 7 should equal '======= Building pull request ======='
+    The line 8 should equal '======= no deploy ======='
+    The line 9 should equal '::group::Install dependencies'
+    The line 10 should equal 'Installing dependencies...'
+    The line 11 should equal '::endgroup::'
+    The line 12 should equal '::group::Build project'
+    The line 13 should equal 'Building project...'
+    The line 14 should equal 'poetry build'
+    The line 15 should equal '::endgroup::'
+    The line 16 should equal 'run_sonar_analysis()'
+    The line 17 should equal '=== Running Sonar analysis on selected platform: next ==='
+    The line 18 should equal '::group::Sonar analysis on next'
+    The line 19 should equal 'Using Sonar platform: next (URL: https://next.sonarqube.com)'
+    The line 20 should equal 'poetry run pip install pysonar'
+    The line 22 should equal 'poetry run pysonar -Dsonar.host.url=https://next.sonarqube.com -Dsonar.token=next-token -Dsonar.analysis.buildNumber=42 -Dsonar.analysis.pipeline=dummy-run-id -Dsonar.analysis.repository=my-org/my-repo -Dsonar.analysis.prNumber=123'
+    The line 23 should equal '::endgroup::'
+    The line 24 should equal '=== Build completed successfully ==='
     The status should be success
   End
 
@@ -383,20 +415,32 @@ Describe 'build_poetry()'
     The line 2 should equal 'Branch: 123/merge'
     The line 3 should equal 'Pull Request: 123'
     The line 4 should equal 'Deploy Pull Request: true'
-    The line 5 should equal '======= Building pull request ======='
-    The line 6 should equal '======= with deploy ======='
-    The line 9 should equal 'poetry build'
-    The line 10 should equal 'run_sonar_analysis()'
-    The line 11 should equal '=== Running Sonar analysis on selected platform: next ==='
-    The line 13 should equal 'Using Sonar platform: next (URL: https://next.sonarqube.com)'
-    The line 14 should equal 'poetry run pip install pysonar'
-    The line 16 should equal 'poetry run pysonar -Dsonar.host.url=https://next.sonarqube.com -Dsonar.token=next-token -Dsonar.analysis.buildNumber=42 -Dsonar.analysis.pipeline=dummy-run-id -Dsonar.analysis.repository=my-org/my-repo -Dsonar.analysis.prNumber=123'
-    The line 18 should equal "jf config remove repox"
-    The line 19 should equal "jf config add repox --artifactory-url https://dummy.repox --access-token <deploy token>"
-    The line 20 should include "/dist"
-    The line 21 should equal "jf rt upload ./ <deploy repo>/poetry/1.0.0.42/ --module=poetry:1.0.0.42 --build-name=my-repo --build-number=42"
-    The line 23 should equal "jf rt build-collect-env my-repo 42"
-    The line 24 should include "jf rt build-publish my-repo 42"
+    The line 5 should equal '::group::Set project version'
+    The line 6 should equal '::endgroup::'
+    The line 7 should equal '======= Building pull request ======='
+    The line 8 should equal '======= with deploy ======='
+    The line 9 should equal '::group::Install dependencies'
+    The line 10 should equal 'Installing dependencies...'
+    The line 11 should equal '::endgroup::'
+    The line 12 should equal '::group::Build project'
+    The line 13 should equal 'Building project...'
+    The line 14 should equal 'poetry build'
+    The line 15 should equal '::endgroup::'
+    The line 16 should equal 'run_sonar_analysis()'
+    The line 17 should equal '=== Running Sonar analysis on selected platform: next ==='
+    The line 18 should equal '::group::Sonar analysis on next'
+    The line 19 should equal 'Using Sonar platform: next (URL: https://next.sonarqube.com)'
+    The line 20 should equal 'poetry run pip install pysonar'
+    The line 22 should equal 'poetry run pysonar -Dsonar.host.url=https://next.sonarqube.com -Dsonar.token=next-token -Dsonar.analysis.buildNumber=42 -Dsonar.analysis.pipeline=dummy-run-id -Dsonar.analysis.repository=my-org/my-repo -Dsonar.analysis.prNumber=123'
+    The line 23 should equal '::endgroup::'
+    The line 24 should equal "::group::Publish to Artifactory"
+    The line 25 should equal "jf config remove repox"
+    The line 26 should equal "jf config add repox --artifactory-url https://dummy.repox --access-token <deploy token>"
+    The line 27 should include "/dist"
+    The line 28 should equal "jf rt upload ./ <deploy repo>/poetry/1.0.0.42/ --module=poetry:1.0.0.42 --build-name=my-repo --build-number=42"
+    The line 30 should equal "jf rt build-collect-env my-repo 42"
+    The line 31 should include "jf rt build-publish my-repo 42"
+    The line 32 should equal "::endgroup::"
     The status should be success
   End
 
@@ -408,7 +452,9 @@ Describe 'build_poetry()'
     The line 2 should equal 'Branch: dogfood-on-test'
     The line 3 should equal 'Pull Request: '
     The line 4 should equal 'Deploy Pull Request: false'
-    The line 5 should equal '======= Build dogfood branch ======='
+    The line 5 should equal '::group::Set project version'
+    The line 6 should equal '::endgroup::'
+    The line 7 should equal '======= Build dogfood branch ======='
     The status should be success
     The variable BUILD_ENABLE_SONAR should equal "false"
   End
@@ -421,7 +467,9 @@ Describe 'build_poetry()'
     The line 2 should equal 'Branch: feature/long/test'
     The line 3 should equal 'Pull Request: '
     The line 4 should equal 'Deploy Pull Request: false'
-    The line 5 should equal '======= Build long-lived feature branch ======='
+    The line 5 should equal '::group::Set project version'
+    The line 6 should equal '::endgroup::'
+    The line 7 should equal '======= Build long-lived feature branch ======='
     The status should be success
     The variable BUILD_ENABLE_SONAR should equal "true"
     The variable BUILD_SONAR_ARGS should equal "-Dsonar.branch.name=feature/long/test"
@@ -435,7 +483,9 @@ Describe 'build_poetry()'
     The line 2 should equal 'Branch: branch-1.2'
     The line 3 should equal 'Pull Request: '
     The line 4 should equal 'Deploy Pull Request: false'
-    The line 5 should equal '======= Building maintenance branch ======='
+    The line 5 should equal '::group::Set project version'
+    The line 6 should equal '::endgroup::'
+    The line 7 should equal '======= Building maintenance branch ======='
     The status should be success
     The variable BUILD_ENABLE_SONAR should equal "true"
   End
@@ -448,7 +498,9 @@ Describe 'build_poetry()'
     The line 2 should equal 'Branch: gh-readonly-queue/123'
     The line 3 should equal 'Pull Request: '
     The line 4 should equal 'Deploy Pull Request: false'
-    The line 5 should equal '======= Build other branch ======='
+    The line 5 should equal '::group::Set project version'
+    The line 6 should equal '::endgroup::'
+    The line 7 should equal '======= Build other branch ======='
     The status should be success
     The variable BUILD_ENABLE_SONAR should equal "false"
     The variable BUILD_ENABLE_DEPLOY should equal "false"
@@ -464,23 +516,32 @@ Describe 'build_poetry()'
     The line 2 should equal 'Branch: main'
     The line 3 should equal 'Pull Request: '
     The line 4 should equal 'Deploy Pull Request: false'
-    The line 5 should equal '======= Building main branch ======='
-    The line 8 should equal 'poetry build'
-    The line 9 should equal 'run_sonar_analysis()'
-    The line 10 should equal '=== Running Sonar analysis on all platforms (shadow scan enabled) ==='
-    The line 12 should equal '--- ORCHESTRATOR: Analyzing with platform: next ---'
-    The line 13 should equal 'Using Sonar platform: next (URL: https://next.sonarqube.com)'
-    The line 14 should equal 'poetry run pip install pysonar'
-    The line 16 should equal 'poetry run pysonar -Dsonar.host.url=https://next.sonarqube.com -Dsonar.token=next-token -Dsonar.analysis.buildNumber=42 -Dsonar.analysis.pipeline=dummy-run-id -Dsonar.analysis.repository=my-org/my-repo'
-    The line 19 should equal '--- ORCHESTRATOR: Analyzing with platform: sqc-us ---'
-    The line 20 should equal 'Using Sonar platform: sqc-us (URL: https://sonarqube-us.com)'
-    The line 21 should equal 'poetry run pip install pysonar'
-    The line 23 should equal 'poetry run pysonar -Dsonar.host.url=https://sonarqube-us.com -Dsonar.token=sqc-us-token -Dsonar.analysis.buildNumber=42 -Dsonar.analysis.pipeline=dummy-run-id -Dsonar.analysis.repository=my-org/my-repo'
-    The line 26 should equal '--- ORCHESTRATOR: Analyzing with platform: sqc-eu ---'
-    The line 27 should equal 'Using Sonar platform: sqc-eu (URL: https://sonarcloud.io)'
-    The line 28 should equal 'poetry run pip install pysonar'
-    The line 30 should equal 'poetry run pysonar -Dsonar.host.url=https://sonarcloud.io -Dsonar.token=sqc-eu-token -Dsonar.analysis.buildNumber=42 -Dsonar.analysis.pipeline=dummy-run-id -Dsonar.analysis.repository=my-org/my-repo'
-    The line 32 should equal '=== Completed Sonar analysis on all platforms ==='
+    The line 5 should equal '::group::Set project version'
+    The line 6 should equal '::endgroup::'
+    The line 7 should equal '======= Building main branch ======='
+    The line 13 should equal 'poetry build'
+    The line 14 should equal '::endgroup::'
+    The line 15 should equal 'run_sonar_analysis()'
+    The line 16 should equal '=== Running Sonar analysis on all platforms (shadow scan enabled) ==='
+    The line 17 should equal '::group::Sonar analysis on next'
+    The line 18 should equal '--- ORCHESTRATOR: Analyzing with platform: next ---'
+    The line 19 should equal 'Using Sonar platform: next (URL: https://next.sonarqube.com)'
+    The line 20 should equal 'poetry run pip install pysonar'
+    The line 22 should equal 'poetry run pysonar -Dsonar.host.url=https://next.sonarqube.com -Dsonar.token=next-token -Dsonar.analysis.buildNumber=42 -Dsonar.analysis.pipeline=dummy-run-id -Dsonar.analysis.repository=my-org/my-repo'
+    The line 23 should equal '::endgroup::'
+    The line 24 should equal '::group::Sonar analysis on sqc-us'
+    The line 25 should equal '--- ORCHESTRATOR: Analyzing with platform: sqc-us ---'
+    The line 26 should equal 'Using Sonar platform: sqc-us (URL: https://sonarqube-us.com)'
+    The line 27 should equal 'poetry run pip install pysonar'
+    The line 29 should equal 'poetry run pysonar -Dsonar.host.url=https://sonarqube-us.com -Dsonar.token=sqc-us-token -Dsonar.analysis.buildNumber=42 -Dsonar.analysis.pipeline=dummy-run-id -Dsonar.analysis.repository=my-org/my-repo'
+    The line 30 should equal '::endgroup::'
+    The line 31 should equal '::group::Sonar analysis on sqc-eu'
+    The line 32 should equal '--- ORCHESTRATOR: Analyzing with platform: sqc-eu ---'
+    The line 33 should equal 'Using Sonar platform: sqc-eu (URL: https://sonarcloud.io)'
+    The line 34 should equal 'poetry run pip install pysonar'
+    The line 36 should equal 'poetry run pysonar -Dsonar.host.url=https://sonarcloud.io -Dsonar.token=sqc-eu-token -Dsonar.analysis.buildNumber=42 -Dsonar.analysis.pipeline=dummy-run-id -Dsonar.analysis.repository=my-org/my-repo'
+    The line 37 should equal '::endgroup::'
+    The line 38 should equal '=== Completed Sonar analysis on all platforms ==='
     The status should be success
   End
 
@@ -494,17 +555,22 @@ Describe 'build_poetry()'
     The line 2 should equal 'Branch: main'
     The line 3 should equal 'Pull Request: '
     The line 4 should equal 'Deploy Pull Request: false'
-    The line 5 should equal '======= Building main branch ======='
-    The line 8 should equal 'poetry build'
-    The line 9 should equal 'run_sonar_analysis()'
-    The line 10 should equal "=== Sonar platform set to 'none'. Skipping Sonar analysis."
-    The line 11 should equal 'jf config remove repox'
-    The line 12 should equal 'jf config add repox --artifactory-url https://dummy.repox --access-token <deploy token>'
-    The line 13 should include '/dist'
-    The line 14 should equal 'jf rt upload ./ <deploy repo>/poetry/1.0.0.42/ --module=poetry:1.0.0.42 --build-name=my-repo --build-number=42'
-    The line 16 should equal 'jf rt build-collect-env my-repo 42'
-    The line 17 should include 'jf rt build-publish my-repo 42'
-    The line 18 should equal '=== Build completed successfully ==='
+    The line 5 should equal '::group::Set project version'
+    The line 6 should equal '::endgroup::'
+    The line 7 should equal '======= Building main branch ======='
+    The line 13 should equal 'poetry build'
+    The line 14 should equal '::endgroup::'
+    The line 15 should equal 'run_sonar_analysis()'
+    The line 16 should equal "=== Sonar platform set to 'none'. Skipping Sonar analysis."
+    The line 17 should equal '::group::Publish to Artifactory'
+    The line 18 should equal 'jf config remove repox'
+    The line 19 should equal 'jf config add repox --artifactory-url https://dummy.repox --access-token <deploy token>'
+    The line 20 should include '/dist'
+    The line 21 should equal 'jf rt upload ./ <deploy repo>/poetry/1.0.0.42/ --module=poetry:1.0.0.42 --build-name=my-repo --build-number=42'
+    The line 23 should equal 'jf rt build-collect-env my-repo 42'
+    The line 24 should include 'jf rt build-publish my-repo 42'
+    The line 25 should equal '::endgroup::'
+    The line 26 should equal '=== Build completed successfully ==='
     The status should be success
   End
 

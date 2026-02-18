@@ -68,7 +68,11 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     echo "current-version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
     echo "project-version=$PROJECT_VERSION" >> "$GITHUB_OUTPUT"
   else
+    echo "::group::Check tools"
     set_gradle_cmd
+    echo "::endgroup::"
+    echo "::group::Set project version"
     set_project_version
+    echo "::endgroup::"
   fi
 fi

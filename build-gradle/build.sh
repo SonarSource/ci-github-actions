@@ -218,7 +218,9 @@ gradle_build() {
 
   if [[ "$SONAR_PLATFORM" == "none" ]]; then
     # Build without sonar - call gradle_build_and_analyze directly
+    echo "::group::Gradle build"
     gradle_build_and_analyze
+    echo "::endgroup::"
   else
     # Build with sonar analysis via orchestrator
     # shellcheck disable=SC2119
@@ -265,9 +267,15 @@ export_built_artifacts() {
 }
 
 main() {
+  echo "::group::Check tools"
   check_tool java -version
   set_gradle_cmd
+  echo "::endgroup::"
+
+  echo "::group::Configure build environment"
   set_build_env
+  echo "::endgroup::"
+
   gradle_build
 }
 

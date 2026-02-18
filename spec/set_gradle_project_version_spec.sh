@@ -173,12 +173,16 @@ Describe 'main()'
   It 'runs tool checks and calls set_project_version'
     When run script config-gradle/set_gradle_project_version.sh
     The status should be success
-    The lines of output should equal 5
-    The line 1 should include "gradle"
-    The line 2 should equal "version: 1.2.4-SNAPSHOT"
-    The line 3 should equal "CURRENT_VERSION=1.2.4-SNAPSHOT"
-    The line 4 should equal "Replacing version 1.2.4-SNAPSHOT with 1.2.4.42"
-    The line 5 should equal "PROJECT_VERSION=1.2.4.42"
+    The lines of output should equal 9
+    The line 1 should equal "::group::Check tools"
+    The line 2 should include "gradle"
+    The line 3 should equal "version: 1.2.4-SNAPSHOT"
+    The line 4 should equal "::endgroup::"
+    The line 5 should equal "::group::Set project version"
+    The line 6 should equal "CURRENT_VERSION=1.2.4-SNAPSHOT"
+    The line 7 should equal "Replacing version 1.2.4-SNAPSHOT with 1.2.4.42"
+    The line 8 should equal "PROJECT_VERSION=1.2.4.42"
+    The line 9 should equal "::endgroup::"
   End
 
   It 'uses provided CURRENT_VERSION and PROJECT_VERSION without changes'
@@ -199,7 +203,7 @@ Describe 'main()'
 
     When run script config-gradle/set_gradle_project_version.sh
     The status should be success
-    The lines of output should equal 5
+    The lines of output should equal 9
   End
 
   It 'proceeds normally when only PROJECT_VERSION is provided'
@@ -207,6 +211,6 @@ Describe 'main()'
 
     When run script config-gradle/set_gradle_project_version.sh
     The status should be success
-    The lines of output should equal 5
+    The lines of output should equal 9
   End
 End

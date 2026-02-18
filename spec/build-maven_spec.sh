@@ -84,13 +84,17 @@ Describe 'build.sh'
     End
     When call build_maven
     The status should be success
-    The lines of stdout should equal 6
-    The line 1 should include "mvn"
-    The line 2 should include "mvn --version"
-    The line 3 should include "Skipping git fetch (Sonar analysis disabled)"
-    The line 4 should include "Build, no analysis, no deploy"
-    The line 5 should include "Maven command: mvn verify"
-    The line 6 should match pattern "mvn verify"
+    The lines of stdout should equal 10
+    The line 1 should equal "::group::Check tools"
+    The line 2 should include "mvn"
+    The line 3 should include "mvn --version"
+    The line 4 should equal "::endgroup::"
+    The line 5 should include "Skipping git fetch (Sonar analysis disabled)"
+    The line 6 should equal "::group::Maven build"
+    The line 7 should include "Build, no analysis, no deploy"
+    The line 8 should include "Maven command: mvn verify"
+    The line 9 should match pattern "mvn verify"
+    The line 10 should equal "::endgroup::"
   End
 
   It 'runs build_maven() for windows'
@@ -100,13 +104,17 @@ Describe 'build.sh'
     End
     When call build_maven
     The status should be success
-    The lines of stdout should equal 6
-    The line 1 should include "mvn"
-    The line 2 should include "mvn --version"
-    The line 3 should include "Skipping git fetch (Sonar analysis disabled)"
-    The line 4 should include "Build, no analysis, no deploy"
-    The line 5 should include "Maven command: mvn verify"
-    The line 6 should match pattern "mvn verify"
+    The lines of stdout should equal 10
+    The line 1 should equal "::group::Check tools"
+    The line 2 should include "mvn"
+    The line 3 should include "mvn --version"
+    The line 4 should equal "::endgroup::"
+    The line 5 should include "Skipping git fetch (Sonar analysis disabled)"
+    The line 6 should equal "::group::Maven build"
+    The line 7 should include "Build, no analysis, no deploy"
+    The line 8 should include "Maven command: mvn verify"
+    The line 9 should match pattern "mvn verify"
+    The line 10 should equal "::endgroup::"
   End
 End
 
@@ -339,24 +347,36 @@ Describe 'build_maven()'
 
     It 'builds, deploys and analyzes main branch'
       When call build_maven
-      The lines of stdout should equal 4
-      The line 1 should include "Build and analyze def_main"
-      The line 2 should start with "Maven command: mvn deploy"
-      The line 3 should start with "mvn deploy"
-      The line 3 should include "-Pdeploy-sonarsource -Pcoverage -Prelease,sign"
-      The line 4 should start with "orchestrate_sonar_platforms"
+      The lines of stdout should equal 10
+      The line 1 should equal "::group::Check tools"
+      The line 2 should equal "::endgroup::"
+      The line 3 should equal "::group::Fetch Git history"
+      The line 4 should equal "::endgroup::"
+      The line 5 should equal "::group::Maven build"
+      The line 6 should include "Build and analyze def_main"
+      The line 7 should start with "Maven command: mvn deploy"
+      The line 8 should start with "mvn deploy"
+      The line 8 should include "-Pdeploy-sonarsource -Pcoverage -Prelease,sign"
+      The line 9 should equal "::endgroup::"
+      The line 10 should start with "orchestrate_sonar_platforms"
     End
 
     It 'builds and analyzes main branch when DEPLOY is false'
       export DEPLOY="false"
 
       When call build_maven
-      The lines of stdout should equal 4
-      The line 1 should include "Build and analyze def_main"
-      The line 2 should start with "Maven command: mvn install"
-      The line 3 should start with "mvn install"
-      The line 3 should include "-Pcoverage -Prelease,sign"
-      The line 4 should start with "orchestrate_sonar_platforms"
+      The lines of stdout should equal 10
+      The line 1 should equal "::group::Check tools"
+      The line 2 should equal "::endgroup::"
+      The line 3 should equal "::group::Fetch Git history"
+      The line 4 should equal "::endgroup::"
+      The line 5 should equal "::group::Maven build"
+      The line 6 should include "Build and analyze def_main"
+      The line 7 should start with "Maven command: mvn install"
+      The line 8 should start with "mvn install"
+      The line 8 should include "-Pcoverage -Prelease,sign"
+      The line 9 should equal "::endgroup::"
+      The line 10 should start with "orchestrate_sonar_platforms"
     End
   End
 
@@ -365,21 +385,33 @@ Describe 'build_maven()'
 
     It 'builds, deploys and analyzes maintenance branch'
       When call build_maven
-      The lines of stdout should equal 4
-      The line 1 should include "Build and analyze branch-1.2"
-      The line 3 should start with "mvn deploy"
-      The line 4 should start with "orchestrate_sonar_platforms"
+      The lines of stdout should equal 10
+      The line 1 should equal "::group::Check tools"
+      The line 2 should equal "::endgroup::"
+      The line 3 should equal "::group::Fetch Git history"
+      The line 4 should equal "::endgroup::"
+      The line 5 should equal "::group::Maven build"
+      The line 6 should include "Build and analyze branch-1.2"
+      The line 8 should start with "mvn deploy"
+      The line 9 should equal "::endgroup::"
+      The line 10 should start with "orchestrate_sonar_platforms"
     End
 
     It 'builds and analyzes main branch when DEPLOY is false'
       export DEPLOY="false"
 
       When call build_maven
-      The lines of stdout should equal 4
-      The line 1 should include "Build and analyze branch-1.2"
-      The line 2 should start with "Maven command: mvn install"
-      The line 3 should start with "mvn install"
-      The line 4 should start with "orchestrate_sonar_platforms"
+      The lines of stdout should equal 10
+      The line 1 should equal "::group::Check tools"
+      The line 2 should equal "::endgroup::"
+      The line 3 should equal "::group::Fetch Git history"
+      The line 4 should equal "::endgroup::"
+      The line 5 should equal "::group::Maven build"
+      The line 6 should include "Build and analyze branch-1.2"
+      The line 7 should start with "Maven command: mvn install"
+      The line 8 should start with "mvn install"
+      The line 9 should equal "::endgroup::"
+      The line 10 should start with "orchestrate_sonar_platforms"
     End
   End
 
@@ -392,43 +424,61 @@ Describe 'build_maven()'
 
     It 'builds, analyzes pull request with no deploy by default'
       When call build_maven
-      The lines of stdout should equal 4
-      The line 1 should include "Build and analyze pull request 123 (fix/jdoe/JIRA-1234-aFix)"
-      The line 2 should start with "Maven command: mvn install"
-      The line 3 should start with "mvn install"
-      The line 3 should include "-Pcoverage"
-      The line 4 should start with "orchestrate_sonar_platforms"
-      The line 4 should include "-Dsonar.pullrequest.key=123"
-      The line 4 should include "-Dsonar.pullrequest.branch=fix/jdoe/JIRA-1234-aFix"
-      The line 4 should include "-Dsonar.pullrequest.base=def_main"
+      The lines of stdout should equal 10
+      The line 1 should equal "::group::Check tools"
+      The line 2 should equal "::endgroup::"
+      The line 3 should equal "::group::Fetch Git history"
+      The line 4 should equal "::endgroup::"
+      The line 5 should equal "::group::Maven build"
+      The line 6 should include "Build and analyze pull request 123 (fix/jdoe/JIRA-1234-aFix)"
+      The line 7 should start with "Maven command: mvn install"
+      The line 8 should start with "mvn install"
+      The line 8 should include "-Pcoverage"
+      The line 9 should equal "::endgroup::"
+      The line 10 should start with "orchestrate_sonar_platforms"
+      The line 10 should include "-Dsonar.pullrequest.key=123"
+      The line 10 should include "-Dsonar.pullrequest.branch=fix/jdoe/JIRA-1234-aFix"
+      The line 10 should include "-Dsonar.pullrequest.base=def_main"
     End
 
     It 'builds, analyzes pull request with deploy when DEPLOY_PULL_REQUEST is true'
       export DEPLOY_PULL_REQUEST="true"
       When call build_maven
-      The lines of stdout should equal 4
-      The line 1 should include "Build and analyze pull request 123 (fix/jdoe/JIRA-1234-aFix)"
-      The line 2 should start with "Maven command: mvn deploy"
-      The line 3 should start with "mvn deploy"
-      The line 3 should include "-Pdeploy-sonarsource -Pcoverage"
-      The line 4 should start with "orchestrate_sonar_platforms"
-      The line 4 should include "-Dsonar.pullrequest.key=123"
-      The line 4 should include "-Dsonar.pullrequest.branch=fix/jdoe/JIRA-1234-aFix"
-      The line 4 should include "-Dsonar.pullrequest.base=def_main"
+      The lines of stdout should equal 10
+      The line 1 should equal "::group::Check tools"
+      The line 2 should equal "::endgroup::"
+      The line 3 should equal "::group::Fetch Git history"
+      The line 4 should equal "::endgroup::"
+      The line 5 should equal "::group::Maven build"
+      The line 6 should include "Build and analyze pull request 123 (fix/jdoe/JIRA-1234-aFix)"
+      The line 7 should start with "Maven command: mvn deploy"
+      The line 8 should start with "mvn deploy"
+      The line 8 should include "-Pdeploy-sonarsource -Pcoverage"
+      The line 9 should equal "::endgroup::"
+      The line 10 should start with "orchestrate_sonar_platforms"
+      The line 10 should include "-Dsonar.pullrequest.key=123"
+      The line 10 should include "-Dsonar.pullrequest.branch=fix/jdoe/JIRA-1234-aFix"
+      The line 10 should include "-Dsonar.pullrequest.base=def_main"
     End
     It 'builds, analyzes pull request with no deploy when DEPLOY_PULL_REQUEST is true and DEPLOY is false'
       export DEPLOY_PULL_REQUEST="true"
       export DEPLOY="false"
       When call build_maven
-      The lines of stdout should equal 4
-      The line 1 should include "Build and analyze pull request 123 (fix/jdoe/JIRA-1234-aFix)"
-      The line 2 should start with "Maven command: mvn install"
-      The line 3 should start with "mvn install"
-      The line 3 should include "-Pcoverage"
-      The line 4 should start with "orchestrate_sonar_platforms"
-      The line 4 should include "-Dsonar.pullrequest.key=123"
-      The line 4 should include "-Dsonar.pullrequest.branch=fix/jdoe/JIRA-1234-aFix"
-      The line 4 should include "-Dsonar.pullrequest.base=def_main"
+      The lines of stdout should equal 10
+      The line 1 should equal "::group::Check tools"
+      The line 2 should equal "::endgroup::"
+      The line 3 should equal "::group::Fetch Git history"
+      The line 4 should equal "::endgroup::"
+      The line 5 should equal "::group::Maven build"
+      The line 6 should include "Build and analyze pull request 123 (fix/jdoe/JIRA-1234-aFix)"
+      The line 7 should start with "Maven command: mvn install"
+      The line 8 should start with "mvn install"
+      The line 8 should include "-Pcoverage"
+      The line 9 should equal "::endgroup::"
+      The line 10 should start with "orchestrate_sonar_platforms"
+      The line 10 should include "-Dsonar.pullrequest.key=123"
+      The line 10 should include "-Dsonar.pullrequest.branch=fix/jdoe/JIRA-1234-aFix"
+      The line 10 should include "-Dsonar.pullrequest.base=def_main"
     End
   End
 
@@ -437,23 +487,31 @@ Describe 'build_maven()'
 
     It 'builds and deploy'
       When call build_maven
-      The lines of stdout should equal 4
-      The line 1 should include "Skipping git fetch (Sonar analysis disabled)"
-      The line 2 should include "Build dogfood branch dogfood-on-something"
-      The line 3 should start with "Maven command: mvn deploy"
-      The line 4 should start with "mvn deploy"
-      The line 4 should include "-Pdeploy-sonarsource -Prelease"
+      The lines of stdout should equal 8
+      The line 1 should equal "::group::Check tools"
+      The line 2 should equal "::endgroup::"
+      The line 3 should include "Skipping git fetch (Sonar analysis disabled)"
+      The line 4 should equal "::group::Maven build"
+      The line 5 should include "Build dogfood branch dogfood-on-something"
+      The line 6 should start with "Maven command: mvn deploy"
+      The line 7 should start with "mvn deploy"
+      The line 7 should include "-Pdeploy-sonarsource -Prelease"
+      The line 8 should equal "::endgroup::"
     End
 
     It 'builds when DEPLOY is false'
       export DEPLOY="false"
       When call build_maven
-      The lines of stdout should equal 4
-      The line 1 should include "Skipping git fetch (Sonar analysis disabled)"
-      The line 2 should include "Build dogfood branch dogfood-on-something"
-      The line 3 should start with "Maven command: mvn install"
-      The line 4 should start with "mvn install"
-      The line 4 should include "-Prelease"
+      The lines of stdout should equal 8
+      The line 1 should equal "::group::Check tools"
+      The line 2 should equal "::endgroup::"
+      The line 3 should include "Skipping git fetch (Sonar analysis disabled)"
+      The line 4 should equal "::group::Maven build"
+      The line 5 should include "Build dogfood branch dogfood-on-something"
+      The line 6 should start with "Maven command: mvn install"
+      The line 7 should start with "mvn install"
+      The line 7 should include "-Prelease"
+      The line 8 should equal "::endgroup::"
     End
   End
 
@@ -462,12 +520,18 @@ Describe 'build_maven()'
 
     It 'builds, deploys and analyzes long lived feature branch'
       When call build_maven
-      The lines of stdout should equal 4
-      The line 1 should include "Build and analyze long lived feature branch feature/long/some-feature"
-      The line 2 should start with "Maven command: mvn deploy"
-      The line 3 should start with "mvn deploy"
-      The line 3 should include "-Pdeploy-sonarsource -Pcoverage"
-      The line 4 should start with "orchestrate_sonar_platforms"
+      The lines of stdout should equal 10
+      The line 1 should equal "::group::Check tools"
+      The line 2 should equal "::endgroup::"
+      The line 3 should equal "::group::Fetch Git history"
+      The line 4 should equal "::endgroup::"
+      The line 5 should equal "::group::Maven build"
+      The line 6 should include "Build and analyze long lived feature branch feature/long/some-feature"
+      The line 7 should start with "Maven command: mvn deploy"
+      The line 8 should start with "mvn deploy"
+      The line 8 should include "-Pdeploy-sonarsource -Pcoverage"
+      The line 9 should equal "::endgroup::"
+      The line 10 should start with "orchestrate_sonar_platforms"
     End
   End
 
@@ -476,11 +540,15 @@ Describe 'build_maven()'
 
     It 'builds only'
       When call build_maven
-      The lines of stdout should equal 4
-      The line 1 should include "Skipping git fetch (Sonar analysis disabled)"
-      The line 2 should include "Build, no analysis, no deploy some-branch"
-      The line 3 should start with "Maven command: mvn verify"
-      The line 4 should start with "mvn verify"
+      The lines of stdout should equal 8
+      The line 1 should equal "::group::Check tools"
+      The line 2 should equal "::endgroup::"
+      The line 3 should include "Skipping git fetch (Sonar analysis disabled)"
+      The line 4 should equal "::group::Maven build"
+      The line 5 should include "Build, no analysis, no deploy some-branch"
+      The line 6 should start with "Maven command: mvn verify"
+      The line 7 should start with "mvn verify"
+      The line 8 should equal "::endgroup::"
     End
   End
 

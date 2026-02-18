@@ -206,7 +206,7 @@ Describe 'build_npm()'
     When call build_npm
     The status should be success
     The line 8 should equal "======= Building maintenance branch ======="
-    The line 16 should include "-Dsonar.projectVersion=1.2.3-SNAPSHOT"
+    The line 20 should include "-Dsonar.projectVersion=1.2.3-SNAPSHOT"
   End
 
   It 'builds maintenance branch with RELEASE version'
@@ -218,7 +218,7 @@ Describe 'build_npm()'
     When call build_npm
     The status should be success
     The line 8 should equal "======= Building maintenance branch ======="
-    The line 16 should include "-Dsonar.projectVersion=1.2.3"
+    The line 20 should include "-Dsonar.projectVersion=1.2.3"
   End
 
   It 'builds pull request without deploy'

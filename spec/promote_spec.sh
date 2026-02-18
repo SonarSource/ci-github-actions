@@ -76,12 +76,15 @@ Describe 'promote/promote.sh'
   It 'fails on working branch'
     When run script promote/promote.sh
     The status should be failure
-    The line 1 should include "gh"
+    The line 1 should equal "::group::Check tools"
     The line 2 should include "gh"
-    The line 3 should include "jq"
+    The line 3 should include "gh"
     The line 4 should include "jq"
-    The line 5 should include "jf"
+    The line 5 should include "jq"
     The line 6 should include "jf"
+    The line 7 should include "jf"
+    The line 8 should equal "::endgroup::"
+    The line 9 should equal "::group::Configure promotion"
     The error should start with "Promotion is only available for"
   End
 
@@ -93,19 +96,27 @@ Describe 'promote/promote.sh'
     export PROMOTE_PULL_REQUEST="true"
     When run script promote/promote.sh
     The status should be success
-    The lines of stdout should equal 12
-    The line 1 should include "gh"
+    The lines of stdout should equal 20
+    The line 1 should equal "::group::Check tools"
     The line 2 should include "gh"
-    The line 3 should include "jq"
+    The line 3 should include "gh"
     The line 4 should include "jq"
-    The line 5 should include "jf"
+    The line 5 should include "jq"
     The line 6 should include "jf"
-    The line 7 should equal "jf config remove repox"
-    The line 8 should equal "jf config add repox --artifactory-url https://dummy.repox --access-token dummy promote token"
-    The line 9 should equal "Promoting build dummy-project/$BUILD_NUMBER (version: 1.2.3.42)"
-    The line 10 should equal "Target repository: $ARTIFACTORY_TARGET_REPO"
-    The line 11 should equal "jf rt bpr --status it-passed-pr dummy-project $BUILD_NUMBER $ARTIFACTORY_TARGET_REPO"
-    The line 12 should include "gh api -X POST"
+    The line 7 should include "jf"
+    The line 8 should equal "::endgroup::"
+    The line 9 should equal "::group::Configure promotion"
+    The line 10 should equal "jf config remove repox"
+    The line 11 should equal "jf config add repox --artifactory-url https://dummy.repox --access-token dummy promote token"
+    The line 12 should equal "::endgroup::"
+    The line 13 should equal "::group::Promote build artifacts"
+    The line 14 should equal "Promoting build dummy-project/$BUILD_NUMBER (version: 1.2.3.42)"
+    The line 15 should equal "Target repository: $ARTIFACTORY_TARGET_REPO"
+    The line 16 should equal "jf rt bpr --status it-passed-pr dummy-project $BUILD_NUMBER $ARTIFACTORY_TARGET_REPO"
+    The line 17 should equal "::endgroup::"
+    The line 18 should equal "::group::Notify GitHub"
+    The line 19 should include "gh api -X POST"
+    The line 20 should equal "::endgroup::"
   End
 
   It 'skips promotion on pull_request when promotion is disabled'
@@ -363,9 +374,18 @@ Describe 'promote()'
     export GITHUB_REF_NAME="main"
     When call promote
     The status should be success
-    The line 1 should equal "ARTIFACTORY_DEPLOY_REPO=sonarsource-deploy-qa"
-    The line 2 should equal "Promoting build dummy-project/$BUILD_NUMBER (version: 1.2.3.42)"
-    The line 3 should equal "Target repository: sonarsource-deploy-builds"
+    The line 1 should equal "::group::Check tools"
+    The line 2 should equal "::endgroup::"
+    The line 3 should equal "::group::Configure promotion"
+    The line 4 should equal "::endgroup::"
+    The line 5 should equal "::group::Promote build artifacts"
+    The line 6 should equal "ARTIFACTORY_DEPLOY_REPO=sonarsource-deploy-qa"
+    The line 7 should equal "Promoting build dummy-project/$BUILD_NUMBER (version: 1.2.3.42)"
+    The line 8 should equal "Target repository: sonarsource-deploy-builds"
+    The line 9 should equal "jf rt bpr --status it-passed dummy-project 42 sonarsource-deploy-builds"
+    The line 10 should equal "::endgroup::"
+    The line 11 should equal "::group::Notify GitHub"
+    The line 12 should equal "::endgroup::"
   End
 
   It 'customizes the build name with BUILD_NAME not equal to the repository name'
@@ -375,8 +395,10 @@ Describe 'promote()'
     When call promote
     The status should be success
     The variable BUILD_NAME should equal "dummy-project-abc"
-    The line 2 should equal "Promoting build $BUILD_NAME/$BUILD_NUMBER (version: 1.2.3.42)"
-    The line 3 should equal "Target repository: sonarsource-deploy-builds"
-    The line 4 should equal "jf rt bpr --status it-passed dummy-project-abc 42 sonarsource-deploy-builds"
+    The line 5 should equal "::group::Promote build artifacts"
+    The line 7 should equal "Promoting build $BUILD_NAME/$BUILD_NUMBER (version: 1.2.3.42)"
+    The line 8 should equal "Target repository: sonarsource-deploy-builds"
+    The line 9 should equal "jf rt bpr --status it-passed dummy-project-abc 42 sonarsource-deploy-builds"
+    The line 10 should equal "::endgroup::"
   End
 End

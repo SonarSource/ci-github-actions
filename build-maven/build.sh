@@ -144,11 +144,15 @@ should_scan() {
 }
 
 build_maven() {
+  echo "::group::Check tools"
   check_tool mvn --version
   check_settings_xml
+  echo "::endgroup::"
 
   if should_scan; then
+    echo "::group::Fetch Git history"
     git_fetch_unshallow
+    echo "::endgroup::"
   else
     echo "Skipping git fetch (Sonar analysis disabled)"
   fi
@@ -164,6 +168,7 @@ build_maven() {
     maven_command_args+=("-Pcoverage")
   fi
 
+  echo "::group::Maven build"
   if is_default_branch || is_maintenance_branch; then
     echo "======= Build and analyze $GITHUB_REF_NAME ======="
     if [[ "${RUN_SHADOW_SCANS}" != "true" ]]; then
@@ -187,6 +192,7 @@ build_maven() {
   mvn_output=$(mktemp)
   echo "Maven command: mvn ${maven_command_args[*]} $*"
   mvn "${maven_command_args[@]}" "$@" | tee "$mvn_output"
+  echo "::endgroup::"
 
   if should_deploy; then
     echo "$DEPLOYED_OUTPUT_KEY=true" >> "$GITHUB_OUTPUT"
