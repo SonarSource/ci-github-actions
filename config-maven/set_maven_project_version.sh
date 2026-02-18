@@ -77,7 +77,11 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     echo "current-version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
     echo "project-version=$PROJECT_VERSION" >> "$GITHUB_OUTPUT"
   else
+    echo "::group::Check tools"
     check_tool mvn --version
+    echo "::endgroup::"
+    echo "::group::Set project version"
     set_project_version
+    echo "::endgroup::"
   fi
 fi

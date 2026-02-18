@@ -169,14 +169,18 @@ Describe 'main()'
   It 'runs tool checks and calls set_project_version'
     When run script config-maven/set_maven_project_version.sh
     The status should be success
-    The lines of output should equal 7
-    The line 1 should include "mvn"
-    The line 2 should equal "mvn --version"
-    The line 3 should equal "CURRENT_VERSION=1.2.3-SNAPSHOT (from pom.xml)"
-    The line 4 should equal "Replacing version 1.2.3-SNAPSHOT with 1.2.3.1"
-    The line 5 should start with "Maven command:"
-    The line 6 should equal "mvn versions"
-    The line 7 should equal "PROJECT_VERSION=1.2.3.1"
+    The lines of output should equal 11
+    The line 1 should equal "::group::Check tools"
+    The line 2 should include "mvn"
+    The line 3 should equal "mvn --version"
+    The line 4 should equal "::endgroup::"
+    The line 5 should equal "::group::Set project version"
+    The line 6 should equal "CURRENT_VERSION=1.2.3-SNAPSHOT (from pom.xml)"
+    The line 7 should equal "Replacing version 1.2.3-SNAPSHOT with 1.2.3.1"
+    The line 8 should start with "Maven command:"
+    The line 9 should equal "mvn versions"
+    The line 10 should equal "PROJECT_VERSION=1.2.3.1"
+    The line 11 should equal "::endgroup::"
   End
 
   It 'uses provided CURRENT_VERSION and PROJECT_VERSION without changes'
@@ -199,7 +203,7 @@ Describe 'main()'
 
     When run script config-maven/set_maven_project_version.sh
     The status should be success
-    The lines of output should equal 7
+    The lines of output should equal 11
   End
 
   It 'proceeds normally when only PROJECT_VERSION is provided'
@@ -208,6 +212,6 @@ Describe 'main()'
 
     When run script config-maven/set_maven_project_version.sh
     The status should be success
-    The lines of output should equal 7
+    The lines of output should equal 11
   End
 End

@@ -277,22 +277,32 @@ build_poetry() {
   echo "Pull Request: ${PULL_REQUEST}"
   echo "Deploy Pull Request: ${DEPLOY_PULL_REQUEST}"
 
+  echo "::group::Set project version"
   set_project_version
+  echo "::endgroup::"
+
   get_build_config
 
+  echo "::group::Install dependencies"
   echo "Installing dependencies..."
   jfrog_poetry_install
+  echo "::endgroup::"
 
+  echo "::group::Build project"
   echo "Building project..."
   poetry build
+  echo "::endgroup::"
 
   if [ "${BUILD_ENABLE_SONAR}" = "true" ]; then
     read -ra sonar_args <<< "$BUILD_SONAR_ARGS"
+    # run_sonar_analysis emits its own groups
     run_sonar_analysis "${sonar_args[@]+${sonar_args[@]}}"
   fi
 
   if [ "${BUILD_ENABLE_DEPLOY}" = "true" ]; then
+    echo "::group::Publish to Artifactory"
     jfrog_poetry_publish
+    echo "::endgroup::"
     export_built_artifacts
   fi
 
@@ -328,12 +338,17 @@ export_built_artifacts() {
 }
 
 main() {
+  echo "::group::Check tools"
   check_tool jq --version
   check_tool python --version
   check_tool poetry --version
   check_tool jf --version
+  echo "::endgroup::"
 
+  echo "::group::Configure build environment"
   set_build_env
+  echo "::endgroup::"
+
   build_poetry
 }
 

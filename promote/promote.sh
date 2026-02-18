@@ -204,14 +204,26 @@ EOF
 }
 
 promote() {
+  echo "::group::Check tools"
   check_tool gh --version
   check_tool jq --version
   check_tool jf --version
+  echo "::endgroup::"
+
+  echo "::group::Configure promotion"
   set_build_env
   check_branch
   jfrog_config_repox
+  echo "::endgroup::"
+
+  echo "::group::Promote build artifacts"
   jfrog_promote
+  echo "::endgroup::"
+
+  echo "::group::Notify GitHub"
   github_notify_promotion
+  echo "::endgroup::"
+
   generate_workflow_summary
 }
 

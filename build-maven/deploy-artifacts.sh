@@ -30,15 +30,25 @@ done
 
 build_name="${GITHUB_REPOSITORY#*/}"
 pushd "$MAVEN_CONFIG/repository"
+
+echo "::group::Configure JFrog deployment"
 jfrog config add deploy --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_DEPLOY_ACCESS_TOKEN"
 jfrog config use deploy
+echo "::endgroup::"
+
+echo "::group::Deploy public artifacts"
 echo "Deploying public artifacts..."
 for artifact in "${public_artifacts[@]}"; do
   jfrog rt u --build-name "$build_name" --build-number "$BUILD_NUMBER" "$artifact" "${ARTIFACTORY_DEPLOY_REPO}"
 done
+echo "::endgroup::"
+
+echo "::group::Deploy private artifacts"
 echo "Deploying private artifacts..."
 jfrog config edit deploy --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_PRIVATE_DEPLOY_ACCESS_TOKEN"
 for artifact in "${private_artifacts[@]}"; do
   jfrog rt u --build-name "$build_name" --build-number "$BUILD_NUMBER" "$artifact" "${ARTIFACTORY_PRIVATE_DEPLOY_REPO}"
 done
+echo "::endgroup::"
+
 popd

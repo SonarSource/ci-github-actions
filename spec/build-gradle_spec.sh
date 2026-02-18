@@ -489,10 +489,14 @@ Describe 'main function'
 
     When call main
     The status should be success
-    The line 1 should equal "java ok"
-    The line 2 should equal "gradle ok"
-    The line 3 should equal "env set"
-    The line 4 should equal "build done"
+    The line 1 should equal "::group::Check tools"
+    The line 2 should equal "java ok"
+    The line 3 should equal "gradle ok"
+    The line 4 should equal "::endgroup::"
+    The line 5 should equal "::group::Configure build environment"
+    The line 6 should equal "env set"
+    The line 7 should equal "::endgroup::"
+    The line 8 should equal "build done"
   End
 End
 

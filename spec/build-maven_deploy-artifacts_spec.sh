@@ -26,16 +26,22 @@ com/sonarsource/private/app/1.0/app-1.0.jar"
 
     When run script build-maven/deploy-artifacts.sh
     The status should be success
-    The lines of stdout should equal 11
-    The line 2 of output should equal "jfrog config add deploy --artifactory-url https://dummy.repox --access-token deploy-token"
-    The line 3 of output should equal "jfrog config use deploy"
-    The line 4 of output should include "Deploying public artifacts..."
-    The line 5 of output should include "org/sonarsource/app/1.0/app-1.0.pom deploy-repo-qa"
-    The line 6 of output should include "org/sonarsource/app/1.0/app-1.0.jar deploy-repo-qa"
-    The line 7 of output should equal "Deploying private artifacts..."
-    The line 8 of output should equal "jfrog config edit deploy --artifactory-url https://dummy.repox --access-token private-token"
-    The line 9 of output should include "com/sonarsource/private/app/1.0/app-1.0.pom private-repo-qa"
-    The line 10 of output should include "com/sonarsource/private/app/1.0/app-1.0.jar private-repo-qa"
+    The lines of stdout should equal 17
+    The line 2 of output should equal "::group::Configure JFrog deployment"
+    The line 3 of output should equal "jfrog config add deploy --artifactory-url https://dummy.repox --access-token deploy-token"
+    The line 4 of output should equal "jfrog config use deploy"
+    The line 5 of output should equal "::endgroup::"
+    The line 6 of output should equal "::group::Deploy public artifacts"
+    The line 7 of output should include "Deploying public artifacts..."
+    The line 8 of output should include "org/sonarsource/app/1.0/app-1.0.pom deploy-repo-qa"
+    The line 9 of output should include "org/sonarsource/app/1.0/app-1.0.jar deploy-repo-qa"
+    The line 10 of output should equal "::endgroup::"
+    The line 11 of output should equal "::group::Deploy private artifacts"
+    The line 12 of output should equal "Deploying private artifacts..."
+    The line 13 of output should equal "jfrog config edit deploy --artifactory-url https://dummy.repox --access-token private-token"
+    The line 14 of output should include "com/sonarsource/private/app/1.0/app-1.0.pom private-repo-qa"
+    The line 15 of output should include "com/sonarsource/private/app/1.0/app-1.0.jar private-repo-qa"
+    The line 16 of output should equal "::endgroup::"
 
     rm -rf "$MAVEN_CONFIG"
   End
