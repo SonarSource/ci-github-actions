@@ -191,6 +191,12 @@ runs:
         echo "::warning title=Deactivating UseContainerSupport::The GitHub-hosted Ubuntu runners have an issue with Java's" \
           "UseContainerSupport feature."
         echo "JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS:=-XX:-UseContainerSupport}" >> "$GITHUB_ENV"
+        # SonarQube ignores JAVA_TOOL_OPTIONS for its child processes (Elasticsearch, Web Server, Compute Engine).
+        # These vars pass -XX:-UseContainerSupport via SonarQube's own JVM configuration mechanism so that
+        # Orchestrator-managed SonarQube instances are also protected on affected runners.
+        echo "SONAR_SEARCH_JAVAADDITIONALOPTS=${SONAR_SEARCH_JAVAADDITIONALOPTS:=-XX:-UseContainerSupport}" >> "$GITHUB_ENV"
+        echo "SONAR_WEB_JAVAADDITIONALOPTS=${SONAR_WEB_JAVAADDITIONALOPTS:=-XX:-UseContainerSupport}" >> "$GITHUB_ENV"
+        echo "SONAR_CE_JAVAADDITIONALOPTS=${SONAR_CE_JAVAADDITIONALOPTS:=-XX:-UseContainerSupport}" >> "$GITHUB_ENV"
 
     - name: Create mvn wrapper function with common Maven flags and set MAVEN_OPTS
       if: steps.config-maven-completed.outputs.skip != 'true'
