@@ -74,10 +74,12 @@ orchestrate_sonar_platforms() {
       done
       echo "=== ORCHESTRATOR: Completed Sonar analysis on all platforms ==="
   else
+      echo "::group::Sonar analysis on $SONAR_PLATFORM"
       echo "=== ORCHESTRATOR: Running Sonar analysis on selected platform: $SONAR_PLATFORM ==="
       set_sonar_platform_vars "$SONAR_PLATFORM"
       # CALLBACK: Hand control back to build script's implementation
       sonar_scanner_implementation "$@"
+      echo "::endgroup::"
   fi
 }
 
