@@ -238,10 +238,12 @@ Describe 'orchestrate_sonar_platforms()'
     export SONAR_PLATFORM="next"
     When call orchestrate_sonar_platforms "-Dsome.property=value"
     The status should be success
-    The lines of stdout should equal 3
-    The line 1 should include "ORCHESTRATOR: Running Sonar analysis on selected platform: next"
-    The line 2 should include "Using Sonar platform: next"
-    The line 3 should include "sonar_scanner_implementation -Dsome.property=value"
+    The lines of stdout should equal 5
+    The line 1 should equal "::group::Sonar analysis on next"
+    The line 2 should include "ORCHESTRATOR: Running Sonar analysis on selected platform: next"
+    The line 3 should include "Using Sonar platform: next"
+    The line 4 should include "sonar_scanner_implementation -Dsome.property=value"
+    The line 5 should equal "::endgroup::"
   End
 
   It 'runs analysis on all platforms when shadow scans enabled'
