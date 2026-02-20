@@ -1496,12 +1496,21 @@ Example with a build action (same idea applies to other actions):
 
 ## Release
 
+Before making a release, ensure that all the dummy dogfooding actions succeed and that their badges are green.
+See the [Dogfooding Status](#dogfooding-status) at the top of this README.
+
+Follow semantic versioning principles when determining the new version number based on the nature of the changes (**new features**,
+improvements, fixes, documentation, and **breaking changes**).
+
 1. Create a new GitHub release on <https://github.com/SonarSource/ci-github-actions/releases>
 
-   Increase the **patch** number for **fixes**, the **minor** number for **new features**, and the **major** number for
-   **breaking changes**.
+    Semantic versioning is crucial for clear communication of the changes in each release:
 
-   Edit the generated release notes to curate the highlights and key fixes. Make sure that the notes are clear and informative.
+    - Increase the **patch** number for **bug fixes**, **improvements**, and **documentation updates**,
+    - Increase the **minor** number for **new features**,
+    - Increase the **major** number for **breaking changes**.
+
+    Edit the generated release notes to curate the highlights and key fixes. Make sure that the notes are clear and informative.
 
     ```markdown
     ## What's Changed
@@ -1520,14 +1529,14 @@ Example with a build action (same idea applies to other actions):
     ## New Contributors
     * ...
 
-   ---
+    ---
 
-   Additional notes, examples, or references if applicable.
+    Additional notes, examples, or references if applicable.
 
     **Full Changelog**: https://github.com/SonarSource/ci-github-actions/compare/...
-   ```
+    ```
 
-   Make sure to include any **breaking changes** in the notes.
+    Make sure to include any **breaking changes** in the notes.
 
 2. After release, the `v*` branch must be updated for pointing to the new tag.
 
@@ -1537,29 +1546,35 @@ Example with a build action (same idea applies to other actions):
     git push origin v1
     ```
 
-3. Communicate the new release on the Slack [#ask-github-migration](https://sonarsource.enterprise.slack.com/archives/C09791CRUKF) channel.
-   > 🚀 **New release `1.y.z` of `ci-github-actions` is live!** 🚀
-   >
-   > The v1 branch has been updated, so workflows using `@v1` will automatically receive these improvements.
-   >
-   > ---
-   >
-   > ### ✨ What's New
-   >
-   > - _Curated highlights from release notes: new features, important new options_
-   >
-   > ### 🚀 Improvements
-   >
-   > - _Curated highlights from release notes: improvement and upgrades_
-   >
-   > ### 🐛 Bug Fixes
-   >
-   > - _Curated highlights from release notes_
-   >
-   > ### 📚 Documentation
-   >
-   > - _Curated highlights from release notes_
-   >
-   >
-   > For all the details, you can
-   > [read the full release notes on GitHub](https://github.com/SonarSource/ci-github-actions/releases/tag/1.y.z).
+3. Communicate Updates, Changes and Migrations
+
+    Communicate the new release on the [#ops-platform-releases](https://sonarsource.enterprise.slack.com/archives/C0A6RL3L9BP) Slack
+    channel.
+
+    > 🚀 **New release `1.y.z` of `ci-github-actions`** (`v1` branch updated) 🚀
+    >
+    > ---
+    >
+    > ### ✨ What's New
+    >
+    > - _Curated highlights from release notes: new features, important new options_
+    >
+    > ### ⚡ Improvements
+    >
+    > - _Curated highlights from release notes: improvement and upgrades_
+    >
+    > ### 🐛 Bug Fixes
+    >
+    > - _Curated highlights from release notes_
+    >
+    > ### 📚 Documentation
+    >
+    > - _Curated highlights from release notes_
+    >
+    >
+    > For all the details, you can
+    > [read the full release notes on GitHub](https://github.com/SonarSource/ci-github-actions/releases/tag/1.y.z).
+
+    Communicate major updates, changes and migrations that require action from users following as indicated in
+    the [Updates, Changes and Migrations for Squads - Platform](https://xtranet-sonarsource.atlassian.net/wiki/spaces/Platform/pages/4385374219/Updates+Changes+and+Migrations+for+Squads+-+Platform#Usage-of-Communication-Channels)
+    xtranet page.
