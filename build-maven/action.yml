@@ -72,6 +72,9 @@ inputs:
   mixed-privacy:
     description: Whether the repository contains both public and private modules
     default: 'false'
+  generate-summary:
+    description: Whether to generate a workflow summary after the build.
+    default: 'true'
 
 outputs:
   project-version:
@@ -230,7 +233,7 @@ runs:
         show-summary: true
 
     - name: Generate workflow summary
-      if: always()
+      if: always() && inputs.generate-summary != 'false'
       shell: bash
       run: |
         build_name="${GITHUB_REPOSITORY#*/}"
