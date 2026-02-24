@@ -91,12 +91,22 @@ runs:
         ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
       run: $ACTION_PATH_CONFIG_PIP/config.sh
 
+    - name: Sanitize workflow name for cache key
+      id: sanitize_workflow
+      if: inputs.disable-caching == 'false'
+      shell: bash
+      env:
+        WORKFLOW_NAME: ${{ github.workflow }}
+      run: echo "workflow_name=${WORKFLOW_NAME// /-}" >> "$GITHUB_OUTPUT"
+
     - name: Cache pip dependencies
       uses: SonarSource/gh-action_cache@v1
       if: inputs.disable-caching == 'false'
       with:
         path: ${{ inputs.cache-paths }}
-        key: pip-${{ runner.os }}-${{ github.workflow }}-${{ hashFiles(format('{0}/requirements*.txt', inputs.working-directory),
+        # yamllint disable rule:line-length
+        key: pip-${{ runner.os }}-${{ steps.sanitize_workflow.outputs.workflow_name }}-${{ hashFiles(format('{0}/requirements*.txt', inputs.working-directory),
           format('{0}/Pipfile.lock', inputs.working-directory), format('{0}/poetry.lock', inputs.working-directory),
           format('{0}/pyproject.toml', inputs.working-directory)) }}
-        restore-keys: pip-${{ runner.os }}-${{ github.workflow }}-
+        # yamllint enable rule:line-length
+        restore-keys: pip-${{ runner.os }}-${{ steps.sanitize_workflow.outputs.workflow_name }}-

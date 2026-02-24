@@ -97,13 +97,21 @@ runs:
         rmdir "${{ steps.setup.outputs.MISE_BACKUP }}"
         echo "::endgroup::"
 
+    - name: Sanitize workflow name for cache key
+      id: sanitize_workflow
+      if: ${{ inputs.cache-npm == 'true' }}
+      shell: bash
+      env:
+        WORKFLOW_NAME: ${{ github.workflow }}
+      run: echo "workflow_name=${WORKFLOW_NAME// /-}" >> "$GITHUB_OUTPUT"
+
     - name: Cache NPM dependencies
       uses: SonarSource/gh-action_cache@v1
       if: ${{ inputs.cache-npm == 'true' }}
       with:
         path: ~/.npm
-        key: npm-${{ runner.os }}-${{ github.workflow }}-${{ hashFiles('**/package-lock.json') }}
-        restore-keys: npm-${{ runner.os }}-${{ github.workflow }}-
+        key: npm-${{ runner.os }}-${{ steps.sanitize_workflow.outputs.workflow_name }}-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: npm-${{ runner.os }}-${{ steps.sanitize_workflow.outputs.workflow_name }}-
 
     - name: Check for package.json
       id: check_package_json
