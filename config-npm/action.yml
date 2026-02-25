@@ -106,7 +106,7 @@ runs:
       run: echo "workflow_name=${WORKFLOW_NAME// /-}" >> "$GITHUB_OUTPUT"
 
     - name: Cache NPM dependencies
-      uses: SonarSource/gh-action_cache@v1
+      uses: SonarSource/gh-action_cache@v1.2.2
       if: ${{ inputs.cache-npm == 'true' }}
       with:
         path: ~/.npm

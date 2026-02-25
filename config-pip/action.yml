@@ -100,7 +100,7 @@ runs:
       run: echo "workflow_name=${WORKFLOW_NAME// /-}" >> "$GITHUB_OUTPUT"
 
     - name: Cache pip dependencies
-      uses: SonarSource/gh-action_cache@v1
+      uses: SonarSource/gh-action_cache@v1.2.2
       if: inputs.disable-caching == 'false'
       with:
         path: ${{ inputs.cache-paths }}
