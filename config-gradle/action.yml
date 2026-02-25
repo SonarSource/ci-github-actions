@@ -157,13 +157,21 @@ runs:
 
         rm -f gradle-md5-sums.txt
 
+    - name: Sanitize workflow name for cache key
+      id: sanitize_workflow
+      if: steps.config-gradle-completed.outputs.skip != 'true' && inputs.disable-caching == 'false'
+      shell: bash
+      env:
+        WORKFLOW_NAME: ${{ github.workflow }}
+      run: echo "workflow_name=${WORKFLOW_NAME// /-}" >> "$GITHUB_OUTPUT"
+
     - name: Gradle Cache
       uses: SonarSource/gh-action_cache@v1
       if: steps.config-gradle-completed.outputs.skip != 'true' && inputs.disable-caching == 'false'
       with:
         path: ${{ inputs.cache-paths }}
-        key: gradle-${{ runner.os }}-${{ github.workflow }}-${{ env.GRADLE_CACHE_KEY }}
-        restore-keys: gradle-${{ runner.os }}-${{ github.workflow }}-
+        key: gradle-${{ runner.os }}-${{ steps.sanitize_workflow.outputs.workflow_name }}-${{ env.GRADLE_CACHE_KEY }}
+        restore-keys: gradle-${{ runner.os }}-${{ steps.sanitize_workflow.outputs.workflow_name }}-
 
     # $GRADLE_USER_HOME is typically set to ~/.gradle/ by gradle/actions/setup-gradle
     - name: Configure Gradle Authentication

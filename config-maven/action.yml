@@ -168,13 +168,23 @@ runs:
           fi
         fi
 
+    - name: Sanitize workflow name for cache key
+      id: sanitize_workflow
+      if: steps.config-maven-completed.outputs.skip != 'true' && inputs.disable-caching == 'false'
+      shell: bash
+      env:
+        WORKFLOW_NAME: ${{ github.workflow }}
+      run: echo "workflow_name=${WORKFLOW_NAME// /-}" >> "$GITHUB_OUTPUT"
+
     - name: Cache local Maven repository
       uses: SonarSource/gh-action_cache@v1
       if: steps.config-maven-completed.outputs.skip != 'true' && inputs.disable-caching == 'false'
       with:
         path: ${{ inputs.cache-paths }}
-        key: maven-${{ runner.os }}-${{ github.workflow }}-${{ hashFiles(format('{0}/**/pom.xml', inputs.working-directory)) }}
-        restore-keys: maven-${{ runner.os }}-${{ github.workflow }}-
+        # yamllint disable rule:line-length
+        key: maven-${{ runner.os }}-${{ steps.sanitize_workflow.outputs.workflow_name }}-${{ hashFiles(format('{0}/**/pom.xml', inputs.working-directory)) }}
+        # yamllint enable rule:line-length
+        restore-keys: maven-${{ runner.os }}-${{ steps.sanitize_workflow.outputs.workflow_name }}-
 
     - name: Update project version and set current-version and project-version variables
       id: set-version
