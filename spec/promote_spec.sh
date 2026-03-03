@@ -86,7 +86,7 @@ Describe 'promote/promote.sh'
     The line 7 should include "jf"
     The line 8 should equal "::endgroup::"
     The line 9 should equal "::group::Configure promotion"
-    The error should start with "Promotion is only available for"
+    The error should start with "::error title=Promotion unavailable::Promotion is only available for"
   End
 
   It 'runs promote() on pull_request when promotion is enabled'
@@ -173,7 +173,7 @@ Describe 'check_branch()'
     export GITHUB_REF_NAME="feat/jdoe/JIRA-123-something"
     When call check_branch
     The status should be failure
-    The error should start with "Promotion is only available for"
+    The error should start with "::error title=Promotion unavailable::Promotion is only available for"
   End
 End
 
@@ -247,7 +247,7 @@ Describe 'get_build_info_property()'
   It 'returns an error for a non-existing property'
     When call get_build_info_property "NON_EXISTING_PROPERTY"
     The status should be failure
-    The error should include "Failed to retrieve NON_EXISTING_PROPERTY from buildInfo for build dummy-project/42"
+    The error should include "::error title=Build info retrieval failed::Failed to retrieve NON_EXISTING_PROPERTY from buildInfo for build dummy-project/42"
   End
 End
 

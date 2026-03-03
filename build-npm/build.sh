@@ -246,7 +246,7 @@ export_built_artifacts() {
   artifacts=$(/usr/bin/find .attestation-artifacts -name '*.tgz' -type f 2>/dev/null || true)
 
   if [[ -z "$artifacts" ]]; then
-    echo "::warning title=No artifacts found::No artifacts found for attestation in build output directories"
+    echo "::warning title=No artifacts found::No artifacts found for attestation in build output directories" >&2
     echo "::endgroup::"
     return 0
   fi

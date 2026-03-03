@@ -26,7 +26,7 @@ set_gradle_cmd() {
   elif check_tool gradle --version; then
     export GRADLE_CMD="gradle"
   else
-    echo "Neither ./gradlew nor gradle command found!" >&2
+    echo "::error title=Gradle not found::Neither ./gradlew nor gradle command found!" >&2
     exit 1
   fi
 }
@@ -37,7 +37,7 @@ set_project_version() {
   if ! current_version=$($GRADLE_CMD "${GRADLE_CMD_PARAMS[@]}" |grep 'version:' | cut -d ":" -f 2 | tr -d "[:space:]") || \
       [[ -z "$current_version" || "$current_version" == "unspecified" ]]; then
     current_version=$($GRADLE_CMD properties --no-scan --no-daemon --console plain 2>&1 || true)
-    echo -e "::error title=Gradle project version::Could not get valid version from Gradle properties\nERROR: $current_version"
+    printf "%s\n%s\n" "::error title=Gradle project version::Could not get valid version from Gradle properties" "ERROR: $current_version" >&2
     return 1
   fi
 

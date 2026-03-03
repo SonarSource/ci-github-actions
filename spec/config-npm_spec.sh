@@ -108,7 +108,7 @@ Describe 'check_version_format()'
   It 'warns about invalid version format'
     When call check_version_format "invalid-version"
     The status should be success
-    The stderr should include "WARN: Version 'invalid-version' does not match semantic versioning format"
+    The stderr should include "::warning title=Non-standard version format::Version 'invalid-version' does not match semantic versioning format"
   End
 
   It 'accepts valid semantic version without warning'
@@ -130,7 +130,7 @@ Describe 'set_project_version()'
     When run set_project_version
     The status should be failure
     The line 1 should equal "Setting project version..."
-    The stderr should include "Could not get version from package.json"
+    The stderr should include "::error file=package.json,title=Invalid project version::Could not get version from package.json"
     The variable CURRENT_VERSION should be undefined
     The variable PROJECT_VERSION should be undefined
   End
@@ -143,7 +143,7 @@ Describe 'set_project_version()'
     When run set_project_version
     The status should be failure
     The line 1 should equal "Setting project version..."
-    The stderr should include "Could not get version from package.json"
+    The stderr should include "::error file=package.json,title=Invalid project version::Could not get version from package.json"
     The variable CURRENT_VERSION should be undefined
     The variable PROJECT_VERSION should be undefined
   End

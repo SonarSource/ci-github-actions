@@ -35,7 +35,7 @@ Describe 'get_current_version()'
     When call get_current_version
     The status should be failure
     The lines of error should equal 1
-    The line 1 of error should equal "Failed to evaluate Maven expression 'project.version'"
+    The line 1 of error should equal "::error title=Maven expression evaluation failed::Failed to evaluate Maven expression 'project.version'"
   End
 End
 
@@ -123,9 +123,9 @@ Describe 'set_project_version()'
     End
     When call set_project_version
     The status should be failure
-    The lines of output should equal 2
+    The lines of output should equal 1
     The line 1 should equal "CURRENT_VERSION=1.2.3.4-SNAPSHOT (from pom.xml)"
-    The line 2 should include "Unsupported version '1.2.3.4-SNAPSHOT' with 4 digits."
+    The stderr should include "Unsupported version '1.2.3.4-SNAPSHOT' with 4 digits."
   End
 
   It 'handles Maven expression failure gracefully'

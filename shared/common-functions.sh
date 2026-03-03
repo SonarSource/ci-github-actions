@@ -38,7 +38,7 @@ set_sonar_platform_vars() {
       return 0
       ;;
     *)
-      echo "ERROR: Invalid Sonar platform '$platform'. Must be one of: next, sqc-us, sqc-eu, none" >&2
+      echo "::error title=Invalid Sonar platform::Invalid Sonar platform '$platform'. Must be one of: next, sqc-us, sqc-eu, none" >&2
       return 1
       ;;
   esac
@@ -86,7 +86,7 @@ orchestrate_sonar_platforms() {
 check_tool() {
   # Check if a command is available and runs it, typically: 'some_tool --version'
   if ! command -v "$1"; then
-    echo "$1 is not installed." >&2
+    echo "::error title=Missing tool::$1 is not installed." >&2
     return 1
   fi
   "$@"

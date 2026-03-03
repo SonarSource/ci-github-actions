@@ -118,7 +118,8 @@ runs:
           fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN || '' }}
       run: |
         if [[ "${DEVELOCITY_ACCESS_KEY:-}" == "${{ steps.develocity-hostname.outputs.hostname }}=" ]]; then
-          echo "::warning title=Found invalid DEVELOCITY_ACCESS_KEY::DEVELOCITY_ACCESS_KEY should not be set manually in the environment."
+          echo "::warning title=Found invalid DEVELOCITY_ACCESS_KEY::DEVELOCITY_ACCESS_KEY should not be set manually" \
+            "in the environment." >&2
           echo "[WARNING] DEVELOCITY_ACCESS_KEY is set in the environment with an empty token. This is a deprecated configuration." \
           "The Develocity token is configured by config-gradle. Please remove external configuration of DEVELOCITY_ACCESS_KEY."
         fi
@@ -195,7 +196,7 @@ runs:
       shell: bash
       run: |
         echo "::warning title=Deactivating UseContainerSupport::The GitHub-hosted Ubuntu runners have an issue with Java's" \
-          "UseContainerSupport feature."
+          "UseContainerSupport feature." >&2
         echo "JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS:=-XX:-UseContainerSupport}" >> "$GITHUB_ENV"
 
     - name: Set Config Gradle completed

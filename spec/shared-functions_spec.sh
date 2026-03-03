@@ -46,7 +46,7 @@ Describe 'shared/common-functions.sh'
     It 'fails with invalid platform'
       When call set_sonar_platform_vars "invalid"
       The status should be failure
-      The stderr should include "ERROR: Invalid Sonar platform 'invalid'. Must be one of: next, sqc-us, sqc-eu, none"
+      The stderr should include "::error title=Invalid Sonar platform::Invalid Sonar platform 'invalid'. Must be one of: next, sqc-us, sqc-eu, none"
     End
 
     It 'correctly formats URL display removing protocol'
@@ -110,7 +110,7 @@ Describe 'shared/common-functions.sh'
     It 'reports not installed tool'
       When call check_tool some_tool
       The status should be failure
-      The line 1 of error should equal "some_tool is not installed."
+      The line 1 of error should equal "::error title=Missing tool::some_tool is not installed."
     End
     It 'executes existing command with arguments'
       When call check_tool echo "test message"

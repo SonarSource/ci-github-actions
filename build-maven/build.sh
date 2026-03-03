@@ -107,7 +107,7 @@ git_fetch_unshallow() {
 
 check_settings_xml() {
   if [ ! -f "$HOME/.m2/settings.xml" ]; then
-    echo "::error title=Missing Maven settings.xml::Maven settings.xml file not found at $HOME/.m2/settings.xml"
+    echo "::error title=Missing Maven settings.xml::Maven settings.xml file not found at $HOME/.m2/settings.xml" >&2
     exit 1
   fi
 }
@@ -120,7 +120,7 @@ should_deploy() {
 
   # Disable deployment when shadow scans are enabled to prevent duplicate artifacts
   if [[ "${RUN_SHADOW_SCANS}" = "true" ]]; then
-    echo "Shadow scans enabled - disabling deployment" >&2
+    echo "::warning title=Deployment disabled::Shadow scans enabled - disabling deployment" >&2
     return 1
   fi
 
@@ -245,7 +245,7 @@ export_built_artifacts() {
   fi
 
   if [[ -z "$artifacts" ]]; then
-    echo "::warning title=No artifacts found::No artifacts found for attestation in build output directories"
+    echo "::warning title=No artifacts found::No artifacts found for attestation in build output directories" >&2
     echo "::endgroup::"
     return 0
   fi

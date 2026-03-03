@@ -98,7 +98,7 @@ set_sonar_platform_vars() {
       return 0
       ;;
     *)
-      echo "ERROR: Unknown sonar platform '$platform'. Expected: next, sqc-us, sqc-eu, or none" >&2
+      echo "::error title=Invalid Sonar platform::Unknown sonar platform '$platform'. Expected: next, sqc-us, sqc-eu, or none" >&2
       return 1
       ;;
   esac
@@ -166,7 +166,7 @@ set_project_version() {
   local current_version release_version digit_count
 
   if ! current_version=$(poetry version -s); then
-    echo "Could not get version from Poetry project ('poetry version -s')" >&2
+    echo "::error title=Invalid project version::Could not get version from Poetry project ('poetry version -s')" >&2
     echo "$current_version" >&2
     return 1
   fi
@@ -180,7 +180,7 @@ set_project_version() {
   fi
   if [[ "$digit_count" -gt 3 && $release_version =~ [0-9]+\.[0-9]+\.[0-9]+ ]]; then
     release_version="${BASH_REMATCH[0]}"
-    echo "WARN: version was truncated to $release_version because it had more than 3 digits"
+    echo "::warning title=Version truncated::Version was truncated to $release_version because it had more than 3 digits" >&2
   fi
   release_version="$release_version.${BUILD_NUMBER}"
 
@@ -323,7 +323,7 @@ export_built_artifacts() {
   artifacts=$(/usr/bin/find dist -type f \( -name '*.tar.gz' -o -name '*.whl' -o -name '*.json' \) 2>/dev/null || true)
 
   if [[ -z "$artifacts" ]]; then
-    echo "::warning title=No artifacts found::No artifacts found for attestation in build output directories"
+    echo "::warning title=No artifacts found::No artifacts found for attestation in build output directories" >&2
     echo "::endgroup::"
     return 0
   fi

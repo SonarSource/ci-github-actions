@@ -195,10 +195,10 @@ Describe 'export_built_artifacts()'
 
     When call export_built_artifacts
     The status should be success
-    The lines of stdout should equal 3
+    The lines of stdout should equal 2
     The line 1 should equal "::group::Capturing built artifacts for attestation"
-    The line 2 should equal "::warning title=No artifacts found::No artifacts found for attestation in build output directories"
-    The line 3 should equal "::endgroup::"
+    The line 2 should equal "::endgroup::"
+    The stderr should include "::warning title=No artifacts found::No artifacts found for attestation in build output directories"
     The lines of contents of file "$GITHUB_OUTPUT" should equal 1
     The line 1 of contents of file "$GITHUB_OUTPUT" should equal "should-deploy=true"
   End
@@ -218,7 +218,7 @@ Describe 'set_sonar_platform_vars() - poetry specific'
   It 'fails with unknown platform'
     When call set_sonar_platform_vars "unknown"
     The status should be failure
-    The stderr should include "ERROR: Unknown sonar platform 'unknown'. Expected: next, sqc-us, sqc-eu, or none"
+    The stderr should include "::error title=Invalid Sonar platform::Unknown sonar platform 'unknown'. Expected: next, sqc-us, sqc-eu, or none"
   End
 End
 
@@ -274,8 +274,8 @@ Describe 'set_project_version()'
       fi
     End
     When call set_project_version
-    The line 1 should equal "WARN: version was truncated to 1.2.3 because it had more than 3 digits"
-    The line 2 should equal "Replacing version 1.2.3.41 with 1.2.3.42"
+    The line 1 of error should equal "::warning title=Version truncated::Version was truncated to 1.2.3 because it had more than 3 digits"
+    The line 1 should equal "Replacing version 1.2.3.41 with 1.2.3.42"
     The variable CURRENT_VERSION should equal "1.2.3.41"
     The variable PROJECT_VERSION should equal "1.2.3.42"
   End
@@ -290,7 +290,7 @@ Describe 'set_project_version()'
       fi
     End
     When call set_project_version
-    The line 1 of error should equal "Could not get version from Poetry project ('poetry version -s')"
+    The line 1 of error should equal "::error title=Invalid project version::Could not get version from Poetry project ('poetry version -s')"
     The line 2 of error should equal "Failed to get version"
     The variable CURRENT_VERSION should be undefined
     The variable PROJECT_VERSION should be undefined
@@ -592,7 +592,11 @@ Describe 'build_poetry()'
         echo "Python 3.11.0"
       End
       Mock poetry
-        echo "Poetry (version 1.8.0)"
+        if [[ "$*" == "version -s" ]]; then
+          echo "1.8.0"
+        else
+          echo "Poetry (version 1.8.0)"
+        fi
       End
       Mock jf
         echo "jf version 2.77.0"
@@ -623,7 +627,11 @@ Describe 'build_poetry()'
         echo "Python 3.11.0"
       End
       Mock poetry
-        echo "Poetry (version 1.8.0)"
+        if [[ "$*" == "version -s" ]]; then
+          echo "1.8.0"
+        else
+          echo "Poetry (version 1.8.0)"
+        fi
       End
       Mock jf
         echo "jf version 2.77.0"

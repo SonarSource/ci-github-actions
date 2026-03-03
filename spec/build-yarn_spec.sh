@@ -103,7 +103,7 @@ Describe 'build-yarn/build.sh'
       mv package.json package.json.backup
       When run set_build_env
       The status should be failure
-      The stderr should include "ERROR: package.json file not found in current directory."
+      The stderr should include "::error title=Missing package.json::package.json file not found in current directory."
       The stdout should include "PROJECT: test-project"
       mv package.json.backup package.json
     End
@@ -112,7 +112,7 @@ Describe 'build-yarn/build.sh'
       mv yarn.lock yarn.lock.backup
       When run set_build_env
       The status should be failure
-      The stderr should include "ERROR: yarn.lock file not found. This is required for yarn --immutable installs."
+      The stderr should include "::error title=Missing yarn.lock::yarn.lock file not found. This is required for yarn --immutable installs."
       The stdout should include "PROJECT: test-project"
       mv yarn.lock.backup yarn.lock
     End
@@ -214,7 +214,7 @@ Describe 'build-yarn/build.sh'
       export MOCK_VERSION="null"
       When run set_project_version
       The status should be failure
-      The stderr should include "Could not get version from package.json"
+      The stderr should include "::error file=package.json,title=Invalid project version::Could not get version from package.json"
       The variable CURRENT_VERSION should be undefined
       The variable PROJECT_VERSION should be undefined
     End
@@ -223,7 +223,7 @@ Describe 'build-yarn/build.sh'
       export MOCK_VERSION="1.2.3.4-SNAPSHOT"
       When call set_project_version
       The status should be failure
-      The stderr should include "Unsupported version"
+      The stderr should include "::error file=package.json,title=Unsupported version format::Unsupported version"
       The variable CURRENT_VERSION should equal "1.2.3.4-SNAPSHOT"
       The variable PROJECT_VERSION should be undefined
     End
@@ -390,6 +390,7 @@ Describe 'build-yarn/build.sh'
       When call build_yarn
       The status should be success
       The output should include "======= Building maintenance branch ======="
+      The stderr should include "::warning title=No artifacts found::"
     End
 
     It 'builds pull request with deploy enabled'
@@ -399,6 +400,7 @@ Describe 'build-yarn/build.sh'
       The status should be success
       The output should include "======= Building pull request ======="
       The output should include "======= with deploy ======="
+      The stderr should include "::warning title=No artifacts found::"
     End
 
     It 'builds pull request without deploy'
@@ -415,6 +417,7 @@ Describe 'build-yarn/build.sh'
       When call build_yarn
       The status should be success
       The output should include "======= Build dogfood branch ======="
+      The stderr should include "::warning title=No artifacts found::"
     End
 
     It 'builds long-lived feature branch'
@@ -430,6 +433,7 @@ Describe 'build-yarn/build.sh'
       When run script build-yarn/build.sh
       The status should be success
       The output should include "=== Yarn Build, Deploy, and Analyze ==="
+      The stderr should include "::warning title=No artifacts found::"
     End
   End
 
@@ -444,6 +448,7 @@ Describe 'build-yarn/build.sh'
       The status should be success
       The output should include "Sonar Platform: none"
       The output should include "=== ORCHESTRATOR: Skipping Sonar analysis (platform: none) ==="
+      The stderr should include "::warning title=No artifacts found::"
     End
 
     It 'requires sonar variables when platform is not none'

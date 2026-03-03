@@ -23,7 +23,7 @@ get_current_version() {
   local expression="project.version"
   if ! command mvn --quiet --non-recursive org.codehaus.mojo:exec-maven-plugin:1.3.1:exec 2>/dev/null \
       -Dexec.executable="echo" -Dexec.args="\${$expression}"; then
-    echo "Failed to evaluate Maven expression '$expression'" >&2
+    echo "::error title=Maven expression evaluation failed::Failed to evaluate Maven expression '$expression'" >&2
     command mvn --debug --non-recursive org.codehaus.mojo:exec-maven-plugin:1.3.1:exec \
       -Dexec.executable="echo" -Dexec.args="\${$expression}"
     return 1
@@ -56,7 +56,7 @@ set_project_version() {
   elif [[ "$dots_count" -eq 1 ]]; then
     release_version="${release_version}.0"
   elif [[ "$dots_count" -ne 2 ]]; then
-    echo "::error file=pom.xml,title=Maven project version::Unsupported version '$current_version' with $((dots_count + 1)) digits."
+    echo "::error file=pom.xml,title=Maven project version::Unsupported version '$current_version' with $((dots_count + 1)) digits." >&2
     return 1
   fi
   release_version="${release_version}.${BUILD_NUMBER}"

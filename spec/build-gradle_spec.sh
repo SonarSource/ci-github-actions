@@ -184,7 +184,7 @@ Describe 'should_deploy'
     When call should_deploy
     The status should be failure
     The lines of stderr should equal 1
-    The line 1 of stderr should equal "Shadow scans enabled - disabling deployment"
+    The line 1 of stderr should equal "::warning title=Deployment disabled::Shadow scans enabled - disabling deployment"
   End
 End
 
@@ -343,7 +343,7 @@ Describe 'gradle_build'
     The output should include "Gradle command:"
     The output should include "Gradle executed with:"
     The output should not include "=== ORCHESTRATOR:"
-
+    The stderr should include "::warning title=No artifacts found::"
 
     rm -f gradle-mock gradle.properties
   End
@@ -454,17 +454,17 @@ Describe 'set_gradle_cmd()'
     # Mock check_tool to fail for gradle
     Mock check_tool
       if [[ "$1" == "gradle" ]]; then
-        echo "gradle is not installed." >&2
+        echo "::error title=Missing tool::gradle is not installed." >&2
         false
       else
-        echo "$1 is not installed." >&2
+        echo "::error title=Missing tool::$1 is not installed." >&2
         false
       fi
     End
 
     When run set_gradle_cmd
     The status should be failure
-    The stderr should include "Neither ./gradlew nor gradle command found!"
+    The stderr should include "::error title=Gradle not found::Neither ./gradlew nor gradle command found!"
 
     rm -f ./gradlew
   End
@@ -505,5 +505,6 @@ Describe 'script execution'
     When run script build-gradle/build.sh
     The status should be success
     The output should include "PROJECT: my-repo"
+    The stderr should include "::warning title=No artifacts found::"
   End
 End

@@ -64,7 +64,7 @@ check_branch() {
   fi
 
   if ! (is_pull_request || is_default_branch || is_maintenance_branch || is_dogfood_branch); then
-    echo "Promotion is only available for pull requests, main branch, maintenance branches, or dogfood branches." >&2
+    echo "::error title=Promotion unavailable::Promotion is only available for pull requests, main branch, maintenance branches, or dogfood branches." >&2
     echo "Current branch: ${GITHUB_REF_NAME} (GITHUB_EVENT_NAME: ${GITHUB_EVENT_NAME})" >&2
     return 1
   fi
@@ -98,7 +98,7 @@ get_build_info_property() {
   fi
   property_value=$(jq -r ".buildInfo.properties.\"buildInfo.env.$property\"" "$BUILD_INFO_FILE")
   if [[ "$property_value" == "null" || -z "$property_value" || "$property_value" == "unspecified" ]]; then
-    echo "Failed to retrieve $property from buildInfo for build ${BUILD_NAME}/${BUILD_NUMBER}" >&2
+    echo "::error title=Build info retrieval failed::Failed to retrieve $property from buildInfo for build ${BUILD_NAME}/${BUILD_NUMBER}" >&2
     jq -r '.errors' "$BUILD_INFO_FILE" >&2
     return 1
   fi

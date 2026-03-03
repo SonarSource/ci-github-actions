@@ -191,11 +191,11 @@ Describe 'export_built_artifacts()'
 
     When call export_built_artifacts
     The status should be success
-    The lines of stdout should equal 4
+    The lines of stdout should equal 3
     The line 1 should equal "::group::Capturing built artifacts for attestation"
     The line 2 should equal "Scanning for artifacts in: */target/*"
-    The line 3 should equal "::warning title=No artifacts found::No artifacts found for attestation in build output directories"
-    The line 4 should equal "::endgroup::"
+    The line 3 should equal "::endgroup::"
+    The stderr should include "::warning title=No artifacts found::No artifacts found for attestation in build output directories"
     The lines of contents of file "$GITHUB_OUTPUT" should equal 4
     The line 1 of contents of file "$GITHUB_OUTPUT" should equal "$DEPLOYED_OUTPUT_KEY=true"
     rm -rf target "$GITHUB_OUTPUT"
@@ -286,8 +286,8 @@ Describe 'check_settings_xml()'
     mkdir -p "$HOME/.m2"
     When run check_settings_xml
     The status should be failure
-    The lines of output should equal 1
-    The output should include "Missing Maven settings.xml::Maven settings.xml file not found at $HOME/.m2/settings.xml"
+    The lines of output should equal 0
+    The stderr should include "Missing Maven settings.xml::Maven settings.xml file not found at $HOME/.m2/settings.xml"
 
     rm -rf "$temp_home"
   End
@@ -298,8 +298,8 @@ Describe 'check_settings_xml()'
     export HOME="$temp_home"
     When run check_settings_xml
     The status should be failure
-    The lines of output should equal 1
-    The output should include "Missing Maven settings.xml::Maven settings.xml file not found at $HOME/.m2/settings.xml"
+    The lines of output should equal 0
+    The stderr should include "Missing Maven settings.xml::Maven settings.xml file not found at $HOME/.m2/settings.xml"
 
     rm -rf "$temp_home"
   End
@@ -561,7 +561,7 @@ Describe 'build_maven()'
     It 'disables deployment when shadow scans are enabled'
       When call build_maven
       The status should be success
-      The stderr should include "Shadow scans enabled - disabling deployment"
+      The stderr should include "::warning title=Deployment disabled::Shadow scans enabled - disabling deployment"
       The output should include "Maven command: mvn install"
       The output should not include "Maven command: mvn deploy"
     End
@@ -569,7 +569,7 @@ Describe 'build_maven()'
     It 'excludes release and sign profiles when shadow scans are enabled'
       When call build_maven
       The status should be success
-      The stderr should include "Shadow scans enabled - disabling deployment"
+      The stderr should include "::warning title=Deployment disabled::Shadow scans enabled - disabling deployment"
       The output should include "Maven command: mvn install -Pcoverage"
       The output should not include "release"
       The output should not include "sign"
@@ -583,7 +583,7 @@ Describe 'build_maven()'
     It 'excludes release profile when shadow scans are enabled'
       When call build_maven
       The status should be success
-      The stderr should include "Shadow scans enabled - disabling deployment"
+      The stderr should include "::warning title=Deployment disabled::Shadow scans enabled - disabling deployment"
       The output should include "Maven command: mvn install"
       The output should not include "release"
     End
