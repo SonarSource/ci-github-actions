@@ -43,15 +43,6 @@ These badges show the status of workflows in dummy repositories that use (or sho
 [![Pre-commit checks](https://github.com/SonarSource/sonar-dummy-yarn/actions/workflows/pre-commit.yml/badge.svg?branch=master)](https://github.com/SonarSource/sonar-dummy-yarn/actions/workflows/pre-commit.yml)
 [![Unified Dogfooding scans](https://github.com/SonarSource/sonar-dummy-yarn/actions/workflows/unified-dogfooding.yml/badge.svg?branch=master)](https://github.com/SonarSource/sonar-dummy-yarn/actions/workflows/unified-dogfooding.yml)
 
-## Using AI for Cirrus CI to GitHub Actions Migration
-
-It is recommended to use AI tools like Cursor or Claude code to assist with Cirrus CI to GitHub actions migration.
-This repository contains a comprehensive guide to be passed as a context to AI. The guide is shared with Sonar developers using Cursor,
-accessible using `@Doc` tag.
-
-See the [documentation](https://xtranet-sonarsource.atlassian.net/wiki/spaces/Platform/pages/4232970266/Migration+From+Cirrus+CI+-+GitHub)
-for details on how to use it.
-
 ---
 
 ## Actions provided in this repository
@@ -69,6 +60,8 @@ for details on how to use it.
 - [`promote`](#promote)
 - [`pr_cleanup`](#pr_cleanup)
 - [`code-signing`](#code-signing)
+
+---
 
 ## `get-build-number`
 
@@ -125,12 +118,7 @@ No inputs are required for this action.
 |----------------------|--------------------------|
 | `BUILD_NUMBER`       | The current build number |
 
-### Features
-
-- Automatic build number management with GitHub repository properties
-- Build number uniqueness per workflow run ID
-- No increment on workflow reruns
-- Sets both environment variable and output variable
+---
 
 ## `config-maven`
 
@@ -249,6 +237,8 @@ steps:
 | `MAVEN_CONFIG`                | Path to m2 root `$HOME/.m2`                                                                                                                                                                                                               |
 
 See also [`get-build-number`](#get-build-number) output environment variables.
+
+---
 
 ## `build-maven`
 
@@ -372,23 +362,7 @@ for the public values, and by setting the environment variables for the private 
 
 See also [`config-maven`](#config-maven) output environment variables.
 
-### Features
-
-- Build context detection with automatic deployment strategies
-- SonarQube analysis for code quality
-- Artifact signing with GPG keys
-- Conditional deployment based on branch patterns
-- Develocity integration for build optimization (optional)
-- Maven local repository caching with customization options
-- Support for different branch types:
-  - **master**: Deploy + SonarQube analysis with full profiles
-  - **maintenance** (`branch-*`): Deploy with full profiles + separate SonarQube analysis
-  - **pr**: Conditional deployment with SonarQube analysis
-  - **dogfood** (`dogfood-on-*`): Deploy only with dogfood profiles
-  - **feature** (`feature/long/*`): Verify + SonarQube analysis only
-  - **default**: Basic verify goal only
-- Mixed privacy repository support for combined public and private artifacts
-- GitHub workflow job summary with build information and deployment status
+---
 
 ## `build-poetry`
 
@@ -485,6 +459,8 @@ jobs:
 | `BUILD_NUMBER`    | The current build number. Also set as environment variable `BUILD_NUMBER`                                     |
 | `project-version` | The project version from pyproject.toml with build number. Also set as environment variable `PROJECT_VERSION` |
 | `deployed`        | `true` if the build succeed and was supposed to deploy                                                        |
+
+---
 
 ## `config-gradle`
 
@@ -610,11 +586,14 @@ If provided, `SONARSOURCE_REPOSITORY` is used at runtime by the Gradle init scri
 
 See also [`get-build-number`](#get-build-number) output environment variables.
 
+---
+
 ## `build-gradle`
 
 Build and publish a Gradle project with SonarQube analysis and Artifactory deployment.
 
 > **Note:** This action automatically calls [`config-gradle`](#config-gradle) to set up the Gradle environment.
+> **Note:** Uses the Gradle wrapper (`./gradlew`) by default, falling back to the `gradle` binary if not found.
 
 ### Requirements
 
@@ -741,21 +720,6 @@ See also [`config-gradle`](#config-gradle) input environment variables.
 | `BUILD_NUMBER`    | The current build number. Also set as environment variable `BUILD_NUMBER` |
 | `deployed`        | `true` if the build succeed and was supposed to deploy                    |
 
-### Features
-
-- Uses the gradle wrapper (`./gradlew`) by default and falls back to the `gradle` binary in case it is not found
-- Automated version management with build numbers
-- SonarQube analysis for code quality with multi-platform support
-- Unified platform dogfooding - analyze across all 3 SonarQube platforms (next, sqc-eu, sqc-us)
-- Automatic deployment prevention during shadow scans to avoid duplicate artifacts
-- Conditional deployment based on branch patterns
-- Automatic artifact signing with credentials from Vault
-- Pull request support with optional deployment
-- Develocity integration for build scans
-- Gradle caching with customization options
-- Comprehensive build logging and error handling
-- GitHub workflow job summary with build information and deployment status
-
 ### Caching Configuration
 
 By default, Gradle caches `~/.gradle/caches` and `~/.gradle/wrapper`. You can customize this behavior:
@@ -849,6 +813,8 @@ artifactory {
 }
 ```
 
+---
+
 ## `config-npm`
 
 Configure NPM and JFrog build environment with build number, authentication, and settings.
@@ -921,6 +887,8 @@ See also [`get-build-number`](#get-build-number) input environment variables.
 | `PROJECT_VERSION`    | The project version with build number (after replacement) |
 
 See also [`get-build-number`](#get-build-number) output environment variables.
+
+---
 
 ## `build-npm`
 
@@ -1023,19 +991,7 @@ See also [`config-npm`](#config-npm) input environment variables.
 
 See also [`config-npm`](#config-npm) output environment variables.
 
-### Features
-
-- Automated version management with build numbers and SNAPSHOT handling
-- SonarQube analysis for code quality with multi-platform support
-- Unified platform dogfooding - analyze across all 3 SonarQube platforms (next, sqc-eu, sqc-us)
-- Automatic deployment prevention during shadow scans to avoid duplicate artifacts
-- Conditional deployment based on branch patterns
-- NPM dependency caching for faster builds (configurable)
-- Pull request support with optional deployment
-- JFrog build info publishing with UI links
-- Support for different branch types (default, maintenance, PR, dogfood, long-lived feature)
-- Comprehensive build logging and error handling
-- GitHub workflow job summary with build information and deployment status
+---
 
 ## `build-yarn`
 
@@ -1125,19 +1081,7 @@ jobs:
 | `project-version` | The project version from package.json                                     |
 | `deployed`        | `true` if the build succeed and was supposed to deploy                    |
 
-### Features
-
-- Automated version management with build numbers and SNAPSHOT handling
-- SonarQube analysis for code quality with multi-platform support
-- Unified platform dogfooding - analyze across all 3 SonarQube platforms (next, sqc-eu, sqc-us)
-- Automatic deployment prevention during shadow scans to avoid duplicate artifacts
-- Conditional deployment based on branch patterns
-- Yarn dependency caching for faster builds (configurable)
-- Pull request support with optional deployment
-- JFrog build info publishing with UI links
-- Support for different branch types (default, maintenance, PR, dogfood, long-lived feature)
-- Comprehensive build logging and error handling
-- GitHub workflow job summary with build information and deployment status
+---
 
 ## `config-pip`
 
@@ -1218,14 +1162,6 @@ steps:
 
 See also [`get-build-number`](#get-build-number) output environment variables.
 
-### Features
-
-- Build number management via [`get-build-number`](#get-build-number)
-- Automatic Artifactory authentication via Vault
-- Auto-detection of reader role based on repository visibility
-- Pip dependency caching with customization options
-- Global pip configuration for all subsequent `pip install` commands
-
 ### Migration from configure-pipx-repox
 
 If you're currently using `SonarSource/sonarqube-cloud-github-actions/configure-pipx-repox@master`, you can replace it with:
@@ -1239,6 +1175,8 @@ If you're currently using `SonarSource/sonarqube-cloud-github-actions/configure-
 ```
 
 Both actions produce the same configuration and are functionally equivalent.
+
+---
 
 ## `promote`
 
@@ -1320,15 +1258,6 @@ promote:
 
 This action does not provide any outputs.
 
-### Features
-
-- Automatic promotion of build artifacts in JFrog Artifactory
-- GitHub status check updates with promotion status
-- Support for both single and multi-repository promotions
-- Automatic target repository determination based on branch type
-- Pull request artifact promotion support
-- GitHub workflow job summary with promotion information and deployment link
-
 ---
 
 ## `pr_cleanup`
@@ -1367,13 +1296,7 @@ No inputs are required for this action.
 
 No outputs are provided by this action.
 
-### Features
-
-- Remove GitHub Actions caches associated with the PR
-- Clean up artifacts created during PR workflows
-- Provide detailed output of the deleted resources
-- Show before/after state of caches and artifacts
-- Automatic triggering on PR closure
+---
 
 ## `code-signing`
 
@@ -1435,12 +1358,32 @@ After running this action, the following environment variables are available:
 - `SM_CODE_SIGNING_CERT_SHA1_HASH`: Certificate fingerprint for signing
 - `SMTOOLS_PATH`: Path where SMTools are installed, certificate and `.cfg` file is stored.
 
-### Features
+---
 
-- **Official DigiCert Integration**: Uses the official DigiCert `ssm-code-signing` action for reliable smctl installation
-- **Unified Caching Strategy**: Single cache key for both smctl and jsign tools to optimize cache efficiency
-- **Smart Cache Management**: Caches smctl installation directory and jsign .deb package for faster subsequent runs
-- **Automatic Setup**: Handles all DigiCert authentication and environment configuration
+## Deployment Strategy
+
+All build actions (`build-maven`, `build-gradle`, `build-npm`, `build-yarn`, `build-poetry`) share the same branch-based deployment and
+SonarQube analysis strategy. Shared helper predicates and orchestration utilities are provided by `shared/common-functions.sh`, while the
+concrete deploy and scan behavior is implemented in each build script:
+
+| Branch                                | Deploy   | SonarQube |
+|---------------------------------------|----------|-----------|
+| Default branch (`master`, `main`)     | yes      | yes       |
+| Maintenance (`branch-*`)              | yes      | yes       |
+| Pull request                          | optional | yes       |
+| Dogfood (`dogfood-on-*`)              | yes      | no        |
+| Long-lived feature (`feature/long/*`) | yes ¹    | yes       |
+| Other branches                        | no       | no        |
+
+- Pull request deployment requires `deploy-pull-request: 'true'`.
+- SonarQube analysis also requires `sonar-platform` to be set (not `none`).
+- ¹ `build-maven` and `build-gradle` only; `build-npm`, `build-yarn`, and `build-poetry` do not deploy on long-lived feature branches.
+- `build-maven` and `build-gradle` support a `deploy: 'false'` input to override deployment regardless of branch. `build-npm`,
+  `build-yarn`, and `build-poetry` do not have this input (TODO: add for consistency).
+- **`build-gradle` known bug**: SonarQube analysis is not filtered by branch type. When `sonar-platform ≠ none`, analysis runs on all
+  branches, including dogfood and other branches (unlike all other build actions).
+
+---
 
 ## Provenance Attestation
 
@@ -1588,3 +1531,29 @@ improvements, fixes, documentation, and **breaking changes**).
     Communicate major updates, changes and migrations that require action from users following as indicated in
     the [Updates, Changes and Migrations for Squads - Platform](https://xtranet-sonarsource.atlassian.net/wiki/spaces/Platform/pages/4385374219/Updates+Changes+and+Migrations+for+Squads+-+Platform#Usage-of-Communication-Channels)
     xtranet page.
+
+---
+
+## Using AI for Cirrus CI to GitHub Actions Migration
+
+It is recommended to use AI tools like Cursor or Claude code to assist with Cirrus CI to GitHub actions migration.
+
+This repository contains a comprehensive guide to be passed as a context to
+AI: [.cursor/cirrus-github-migration.md](.cursor/cirrus-github-migration.md). Here are some example prompts:
+
+```md
+Refer @https://github.com/SonarSource/ci-github-actions/blob/master/.cursor/cirrus-github-migration.md
+Migrate @.cirrus.yml to GitHub Actions
+```
+
+Or, in the [re-terraform-aws-vault](https://github.com/SonarSource/re-terraform-aws-vault) repository, you can use it to check for missing
+vault secrets before migration:
+
+```md
+Refer @https://github.com/SonarSource/ci-github-actions/blob/master/.cursor/cirrus-github-migration.md
+Give me a report of the missing vault secrets for the repository `sonar-dummy`
+```
+
+See
+the ["Migration From Cirrus CI - GitHub" xtranet documentation](https://xtranet-sonarsource.atlassian.net/wiki/spaces/Platform/pages/4232970266/Migration+From+Cirrus+CI+-+GitHub)
+for more details.

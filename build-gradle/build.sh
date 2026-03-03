@@ -223,6 +223,10 @@ gradle_build() {
     echo "::endgroup::"
   else
     # Build with sonar analysis via orchestrator
+    # TODO BUILD-10586: sonar analysis is not filtered by branch type here — it runs on all branches
+    # (including dogfood and other branches) when sonar-platform != none. This differs from
+    # build-maven/build-npm/build-yarn/build-poetry which skip sonar on dogfood/other branches.
+    # Should add a should_scan() guard consistent with the other build scripts.
     # shellcheck disable=SC2119
     orchestrate_sonar_platforms
   fi

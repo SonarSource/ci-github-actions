@@ -193,6 +193,9 @@ jfrog_yarn_publish() {
 }
 
 # Determine build configuration based on branch type
+# TODO BUILD-10586: this function does not support a DEPLOY env var to override deployment (unlike build-maven and build-gradle).
+# Should add a DEPLOY=${DEPLOY:=true} check consistent with those build scripts.
+# Note: unlike build-maven and build-gradle, long-lived feature branches (feature/long/*) do not deploy here.
 get_build_config() {
   local enable_sonar enable_deploy
   local sonar_args=()
