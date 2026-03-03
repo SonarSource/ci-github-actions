@@ -332,6 +332,7 @@ See also [`config-maven`](#config-maven) input environment variables.
 | `provenance`                | Whether to generate provenance attestation for built artifacts                                                               | `false`                                                                                     |
 | `provenance-artifact-paths` | Relative paths of artifacts for provenance attestation (glob pattern). See [Provenance Attestation](#provenance-attestation) | (optional)                                                                                  |
 | `mixed-privacy`             | Whether the repository contains both public and private code                                                                 | `false`                                                                                     |
+| `generate-summary`          | Whether to generate a workflow summary after the build                                                                       | `true`                                                                                      |
 
 #### `cache-cleanup`
 
@@ -387,6 +388,7 @@ See also [`config-maven`](#config-maven) output environment variables.
   - **feature** (`feature/long/*`): Verify + SonarQube analysis only
   - **default**: Basic verify goal only
 - Mixed privacy repository support for combined public and private artifacts
+- GitHub workflow job summary with build information and deployment status
 
 ## `build-poetry`
 
@@ -474,6 +476,7 @@ jobs:
 | `disable-caching`           | Whether to disable Poetry caching entirely                                                                                                                                                    | `false`                                                                                               |
 | `provenance`                | Whether to generate provenance attestation for built artifacts                                                                                                                                | `false`                                                                                               |
 | `provenance-artifact-paths` | Relative paths of artifacts for provenance attestation (glob pattern). See [Provenance Attestation](#provenance-attestation)                                                                  | (optional)                                                                                            |
+| `generate-summary`          | Whether to generate a workflow summary after the build                                                                                                                                        | `true`                                                                                                |
 
 ### Outputs
 
@@ -711,6 +714,7 @@ See also [`config-gradle`](#config-gradle) input environment variables.
 | `disable-caching`           | Whether to disable Gradle caching entirely                                                                                   | `false`                                                                                     |
 | `provenance`                | Whether to generate provenance attestation for built artifacts                                                               | `false`                                                                                     |
 | `provenance-artifact-paths` | Relative paths of artifacts for provenance attestation (glob pattern). See [Provenance Attestation](#provenance-attestation) | (optional)                                                                                  |
+| `generate-summary`          | Whether to generate a workflow summary after the build                                                                       | `true`                                                                                      |
 
 > [!TIP]
 > When using `working-directory`, Java must be available at root due to a limitation
@@ -750,6 +754,7 @@ See also [`config-gradle`](#config-gradle) input environment variables.
 - Develocity integration for build scans
 - Gradle caching with customization options
 - Comprehensive build logging and error handling
+- GitHub workflow job summary with build information and deployment status
 
 ### Caching Configuration
 
@@ -999,6 +1004,7 @@ See also [`config-npm`](#config-npm) input environment variables.
 | `build-name`                | Name of the JFrog build to publish.                                                                                          | `<Repository name>`                                                                          |
 | `provenance`                | Whether to generate provenance attestation for built artifacts                                                               | `false`                                                                                      |
 | `provenance-artifact-paths` | Relative paths of artifacts for provenance attestation (glob pattern). See [Provenance Attestation](#provenance-attestation) | (optional)                                                                                   |
+| `generate-summary`          | Whether to generate a workflow summary after the build                                                                       | `true`                                                                                       |
 
 ### Outputs
 
@@ -1029,6 +1035,7 @@ See also [`config-npm`](#config-npm) output environment variables.
 - JFrog build info publishing with UI links
 - Support for different branch types (default, maintenance, PR, dogfood, long-lived feature)
 - Comprehensive build logging and error handling
+- GitHub workflow job summary with build information and deployment status
 
 ## `build-yarn`
 
@@ -1108,6 +1115,7 @@ jobs:
 | `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding)                                               | `false`                                                                                     |
 | `provenance`                | Whether to generate provenance attestation for built artifacts                                                               | `false`                                                                                     |
 | `provenance-artifact-paths` | Relative paths of artifacts for provenance attestation (glob pattern). See [Provenance Attestation](#provenance-attestation) | (optional)                                                                                  |
+| `generate-summary`          | Whether to generate a workflow summary after the build                                                                       | `true`                                                                                      |
 
 ### Outputs
 
@@ -1129,6 +1137,7 @@ jobs:
 - JFrog build info publishing with UI links
 - Support for different branch types (default, maintenance, PR, dogfood, long-lived feature)
 - Comprehensive build logging and error handling
+- GitHub workflow job summary with build information and deployment status
 
 ## `config-pip`
 
@@ -1318,6 +1327,7 @@ This action does not provide any outputs.
 - Support for both single and multi-repository promotions
 - Automatic target repository determination based on branch type
 - Pull request artifact promotion support
+- GitHub workflow job summary with promotion information and deployment link
 
 ---
 
