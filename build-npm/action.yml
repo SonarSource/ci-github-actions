@@ -50,6 +50,9 @@ inputs:
       Relative paths of the artifacts for which to generate a provenance attestation (glob pattern).
       Default is collected from '.attestation-artifacts/' directory
     default: ''
+  generate-summary:
+    description: Whether to generate a workflow summary after the build.
+    default: 'true'
 
 outputs:
   BUILD_NUMBER:
@@ -177,14 +180,14 @@ runs:
         show-summary: true
 
     - name: Generate workflow summary
-      if: always()
+      if: always() && inputs.generate-summary != 'false'
       shell: bash
       env:
         ARTIFACTORY_URL: ${{ inputs.repox-artifactory-url != '' && inputs.repox-artifactory-url ||
           format('{0}/artifactory', inputs.repox-url) }}
       run: |
         build_name="${GITHUB_REPOSITORY#*/}"
-        echo "## 📦 NPM Build Summary" >> $GITHUB_STEP_SUMMARY
+        echo "## 📦 NPM Build Summary (\`${GITHUB_JOB}\`)" >> $GITHUB_STEP_SUMMARY
         if [[ "${{ steps.build.conclusion }}" == "success" ]]; then
           echo "✅ **Build SUCCESS**" >> $GITHUB_STEP_SUMMARY
         else
@@ -197,7 +200,7 @@ runs:
         echo "- **Branch**: \`${GITHUB_REF}\`" >> $GITHUB_STEP_SUMMARY
         echo "- **Commit**: \`$GITHUB_SHA\`" >> $GITHUB_STEP_SUMMARY
 
-        if [[ "${{ steps.build.outputs.should-deploy }}" == true ]]; then
+        if [[ "${{ steps.build.outputs.deployed }}" == true ]]; then
           echo "### 🚀 Deployment" >> $GITHUB_STEP_SUMMARY
           ARTIFACTORY_BROWSE_URL="${ARTIFACTORY_URL%/*}/ui/builds/$build_name/$BUILD_NUMBER"
           echo "🔗 **[Browse artifacts in Artifactory](${ARTIFACTORY_BROWSE_URL})**" >> $GITHUB_STEP_SUMMARY

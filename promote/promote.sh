@@ -5,12 +5,15 @@
 # - ARTIFACTORY_PROMOTE_ACCESS_TOKEN: Access token to promote builds
 # - BUILD_NUMBER: Build number (e.g. 42)
 # - BUILD_NAME: Name of the JFrog Artifactory build (e.g. sonar-dummy)
+# - GITHUB_TOKEN: GitHub token with repo access to update commit status
 #
 # GitHub Actions auto-provided:
 # - GITHUB_REF_NAME: Short ref name of the branch or tag (e.g. main, branch-123, dogfood-on-123)
 # - GITHUB_REPOSITORY: Repository name (e.g. sonarsource/sonar-dummy)
 # - GITHUB_EVENT_NAME: Event name (e.g. push, pull_request)
 # - GITHUB_EVENT_PATH: Path to the event webhook payload file. For example, /github/workflow/event.json.
+# - GITHUB_SHA: Git commit SHA that triggered the workflow
+# - GITHUB_JOB: The job_id of the current job, used for generating workflow summary
 #
 # Optional user customization:
 # - ARTIFACTORY_URL: Repox URL.
@@ -34,7 +37,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 : "${ARTIFACTORY_URL:="https://repox.jfrog.io/artifactory"}"
 : "${ARTIFACTORY_PROMOTE_ACCESS_TOKEN:?}"
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}" "${GITHUB_EVENT_PATH:?}" "${GITHUB_TOKEN:?}"
-: "${GITHUB_SHA:?}"
+: "${GITHUB_SHA:?}" "${GITHUB_JOB:?}"
 GH_API_VERSION_HEADER="X-GitHub-Api-Version: 2022-11-28"
 BUILD_INFO_FILE=$(mktemp)
 rm -f "$BUILD_INFO_FILE"
@@ -186,7 +189,7 @@ generate_workflow_summary() {
 
 
   cat >> "$GITHUB_STEP_SUMMARY" <<EOF
-## 🚀 Promotion Summary
+## 🚀 Promotion Summary (\`${GITHUB_JOB}\`)
 
 ✅ **Promotion SUCCESS**
 
