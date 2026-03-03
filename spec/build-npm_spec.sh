@@ -103,6 +103,7 @@ Describe 'build-npm/build.sh'
     When run script build-npm/build.sh
     The status should be success
     The output should include "=== NPM Build, Deploy, and Analyze ==="
+    The stderr should include "::warning title=No artifacts found::"
   End
 End
 

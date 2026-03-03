@@ -24,7 +24,7 @@ for artifact in $INSTALLED_ARTIFACTS; do
   elif [[ $artifact == "com/"* ]]; then
     private_artifacts+=("$artifact")
   else
-    echo "WARN: Unrecognized artifact path: $artifact" >&2
+    echo "::warning title=Unrecognized artifact::Unrecognized artifact path: $artifact" >&2
   fi
 done
 

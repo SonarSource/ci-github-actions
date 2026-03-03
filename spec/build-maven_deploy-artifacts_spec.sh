@@ -56,7 +56,7 @@ com/sonarsource/private/app/1.0/app-1.0.pom"
 
     When run script build-maven/deploy-artifacts.sh
     The status should be success
-    The stderr should include "WARN: Unrecognized artifact path: unknown/artifact/path.jar"
+    The stderr should include "::warning title=Unrecognized artifact::Unrecognized artifact path: unknown/artifact/path.jar"
     The output should include "org/sonarsource/app/1.0/app-1.0.pom"
     The output should include "com/sonarsource/private/app/1.0/app-1.0.pom"
 

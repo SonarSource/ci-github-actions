@@ -56,7 +56,7 @@ Describe 'set_gradle_cmd()'
     The status should be failure
     The lines of output should equal 0
     The lines of error should equal 1
-    The line 1 of error should equal "Neither ./gradlew nor gradle command found!"
+    The line 1 of error should equal "::error title=Gradle not found::Neither ./gradlew nor gradle command found!"
   End
 End
 
@@ -128,10 +128,9 @@ Describe 'set_project_version()'
     End
     When run set_project_version
     The status should be failure
-    The lines of output should equal 2
-    The line 1 should equal "::error title=Gradle project version::Could not get valid version from Gradle properties"
-    The line 2 should equal "ERROR: version:"
-    The lines of error should equal 0
+    The lines of output should equal 0
+    The line 1 of error should equal "::error title=Gradle project version::Could not get valid version from Gradle properties"
+    The line 2 of error should equal "ERROR: version:"
   End
 
   It 'fails when version is unspecified'
@@ -140,10 +139,9 @@ Describe 'set_project_version()'
     End
     When run set_project_version
     The status should be failure
-    The lines of output should equal 2
-    The line 1 should equal "::error title=Gradle project version::Could not get valid version from Gradle properties"
-    The line 2 should equal "ERROR: version: unspecified"
-    The lines of error should equal 0
+    The lines of output should equal 0
+    The line 1 of error should equal "::error title=Gradle project version::Could not get valid version from Gradle properties"
+    The line 2 of error should equal "ERROR: version: unspecified"
   End
 End
 

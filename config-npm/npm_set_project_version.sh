@@ -25,7 +25,7 @@ check_version_format() {
   local version="$1"
   # Check if version follows semantic versioning pattern (X.Y.Z or X.Y.Z-something)
   if [[ ! $version =~ ^[0-9]+\.[0-9]+\.[0-9]+(-.*)?$ ]]; then
-    echo "WARN: Version '${version}' does not match semantic versioning format (e.g., '1.2.3' or '1.2.3-beta.1')." >&2
+    echo "::warning title=Non-standard version format::Version '${version}' does not match semantic versioning format (e.g., '1.2.3' or '1.2.3-beta.1')." >&2
   fi
   return 0
 }
@@ -42,7 +42,7 @@ set_project_version() {
   local current_version release_version digit_count
   current_version=$(jq -r .version "$PACKAGE_JSON")
   if [[ -z "${current_version}" ]] || [[ "${current_version}" == "null" ]]; then
-    echo "Could not get version from ${PACKAGE_JSON}" >&2
+    echo "::error file=${PACKAGE_JSON},title=Invalid project version::Could not get version from ${PACKAGE_JSON}" >&2
     exit 1
   fi
   echo "current-version=$current_version" >> "$GITHUB_OUTPUT"

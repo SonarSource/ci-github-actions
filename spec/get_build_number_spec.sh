@@ -38,7 +38,7 @@ Describe 'get_build_number.sh'
     When run script get-build-number/get_build_number.sh
     The status should be failure
     The line 2 should equal "Current build number from repo: notANumber"
-    The output should include "Error: Build number 'notANumber'"
+    The stderr should include "::error title=Invalid build number::Build number 'notANumber'"
   End
 
   It 'should handle empty build number'

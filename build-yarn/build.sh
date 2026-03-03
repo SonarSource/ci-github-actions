@@ -81,11 +81,11 @@ set_build_env() {
 
   # Validate required files exist
   if [ ! -f "package.json" ]; then
-    echo "ERROR: package.json file not found in current directory." >&2
+    echo "::error title=Missing package.json::package.json file not found in current directory." >&2
     exit 1
   fi
   if [ ! -f "yarn.lock" ]; then
-    echo "ERROR: yarn.lock file not found. This is required for yarn --immutable installs." >&2
+    echo "::error title=Missing yarn.lock::yarn.lock file not found. This is required for yarn --immutable installs." >&2
     exit 1
   fi
 
@@ -114,7 +114,7 @@ set_project_version() {
 
   current_version=$(jq -r .version "$PACKAGE_JSON")
   if [ -z "${current_version}" ] || [ "${current_version}" == "null" ]; then
-    echo "Could not get version from ${PACKAGE_JSON}" >&2
+    echo "::error file=${PACKAGE_JSON},title=Invalid project version::Could not get version from ${PACKAGE_JSON}" >&2
     exit 1
   fi
   export CURRENT_VERSION=$current_version
@@ -129,7 +129,7 @@ set_project_version() {
   elif [[ "$digit_count" -eq 2 ]]; then
     release_version="${release_version}.0"
   elif [[ "$digit_count" -ne 3 ]]; then
-    echo "ERROR: Unsupported version '$current_version' with $digit_count digits. Expected 1-3 digits (e.g., '1', '1.2', or '1.2.3')." >&2
+    echo "::error file=${PACKAGE_JSON},title=Unsupported version format::Unsupported version '$current_version' with $digit_count digits. Expected 1-3 digits (e.g., '1', '1.2', or '1.2.3')." >&2
     return 1
   fi
   release_version="${release_version}-${BUILD_NUMBER}"
@@ -322,7 +322,7 @@ export_built_artifacts() {
   artifacts=$(/usr/bin/find "$PWD/.attestation-artifacts/" -name '*.tgz' -type f 2>/dev/null || true)
 
   if [[ -z "$artifacts" ]]; then
-    echo "::warning title=No artifacts found::No artifacts found for attestation in build output directories"
+    echo "::warning title=No artifacts found::No artifacts found for attestation in build output directories" >&2
     echo "::endgroup::"
     return 0
   fi

@@ -12,7 +12,7 @@ PROPERTIES_API_URL="repos/${GITHUB_REPOSITORY}/properties/values"
 BUILD_NUMBER=$(gh api -H "$GH_API_VERSION_HEADER" "$PROPERTIES_API_URL" --jq '.[] | select(.property_name == "build_number") | .value')
 echo "Current build number from repo: ${BUILD_NUMBER:=0}"
 if ! [[ "$BUILD_NUMBER" =~ ^[0-9]+$ ]]; then
-  echo "Error: Build number '${BUILD_NUMBER}' is not a valid positive integer."
+  echo "::error title=Invalid build number::Build number '${BUILD_NUMBER}' is not a valid positive integer." >&2
   exit 1
 fi
 
