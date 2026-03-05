@@ -1,0 +1,21 @@
+on:
+  workflow_call:
+    inputs:
+      head_sha:
+        type: string
+        required: true
+
+jobs:
+  re-trigger:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ inputs.head_sha }}
+        run: |
+          run_id=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs?event=pull_request&head_sha=${HEAD_SHA}" \
+            --jq '.workflow_runs[] | select(.name == "Verified Approvals") | .id' \
+            | head -1)
+          [[ -n "${run_id}" ]] && gh api --method POST "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/rerun"
