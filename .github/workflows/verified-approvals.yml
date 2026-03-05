@@ -1,0 +1,86 @@
+---
+name: Verified Approvals
+
+on:
+  # pull_request_target:
+  pull_request:
+  merge_group:
+
+jobs:
+  verified-approvals:
+    name: verified-approvals
+    runs-on: github-ubuntu-latest-s
+    permissions:
+      id-token: write
+      pull-requests: read
+    steps:
+      - id: secrets
+        if: github.event_name != 'merge_group'
+        uses: SonarSource/vault-action-wrapper@3d5c87cb535e4a2c7a09adcbcfdefa751854dee3 # 3.3.0
+        with:
+          # use -approvals after https://github.com/SonarSource/re-terraform-aws-vault/pull/8741 merge
+          # development/github/token/SonarSource-sonar-dummy-python-oss-jira is manually tweaked for use in tests
+          secrets: |
+            development/github/token/{REPO_OWNER_NAME_DASH}-jira token | ORG_TOKEN;
+      - name: Check approvals
+        if: github.event_name != 'merge_group'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ORG_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ORG_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          IS_FORK: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
+          ORG: SonarSource
+        run: |
+          is_external=false
+          # A PR is external if it comes from a fork OR contains commits from non-org members
+          if [[ "${IS_FORK}" == "true" ]]; then
+            echo "PR is from a fork: treating as external"
+            is_external=true
+          else
+            echo "PR is not from a fork: checking commit committers..."
+            # Check commit committers (who pushed) — bot accounts (type Bot) are excluded
+            mapfile -t commit_authors < <(
+              gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/commits" --paginate \
+                | jq -rs 'add // [] | [.[].committer | select(. != null) | select(.type == "User") | .login] | unique | .[]'
+            )
+            for login in "${commit_authors[@]}"; do
+              if ! GH_TOKEN="${ORG_TOKEN}" gh api "orgs/${ORG}/members/${login}" --silent 2>/dev/null; then
+                echo "External contribution: commit by non-org member '${login}'"
+                is_external=true
+                break
+              fi
+            done
+          fi
+
+          if [[ "${is_external}" == "true" ]]; then
+            required=2
+            echo "External PR: requiring ${required} org-member approvals"
+          else
+            required=1
+            echo "Internal PR: requiring ${required} org-member approval(s)"
+          fi
+
+          # Collect logins with a net APPROVED state (latest review per user)
+          mapfile -t approved_logins < <(
+            gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews" --paginate \
+              | jq -rs 'add // [] | [group_by(.user.login)[] | last | select(.state == "APPROVED") | .user.login] | .[]'
+          )
+          count=0
+          for login in "${approved_logins[@]}"; do
+            # Only count approvals from org members (requires read:org token)
+            if GH_TOKEN="${ORG_TOKEN}" gh api "orgs/${ORG}/members/${login}" --silent 2>/dev/null; then
+              echo "  ${login}: org member ✓"
+              (( count++ )) || true
+            else
+              echo "  ${login}: not an org member, ignored"
+            fi
+          done
+          echo "Org-member approvals: ${count} / ${required} required"
+
+          if (( count >= required )); then
+            echo "::notice ::Check passed: ${count} org-member approval(s)"
+            exit 0
+          else
+            echo "::error ::Check failed: ${count} org-member approval(s), ${required} required" >&2
+            exit 1
+          fi
