@@ -38,10 +38,10 @@ jobs:
             is_external=true
           else
             echo "PR is not from a fork: checking commit committers..."
-            # Check commit committers (who pushed) — bot accounts (type Bot) are excluded
+            # Check commit authors and committers (who wrote and who pushed) — bot accounts (type Bot) are excluded
             mapfile -t commit_authors < <(
               gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/commits" --paginate \
-                | jq -rs 'add // [] | [.[].committer | select(. != null) | select(.type == "User") | .login] | unique | .[]'
+                | jq -rs 'add // [] | [.[] | (.author, .committer) | select(. != null) | select(.type == "User") | .login] | unique | .[]'
             )
             for login in "${commit_authors[@]}"; do
               if ! GH_TOKEN="${ORG_TOKEN}" gh api "orgs/${ORG}/members/${login}" --silent 2>/dev/null; then
