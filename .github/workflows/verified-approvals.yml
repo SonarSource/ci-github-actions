@@ -11,22 +11,13 @@ jobs:
     name: verified-approvals
     runs-on: github-ubuntu-latest-s
     permissions:
-      id-token: write
       pull-requests: read
     steps:
-      - id: secrets
-        if: github.event_name != 'merge_group'
-        uses: SonarSource/vault-action-wrapper@3d5c87cb535e4a2c7a09adcbcfdefa751854dee3 # 3.3.0
-        with:
-          # use -approvals after https://github.com/SonarSource/re-terraform-aws-vault/pull/8741 merge
-          # development/github/token/SonarSource-sonar-dummy-python-oss-jira is manually tweaked for use in tests
-          secrets: |
-            development/github/token/{REPO_OWNER_NAME_DASH}-jira token | ORG_TOKEN;
       - name: Check approvals
         if: github.event_name != 'merge_group'
         env:
           GH_TOKEN: ${{ github.token }}
-          ORG_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ORG_TOKEN }}
+          ORG_TOKEN: ${{ secrets.PR_APPROVALS }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           IS_FORK: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
           ORG: SonarSource
