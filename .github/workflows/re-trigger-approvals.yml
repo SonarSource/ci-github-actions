@@ -15,7 +15,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ inputs.head_sha }}
         run: |
-          run_id=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs?event=pull_request&head_sha=${HEAD_SHA}" \
+          run_id=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs?event=pull_request_target&head_sha=${HEAD_SHA}" \
             --jq '.workflow_runs[] | select(.name == "Verified Approvals") | .id' \
             | head -1)
           [[ -n "${run_id}" ]] && gh api --method POST "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/rerun"
