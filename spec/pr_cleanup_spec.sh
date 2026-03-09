@@ -19,7 +19,9 @@ Describe "cleanup.sh"
         cat "$CACHE_KEY_TO_DELETE"
       elif [[ "$*" =~ "cache delete" ]]; then
         echo "" > "$CACHE_KEY_TO_DELETE"
-      elif [[ "$*" =~ "api /repos/".*/actions/artifacts.*--paginate ]]; then
+      elif [[ "$*" =~ "branch=" ]]; then
+        echo "123456789"
+      elif [[ "$*" =~ actions/runs/[0-9]+/artifacts ]]; then
         cat "$ARTIFACT_TO_DELETE"
       elif [[ "$*" =~ "api -X DELETE" ]]; then
         echo "" > "$ARTIFACT_TO_DELETE"

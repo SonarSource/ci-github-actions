@@ -43,19 +43,30 @@ tpl_tmp_file="$(mktemp)"
 envsubst '$GITHUB_HEAD_REF' < "$CURDIR"/artifact_template.tpl > "$tpl_tmp_file"
 ARTIFACT_TEMPLATE="$(cat "$tpl_tmp_file")"
 
-ARTIFACT_API_URL="/repos/$GITHUB_REPOSITORY/actions/artifacts"
-gh api "$ARTIFACT_API_URL" --paginate --template "$ARTIFACT_TEMPLATE"
+RUNS_API_URL="/repos/$GITHUB_REPOSITORY/actions/runs"
+
+# List workflow runs scoped to the PR branch instead of paginating all repo artifacts.
+# This avoids timeouts in large repositories with many accumulated artifacts.
+runIds="$(gh api "${RUNS_API_URL}?branch=${GITHUB_HEAD_REF}&per_page=100" --paginate --jq '.workflow_runs[].id')"
+
+for runId in $runIds; do
+  gh api "/repos/$GITHUB_REPOSITORY/actions/runs/$runId/artifacts" --paginate --template "$ARTIFACT_TEMPLATE"
+done
 echo
 
-artifactIds="$(gh api "$ARTIFACT_API_URL" --paginate --jq '.artifacts[] | select(.workflow_run.head_branch == "'"$GITHUB_HEAD_REF"'") | .id')"
 echo "Deleting artifacts..."
-for artifactId in $artifactIds
-do
-  echo "Deleting artifact: $artifactId"
-  gh api -X DELETE "$ARTIFACT_API_URL/$artifactId" || true
+for runId in $runIds; do
+  artifactIds="$(gh api "/repos/$GITHUB_REPOSITORY/actions/runs/$runId/artifacts" --paginate --jq '.artifacts[].id')"
+  for artifactId in $artifactIds
+  do
+    echo "Deleting artifact: $artifactId"
+    gh api -X DELETE "/repos/$GITHUB_REPOSITORY/actions/artifacts/$artifactId" || true
+  done
 done
 echo
 
 echo "Fetching list of artifacts after deletion"
-gh api "$ARTIFACT_API_URL" --paginate --template "$ARTIFACT_TEMPLATE"
+for runId in $runIds; do
+  gh api "/repos/$GITHUB_REPOSITORY/actions/runs/$runId/artifacts" --paginate --template "$ARTIFACT_TEMPLATE"
+done
 echo "::endgroup::"
