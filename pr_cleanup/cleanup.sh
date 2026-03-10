@@ -47,7 +47,7 @@ RUNS_API_URL="/repos/$GITHUB_REPOSITORY/actions/runs"
 
 # List workflow runs scoped to the PR branch instead of paginating all repo artifacts.
 # This avoids timeouts in large repositories with many accumulated artifacts.
-runIds="$(gh api "${RUNS_API_URL}?branch=${GITHUB_HEAD_REF}&per_page=100" --paginate --jq '.workflow_runs[].id')"
+runIds="$(gh api "$RUNS_API_URL" -f branch="$GITHUB_HEAD_REF" -f per_page=100 --paginate --jq '.workflow_runs[].id')"
 
 for runId in $runIds; do
   gh api "/repos/$GITHUB_REPOSITORY/actions/runs/$runId/artifacts" --paginate --template "$ARTIFACT_TEMPLATE"
