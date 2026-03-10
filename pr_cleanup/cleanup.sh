@@ -38,10 +38,7 @@ echo "::endgroup::"
 
 echo "::group::Artifact Cleanup"
 echo "Fetching list of artifacts on $GITHUB_REPOSITORY for $GITHUB_HEAD_REF"
-tpl_tmp_file="$(mktemp)"
-# shellcheck disable=SC2016
-envsubst '$GITHUB_HEAD_REF' < "$CURDIR"/artifact_template.tpl > "$tpl_tmp_file"
-ARTIFACT_TEMPLATE="$(cat "$tpl_tmp_file")"
+ARTIFACT_TEMPLATE="$(cat "$CURDIR"/artifact_template.tpl)"
 
 RUNS_API_URL="/repos/$GITHUB_REPOSITORY/actions/runs"
 
