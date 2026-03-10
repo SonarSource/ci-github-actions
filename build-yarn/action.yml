@@ -111,7 +111,7 @@ runs:
         working_directory: ${{ inputs.working-directory }}
 
     - name: Cache Yarn dependencies
-      uses: SonarSource/gh-action_cache@v1
+      uses: SonarSource/gh-action_cache@master
       if: ${{ inputs.cache-yarn == 'true' }}
       with:
         path: |
