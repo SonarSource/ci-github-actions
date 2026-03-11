@@ -105,13 +105,13 @@ runs:
         echo "ARTIFACTORY_DEPLOYER_ROLE=${ARTIFACTORY_DEPLOYER_ROLE}" >> "$GITHUB_ENV"
         cp "$ACTION_PATH_BUILD_YARN/mise.local.toml" mise.local.toml
 
-    - uses: jdx/mise-action@6d1e696aa24c1aa1bcc1adea0212707c71ab78a8 # v3.6.1
+    - uses: jdx/mise-action@5228313ee0372e111a38da051671ca30fc5a96db # v3.6.3
       with:
         version: 2026.1.0
         working_directory: ${{ inputs.working-directory }}
 
     - name: Cache Yarn dependencies
-      uses: SonarSource/gh-action_cache@v1
+      uses: SonarSource/gh-action_cache@v1.2.3
       if: ${{ inputs.cache-yarn == 'true' }}
       with:
         path: |
@@ -119,7 +119,7 @@ runs:
         key: yarn-${{ runner.os }}-${{ hashFiles('**/yarn.lock') }}
         restore-keys: yarn-${{ runner.os }}-
 
-    - uses: SonarSource/vault-action-wrapper@545e7cfbb5528e7009a1edcc83e073898d292627 # 3.2.0
+    - uses: SonarSource/vault-action-wrapper@3d5c87cb535e4a2c7a09adcbcfdefa751854dee3 # 3.3.0
       id: secrets
       # yamllint disable rule:line-length
       with:
