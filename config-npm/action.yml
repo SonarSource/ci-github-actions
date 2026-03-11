@@ -73,7 +73,7 @@ runs:
 
     - uses: jdx/mise-action@5228313ee0372e111a38da051671ca30fc5a96db # v3.6.3
       with:
-        version: 2026.3.7
+        version: 2026.3.8
 
     - uses: SonarSource/vault-action-wrapper@3d5c87cb535e4a2c7a09adcbcfdefa751854dee3 # 3.3.0
       id: secrets
