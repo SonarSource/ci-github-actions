@@ -161,7 +161,7 @@ runs:
 
     - name: Archive logs
       if: failure()
-      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
       with:
         name: npm-logs-${{ github.job }}${{ strategy.job-index }}
         path: ~/.npm/_logs/
@@ -173,7 +173,7 @@ runs:
             github.event_name != 'pull_request' &&
             steps.build.outputs.deployed == 'true' &&
             (inputs.provenance-artifact-paths != '' || steps.build.outputs.artifact-paths != '') }}
-      uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
+      uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
       with:
         subject-path: >-
           ${{ inputs.provenance-artifact-paths != '' && inputs.provenance-artifact-paths || steps.build.outputs.artifact-paths }}
