@@ -16,7 +16,7 @@ inputs:
     description: Whether to deploy on master, maintenance, dogfood and long-lived branches.
     default: 'true'
   deploy-pull-request:
-    description: Whether to also deploy pull request artifacts. If deploy is 'false', this has no effect.
+    description: Whether to also deploy pull request artifacts. If deploy is `false`, this has no effect.
     default: 'false'
   skip-tests:
     description: Whether to skip running tests
@@ -25,8 +25,8 @@ inputs:
     description: SonarQube primary platform (next, sqc-eu, sqc-us, or none). Use 'none' to skip sonar scans.
     default: next
   run-shadow-scans:
-    description: If true, run SonarQube analysis on all three platforms (next, sqc-eu, sqc-us).
-      If false, run analysis on the platform specified with sonar-platform.
+    description: If `true`, run sonar scanner on all 3 platforms. If `false`, run on the platform provided by `sonar-platform`.
+      When enabled, the `sonar-platform` setting is ignored.
     default: 'false'
   provenance:
     description: Whether to generate provenance attestation for built artifacts
@@ -126,12 +126,12 @@ runs:
       with:
         # yamllint disable rule:line-length
         secrets: |
-          ${{ inputs.sonar-platform != 'none' && 'development/kv/data/next url | NEXT_URL;' || '' }}
-          ${{ inputs.sonar-platform != 'none' && 'development/kv/data/next token | NEXT_TOKEN;' || '' }}
-          ${{ inputs.sonar-platform != 'none' && 'development/kv/data/sonarqube-us url | SQC_US_URL;' || '' }}
-          ${{ inputs.sonar-platform != 'none' && 'development/kv/data/sonarqube-us token | SQC_US_TOKEN;' || '' }}
-          ${{ inputs.sonar-platform != 'none' && 'development/kv/data/sonarcloud url | SQC_EU_URL;' || '' }}
-          ${{ inputs.sonar-platform != 'none' && 'development/kv/data/sonarcloud token | SQC_EU_TOKEN;' || '' }}
+          ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/next url | NEXT_URL;' || '' }}
+          ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/next token | NEXT_TOKEN;' || '' }}
+          ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/sonarqube-us url | SQC_US_URL;' || '' }}
+          ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/sonarqube-us token | SQC_US_TOKEN;' || '' }}
+          ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/sonarcloud url | SQC_EU_URL;' || '' }}
+          ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/sonarcloud token | SQC_EU_TOKEN;' || '' }}
           ${{ inputs.deploy != 'false' && inputs.run-shadow-scans != 'true' && format('development/artifactory/token/{{REPO_OWNER_NAME_DASH}}-{0} username | ARTIFACTORY_DEPLOY_USERNAME;', env.ARTIFACTORY_DEPLOYER_ROLE) || '' }}
           ${{ inputs.deploy != 'false' && inputs.run-shadow-scans != 'true' && format('development/artifactory/token/{{REPO_OWNER_NAME_DASH}}-{0} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;', env.ARTIFACTORY_DEPLOYER_ROLE) || '' }}
           development/kv/data/sign key | SIGN_KEY;

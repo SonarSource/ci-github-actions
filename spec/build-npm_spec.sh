@@ -76,6 +76,7 @@ export GITHUB_RUN_ID="12345"
 export GITHUB_SHA="abc123"
 export NEXT_TOKEN="next-token"
 export NEXT_URL="https://next.sonarqube.com"
+export DEPLOY="true"
 export PULL_REQUEST="false"
 export RUN_SHADOW_SCANS="false"
 export SKIP_TESTS="false"
@@ -262,7 +263,7 @@ Describe 'build_npm()'
     The output should not include "SonarQube scanner"
   End
 
-  It 'builds long-lived feature branch without deploy'
+  It 'builds long-lived feature branch with deploy'
     export GITHUB_REF_NAME="feature/long/test-feature"
     export GITHUB_EVENT_NAME="push"
     export BUILD_NUMBER="42"
@@ -271,7 +272,18 @@ Describe 'build_npm()'
     The output should include "======= Build long-lived feature branch ======="
     The output should include "Installing npm dependencies..."
     The output should include "npx -- @sonar/scan"
-    The output should not include "DEBUG: JFrog operations"
+    The variable BUILD_ENABLE_DEPLOY should equal "true"
+  End
+
+  It 'skips deploy when DEPLOY is false'
+    export GITHUB_REF_NAME="main"
+    export GITHUB_EVENT_NAME="push"
+    export BUILD_NUMBER="42"
+    export DEPLOY="false"
+    When call build_npm
+    The status should be success
+    The output should include "======= Building main branch ======="
+    The variable BUILD_ENABLE_DEPLOY should equal "false"
   End
 
   It 'builds other branches without sonar or deploy'
@@ -356,7 +368,8 @@ Describe 'get_build_config()'
     export BUILD_NUMBER="42"
     When call get_build_config
     The status should be success
-    The output should include "======= Shadow scans enabled - disabling deployment to prevent duplicate artifacts ======="
+    The output should include "======= Building main branch ======="
+    The stderr should include "::warning title=Deployment disabled::Shadow scans enabled - disabling deployment"
     The variable BUILD_ENABLE_DEPLOY should equal "false"
     The variable BUILD_ENABLE_SONAR should equal "true"
   End
@@ -390,5 +403,6 @@ Describe 'build_npm()'
     The output should include "Sonar Platform: next"
     The output should include "shadow scan enabled"
     The output should not include "DEBUG: JFrog operations"
+    The stderr should include "::warning title=Deployment disabled::Shadow scans enabled - disabling deployment"
   End
 End

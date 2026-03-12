@@ -2,7 +2,7 @@
 # Build script for SonarSource NPM projects.
 # Supports building, testing, SonarQube analysis, and JFrog Artifactory deployment.
 #
-# Required environment variables (must be explicitly provided):
+# Required inputs (must be explicitly provided):
 # - BUILD_NUMBER: Build number for versioning
 # - BUILD_NAME: Name of the JFrog Artifactory build (e.g. sonar-dummy)
 # - SONAR_PLATFORM: SonarQube primary platform (next, sqc-eu, sqc-us, or none). Use 'none' to skip sonar scans.
@@ -13,6 +13,7 @@
 # - SQC_EU_URL: URL of SonarQube server for sqc-eu platform
 # - SQC_EU_TOKEN: Access token to send analysis reports to SonarQube for sqc-eu platform
 # - RUN_SHADOW_SCANS: If true, run sonar scanner on all 3 platforms. If false, run on the platform provided by SONAR_PLATFORM.
+#     When enabled, SONAR_PLATFORM is ignored.
 # - ARTIFACTORY_URL: URL to Artifactory repository
 # - ARTIFACTORY_DEPLOY_ACCESS_TOKEN: Access token to deploy to Artifactory
 # - ARTIFACTORY_DEPLOY_REPO: Name of deployment repository
@@ -30,6 +31,7 @@
 # - GITHUB_BASE_REF: Base branch for pull requests (only during pull_request events)
 #
 # Optional user customization:
+# - DEPLOY: Whether to deploy (default: true)
 # - DEPLOY_PULL_REQUEST: Whether to deploy pull request artifacts (default: false)
 # - SKIP_TESTS: Whether to skip running tests (default: false)
 # - SQ_SCANNER_VERSION: Version of sonarqube-scanner to use (default: 4.3.0)
@@ -41,22 +43,20 @@ set -euo pipefail
 # shellcheck source=../shared/common-functions.sh
 source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 
-: "${ARTIFACTORY_URL:?}"
-: "${ARTIFACTORY_DEPLOY_REPO:?}" "${ARTIFACTORY_DEPLOY_ACCESS_TOKEN:?}"
+: "${ARTIFACTORY_URL:?}" "${ARTIFACTORY_DEPLOY_REPO:?}" "${DEPLOY_PULL_REQUEST:=false}" "${RUN_SHADOW_SCANS:?}"
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_RUN_ID:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}" "${GITHUB_SHA:?}"
-: "${GITHUB_OUTPUT:?}"
-: "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}"
-: "${RUN_SHADOW_SCANS:?}"
-if [[ "${SONAR_PLATFORM:?}" != "none" ]]; then
+: "${GITHUB_OUTPUT:?}" "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}"
+if [[ "${DEPLOY:=true}" != "false" && "$RUN_SHADOW_SCANS" != "true" ]]; then
+  : "${ARTIFACTORY_DEPLOY_ACCESS_TOKEN:?}"
+fi
+if [[ "${SONAR_PLATFORM:?}" != "none" || "$RUN_SHADOW_SCANS" == "true" ]]; then
   : "${NEXT_URL:?}" "${NEXT_TOKEN:?}" "${SQC_US_URL:?}" "${SQC_US_TOKEN:?}" "${SQC_EU_URL:?}" "${SQC_EU_TOKEN:?}"
 fi
-: "${DEPLOY_PULL_REQUEST:=false}" "${SKIP_TESTS:=false}"
-export DEPLOY_PULL_REQUEST SKIP_TESTS
-: "${BUILD_NAME:?}" "${PROJECT_VERSION:?}" "${CURRENT_VERSION:?}"
-: "${SQ_SCANNER_VERSION:=4.3.0}"
+: "${SKIP_TESTS:=false}" "${BUILD_NAME:?}" "${PROJECT_VERSION:?}" "${CURRENT_VERSION:?}" "${SQ_SCANNER_VERSION:=4.3.0}"
+export DEPLOY DEPLOY_PULL_REQUEST SKIP_TESTS SQ_SCANNER_VERSION
 
 git_fetch_unshallow() {
-  if [ "$SONAR_PLATFORM" = "none" ]; then
+  if [[ "$SONAR_PLATFORM" = "none" && "$RUN_SHADOW_SCANS" != "true" ]]; then
     echo "Skipping git fetch (Sonar analysis disabled)"
     return 0
   fi
@@ -64,7 +64,7 @@ git_fetch_unshallow() {
   if git rev-parse --is-shallow-repository --quiet >/dev/null 2>&1; then
     echo "Fetch Git references for SonarQube analysis..."
     git fetch --unshallow || true # Ignore errors like "fatal: --unshallow on a complete repository does not make sense"
-  elif [ -n "${GITHUB_BASE_REF:-}" ]; then
+  elif [[ -n "${GITHUB_BASE_REF:-}" ]]; then
     echo "Fetch ${GITHUB_BASE_REF} for SonarQube analysis..."
     git fetch origin "${GITHUB_BASE_REF}"
   fi
@@ -89,7 +89,7 @@ sonar_scanner_implementation() {
     scanner_args+=("-Dsonar.projectVersion=${CURRENT_VERSION}")
 
     # Add region parameter only for sqc-us platform
-    if [ -n "${SONAR_REGION:-}" ]; then
+    if [[ -n "${SONAR_REGION:-}" ]]; then
         scanner_args+=("-Dsonar.region=${SONAR_REGION}")
     fi
     scanner_args+=("${additional_params[@]+${additional_params[@]}}")
@@ -123,9 +123,6 @@ jfrog_npm_publish() {
 }
 
 # Determine build configuration based on branch type
-# TODO BUILD-10586: this function does not support a DEPLOY env var to override deployment (unlike build-maven and build-gradle).
-# Should add a DEPLOY=${DEPLOY:=true} check consistent with those build scripts.
-# Note: unlike build-maven and build-gradle, long-lived feature branches (feature/long/*) do not deploy here.
 get_build_config() {
   local enable_sonar enable_deploy
   local sonar_args=()
@@ -146,7 +143,7 @@ get_build_config() {
     enable_sonar=true
     sonar_args=("-Dsonar.analysis.prNumber=${PULL_REQUEST}")
 
-    if [ "${DEPLOY_PULL_REQUEST:-false}" == "true" ]; then
+    if [[ "${DEPLOY_PULL_REQUEST:-false}" == "true" ]]; then
       echo "======= with deploy ======="
       enable_deploy=true
     else
@@ -162,7 +159,7 @@ get_build_config() {
   elif is_long_lived_feature_branch && ! is_pull_request; then
     echo "======= Build long-lived feature branch ======="
     enable_sonar=true
-    enable_deploy=false
+    enable_deploy=true
     sonar_args=("-Dsonar.branch.name=${GITHUB_REF_NAME}")
 
   else
@@ -171,9 +168,14 @@ get_build_config() {
     enable_deploy=false
   fi
 
+  # Disable deployment when explicitly requested
+  if [[ "${DEPLOY}" != "true" ]]; then
+    enable_deploy=false
+  fi
+
   # Disable deployment when shadow scans are enabled to prevent duplicate artifacts
   if [[ "${RUN_SHADOW_SCANS}" = "true" ]]; then
-    echo "======= Shadow scans enabled - disabling deployment to prevent duplicate artifacts ======="
+    echo "::warning title=Deployment disabled::Shadow scans enabled - disabling deployment" >&2
     enable_deploy=false
   fi
 
@@ -193,7 +195,7 @@ run_standard_pipeline() {
   npm ci --ignore-scripts
   echo "::endgroup::"
 
-  if [ "$SKIP_TESTS" != "true" ]; then
+  if [[ "$SKIP_TESTS" != "true" ]]; then
     echo "::group::Run tests"
     echo "Running tests..."
     npm test
@@ -202,7 +204,7 @@ run_standard_pipeline() {
     echo "Skipping tests (SKIP_TESTS=true)"
   fi
 
-  if [ "${BUILD_ENABLE_SONAR}" = "true" ]; then
+  if [[ "${BUILD_ENABLE_SONAR}" = "true" ]]; then
     read -ra sonar_args <<< "$BUILD_SONAR_ARGS"
     # This will call back to shared sonar_scanner_implementation() function
     # orchestrate_sonar_platforms emits its own groups
@@ -214,7 +216,7 @@ run_standard_pipeline() {
   npm run build
   echo "::endgroup::"
 
-  if [ "${BUILD_ENABLE_DEPLOY}" = "true" ]; then
+  if [[ "${BUILD_ENABLE_DEPLOY}" = "true" ]]; then
     echo "::group::Publish to Artifactory"
     jfrog_npm_publish
     echo "::endgroup::"

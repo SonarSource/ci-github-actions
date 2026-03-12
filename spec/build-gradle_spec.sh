@@ -305,6 +305,50 @@ Describe 'get_build_type'
 End
 
 
+Describe 'should_scan'
+  It 'returns true for default branch'
+    When call should_scan
+    The status should be success
+  End
+
+  It 'returns true for maintenance branch'
+    export GITHUB_REF_NAME="branch-1.0"
+    When call should_scan
+    The status should be success
+  End
+
+  It 'returns true for pull request'
+    export GITHUB_EVENT_NAME="$GITHUB_EVENT_NAME_PR"
+    export GITHUB_REF_NAME="$GITHUB_REF_NAME_PR"
+    When call should_scan
+    The status should be success
+  End
+
+  It 'returns true for long-lived feature branch'
+    export GITHUB_REF_NAME="feature/long/my-feature"
+    When call should_scan
+    The status should be success
+  End
+
+  It 'returns false for dogfood branch'
+    export GITHUB_REF_NAME="dogfood-on-main"
+    When call should_scan
+    The status should be failure
+  End
+
+  It 'returns false for regular feature branch'
+    export GITHUB_REF_NAME="feature/test"
+    When call should_scan
+    The status should be failure
+  End
+
+  It 'returns false when sonar platform is none'
+    export SONAR_PLATFORM="none"
+    When call should_scan
+    The status should be failure
+  End
+End
+
 Describe 'gradle_build'
   It 'executes gradle build successfully'
     export GRADLE_ARGS=""
@@ -341,6 +385,30 @@ Describe 'gradle_build'
     The output should include "Starting regular build build"
     The output should include "Sonar Platform: none"
     The output should include "Gradle command:"
+    The output should include "Gradle executed with:"
+    The output should not include "=== ORCHESTRATOR:"
+    The stderr should include "::warning title=No artifacts found::"
+
+    rm -f gradle-mock gradle.properties
+  End
+
+  It 'calls gradle_build_and_analyze directly for dogfood branch (no sonar)'
+    export GITHUB_REF_NAME="dogfood-on-main"
+    export SONAR_PLATFORM="next"
+    export GRADLE_ARGS=""
+
+    echo "version=1.0-SNAPSHOT" > gradle.properties
+    echo '#!/bin/bash' > gradle-mock
+    echo 'echo "Gradle executed with: $*"' >> gradle-mock
+    chmod +x gradle-mock
+    export GRADLE_CMD="./gradle-mock"
+
+    Mock get_build_type
+      echo "dogfood branch"
+    End
+
+    When call gradle_build
+    The output should include "Starting dogfood branch build"
     The output should include "Gradle executed with:"
     The output should not include "=== ORCHESTRATOR:"
     The stderr should include "::warning title=No artifacts found::"

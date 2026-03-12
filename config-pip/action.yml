@@ -43,7 +43,7 @@ runs:
         echo "github.action_path=${{ github.action_path }}"
         ACTION_PATH_CONFIG_PIP="${{ github.action_path }}"
         host_actions_root="${{ inputs.host-actions-root }}"
-        if [ -z "$host_actions_root" ]; then
+        if [[ -z "$host_actions_root" ]]; then
           host_actions_root="$(dirname "$ACTION_PATH_CONFIG_PIP")"
         else
           ACTION_PATH_CONFIG_PIP="$host_actions_root/config-pip"

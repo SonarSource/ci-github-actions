@@ -38,6 +38,7 @@ export SQC_US_URL="https://sonarqube-us.com"
 export SQC_US_TOKEN="sqc-us-token"
 export SQC_EU_URL="https://sonarcloud.io"
 export SQC_EU_TOKEN="sqc-eu-token"
+export DEPLOY="true"
 export RUN_SHADOW_SCANS="false"
 
 # Constant outputs (exported so mocks run in subshells can access it)
@@ -459,7 +460,7 @@ Describe 'build_poetry()'
     The variable BUILD_ENABLE_SONAR should equal "false"
   End
 
-  It 'disables deploy on long-lived branch'
+  It 'enables deploy on long-lived branch'
     export GITHUB_REF_NAME="feature/long/test"
 
     When call build_poetry
@@ -472,7 +473,18 @@ Describe 'build_poetry()'
     The line 7 should equal '======= Build long-lived feature branch ======='
     The status should be success
     The variable BUILD_ENABLE_SONAR should equal "true"
+    The variable BUILD_ENABLE_DEPLOY should equal "true"
     The variable BUILD_SONAR_ARGS should equal "-Dsonar.branch.name=feature/long/test"
+  End
+
+  It 'disables deploy when DEPLOY is false'
+    export GITHUB_REF_NAME="main"
+    export DEPLOY="false"
+
+    When call build_poetry
+    The status should be success
+    The output should include "======= Building main branch ======="
+    The variable BUILD_ENABLE_DEPLOY should equal "false"
   End
 
   It 'enables deploy and scan on maintenance branch'
@@ -542,6 +554,7 @@ Describe 'build_poetry()'
     The line 36 should equal 'poetry run pysonar -Dsonar.host.url=https://sonarcloud.io -Dsonar.token=sqc-eu-token -Dsonar.analysis.buildNumber=42 -Dsonar.analysis.pipeline=dummy-run-id -Dsonar.analysis.repository=my-org/my-repo'
     The line 37 should equal '::endgroup::'
     The line 38 should equal '=== Completed Sonar analysis on all platforms ==='
+    The stderr should include "::warning title=Deployment disabled::Shadow scans enabled - disabling deployment"
     The status should be success
   End
 

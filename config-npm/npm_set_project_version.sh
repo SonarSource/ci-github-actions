@@ -18,8 +18,7 @@ PACKAGE_JSON="package.json"
 # shellcheck source=SCRIPTDIR/../shared/common-functions.sh
 source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 
-: "${BUILD_NUMBER:?}"
-: "${GITHUB_OUTPUT:?}" "${GITHUB_ENV:?}"
+: "${BUILD_NUMBER:?}" "${GITHUB_OUTPUT:?}" "${GITHUB_ENV:?}"
 
 check_version_format() {
   local version="$1"
