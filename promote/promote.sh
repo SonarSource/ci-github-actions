@@ -148,6 +148,7 @@ promote_mono() {
 }
 
 github_notify_promotion() {
+  local check_context="$1"
   local project_version longDescription shortDescription buildUrl githubApiUrl
   project_version="$PROJECT_VERSION"
   longDescription="Latest promoted build of '${project_version}' from branch '${GITHUB_REF}'"
@@ -159,7 +160,7 @@ github_notify_promotion() {
   "state": "success",
   "target_url": "$buildUrl",
   "description": "$shortDescription",
-  "context": "repox-${GITHUB_REF_NAME}"
+  "context": "$check_context"
 }
 EOF
 }
@@ -224,7 +225,8 @@ promote() {
   echo "::endgroup::"
 
   echo "::group::Notify GitHub"
-  github_notify_promotion
+  github_notify_promotion "repox-${BUILD_NAME}-${GITHUB_REF_NAME}"
+  github_notify_promotion "repox-${GITHUB_REF_NAME}" # DEPRECATED - backward compatibility
   echo "::endgroup::"
 
   generate_workflow_summary
