@@ -14,7 +14,7 @@
 # - RUN_SHADOW_SCANS: If true, run sonar scanner on all 3 platforms. If false, run on the platform provided by SONAR_PLATFORM.
 # - ARTIFACTORY_URL: Artifactory repository URL
 # - ARTIFACTORY_ACCESS_TOKEN: Access token to read Repox repositories
-# - ARTIFACTORY_DEPLOY_REPO: Deployment repository name
+# - ARTIFACTORY_DEPLOY_REPO: Deployment repository name. Required by maven-enforcer-plugin in SonarSource parent POM.
 # - ARTIFACTORY_DEPLOY_USERNAME: Username used by artifactory-maven-plugin
 # - ARTIFACTORY_DEPLOY_PASSWORD: Access token to deploy to the repository
 # - CURRENT_VERSION: Current project version as in pom.xml
@@ -45,26 +45,17 @@ set -euo pipefail
 # shellcheck source=../shared/common-functions.sh
 source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 
-: "${ARTIFACTORY_URL:?}"
-# Required by maven-enforcer-plugin in SonarSource parent POM
-: "${ARTIFACTORY_DEPLOY_REPO:?}"
-: "${DEPLOY:=true}"
-: "${CURRENT_VERSION:?}"
+: "${ARTIFACTORY_URL:?}" "${ARTIFACTORY_DEPLOY_REPO:?}" "${DEPLOY_PULL_REQUEST:=false}" "${RUN_SHADOW_SCANS:?}"
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_RUN_ID:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}"
-: "${GITHUB_SHA:?}"
-: "${GITHUB_OUTPUT:?}"
-: "${RUNNER_OS:?}"
-: "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}"
-if [[ "${SONAR_PLATFORM:?}" != "none" ]]; then
-  : "${NEXT_URL:?}" "${NEXT_TOKEN:?}" "${SQC_US_URL:?}" "${SQC_US_TOKEN:?}" "${SQC_EU_URL:?}" "${SQC_EU_TOKEN:?}"
-fi
-: "${RUN_SHADOW_SCANS:?}"
-if [[ "$DEPLOY" != "false" && "$RUN_SHADOW_SCANS" != "true" ]]; then
+: "${GITHUB_SHA:?}" "${GITHUB_OUTPUT:?}" "${RUNNER_OS:?}" "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}" "${CURRENT_VERSION:?}"
+if [[ "${DEPLOY:=true}" != "false" && "$RUN_SHADOW_SCANS" != "true" ]]; then
   : "${ARTIFACTORY_DEPLOY_USERNAME:?}" "${ARTIFACTORY_DEPLOY_PASSWORD:?}"
 fi
-: "${DEPLOY_PULL_REQUEST:=false}"
+if [[ "${SONAR_PLATFORM:?}" != "none" || "$RUN_SHADOW_SCANS" == "true" ]]; then
+  : "${NEXT_URL:?}" "${NEXT_TOKEN:?}" "${SQC_US_URL:?}" "${SQC_US_TOKEN:?}" "${SQC_EU_URL:?}" "${SQC_EU_TOKEN:?}"
+fi
 : "${USER_MAVEN_ARGS:=}"
-export ARTIFACTORY_URL DEPLOY_PULL_REQUEST
+export DEPLOY DEPLOY_PULL_REQUEST USER_MAVEN_ARGS
 readonly DEPLOYED_OUTPUT_KEY="deployed"
 
 # FIXME Workaround for SonarSource parent POM; it can be removed after releases of parent 73+ and parent-oss 84+
@@ -106,7 +97,7 @@ git_fetch_unshallow() {
 }
 
 check_settings_xml() {
-  if [ ! -f "$HOME/.m2/settings.xml" ]; then
+  if [[ ! -f "$HOME/.m2/settings.xml" ]]; then
     echo "::error title=Missing Maven settings.xml::Maven settings.xml file not found at $HOME/.m2/settings.xml" >&2
     exit 1
   fi
@@ -136,7 +127,7 @@ should_deploy() {
 }
 
 should_scan() {
-  if [ "$SONAR_PLATFORM" = "none" ]; then
+  if [[ "$SONAR_PLATFORM" = "none" && "$RUN_SHADOW_SCANS" != "true" ]]; then
     return 1
   fi
   is_default_branch || is_maintenance_branch || is_pull_request || is_long_lived_feature_branch

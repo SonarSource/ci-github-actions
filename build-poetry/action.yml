@@ -17,8 +17,11 @@ inputs:
     description: Deployment repository. Defaults to `sonarsource-pypi-private-qa` for private repositories, and `sonarsource-pypi-public-qa`
       for public repositories.
     default: ''
+  deploy:
+    description: Whether to deploy on master, maintenance, dogfood and long-lived branches.
+    default: 'true'
   deploy-pull-request:
-    description: Whether to deploy pull request artifacts. Set to `false` if not using the promote action.
+    description: Whether to also deploy pull request artifacts. If deploy is `false`, this has no effect.
     default: 'false'
   poetry-virtualenvs-path:
     description: Path to the Poetry virtual environments, relative to GitHub workspace. The folder is cached only if it is a subdirectory of
@@ -37,8 +40,8 @@ inputs:
     description: SonarQube primary platform (next, sqc-eu, sqc-us, or none). Use 'none' to skip sonar scans.
     default: next
   run-shadow-scans:
-    description: If true, run sonar scanner on all 3 platforms using the provided URL and token.
-     If false, run on the platform provided by sonar-platform. When enabled, the sonar-platform setting is ignored.
+    description: If `true`, run sonar scanner on all 3 platforms. If `false`, run on the platform provided by `sonar-platform`.
+      When enabled, the `sonar-platform` setting is ignored.
     default: 'false'
   working-directory:
     description: Relative path under github.workspace to execute the build in
@@ -121,14 +124,14 @@ runs:
       # yamllint disable rule:line-length
       with:
         secrets: |
-          ${{ inputs.sonar-platform != 'none' && 'development/kv/data/next url | NEXT_URL;' || '' }}
-          ${{ inputs.sonar-platform != 'none' && 'development/kv/data/next token | NEXT_TOKEN;' || '' }}
-          ${{ inputs.sonar-platform != 'none' && 'development/kv/data/sonarqube-us url | SQC_US_URL;' || '' }}
-          ${{ inputs.sonar-platform != 'none' && 'development/kv/data/sonarqube-us token | SQC_US_TOKEN;' || '' }}
-          ${{ inputs.sonar-platform != 'none' && 'development/kv/data/sonarcloud url | SQC_EU_URL;' || '' }}
-          ${{ inputs.sonar-platform != 'none' && 'development/kv/data/sonarcloud token | SQC_EU_TOKEN;' || '' }}
+          ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/next url | NEXT_URL;' || '' }}
+          ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/next token | NEXT_TOKEN;' || '' }}
+          ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/sonarqube-us url | SQC_US_URL;' || '' }}
+          ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/sonarqube-us token | SQC_US_TOKEN;' || '' }}
+          ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/sonarcloud url | SQC_EU_URL;' || '' }}
+          ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/sonarcloud token | SQC_EU_TOKEN;' || '' }}
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
-          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;
+          ${{ inputs.deploy != 'false' && inputs.run-shadow-scans != 'true' && format('development/artifactory/token/{{REPO_OWNER_NAME_DASH}}-{0} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;', env.ARTIFACTORY_DEPLOYER_ROLE) || '' }}
       # yamllint enable rule:line-length
     - name: Build, Analyze and deploy
       id: build
@@ -142,6 +145,7 @@ runs:
         # Action inputs
         ARTIFACTORY_URL: ${{ inputs.repox-artifactory-url != '' && inputs.repox-artifactory-url ||
           format('{0}/artifactory', inputs.repox-url) }}
+        DEPLOY: ${{ inputs.deploy }}
         DEPLOY_PULL_REQUEST: ${{ inputs.deploy-pull-request }}
         ARTIFACTORY_PYPI_REPO: ${{ inputs.public == 'true' && 'sonarsource-pypi' || 'sonarsource-pypi' }} # FIXME: sonarsource-pypi-public
         ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo != '' && inputs.artifactory-deploy-repo ||

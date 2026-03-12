@@ -1,17 +1,14 @@
 #!/bin/bash
 # Cleanup caches and artifacts for a pull request in a GitHub repository.
 # Required environment variables:
-#   GH_TOKEN          - GitHub token with actions:write permission for cache and artifact deletion
+#   GH_TOKEN          - GitHub token with actions:write permission for cache and artifact deletion. Used by gh CLI
 #   CACHE_REF         - Cache reference in the format "refs/pull/<pr_number>/merge"
 #   GITHUB_REPOSITORY - Repository name with owner (e.g. "owner/repo")
 #   GITHUB_HEAD_REF   - Head branch reference of the pull request
 
 set -euo pipefail
 
-: "${GH_TOKEN:?Required environment variable not set}" # used by gh CLI
-: "${CACHE_REF:?Required environment variable not set}"
-: "${GITHUB_REPOSITORY:?Required environment variable not set}"
-: "${GITHUB_HEAD_REF:?Required environment variable not set}"
+: "${GH_TOKEN:?}" "${CACHE_REF:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_HEAD_REF:?}"
 
 CURDIR=$(dirname "$0")
 readonly CACHE_LIST_LIMIT=100000

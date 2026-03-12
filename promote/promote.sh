@@ -34,18 +34,15 @@ set -euo pipefail
 # shellcheck source=../shared/common-functions.sh
 source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 
-: "${ARTIFACTORY_URL:="https://repox.jfrog.io/artifactory"}"
-: "${ARTIFACTORY_PROMOTE_ACCESS_TOKEN:?}"
+: "${ARTIFACTORY_URL:="https://repox.jfrog.io/artifactory"}" "${ARTIFACTORY_PROMOTE_ACCESS_TOKEN:?}" "${BUILD_NAME:?}"
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}" "${GITHUB_EVENT_PATH:?}" "${GITHUB_TOKEN:?}"
 : "${GITHUB_SHA:?}" "${GITHUB_JOB:?}"
-GH_API_VERSION_HEADER="X-GitHub-Api-Version: 2022-11-28"
+: "${MULTI_REPO_PROMOTE:=false}" "${ARTIFACTORY_DEPLOY_REPO:=}" "${ARTIFACTORY_TARGET_REPO:=}" "${PROMOTE_PULL_REQUEST:=false}"
+readonly MULTI_REPO_SRC_PRIVATE=sonarsource-private-qa
+readonly MULTI_REPO_SRC_PUBLIC=sonarsource-public-qa
+readonly GH_API_VERSION_HEADER="X-GitHub-Api-Version: 2022-11-28"
 BUILD_INFO_FILE=$(mktemp)
 rm -f "$BUILD_INFO_FILE"
-: "${BUILD_NAME:?}"
-
-: "${MULTI_REPO_PROMOTE:=false}" "${ARTIFACTORY_DEPLOY_REPO:=}" "${ARTIFACTORY_TARGET_REPO:=}" "${PROMOTE_PULL_REQUEST:=false}"
-MULTI_REPO_SRC_PRIVATE=sonarsource-private-qa
-MULTI_REPO_SRC_PUBLIC=sonarsource-public-qa
 
 set_build_env() {
   : "${DEFAULT_BRANCH:=$(gh repo view --json defaultBranchRef --jq ".defaultBranchRef.name")}"
@@ -171,8 +168,8 @@ jfrog_promote() {
     status='it-passed-pr'
   fi
 
-  export PROJECT_VERSION
   : "${PROJECT_VERSION:=$(get_build_info_property PROJECT_VERSION)}"
+  export PROJECT_VERSION
 
   if [[ "${MULTI_REPO_PROMOTE}" == "true" ]]; then
     local targetRepo1 targetRepo2

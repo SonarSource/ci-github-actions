@@ -14,17 +14,23 @@ inputs:
       `public-deployer` for public repositories.
     default: ''
   artifactory-deploy-repo:
-    description: Deployment repository. Defaults to `sonarsource-npm-public-qa` for private repositories, and `sonarsource-npm-public-qa`
+    description: Deployment repository. Defaults to `sonarsource-npm-private-qa` for private repositories, and `sonarsource-npm-public-qa`
       for public repositories.
     default: ''
+  deploy:
+    description: Whether to deploy on master, maintenance, dogfood and long-lived branches.
+    default: 'true'
   deploy-pull-request:
-    description: Whether to deploy pull request artifacts
+    description: Whether to also deploy pull request artifacts. If deploy is `false`, this has no effect.
     default: 'false'
   skip-tests:
     description: Whether to skip running tests
     default: 'false'
+  disable-caching:
+    description: Whether to disable NPM caching entirely
+    default: 'false'
   cache-npm:
-    description: Whether to cache NPM dependencies
+    description: Deprecated. Use `disable-caching` instead. Whether to cache NPM dependencies.
     default: 'true'
   repox-url:
     description: URL for Repox
@@ -36,8 +42,8 @@ inputs:
     description: SonarQube primary platform (next, sqc-eu, sqc-us, or none). Use 'none' to skip sonar scans.
     default: next
   run-shadow-scans:
-    description: If true, run sonar scanner on all 3 platforms using the provided URL and token.
-     If false, run on the platform provided by SONAR_PLATFORM.
+    description: If `true`, run sonar scanner on all 3 platforms. If `false`, run on the platform provided by `sonar-platform`.
+      When enabled, the `sonar-platform` setting is ignored.
     default: 'false'
   build-name:
     description: Name of the build to publish. Defaults to the repository name.
@@ -98,10 +104,15 @@ runs:
           (github.event.repository.visibility == 'public' && 'public-reader' || 'private-reader') }}
         ARTIFACTORY_DEPLOYER_ROLE: ${{ inputs.artifactory-deployer-role != '' && inputs.artifactory-deployer-role ||
           (github.event.repository.visibility == 'public' && 'public-deployer' || 'qa-deployer') }}
+        CACHE_NPM: ${{ inputs.cache-npm }}
       run: |
         echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_DEPLOYER_ROLE=${ARTIFACTORY_DEPLOYER_ROLE}" >> "$GITHUB_ENV"
         cp "$ACTION_PATH_BUILD_NPM/mise.local.toml" mise.local.toml
+        if [[ "$CACHE_NPM" != "true" ]]; then
+          echo "::warning::The \`cache-npm\` input is deprecated and will be removed in future releases. " \
+            "Use \`disable-caching\` instead." >&2
+        fi
 
     - uses: jdx/mise-action@5228313ee0372e111a38da051671ca30fc5a96db # v3.6.3
       with:
@@ -115,20 +126,20 @@ runs:
         repox-url: ${{ inputs.repox-url }}
         repox-artifactory-url: ${{ inputs.repox-artifactory-url }}
         working-directory: ${{ inputs.working-directory }}
-        cache-npm: ${{ inputs.cache-npm }}
+        disable-caching: ${{ inputs.cache-npm != 'true' && 'true' || inputs.disable-caching }}
 
     - uses: SonarSource/vault-action-wrapper@3d5c87cb535e4a2c7a09adcbcfdefa751854dee3 # 3.3.0
       id: secrets
       # yamllint disable rule:line-length
       with:
         secrets: |
-          ${{ inputs.sonar-platform != 'none' && 'development/kv/data/next url | NEXT_URL;' || '' }}
-          ${{ inputs.sonar-platform != 'none' && 'development/kv/data/next token | NEXT_TOKEN;' || '' }}
-          ${{ inputs.sonar-platform != 'none' && 'development/kv/data/sonarqube-us url | SQC_US_URL;' || '' }}
-          ${{ inputs.sonar-platform != 'none' && 'development/kv/data/sonarqube-us token | SQC_US_TOKEN;' || '' }}
-          ${{ inputs.sonar-platform != 'none' && 'development/kv/data/sonarcloud url | SQC_EU_URL;' || '' }}
-          ${{ inputs.sonar-platform != 'none' && 'development/kv/data/sonarcloud token | SQC_EU_TOKEN;' || '' }}
-          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_DEPLOYER_ROLE }} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;
+          ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/next url | NEXT_URL;' || '' }}
+          ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/next token | NEXT_TOKEN;' || '' }}
+          ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/sonarqube-us url | SQC_US_URL;' || '' }}
+          ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/sonarqube-us token | SQC_US_TOKEN;' || '' }}
+          ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/sonarcloud url | SQC_EU_URL;' || '' }}
+          ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/sonarcloud token | SQC_EU_TOKEN;' || '' }}
+          ${{ inputs.deploy != 'false' && inputs.run-shadow-scans != 'true' && format('development/artifactory/token/{{REPO_OWNER_NAME_DASH}}-{0} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;', env.ARTIFACTORY_DEPLOYER_ROLE) || '' }}
       # yamllint enable rule:line-length
     - name: Build, test, analyze and deploy
       id: build
@@ -145,6 +156,7 @@ runs:
         ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo != '' && inputs.artifactory-deploy-repo ||
           (github.event.repository.visibility == 'public' && 'sonarsource-npm-public-qa' || 'sonarsource-npm-private-qa') }}
         ARTIFACTORY_DEPLOY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN }}
+        DEPLOY: ${{ inputs.deploy }}
         DEPLOY_PULL_REQUEST: ${{ inputs.deploy-pull-request }}
         SKIP_TESTS: ${{ inputs.skip-tests }}
 

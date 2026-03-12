@@ -9,8 +9,11 @@ inputs:
     description: Suffix for the Artifactory reader role in Vault. Defaults to `private-reader` for private repositories, and `public-reader`
       for public repositories.
     default: ''
+  disable-caching:
+    description: Whether to disable NPM caching entirely
+    default: 'false'
   cache-npm:
-    description: Whether to cache NPM dependencies
+    description: Deprecated. Use `disable-caching` instead. Whether to cache NPM dependencies.
     default: 'true'
   repox-url:
     description: URL for Repox
@@ -36,18 +39,27 @@ outputs:
 runs:
   using: composite
   steps:
+    - id: config-npm-completed
+      if: env.CONFIG_NPM_COMPLETED != ''
+      shell: bash
+      run: |
+        echo "Action already called by $CONFIG_NPM_COMPLETED, execution skipped."
+        echo "skip=true" >> $GITHUB_OUTPUT
+
     - id: setup
+      if: steps.config-npm-completed.outputs.skip != 'true'
       shell: bash
       env:
         ARTIFACTORY_READER_ROLE: ${{ inputs.artifactory-reader-role != '' && inputs.artifactory-reader-role ||
           (github.event.repository.visibility == 'public' && 'public-reader' || 'private-reader') }}
+        CACHE_NPM: ${{ inputs.cache-npm }}
       run: |
         echo "::group::Fix for using local actions"
         echo "GITHUB_ACTION_PATH=$GITHUB_ACTION_PATH"
         echo "github.action_path=${{ github.action_path }}"
         ACTION_PATH_CONFIG_NPM="${{ github.action_path }}"
         host_actions_root="${{ inputs.host-actions-root }}"
-        if [ -z "$host_actions_root" ]; then
+        if [[ -z "$host_actions_root" ]]; then
           host_actions_root="$(dirname "$ACTION_PATH_CONFIG_NPM")"
         else
           ACTION_PATH_CONFIG_NPM="$host_actions_root/config-npm"
@@ -70,12 +82,18 @@ runs:
         echo "::endgroup::"
 
         echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
+        if [[ "$CACHE_NPM" != "true" ]]; then
+          echo "::warning::The \`cache-npm\` input is deprecated and will be removed in future releases. " \
+            "Use \`disable-caching\` instead." >&2
+        fi
 
     - uses: jdx/mise-action@5228313ee0372e111a38da051671ca30fc5a96db # v3.6.3
+      if: steps.config-npm-completed.outputs.skip != 'true'
       with:
         version: 2026.3.7
 
     - uses: SonarSource/vault-action-wrapper@3d5c87cb535e4a2c7a09adcbcfdefa751854dee3 # 3.3.0
+      if: steps.config-npm-completed.outputs.skip != 'true'
       id: secrets
       with:
         secrets: |
@@ -83,6 +101,7 @@ runs:
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
 
     - name: Configure NPM authentication
+      if: steps.config-npm-completed.outputs.skip != 'true'
       shell: bash
       env:
         ARTIFACTORY_URL: ${{ inputs.repox-artifactory-url != '' && inputs.repox-artifactory-url ||
@@ -99,7 +118,7 @@ runs:
 
     - name: Sanitize workflow name for cache key
       id: sanitize_workflow
-      if: ${{ inputs.cache-npm == 'true' }}
+      if: steps.config-npm-completed.outputs.skip != 'true' && inputs.disable-caching != 'true' && inputs.cache-npm == 'true'
       shell: bash
       env:
         WORKFLOW_NAME: ${{ github.workflow }}
@@ -107,7 +126,7 @@ runs:
 
     - name: Cache NPM dependencies
       uses: SonarSource/gh-action_cache@957cb1f6f70956976b834546bf09839080b5bb00 # v1.2.3
-      if: ${{ inputs.cache-npm == 'true' }}
+      if: steps.config-npm-completed.outputs.skip != 'true' && inputs.disable-caching != 'true' && inputs.cache-npm == 'true'
       with:
         path: ~/.npm
         key: npm-${{ runner.os }}-${{ steps.sanitize_workflow.outputs.workflow_name }}-${{ hashFiles('**/package-lock.json') }}
@@ -115,6 +134,7 @@ runs:
 
     - name: Check for package.json
       id: check_package_json
+      if: steps.config-npm-completed.outputs.skip != 'true'
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       run: |
@@ -127,14 +147,20 @@ runs:
 
     - uses: ./.actions/get-build-number
       id: get_build_number
+      if: steps.config-npm-completed.outputs.skip != 'true'
       with:
         host-actions-root: ${{ steps.setup.outputs.host_actions_root }}
 
     - name: Update project version and set current-version and project-version variables
       id: set_version
-      if: ${{ steps.check_package_json.outputs.exists == 'true' }}
+      if: steps.config-npm-completed.outputs.skip != 'true' && steps.check_package_json.outputs.exists == 'true'
       shell: bash
       env:
         DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
       working-directory: ${{ inputs.working-directory }}
       run: $ACTION_PATH_CONFIG_NPM/npm_set_project_version.sh
+
+    - name: Set Config NPM completed
+      if: steps.config-npm-completed.outputs.skip != 'true'
+      shell: bash
+      run: echo "CONFIG_NPM_COMPLETED=$GITHUB_ACTION" >> "$GITHUB_ENV"

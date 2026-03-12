@@ -10,11 +10,11 @@
 #
 # Optional user customization:
 # - CURRENT_VERSION and PROJECT_VERSION: If both are set, they will be used as-is and no version update will be performed.
+# - SKIP: If true, the script will skip setting the project version and outputting the current version. Defaults to false.
 
 set -euo pipefail
 
-: "${BUILD_NUMBER:?}"
-: "${GITHUB_OUTPUT:?}" "${GITHUB_ENV:?}" "${SKIP:=false}"
+: "${BUILD_NUMBER:?}" "${GITHUB_OUTPUT:?}" "${GITHUB_ENV:?}" "${SKIP:=false}"
 
 # shellcheck source=SCRIPTDIR/../shared/common-functions.sh
 source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"

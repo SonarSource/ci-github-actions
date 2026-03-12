@@ -12,6 +12,7 @@
 # - SQC_EU_URL: URL of SonarQube server for sqc-eu platform
 # - SQC_EU_TOKEN: Access token to send analysis reports to SonarQube for sqc-eu platform
 # - RUN_SHADOW_SCANS: If true, run sonar scanner on all 3 platforms. If false, run on the platform provided by SONAR_PLATFORM.
+#     When enabled, SONAR_PLATFORM is ignored.
 # - CURRENT_VERSION: Current project version as in gradle.properties
 # - ARTIFACTORY_ACCESS_TOKEN: Access token to read Repox repositories
 # - ARTIFACTORY_DEPLOY_REPO: Name of deployment repository
@@ -48,28 +49,21 @@ set -euo pipefail
 # shellcheck source=../shared/common-functions.sh
 source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 
-: "${ARTIFACTORY_ACCESS_TOKEN:?}"
-: "${ARTIFACTORY_DEPLOY_REPO:?}"
-: "${DEPLOY:=true}"
+: "${ARTIFACTORY_ACCESS_TOKEN:?}" "${ARTIFACTORY_DEPLOY_REPO:?}" "${DEPLOY_PULL_REQUEST:=false}" "${RUN_SHADOW_SCANS:?}"
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_RUN_ID:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}" "${GITHUB_SHA:?}"
-: "${GITHUB_OUTPUT:?}"
-: "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}"
-: "${RUN_SHADOW_SCANS:?}"
-if [[ "$DEPLOY" != "false" && "$RUN_SHADOW_SCANS" != "true" ]]; then
+: "${GITHUB_OUTPUT:?}" "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}" "${CURRENT_VERSION:?}"
+if [[ "${DEPLOY:=true}" != "false" && "$RUN_SHADOW_SCANS" != "true" ]]; then
   : "${ARTIFACTORY_DEPLOY_USERNAME:?}" "${ARTIFACTORY_DEPLOY_ACCESS_TOKEN:?}"
 fi
-: "${CURRENT_VERSION:?}"
-if [[ "${SONAR_PLATFORM:?}" != "none" ]]; then
+if [[ "${SONAR_PLATFORM:?}" != "none" || "$RUN_SHADOW_SCANS" == "true" ]]; then
   : "${NEXT_URL:?}" "${NEXT_TOKEN:?}" "${SQC_US_URL:?}" "${SQC_US_TOKEN:?}" "${SQC_EU_URL:?}" "${SQC_EU_TOKEN:?}"
 fi
 : "${ORG_GRADLE_PROJECT_signingKey:?}" "${ORG_GRADLE_PROJECT_signingPassword:?}" "${ORG_GRADLE_PROJECT_signingKeyId:?}"
-: "${DEPLOY_PULL_REQUEST:=false}"
-export DEPLOY_PULL_REQUEST
-: "${SKIP_TESTS:=false}"
-: "${GRADLE_ARGS:=}"
+: "${SKIP_TESTS:=false}" "${GRADLE_ARGS:=}"
+export DEPLOY DEPLOY_PULL_REQUEST SKIP_TESTS GRADLE_ARGS
 
 git_fetch_unshallow() {
-  if [ "$SONAR_PLATFORM" = "none" ]; then
+  if [[ "$SONAR_PLATFORM" = "none" && "$RUN_SHADOW_SCANS" != "true" ]]; then
     echo "Skipping git fetch (Sonar analysis disabled)"
     return 0
   fi
@@ -110,6 +104,14 @@ should_deploy() {
     is_dogfood_branch || \
     is_long_lived_feature_branch
   fi
+}
+
+should_scan() {
+  if [[ "$SONAR_PLATFORM" = "none" && "$RUN_SHADOW_SCANS" != "true" ]]; then
+    return 1
+  fi
+  is_default_branch || is_maintenance_branch || is_pull_request || is_long_lived_feature_branch
+  return $?
 }
 
 build_gradle_args() {
@@ -216,19 +218,15 @@ gradle_build() {
   echo "Sonar Platform: ${SONAR_PLATFORM}"
   echo "Run Shadow Scans: ${RUN_SHADOW_SCANS}"
 
-  if [[ "$SONAR_PLATFORM" == "none" ]]; then
+  if should_scan; then
+    # Build with sonar analysis via orchestrator
+    # shellcheck disable=SC2119
+    orchestrate_sonar_platforms
+  else
     # Build without sonar - call gradle_build_and_analyze directly
     echo "::group::Gradle build"
     gradle_build_and_analyze
     echo "::endgroup::"
-  else
-    # Build with sonar analysis via orchestrator
-    # TODO BUILD-10586: sonar analysis is not filtered by branch type here — it runs on all branches
-    # (including dogfood and other branches) when sonar-platform != none. This differs from
-    # build-maven/build-npm/build-yarn/build-poetry which skip sonar on dogfood/other branches.
-    # Should add a should_scan() guard consistent with the other build scripts.
-    # shellcheck disable=SC2119
-    orchestrate_sonar_platforms
   fi
 }
 

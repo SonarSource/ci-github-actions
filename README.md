@@ -411,16 +411,6 @@ jobs:
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - uses: SonarSource/ci-github-actions/build-poetry@v1
-        with:
-          public: false                                        # Defaults to `true` if the repository is public
-          artifactory-reader-role: private-reader              # or public-reader if `public` is `true`
-          artifactory-deployer-role: qa-deployer               # or public-deployer if `public` is `true`
-          deploy-pull-request: false                           # Deploy pull request artifacts
-          poetry-virtualenvs-path: .cache/pypoetry/virtualenvs # Poetry virtual environment path
-          poetry-cache-dir: .cache/pypoetry                    # Poetry cache directory
-          repox-url: https://repox.jfrog.io                    # Repox URL
-          sonar-platform: next                                 # SonarQube platform (next, sqc-eu, or sqc-us)
-          run-shadow-scans: false                              # Run SonarQube scans on all 3 platforms (next, sqc-eu, sqc-us)
 ```
 
 **Disable caching entirely:**
@@ -439,7 +429,8 @@ jobs:
 | `artifactory-reader-role`   | Suffix for the Artifactory reader role in Vault                                                                                                                                               | `private-reader` for private repos, `public-reader` for public repos                                  |
 | `artifactory-deployer-role` | Suffix for the Artifactory deployer role in Vault                                                                                                                                             | `qa-deployer` for private repos, `public-deployer` for public repos                                   |
 | `artifactory-deploy-repo`   | Deployment repository                                                                                                                                                                         | `sonarsource-pypi-private-qa` for private repositories, `sonarsource-pypi-public-qa` for public repos |
-| `deploy-pull-request`       | Whether to deploy pull request artifacts                                                                                                                                                      | `false`                                                                                               |
+| `deploy`                    | Whether to deploy on master, maintenance, dogfood and long-lived branches                                                                                                                     | `true`                                                                                                |
+| `deploy-pull-request`       | Whether to also deploy pull request artifacts. If `deploy` is `false`, this has no effect                                                                                                     | `false`                                                                                               |
 | `poetry-virtualenvs-path`   | Path to the Poetry virtual environments, relative to GitHub workspace                                                                                                                         | `.cache/pypoetry/virtualenvs`                                                                         |
 | `poetry-cache-dir`          | Path to the Poetry cache directory, relative to GitHub workspace                                                                                                                              | `.cache/pypoetry`                                                                                     |
 | `repox-url`                 | URL for Repox                                                                                                                                                                                 | `https://repox.jfrog.io`                                                                              |
@@ -656,11 +647,6 @@ jobs:
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - uses: SonarSource/ci-github-actions/build-gradle@v1
-        with:
-          # Enable shadow scans for unified platform dogfooding (optional)
-          run-shadow-scans: 'true'
-          # Primary platform when shadow scans disabled (optional)
-          sonar-platform: 'next'
 ```
 
 ### Input Environment Variables
@@ -867,7 +853,8 @@ See also [`get-build-number`](#get-build-number) input environment variables.
 |---------------------------|-----------------------------------------------------------------------------|----------------------------------------------------------------------|
 | `working-directory`       | Relative path under github.workspace to execute the build in                | `.`                                                                  |
 | `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault                             | `private-reader` for private repos, `public-reader` for public repos |
-| `cache-npm`               | Whether to cache NPM dependencies                                           | `true`                                                               |
+| `disable-caching`         | Whether to disable NPM caching entirely                                     | `false`                                                              |
+| `cache-npm`               | Deprecated. Use `disable-caching: 'true'` instead                           | `true`                                                               |
 | `repox-url`               | URL for Repox                                                               | `https://repox.jfrog.io`                                             |
 | `repox-artifactory-url`   | URL for Repox Artifactory API (overrides repox-url/artifactory if provided) | (optional)                                                           |
 
@@ -939,11 +926,6 @@ jobs:
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - uses: SonarSource/ci-github-actions/build-npm@v1
-        with:
-          # Enable shadow scans for unified platform dogfooding (optional)
-          run-shadow-scans: 'true'
-          # Primary platform when shadow scans disabled (optional)
-          sonar-platform: 'next'
 ```
 
 ### Input Environment Variables
@@ -962,9 +944,11 @@ See also [`config-npm`](#config-npm) input environment variables.
 | `artifactory-reader-role`   | Suffix for the Artifactory reader role in Vault                                                                              | `private-reader` for private repos, `public-reader` for public repos                         |
 | `artifactory-deployer-role` | Suffix for the Artifactory deployer role in Vault                                                                            | `qa-deployer` for private repos, `public-deployer` for public repos                          |
 | `artifactory-deploy-repo`   | Deployment repository                                                                                                        | `sonarsource-npm-private-qa` for private repos, `sonarsource-npm-public-qa` for public repos |
-| `deploy-pull-request`       | Whether to deploy pull request artifacts                                                                                     | `false`                                                                                      |
+| `deploy`                    | Whether to deploy on master, maintenance, dogfood and long-lived branches                                                    | `true`                                                                                       |
+| `deploy-pull-request`       | Whether to also deploy pull request artifacts. If `deploy` is `false`, this has no effect                                    | `false`                                                                                      |
 | `skip-tests`                | Whether to skip running tests                                                                                                | `false`                                                                                      |
-| `cache-npm`                 | Whether to cache NPM dependencies                                                                                            | `true`                                                                                       |
+| `disable-caching`           | Whether to disable NPM caching entirely                                                                                      | `false`                                                                                      |
+| `cache-npm`                 | Deprecated. Use `disable-caching: 'true'` instead                                                                            | `true`                                                                                       |
 | `repox-url`                 | URL for Repox                                                                                                                | `https://repox.jfrog.io`                                                                     |
 | `repox-artifactory-url`     | URL for Repox Artifactory API (overrides repox-url/artifactory if provided)                                                  | (optional)                                                                                   |
 | `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', or 'sqc-us'                                                                   | `next`                                                                                       |
@@ -1040,11 +1024,6 @@ jobs:
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - uses: SonarSource/ci-github-actions/build-yarn@v1
-        with:
-          # Enable shadow scans for unified platform dogfooding (optional)
-          run-shadow-scans: 'true'
-          # Primary platform when shadow scans disabled (optional)
-          sonar-platform: 'next'
 ```
 
 ### Input Environment Variables
@@ -1062,9 +1041,11 @@ jobs:
 | `artifactory-reader-role`   | Suffix for the Artifactory reader role in Vault                                                                              | `private-reader` for private repos, `public-reader` for public repos                        |
 | `artifactory-deployer-role` | Suffix for the Artifactory deployer role in Vault                                                                            | `qa-deployer` for private repos, `public-deployer` for public repos                         |
 | `artifactory-deploy-repo`   | Deployment repository                                                                                                        | `sonarsource-private-qa` for private repositories, `sonarsource-public-qa` for public repos |
-| `deploy-pull-request`       | Whether to deploy pull request artifacts                                                                                     | `false`                                                                                     |
+| `deploy`                    | Whether to deploy on master, maintenance, dogfood and long-lived branches                                                    | `true`                                                                                      |
+| `deploy-pull-request`       | Whether to also deploy pull request artifacts. If `deploy` is `false`, this has no effect                                    | `false`                                                                                     |
 | `skip-tests`                | Whether to skip running tests                                                                                                | `false`                                                                                     |
-| `cache-yarn`                | Whether to cache Yarn dependencies                                                                                           | `true`                                                                                      |
+| `disable-caching`           | Whether to disable Yarn caching entirely                                                                                     | `false`                                                                                     |
+| `cache-yarn`                | Deprecated. Use `disable-caching: 'true'` instead                                                                            | `true`                                                                                      |
 | `repox-url`                 | URL for Repox                                                                                                                | `https://repox.jfrog.io`                                                                    |
 | `repox-artifactory-url`     | URL for Repox Artifactory API (overrides repox-url/artifactory if provided)                                                  | (optional)                                                                                  |
 | `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', 'sqc-us', or 'none'. Use 'none' to skip sonar scans                           | `next`                                                                                      |
@@ -1372,16 +1353,13 @@ concrete deploy and scan behavior is implemented in each build script:
 | Maintenance (`branch-*`)              | yes      | yes       |
 | Pull request                          | optional | yes       |
 | Dogfood (`dogfood-on-*`)              | yes      | no        |
-| Long-lived feature (`feature/long/*`) | yes ¹    | yes       |
+| Long-lived feature (`feature/long/*`) | yes      | yes       |
 | Other branches                        | no       | no        |
 
 - Pull request deployment requires `deploy-pull-request: 'true'`.
-- SonarQube analysis also requires `sonar-platform` to be set (not `none`).
-- ¹ `build-maven` and `build-gradle` only; `build-npm`, `build-yarn`, and `build-poetry` do not deploy on long-lived feature branches.
-- `build-maven` and `build-gradle` support a `deploy: 'false'` input to override deployment regardless of branch. `build-npm`,
-  `build-yarn`, and `build-poetry` do not have this input (TODO: add for consistency).
-- **`build-gradle` known bug**: SonarQube analysis is not filtered by branch type. When `sonar-platform ≠ none`, analysis runs on all
-  branches, including dogfood and other branches (unlike all other build actions).
+- SonarQube analysis also requires either `sonar-platform` to be set (not `none`) or `run-shadow-scans: 'true'` (in which case
+  `sonar-platform` is ignored and the deployment is disabled).
+- All build actions support a `deploy: 'false'` input to override deployment regardless of branch.
 
 ---
 

@@ -64,6 +64,7 @@ export SQC_US_URL="https://sonarqube-us.example.com"
 export SQC_US_TOKEN="sqc-us-token"
 export SQC_EU_URL="https://sonarcloud.io"
 export SQC_EU_TOKEN="sqc-eu-token"
+export DEPLOY="true"
 export DEPLOY_PULL_REQUEST="false" SKIP_TESTS="false" DEFAULT_BRANCH="main" PULL_REQUEST=""
 
 common_setup() {
@@ -351,7 +352,8 @@ Describe 'build-yarn/build.sh'
       export RUN_SHADOW_SCANS="true"
       When call get_build_config
       The status should be success
-      The output should include "======= Shadow scans enabled - disabling deployment to prevent duplicate artifacts ======="
+      The output should include "======= Building main branch ======="
+      The stderr should include "::warning title=Deployment disabled::Shadow scans enabled - disabling deployment"
       The variable BUILD_ENABLE_DEPLOY should equal "false"
       The variable BUILD_ENABLE_SONAR should equal "true"
     End
@@ -381,6 +383,7 @@ Describe 'build-yarn/build.sh'
       The output should include "Sonar Platform: next"
       The output should include "shadow scan enabled"
       The output should not include "JFrog operations"
+      The stderr should include "::warning title=Deployment disabled::Shadow scans enabled - disabling deployment"
     End
   End
 
@@ -420,11 +423,22 @@ Describe 'build-yarn/build.sh'
       The stderr should include "::warning title=No artifacts found::"
     End
 
-    It 'builds long-lived feature branch'
+    It 'builds long-lived feature branch with deploy'
       export GITHUB_REF_NAME="feature/long/test" GITHUB_EVENT_NAME="push" PROJECT="test"
       When call build_yarn
       The status should be success
       The output should include "======= Build long-lived feature branch ======="
+      The variable BUILD_ENABLE_DEPLOY should equal "true"
+      The stderr should include "::warning title=No artifacts found::"
+    End
+
+    It 'skips deploy when DEPLOY is false'
+      export GITHUB_REF_NAME="main" GITHUB_EVENT_NAME="push" PROJECT="test"
+      export DEPLOY="false"
+      When call build_yarn
+      The status should be success
+      The output should include "======= Building main branch ======="
+      The variable BUILD_ENABLE_DEPLOY should equal "false"
     End
   End
 

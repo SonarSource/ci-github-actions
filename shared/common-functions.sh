@@ -55,12 +55,12 @@ set_sonar_platform_vars() {
 # CALLBACK DEPENDENCY:
 # Requires build script to implement sonar_scanner_implementation() function
 orchestrate_sonar_platforms() {
-  if [ "$SONAR_PLATFORM" = "none" ] && [ "${RUN_SHADOW_SCANS}" != "true" ]; then
+  if [[ "$SONAR_PLATFORM" = "none" && "$RUN_SHADOW_SCANS" != "true" ]]; then
       echo "=== ORCHESTRATOR: Skipping Sonar analysis (platform: none) ==="
       return 0
   fi
 
-  if [ "${RUN_SHADOW_SCANS}" = "true" ]; then
+  if [[ "$RUN_SHADOW_SCANS" = "true" ]]; then
       echo "=== ORCHESTRATOR: Running Sonar analysis on all platforms (shadow scan enabled) ==="
       local platforms=("next" "sqc-us" "sqc-eu")
 
