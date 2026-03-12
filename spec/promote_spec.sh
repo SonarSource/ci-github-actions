@@ -97,7 +97,7 @@ Describe 'promote/promote.sh'
     export PROMOTE_PULL_REQUEST="true"
     When run script promote/promote.sh
     The status should be success
-    The lines of stdout should equal 20
+    The lines of stdout should equal 21
     The line 1 should equal "::group::Check tools"
     The line 2 should include "gh"
     The line 3 should include "gh"
@@ -117,7 +117,8 @@ Describe 'promote/promote.sh'
     The line 17 should equal "::endgroup::"
     The line 18 should equal "::group::Notify GitHub"
     The line 19 should include "gh api -X POST"
-    The line 20 should equal "::endgroup::"
+    The line 20 should include "gh api -X POST"
+    The line 21 should equal "::endgroup::"
   End
 
   It 'skips promotion on pull_request when promotion is disabled'
@@ -351,9 +352,9 @@ Describe 'jfrog_promote()'
 End
 
 Describe 'github_notify_promotion()'
-  It 'calls gh api with correct parameters'
+  It 'calls gh api with the provided check context'
     export PROJECT_VERSION="1.2.3"
-    When call github_notify_promotion
+    When call github_notify_promotion "repox-dummy-project-dummy-branch"
     The output should include "gh api -X POST -H X-GitHub-Api-Version: 2022-11-28"
     The output should include "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA"
     The output should include "-H Content-Type: application/json --input -"
