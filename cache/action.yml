@@ -33,7 +33,7 @@ runs:
     - id: warning
       shell: bash
       run: |
-        echo "::warning:: This action is deprecated and will be removed in future releases. " \
+        echo "::warning:: This action is deprecated and will be removed in future releases." \
           "Please migrate to using the SonarSource/gh-action_cache action directly." >&2
 
     - uses: SonarSource/gh-action_cache@957cb1f6f70956976b834546bf09839080b5bb00 # v1.2.3

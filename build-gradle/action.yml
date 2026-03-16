@@ -121,6 +121,7 @@ runs:
           (github.event.repository.visibility == 'public' && 'public-deployer' || 'qa-deployer') }}
       run: |
         echo "ARTIFACTORY_DEPLOYER_ROLE=${ARTIFACTORY_DEPLOYER_ROLE}" >> "$GITHUB_ENV"
+
     - uses: SonarSource/vault-action-wrapper@3d5c87cb535e4a2c7a09adcbcfdefa751854dee3 # 3.3.0
       id: secrets
       with:
@@ -199,7 +200,7 @@ runs:
       shell: bash
       run: |
         build_name="${GITHUB_REPOSITORY#*/}"
-        echo "## 🏗️ Gradle Build Summary (\`${GITHUB_JOB}\`)" >> $GITHUB_STEP_SUMMARY
+        echo "## 🏗 Gradle Build Summary (\`${GITHUB_JOB}\`)" >> $GITHUB_STEP_SUMMARY
         if [[ "${{ steps.build.conclusion }}" == "success" ]]; then
           echo "✅ **Build SUCCESS**" >> $GITHUB_STEP_SUMMARY
         else
@@ -215,5 +216,5 @@ runs:
         if [[ "${{ steps.build.outputs.deployed }}" == true ]]; then
           echo "### 🚀 Deployment" >> $GITHUB_STEP_SUMMARY
           ARTIFACTORY_BROWSE_URL="${ARTIFACTORY_URL%/*}/ui/builds/$build_name/$BUILD_NUMBER"
-          echo "🔗 **[Browse artifacts in Artifactory](${ARTIFACTORY_BROWSE_URL})**" >> $GITHUB_STEP_SUMMARY
+          echo "🐸 [Browse build \`${build_name}:${BUILD_NUMBER}\` in Artifactory](${ARTIFACTORY_BROWSE_URL})" >> $GITHUB_STEP_SUMMARY
         fi

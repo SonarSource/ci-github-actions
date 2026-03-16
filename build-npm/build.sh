@@ -100,7 +100,8 @@ sonar_scanner_implementation() {
 jfrog_npm_publish() {
   echo "Configuring JFrog and NPM repositories..."
   jf config remove repox > /dev/null 2>&1 || true # Ignore inexistent configuration
-  jf config add repox --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_DEPLOY_ACCESS_TOKEN"
+  jf config add repox --url "${ARTIFACTORY_URL%/artifactory*}" --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_DEPLOY_ACCESS_TOKEN"
+  jf config use repox
   jf npm-config --repo-resolve "npm" --repo-deploy "$ARTIFACTORY_DEPLOY_REPO"
 
   export PROJECT="${GITHUB_REPOSITORY#*/}"

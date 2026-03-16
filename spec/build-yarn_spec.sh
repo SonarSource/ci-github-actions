@@ -13,7 +13,7 @@ End
 
 Mock jf
   case "$*" in
-    "--version") echo "jf version 2.77.0" ;;
+    "--version") echo "jf version 2.96.0" ;;
     "rt build-publish test-project 42") echo '{"buildInfoUiUrl": "https://repox.jfrog.io/ui/builds/test-project/42/123456/published"}' ;;
     *) echo "jf $*" ;;
   esac
@@ -258,17 +258,18 @@ Describe 'build-yarn/build.sh'
       export PROJECT="test"
       When call jfrog_yarn_publish
       The status should be success
-      The lines of output should equal 10
+      The lines of output should equal 11
       The line 1 should include "Configuring JFrog"
       The line 2 should include "jf config"
-      The line 3 should include "jf npm-config"
-      The line 4 should include "Creating local tarball for attestation"
-      The line 5 should include "yarn pack"
-      The line 6 should include "Publishing Yarn package"
-      The line 7 should include "jf npm publish"
-      The line 8 should include "jf rt build-collect-env"
-      The line 9 should include "Publishing build info"
-      The line 10 should include "jf rt build-publish"
+      The line 3 should include "jf config use repox"
+      The line 4 should include "jf npm-config"
+      The line 5 should include "Creating local tarball for attestation"
+      The line 6 should include "yarn pack"
+      The line 7 should include "Publishing Yarn package"
+      The line 8 should include "jf npm publish"
+      The line 9 should include "jf rt build-collect-env"
+      The line 10 should include "Publishing build info"
+      The line 11 should include "jf rt build-publish"
     End
   End
 

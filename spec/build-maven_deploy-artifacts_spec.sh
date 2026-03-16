@@ -1,8 +1,8 @@
 #!/bin/bash
 eval "$(shellspec - -c) exit 1"
 
-Mock jfrog
-  echo "jfrog $*"
+Mock jf
+  echo "jf $*"
 End
 
 # Set required environment variables
@@ -28,8 +28,8 @@ com/sonarsource/private/app/1.0/app-1.0.jar"
     The status should be success
     The lines of stdout should equal 17
     The line 2 of output should equal "::group::Configure JFrog deployment"
-    The line 3 of output should equal "jfrog config add deploy --artifactory-url https://dummy.repox --access-token deploy-token"
-    The line 4 of output should equal "jfrog config use deploy"
+    The line 3 of output should equal "jf config add deploy --url https://dummy.repox --artifactory-url https://dummy.repox --access-token deploy-token"
+    The line 4 of output should equal "jf config use deploy"
     The line 5 of output should equal "::endgroup::"
     The line 6 of output should equal "::group::Deploy public artifacts"
     The line 7 of output should include "Deploying public artifacts..."
@@ -38,7 +38,7 @@ com/sonarsource/private/app/1.0/app-1.0.jar"
     The line 10 of output should equal "::endgroup::"
     The line 11 of output should equal "::group::Deploy private artifacts"
     The line 12 of output should equal "Deploying private artifacts..."
-    The line 13 of output should equal "jfrog config edit deploy --artifactory-url https://dummy.repox --access-token private-token"
+    The line 13 of output should equal "jf config edit deploy --artifactory-url https://dummy.repox --access-token private-token"
     The line 14 of output should include "com/sonarsource/private/app/1.0/app-1.0.pom private-repo-qa"
     The line 15 of output should include "com/sonarsource/private/app/1.0/app-1.0.jar private-repo-qa"
     The line 16 of output should equal "::endgroup::"

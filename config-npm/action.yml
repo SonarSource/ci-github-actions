@@ -83,7 +83,7 @@ runs:
 
         echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
         if [[ "$CACHE_NPM" != "true" ]]; then
-          echo "::warning::The \`cache-npm\` input is deprecated and will be removed in future releases. " \
+          echo "::warning::The \`cache-npm\` input is deprecated and will be removed in future releases." \
             "Use \`disable-caching\` instead." >&2
         fi
 

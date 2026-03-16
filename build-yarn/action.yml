@@ -112,7 +112,7 @@ runs:
         echo "ARTIFACTORY_DEPLOYER_ROLE=${ARTIFACTORY_DEPLOYER_ROLE}" >> "$GITHUB_ENV"
         cp "$ACTION_PATH_BUILD_YARN/mise.local.toml" mise.local.toml
         if [[ "$CACHE_YARN" != "true" ]]; then
-          echo "::warning::The \`cache-yarn\` input is deprecated and will be removed in future releases. " \
+          echo "::warning::The \`cache-yarn\` input is deprecated and will be removed in future releases." \
             "Use \`disable-caching\` instead." >&2
         fi
 
@@ -175,6 +175,7 @@ runs:
         SQC_US_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SQC_US_TOKEN }}
         SONAR_PLATFORM: ${{ inputs.sonar-platform }}
         RUN_SHADOW_SCANS: ${{ inputs.run-shadow-scans }}
+        JFROG_CLI_COMMAND_SUMMARY_OUTPUT_DIR: ${{ runner.temp }}/jfrog-summary
       working-directory: ${{ inputs.working-directory }}
       run: $ACTION_PATH_BUILD_YARN/build.sh
 
@@ -196,9 +197,10 @@ runs:
       env:
         ARTIFACTORY_URL: ${{ inputs.repox-artifactory-url != '' && inputs.repox-artifactory-url ||
           format('{0}/artifactory', inputs.repox-url) }}
+        JFROG_CLI_COMMAND_SUMMARY_OUTPUT_DIR: ${{ runner.temp }}/jfrog-summary
       run: |
         build_name="${GITHUB_REPOSITORY#*/}"
-        echo "## 📦 Yarn Build Summary (\`${GITHUB_JOB}\`)" >> $GITHUB_STEP_SUMMARY
+        echo "## 🏗 Yarn Build Summary (\`${GITHUB_JOB}\`)" >> $GITHUB_STEP_SUMMARY
         if [[ "${{ steps.build.conclusion }}" == "success" ]]; then
           echo "✅ **Build SUCCESS**" >> $GITHUB_STEP_SUMMARY
         else
@@ -214,5 +216,22 @@ runs:
         if [[ "${{ steps.build.outputs.deployed }}" == true ]]; then
           echo "### 🚀 Deployment" >> $GITHUB_STEP_SUMMARY
           ARTIFACTORY_BROWSE_URL="${ARTIFACTORY_URL%/*}/ui/builds/$build_name/$BUILD_NUMBER"
-          echo "🔗 **[Browse artifacts in Artifactory](${ARTIFACTORY_BROWSE_URL})**" >> $GITHUB_STEP_SUMMARY
+          echo "🐸 [Browse build \`${build_name}:${BUILD_NUMBER}\` in Artifactory](${ARTIFACTORY_BROWSE_URL})" >> $GITHUB_STEP_SUMMARY
+          jf_summary_dir="${JFROG_CLI_COMMAND_SUMMARY_OUTPUT_DIR}/jfrog-command-summary"
+          if [[ -d "$jf_summary_dir" ]]; then
+            jf config use repox
+            jf generate-summary-markdown
+            if [[ -f "${jf_summary_dir}/markdown.md" ]]; then
+              {
+                echo ""
+                echo "<details>"
+                echo "<summary>Published Modules</summary>"
+                echo ""
+                grep -E '^\*\*[^*]+\*\*$' "${jf_summary_dir}/markdown.md" | sed 's/^\*\*\(.*\)\*\*$/- `\1`/'
+                echo ""
+                awk 'index($0,"<pre>") && !index($0,"</pre>"){p=1} p{print} index($0,"</pre>"){p=0}' "${jf_summary_dir}/markdown.md"
+                echo "</details>"
+              } >> "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
         fi

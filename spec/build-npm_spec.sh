@@ -14,7 +14,7 @@ End
 
 Mock jf
   if [[ "$*" == "--version" ]]; then
-    echo "jf version 2.77.0"
+    echo "jf version 2.96.0"
   elif [[ "$*" == "rt build-publish test-project 42" ]]; then
     echo '{"buildInfoUiUrl": "https://repox.jfrog.io/ui/builds/test-project/42/123456/published"}'
   else

@@ -69,7 +69,7 @@ Describe 'build-poetry/build.sh'
     export GITHUB_OUTPUT
     When run script build-poetry/build.sh
       The status should be success
-      The lines of stdout should equal 36
+      The lines of stdout should equal 37
       The line 1 should equal "::group::Check tools"
       The line 2 should include "jq"
       The line 3 should include "jq"
@@ -97,14 +97,15 @@ Describe 'build-poetry/build.sh'
       The line 25 should equal "======= Build other branch ======="
       The line 26 should equal "::group::Install dependencies"
       The line 27 should equal "Installing dependencies..."
-      The line 28 should equal "jf config add repox --artifactory-url https://dummy.repox --access-token dummy access token"
-      The line 29 should equal "jf poetry-config --server-id-resolve repox --repo-resolve <repox pypi repo>"
-      The line 30 should equal "jf poetry install --build-name=my-repo --build-number=42"
-      The line 31 should equal "::endgroup::"
-      The line 32 should equal "::group::Build project"
-      The line 34 should equal "poetry build"
-      The line 35 should equal "::endgroup::"
-      The line 36 should equal "=== Build completed successfully ==="
+      The line 28 should equal "jf config add repox --url https://dummy.repox --artifactory-url https://dummy.repox --access-token dummy access token"
+      The line 29 should equal "jf config use repox"
+      The line 30 should equal "jf poetry-config --server-id-resolve repox --repo-resolve <repox pypi repo>"
+      The line 31 should equal "jf poetry install --build-name=my-repo --build-number=42"
+      The line 32 should equal "::endgroup::"
+      The line 33 should equal "::group::Build project"
+      The line 35 should equal "poetry build"
+      The line 36 should equal "::endgroup::"
+      The line 37 should equal "=== Build completed successfully ==="
     End
 End
 
@@ -304,8 +305,9 @@ Describe 'jfrog_poetry_install()'
   It 'installs Poetry dependencies using JFrog CLI'
     When call jfrog_poetry_install
     The line 1 should include "jf config add repox"
-    The line 2 should include "jf poetry-config"
-    The line 3 should include "jf poetry install"
+    The line 2 should include "jf config use repox"
+    The line 3 should include "jf poetry-config"
+    The line 4 should include "jf poetry install"
   End
 End
 
@@ -360,8 +362,8 @@ Describe 'build_poetry()'
     The line 21 should equal 'poetry run pysonar -Dsonar.host.url=https://next.sonarqube.com -Dsonar.token=next-token -Dsonar.analysis.buildNumber=42 -Dsonar.analysis.pipeline=dummy-run-id -Dsonar.analysis.repository=my-org/my-repo'
     The line 22 should equal '::endgroup::'
     The line 23 should equal '::group::Publish to Artifactory'
-    The line 24 should equal 'jf config remove repox'
-    The line 25 should equal 'jf config add repox --artifactory-url https://dummy.repox --access-token <deploy token>'
+    The line 24 should equal 'jf config add repox --url https://dummy.repox --artifactory-url https://dummy.repox --access-token <deploy token>'
+    The line 25 should equal 'jf config use repox'
     The line 26 should include '/dist'
     The line 27 should equal 'jf rt upload ./ <deploy repo>/poetry/1.0.0.42/ --module=poetry:1.0.0.42 --build-name=my-repo --build-number=42'
     The line 29 should equal 'jf rt build-collect-env my-repo 42'
@@ -435,8 +437,8 @@ Describe 'build_poetry()'
     The line 22 should equal 'poetry run pysonar -Dsonar.host.url=https://next.sonarqube.com -Dsonar.token=next-token -Dsonar.analysis.buildNumber=42 -Dsonar.analysis.pipeline=dummy-run-id -Dsonar.analysis.repository=my-org/my-repo -Dsonar.analysis.prNumber=123'
     The line 23 should equal '::endgroup::'
     The line 24 should equal "::group::Publish to Artifactory"
-    The line 25 should equal "jf config remove repox"
-    The line 26 should equal "jf config add repox --artifactory-url https://dummy.repox --access-token <deploy token>"
+    The line 25 should equal "jf config add repox --url https://dummy.repox --artifactory-url https://dummy.repox --access-token <deploy token>"
+    The line 26 should equal "jf config use repox"
     The line 27 should include "/dist"
     The line 28 should equal "jf rt upload ./ <deploy repo>/poetry/1.0.0.42/ --module=poetry:1.0.0.42 --build-name=my-repo --build-number=42"
     The line 30 should equal "jf rt build-collect-env my-repo 42"
@@ -576,8 +578,8 @@ Describe 'build_poetry()'
     The line 15 should equal 'run_sonar_analysis()'
     The line 16 should equal "=== Sonar platform set to 'none'. Skipping Sonar analysis."
     The line 17 should equal '::group::Publish to Artifactory'
-    The line 18 should equal 'jf config remove repox'
-    The line 19 should equal 'jf config add repox --artifactory-url https://dummy.repox --access-token <deploy token>'
+    The line 18 should equal 'jf config add repox --url https://dummy.repox --artifactory-url https://dummy.repox --access-token <deploy token>'
+    The line 19 should equal 'jf config use repox'
     The line 20 should include '/dist'
     The line 21 should equal 'jf rt upload ./ <deploy repo>/poetry/1.0.0.42/ --module=poetry:1.0.0.42 --build-name=my-repo --build-number=42'
     The line 23 should equal 'jf rt build-collect-env my-repo 42'
@@ -612,7 +614,7 @@ Describe 'build_poetry()'
         fi
       End
       Mock jf
-        echo "jf version 2.77.0"
+        echo "jf version 2.96.0"
       End
       Mock git
         case "$*" in
@@ -627,7 +629,7 @@ Describe 'build_poetry()'
       The output should include "jq-1.8.1"
       The output should include "Python 3.11.0"
       The output should include "Poetry (version 1.8.0)"
-      The output should include "jf version 2.77.0"
+      The output should include "jf version 2.96.0"
       The output should include "=== Build completed successfully ==="
     End
 
@@ -647,7 +649,7 @@ Describe 'build_poetry()'
         fi
       End
       Mock jf
-        echo "jf version 2.77.0"
+        echo "jf version 2.96.0"
       End
       Mock git
         case "$*" in

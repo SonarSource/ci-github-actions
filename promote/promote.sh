@@ -2,6 +2,7 @@
 # Regular way to promote a project build: JFrog Artifactory build promotion, and GitHub status check update
 #
 # Required environment variables (must be explicitly provided):
+# - ARTIFACTORY_URL: URL to Artifactory repository
 # - ARTIFACTORY_PROMOTE_ACCESS_TOKEN: Access token to promote builds
 # - BUILD_NUMBER: Build number (e.g. 42)
 # - BUILD_NAME: Name of the JFrog Artifactory build (e.g. sonar-dummy)
@@ -16,7 +17,6 @@
 # - GITHUB_JOB: The job_id of the current job, used for generating workflow summary
 #
 # Optional user customization:
-# - ARTIFACTORY_URL: Repox URL.
 # - DEFAULT_BRANCH: Default branch (e.g. main), defaults to the repository configuration
 # - MULTI_REPO_PROMOTE: If true, promotes to multiple repositories (default: false)
 # - ARTIFACTORY_DEPLOY_REPO: Repository to deploy to. If not set, it will be retrieved from the build info.
@@ -34,7 +34,7 @@ set -euo pipefail
 # shellcheck source=../shared/common-functions.sh
 source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 
-: "${ARTIFACTORY_URL:="https://repox.jfrog.io/artifactory"}" "${ARTIFACTORY_PROMOTE_ACCESS_TOKEN:?}" "${BUILD_NAME:?}"
+: "${ARTIFACTORY_URL:?}" "${ARTIFACTORY_PROMOTE_ACCESS_TOKEN:?}" "${BUILD_NAME:?}"
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}" "${GITHUB_EVENT_PATH:?}" "${GITHUB_TOKEN:?}"
 : "${GITHUB_SHA:?}" "${GITHUB_JOB:?}"
 : "${MULTI_REPO_PROMOTE:=false}" "${ARTIFACTORY_DEPLOY_REPO:=}" "${ARTIFACTORY_TARGET_REPO:=}" "${PROMOTE_PULL_REQUEST:=false}"
@@ -68,8 +68,9 @@ check_branch() {
 }
 
 jfrog_config_repox() {
-  jf config remove repox
-  jf config add repox --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_PROMOTE_ACCESS_TOKEN"
+  jf config remove repox > /dev/null 2>&1 || true # Ignore inexistent configuration
+  jf config add repox --url "${ARTIFACTORY_URL%/artifactory*}" --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_PROMOTE_ACCESS_TOKEN"
+  jf config use repox
 }
 
 get_target_repos() {
@@ -185,7 +186,6 @@ jfrog_promote() {
 generate_workflow_summary() {
   local build_url="${ARTIFACTORY_URL%/*}/ui/builds/${BUILD_NAME}/${BUILD_NUMBER}/"
 
-
   cat >> "$GITHUB_STEP_SUMMARY" <<EOF
 ## 🚀 Promotion Summary (\`${GITHUB_JOB}\`)
 
@@ -199,8 +199,8 @@ generate_workflow_summary() {
 - **Commit**: \`${GITHUB_SHA}\`
 - **Target Repository**: \`${TARGET_REPOS}\`
 
-### 🔗 Deployment
-- **[Browse artifacts in Artifactory](${build_url})**
+### 🚀 Deployment
+- 🐸 [Browse build \`${BUILD_NAME}:${BUILD_NUMBER}\` in Artifactory](${build_url})
 EOF
 }
 

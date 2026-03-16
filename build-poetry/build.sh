@@ -263,14 +263,16 @@ get_build_config() {
 }
 
 jfrog_poetry_install() {
-  jf config add repox --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_ACCESS_TOKEN"
+  jf config add repox --url "${ARTIFACTORY_URL%/artifactory*}" --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_ACCESS_TOKEN"
+  jf config use repox
   jf poetry-config --server-id-resolve repox --repo-resolve "$ARTIFACTORY_PYPI_REPO"
   jf poetry install --build-name="$PROJECT" --build-number="$BUILD_NUMBER"
 }
 
 jfrog_poetry_publish() {
-  jf config remove repox
-  jf config add repox --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_DEPLOY_ACCESS_TOKEN"
+  jf config remove repox > /dev/null 2>&1 || true # Ignore inexistent configuration
+  jf config add repox --url "${ARTIFACTORY_URL%/artifactory*}" --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_DEPLOY_ACCESS_TOKEN"
+  jf config use repox
   project_name=$(poetry version | awk '{print $1}')
   pushd dist
   jf rt upload ./ "$ARTIFACTORY_DEPLOY_REPO/$project_name/$PROJECT_VERSION/" --module="$project_name:$PROJECT_VERSION" \

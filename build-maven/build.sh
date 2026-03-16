@@ -12,7 +12,7 @@
 # - SQC_EU_URL: URL of SonarQube server for sqc-eu platform
 # - SQC_EU_TOKEN: Access token to send analysis reports to SonarQube for sqc-eu platform
 # - RUN_SHADOW_SCANS: If true, run sonar scanner on all 3 platforms. If false, run on the platform provided by SONAR_PLATFORM.
-# - ARTIFACTORY_URL: Artifactory repository URL
+# - ARTIFACTORY_URL: URL to Artifactory repository
 # - ARTIFACTORY_ACCESS_TOKEN: Access token to read Repox repositories
 # - ARTIFACTORY_DEPLOY_REPO: Deployment repository name. Required by maven-enforcer-plugin in SonarSource parent POM.
 # - ARTIFACTORY_DEPLOY_USERNAME: Username used by artifactory-maven-plugin

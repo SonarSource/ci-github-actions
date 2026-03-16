@@ -1227,13 +1227,15 @@ promote:
 
 ### Inputs
 
-| Input                     | Description                                                                                                               | Default             |
-|---------------------------|---------------------------------------------------------------------------------------------------------------------------|---------------------|
-| `promote-pull-request`    | Whether to promote pull request artifacts. Requires `deploy-pull-request` input to be set to `true` in the build action   | `false`             |
-| `multi-repo`              | If true, promotes to public and private repositories. For projects with both public and private artifacts                 | (optional)          |
-| `artifactory-deploy-repo` | Repository to deploy to. If not set, it will be retrieved from the build info                                             | (optional)          |
-| `artifactory-target-repo` | Target repository for the promotion. If not set, it will be determined based on the branch type and the deploy repository | (optional)          |
-| `build-name`              | Name of the JFrog build to promote.                                                                                       | `<Repository name>` |
+| Input                     | Description                                                                                                               | Default                  |
+|---------------------------|---------------------------------------------------------------------------------------------------------------------------|--------------------------|
+| `repox-url`               | URL for Repox                                                                                                             | `https://repox.jfrog.io` |
+| `repox-artifactory-url`   | URL for Repox Artifactory API (overrides repox-url/artifactory if provided)                                               | (optional)               |
+| `promote-pull-request`    | Whether to promote pull request artifacts. Requires `deploy-pull-request` input to be set to `true` in the build action   | `false`                  |
+| `multi-repo`              | If true, promotes to public and private repositories. For projects with both public and private artifacts                 | (optional)               |
+| `artifactory-deploy-repo` | Repository to deploy to. If not set, it will be retrieved from the build info                                             | (optional)               |
+| `artifactory-target-repo` | Target repository for the promotion. If not set, it will be determined based on the branch type and the deploy repository | (optional)               |
+| `build-name`              | Name of the JFrog build to promote.                                                                                       | `<Repository name>`      |
 
 ### Outputs
 

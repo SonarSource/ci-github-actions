@@ -2,5 +2,8 @@
 pre-commit = "4.2.0"
 shellcheck = "0.10.0"
 shellspec = "0.28.1"
-jfrog-cli = "2.77.0"
+jfrog-cli = "2.96.0"
 "npm:markdownlint-cli" = "0.39.0"
+
+[env]
+JFROG_CLI_ENV_EXCLUDE = "*password*;*secret*;*key*;*token*;*auth*;*credential*"

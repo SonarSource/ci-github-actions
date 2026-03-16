@@ -107,8 +107,8 @@ Describe 'promote/promote.sh'
     The line 7 should include "jf"
     The line 8 should equal "::endgroup::"
     The line 9 should equal "::group::Configure promotion"
-    The line 10 should equal "jf config remove repox"
-    The line 11 should equal "jf config add repox --artifactory-url https://dummy.repox --access-token dummy promote token"
+    The line 10 should equal "jf config add repox --url https://dummy.repox --artifactory-url https://dummy.repox --access-token dummy promote token"
+    The line 11 should equal "jf config use repox"
     The line 12 should equal "::endgroup::"
     The line 13 should equal "::group::Promote build artifacts"
     The line 14 should equal "Promoting build dummy-project/$BUILD_NUMBER (version: 1.2.3.42)"
@@ -181,8 +181,8 @@ End
 Describe 'jfrog_config_repox()'
   It 'configures Repox using JFrog CLI'
     When call jfrog_config_repox
-    The line 1 should equal "jf config remove repox"
-    The line 2 should start with "jf config add repox"
+    The line 1 should equal "jf config add repox --url https://dummy.repox --artifactory-url https://dummy.repox --access-token dummy promote token"
+    The line 2 should equal "jf config use repox"
   End
 End
 

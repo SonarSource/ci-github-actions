@@ -1,2 +1,6 @@
 [tools]
-jfrog-cli = "2.77.0"
+jfrog-cli = "2.96.0"
+
+[env]
+JFROG_CLI_AVOID_NEW_VERSION_WARNING = "true"
+JFROG_CLI_ENV_EXCLUDE = "*password*;*secret*;*key*;*token*;*auth*;*credential*"
