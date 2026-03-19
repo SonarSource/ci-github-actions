@@ -219,21 +219,5 @@ runs:
           echo "### 🚀 Deployment" >> $GITHUB_STEP_SUMMARY
           ARTIFACTORY_BROWSE_URL="${ARTIFACTORY_URL%/*}/ui/builds/$build_name/$BUILD_NUMBER"
           echo "🐸 [Browse build \`${build_name}:${BUILD_NUMBER}\` in Artifactory](${ARTIFACTORY_BROWSE_URL})" >> $GITHUB_STEP_SUMMARY
-          jf_summary_dir="${JFROG_CLI_COMMAND_SUMMARY_OUTPUT_DIR}/jfrog-command-summary"
-          if [[ -d "$jf_summary_dir" ]]; then
-            jf config use repox
-            jf generate-summary-markdown
-            if [[ -f "${jf_summary_dir}/markdown.md" ]]; then
-              {
-                echo ""
-                echo "<details>"
-                echo "<summary>Published Modules</summary>"
-                echo ""
-                grep -E '^\*\*[^*]+\*\*$' "${jf_summary_dir}/markdown.md" | sed 's/^\*\*\(.*\)\*\*$/- `\1`/'
-                echo ""
-                awk 'index($0,"<pre>") && !index($0,"</pre>"){p=1} p{print} index($0,"</pre>"){p=0}' "${jf_summary_dir}/markdown.md"
-                echo "</details>"
-              } >> "$GITHUB_STEP_SUMMARY"
-            fi
-          fi
+          "$ACTION_PATH_BUILD_NPM/../shared/generate-jfrog-summary.sh" repox
         fi
