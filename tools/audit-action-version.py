@@ -5,10 +5,10 @@ Uses GitHub Code Search API (via gh CLI) to find all references to a target
 action across .github/ directories (workflows + composite actions) and reports
 repos not using an allowed version.
 
-Prerequisites: gh CLI (authenticated), Python 3.6+
+Prerequisites: gh CLI (authenticated), Python 3.7+
 
 Usage:
-    python scripts/audit-action-version.py \
+    python tools/audit-action-version.py \
         --org SonarSource \
         --action SonarSource/gh-action_cache \
         --allowed-refs v1,54a48984cf6564fd48f3c6c67c0891d7fe89604c \
@@ -141,8 +141,9 @@ def search_action_usage(org: str, action: str) -> list[dict]:
             })
 
         if page < max_pages:
-            time.sleep(2)  # Respect 30 req/min search rate limit
-    else:
+            time.sleep(6)  # Respect 10 req/min search rate limit
+
+    if page == max_pages and data is not None and data.get("items"):
         log("Warning: Hit 1000-result API cap. Results may be incomplete.")
         log("  Consider narrowing the search or using a different approach.")
 
@@ -180,14 +181,14 @@ def extract_versions_from_file(
 
     # Match "uses: owner/action[/optional/subpath]@ref" with optional quotes and whitespace
     pattern = re.compile(
-        rf"uses:\s*['\"]?{re.escape(action)}[^@\s'\"#]*@([^\s'\"#]+)"
+        rf"uses:\s*['\"]?{re.escape(action)}(/[^@\s'\"#]*)?@([^\s'\"#]+)"
     )
 
     results = []
     for line_num, line in enumerate(content.splitlines(), start=1):
         match = pattern.search(line)
         if match:
-            results.append({"line_num": line_num, "ref": match.group(1)})
+            results.append({"line_num": line_num, "ref": match.group(2)})
 
     return results
 
@@ -257,6 +258,9 @@ def main():
         filepath = file_info["path"]
 
         versions = extract_versions_from_file(repo, filepath, args.action)
+
+        if i > 0:
+            time.sleep(0.5)  # Avoid hitting GitHub secondary rate limits
 
         for v in versions:
             compliant = v["ref"] in allowed_refs
