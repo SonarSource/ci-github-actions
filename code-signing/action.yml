@@ -14,9 +14,11 @@ runs:
   steps:
     - name: Set versions and cache keys
       shell: bash
+      env:
+        JSIGN_VERSION: ${{ inputs.jsign-version }}
       run: |
-        echo "JSIGN_VERSION=${{ inputs.jsign-version }}" >> "$GITHUB_ENV"
-        echo "JSIGN_CACHE_KEY=jsign-${{ inputs.jsign-version }}-${{ runner.os }}" >> "$GITHUB_ENV"
+        echo "JSIGN_VERSION=${JSIGN_VERSION}" >> "$GITHUB_ENV"
+        echo "JSIGN_CACHE_KEY=jsign-${JSIGN_VERSION}-${{ runner.os }}" >> "$GITHUB_ENV"
         echo "SMTOOLS_CACHE_KEY=smtools-linux-x64-${{ runner.os }}" >> "$GITHUB_ENV"
         echo "SMTOOLS_PATH=/tmp/DigiCert One Signing Manager Tools/smtools-linux-x64" >> "$GITHUB_ENV"
         echo "JSIGN_CACHE_PATH=/tmp/jsign-cache" >> "$GITHUB_ENV"
@@ -56,6 +58,8 @@ runs:
 
     - name: Setup jsign
       shell: bash
+      env:
+        FORCE_DOWNLOAD_TOOLS: ${{ inputs.force-download-tools }}
       run: |
         echo "Setting up jsign version ${JSIGN_VERSION}..."
         java --version
@@ -64,7 +68,7 @@ runs:
         sudo apt-get update -q
         sudo apt-get install -y default-jre-headless
 
-        if [[ "${{ steps.tools-cache.outputs.cache-hit }}" == "true" && "${{ inputs.force-download-tools }}" != "true" &&
+        if [[ "${{ steps.tools-cache.outputs.cache-hit }}" == "true" && "${FORCE_DOWNLOAD_TOOLS}" != "true" &&
         -f "${JSIGN_CACHE_PATH}/jsign_${JSIGN_VERSION}_all.deb" ]]; then
           echo "Installing jsign from cache..."
           sudo dpkg --install "${JSIGN_CACHE_PATH}/jsign_${JSIGN_VERSION}_all.deb"

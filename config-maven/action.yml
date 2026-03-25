@@ -51,12 +51,14 @@ runs:
     - name: Set local action paths
       id: set-path
       shell: bash
+      env:
+        HOST_ACTIONS_ROOT: ${{ inputs.host-actions-root }}
       run: |
         echo "::group::Fix for using local actions"
         echo "GITHUB_ACTION_PATH=$GITHUB_ACTION_PATH"
         echo "github.action_path=${{ github.action_path }}"
         ACTION_PATH_CONFIG_MAVEN="${{ github.action_path }}"
-        host_actions_root="${{ inputs.host-actions-root }}"
+        host_actions_root="${HOST_ACTIONS_ROOT}"
         if [[ -z "$host_actions_root" ]]; then
           host_actions_root="$(dirname "$ACTION_PATH_CONFIG_MAVEN")"
         else
@@ -105,7 +107,9 @@ runs:
       id: develocity-hostname
       if: steps.config-maven-completed.outputs.skip != 'true' && inputs.use-develocity == 'true'
       shell: bash
-      run: echo "hostname=$(echo '${{ inputs.develocity-url }}' | sed -e 's|https://||' -e 's|/$||')" >> $GITHUB_OUTPUT
+      env:
+        DEVELOCITY_URL: ${{ inputs.develocity-url }}
+      run: echo "hostname=$(echo "${DEVELOCITY_URL}" | sed -e 's|https://||' -e 's|/$||')" >> $GITHUB_OUTPUT
 
     - name: Set environment variables for Artifactory authentication
       if: steps.config-maven-completed.outputs.skip != 'true'
@@ -210,7 +214,7 @@ runs:
         COMMON_MVN_FLAGS: ${{ inputs.common-mvn-flags }}
       run: |
         # - 'command mvn' prevents the function from calling itself in a loop.
-        echo 'mvn() { command mvn ${{ env.COMMON_MVN_FLAGS }} "$@"; }' >> "$HOME/.bash_profile"
+        echo "mvn() { command mvn ${COMMON_MVN_FLAGS} \"\$@\"; }" >> "$HOME/.bash_profile"
         echo "BASH_ENV=$HOME/.bash_profile" >> "$GITHUB_ENV"
         echo "MAVEN_OPTS=${MAVEN_OPTS:=-Xmx1536m -Xms128m}" >> "$GITHUB_ENV"
         echo "CONFIG_MAVEN_COMPLETED=$GITHUB_ACTION" >> "$GITHUB_ENV"

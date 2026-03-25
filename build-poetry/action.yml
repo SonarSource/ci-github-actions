@@ -166,8 +166,9 @@ runs:
         SONAR_PLATFORM: ${{ inputs.sonar-platform }}
         RUN_SHADOW_SCANS: ${{ inputs.run-shadow-scans }}
         JFROG_CLI_COMMAND_SUMMARY_OUTPUT_DIR: ${{ runner.temp }}/jfrog-summary
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
       run: |
-        cd "${{ inputs.working-directory }}"
+        cd "${WORKING_DIRECTORY}"
         "$ACTION_PATH_BUILD_POETRY/build.sh"
 
     - name: Generate provenance attestation

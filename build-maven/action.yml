@@ -127,6 +127,7 @@ runs:
       shell: bash
       id: params
       env:
+        MIXED_PRIVACY: ${{ inputs.mixed-privacy }}
         USER_MAVEN_ARGS: ${{ inputs.maven-args }}
         ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo != '' && inputs.artifactory-deploy-repo ||
           (github.event.repository.visibility == 'public' || inputs.mixed-privacy == 'true') && 'sonarsource-public-qa' ||
@@ -137,7 +138,7 @@ runs:
       # yamllint disable rule:line-length
       run: |
         {
-          if [[ "${{ inputs.mixed-privacy }}" == 'true' ]]; then
+          if [[ "${MIXED_PRIVACY}" == 'true' ]]; then
             USER_MAVEN_ARGS="${USER_MAVEN_ARGS} -Dartifactory.publish.artifacts=false"
             echo "ARTIFACTORY_PRIVATE_DEPLOY_REPO=${ARTIFACTORY_PRIVATE_DEPLOY_REPO:=sonarsource-private-qa}"
             echo "ARTIFACTORY_PRIVATE_DEPLOY_ACCESS_TOKEN_VAULT=development/artifactory/token/{REPO_OWNER_NAME_DASH}-${ARTIFACTORY_PRIVATE_DEPLOYER_ROLE:=qa-deployer} access_token | ARTIFACTORY_PRIVATE_DEPLOY_ACCESS_TOKEN;"
