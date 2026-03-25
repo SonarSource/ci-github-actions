@@ -51,14 +51,12 @@ runs:
     - name: Set local action paths
       id: set-path
       shell: bash
-      env:
-        HOST_ACTIONS_ROOT: ${{ inputs.host-actions-root }}
       run: |
         echo "::group::Fix for using local actions"
         echo "GITHUB_ACTION_PATH=$GITHUB_ACTION_PATH"
         echo "github.action_path=${{ github.action_path }}"
         ACTION_PATH_CONFIG_MAVEN="${{ github.action_path }}"
-        host_actions_root="${HOST_ACTIONS_ROOT}"
+        host_actions_root="${{ inputs.host-actions-root }}"
         if [[ -z "$host_actions_root" ]]; then
           host_actions_root="$(dirname "$ACTION_PATH_CONFIG_MAVEN")"
         else
