@@ -111,7 +111,7 @@ runs:
       with:
         host-actions-root: ${{ steps.set-path.outputs.host_actions_root }}
     - name: Cache local Poetry cache
-      uses: SonarSource/gh-action_cache@957cb1f6f70956976b834546bf09839080b5bb00 # v1.2.3
+      uses: SonarSource/gh-action_cache@0fe268e0b670dfb7aea67a0578b317d5a2e26212 # v1.4.1
       if: inputs.disable-caching == 'false'
       with:
         path: ${{ github.workspace }}/${{ inputs.poetry-cache-dir }}
@@ -120,7 +120,7 @@ runs:
     - uses: jdx/mise-action@5228313ee0372e111a38da051671ca30fc5a96db # v3.6.3
       with:
         version: 2026.3.7
-    - uses: SonarSource/vault-action-wrapper@3d5c87cb535e4a2c7a09adcbcfdefa751854dee3 # 3.3.0
+    - uses: SonarSource/vault-action-wrapper@c154b4a417b51cb98dd71137f49bf20e77c56820 # 3.4.0
       id: secrets
       # yamllint disable rule:line-length
       with:

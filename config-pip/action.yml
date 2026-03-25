@@ -73,7 +73,7 @@ runs:
       run: |
         echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
 
-    - uses: SonarSource/vault-action-wrapper@3d5c87cb535e4a2c7a09adcbcfdefa751854dee3 # 3.3.0
+    - uses: SonarSource/vault-action-wrapper@c154b4a417b51cb98dd71137f49bf20e77c56820 # 3.4.0
       id: secrets
       with:
         secrets: |
@@ -100,7 +100,7 @@ runs:
       run: echo "workflow_name=${WORKFLOW_NAME// /-}" >> "$GITHUB_OUTPUT"
 
     - name: Cache pip dependencies
-      uses: SonarSource/gh-action_cache@957cb1f6f70956976b834546bf09839080b5bb00 # v1.2.3
+      uses: SonarSource/gh-action_cache@0fe268e0b670dfb7aea67a0578b317d5a2e26212 # v1.4.1
       if: inputs.disable-caching == 'false'
       with:
         path: ${{ inputs.cache-paths }}
