@@ -67,6 +67,14 @@ inputs:
   generate-summary:
     description: Whether to generate a workflow summary after the build.
     default: 'true'
+  artifact-name:
+    description: >-
+      Suffix appended to the problems-report artifact name: `problems-report-<artifact-name>`.
+      Defaults to `<github.job><strategy.job-index>`, which is unique for direct matrix jobs but
+      collides when this action is called from a reusable workflow (where `github.job` is always
+      the called workflow's job id). Override with a unique value (e.g. the module name) when
+      using this action inside a reusable workflow that is invoked in a matrix.
+    default: ''
 
 outputs:
   project-version:
@@ -179,7 +187,7 @@ runs:
       if: always()
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
-        name: problems-report-${{ github.job }}${{ strategy.job-index }}
+        name: problems-report-${{ inputs.artifact-name != '' && inputs.artifact-name || format('{0}{1}', github.job, strategy.job-index) }}
         path: build/reports/problems/problems-report.html
         if-no-files-found: ignore
 
