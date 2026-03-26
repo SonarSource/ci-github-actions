@@ -24,7 +24,7 @@ runs:
         echo "JSIGN_CACHE_PATH=/tmp/jsign-cache" >> "$GITHUB_ENV"
 
     - name: Cache code signing tools
-      uses: SonarSource/gh-action_cache@eaf3a34501712f8a246749c4abf837a2b4d67521 # v1.4.2
+      uses: SonarSource/gh-action_cache@86a3c0470d2329a670db75ea8f024f6c0572e466 # v1.4.3
       id: tools-cache
       with:
         path: |
