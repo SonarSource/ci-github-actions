@@ -45,7 +45,7 @@ set -euo pipefail
 # shellcheck source=../shared/common-functions.sh
 source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 
-: "${ARTIFACTORY_URL:?}" "${ARTIFACTORY_PYPI_REPO:?}" "${ARTIFACTORY_ACCESS_TOKEN:?}" "${RUN_SHADOW_SCANS:?}"
+: "${ARTIFACTORY_URL:?}" "${ARTIFACTORY_PYPI_REPO:?}" "${ARTIFACTORY_ACCESS_TOKEN:?}" "${ARTIFACTORY_USERNAME:?}" "${RUN_SHADOW_SCANS:?}"
 : "${ARTIFACTORY_DEPLOY_REPO:?}" "${DEPLOY_PULL_REQUEST:=false}"
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}" "${GITHUB_EVENT_PATH:?}"
 : "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}" "${GITHUB_ENV:?}" "${GITHUB_OUTPUT:?}" "${GITHUB_SHA:?}" "${GITHUB_RUN_ID:?}"
@@ -267,10 +267,8 @@ jfrog_poetry_install() {
   jf config add repox --url "${ARTIFACTORY_URL%/artifactory*}" --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_ACCESS_TOKEN"
   jf config use repox
   jf poetry-config --server-id-resolve repox --repo-resolve "$ARTIFACTORY_PYPI_REPO"
-  # Use plain `poetry install` to respect the lock file.
-  # `jf poetry install` internally runs `poetry update`, which re-resolves all
-  # dependencies and can fail when pyproject.toml constraints don't match what
-  # is available on the configured indexes (PREQ-4933).
+  export POETRY_HTTP_BASIC_REPOX_USERNAME="$ARTIFACTORY_USERNAME"
+  export POETRY_HTTP_BASIC_REPOX_PASSWORD="$ARTIFACTORY_ACCESS_TOKEN"
   poetry install
 }
 

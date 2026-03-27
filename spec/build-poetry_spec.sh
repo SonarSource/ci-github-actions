@@ -16,6 +16,7 @@ export GITHUB_ENV=/dev/null
 export ARTIFACTORY_URL="https://dummy.repox"
 export ARTIFACTORY_PYPI_REPO="<repox pypi repo>"
 export ARTIFACTORY_ACCESS_TOKEN="dummy access token"
+export ARTIFACTORY_USERNAME="dummy-user"
 export ARTIFACTORY_DEPLOY_REPO="<deploy repo>"
 export ARTIFACTORY_DEPLOY_ACCESS_TOKEN="<deploy token>"
 export GITHUB_REPOSITORY="my-org/my-repo"
