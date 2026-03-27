@@ -100,7 +100,7 @@ Describe 'build-poetry/build.sh'
       The line 28 should equal "jf config add repox --url https://dummy.repox --artifactory-url https://dummy.repox --access-token dummy access token"
       The line 29 should equal "jf config use repox"
       The line 30 should equal "jf poetry-config --server-id-resolve repox --repo-resolve <repox pypi repo>"
-      The line 31 should equal "jf poetry install --build-name=my-repo --build-number=42"
+      The line 31 should equal "poetry install"
       The line 32 should equal "::endgroup::"
       The line 33 should equal "::group::Build project"
       The line 35 should equal "poetry build"
@@ -302,12 +302,12 @@ End
 
 Describe 'jfrog_poetry_install()'
   export PROJECT="my-repo"
-  It 'installs Poetry dependencies using JFrog CLI'
+  It 'configures JFrog and installs with plain poetry install'
     When call jfrog_poetry_install
     The line 1 should include "jf config add repox"
     The line 2 should include "jf config use repox"
     The line 3 should include "jf poetry-config"
-    The line 4 should include "jf poetry install"
+    The line 4 should equal "poetry install"
   End
 End
 

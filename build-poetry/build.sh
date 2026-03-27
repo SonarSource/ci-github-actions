@@ -267,7 +267,11 @@ jfrog_poetry_install() {
   jf config add repox --url "${ARTIFACTORY_URL%/artifactory*}" --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_ACCESS_TOKEN"
   jf config use repox
   jf poetry-config --server-id-resolve repox --repo-resolve "$ARTIFACTORY_PYPI_REPO"
-  jf poetry install --build-name="$PROJECT" --build-number="$BUILD_NUMBER"
+  # Use plain `poetry install` to respect the lock file.
+  # `jf poetry install` internally runs `poetry update`, which re-resolves all
+  # dependencies and can fail when pyproject.toml constraints don't match what
+  # is available on the configured indexes (PREQ-4933).
+  poetry install
 }
 
 jfrog_poetry_publish() {
