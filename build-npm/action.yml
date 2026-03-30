@@ -62,7 +62,7 @@ inputs:
   job-identifier:
     description: >-
       Unique identifier appended to the artifact name (`npm-logs-<job-identifier>`).
-      Set this to a matrix dimension (e.g. `${{ matrix.module }}`) when calling this action
+      Set this to a matrix dimension value (e.g. the value of `matrix.module`) when calling this action
       from a reusable workflow that is invoked in a matrix, to produce human-readable artifact
       names. When omitted, a UUID is generated automatically to guarantee uniqueness.
     default: ''
