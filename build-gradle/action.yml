@@ -186,7 +186,7 @@ runs:
       id: uid
       if: always()
       shell: bash
-      run: echo "value=$(cat /proc/sys/kernel/random/uuid)" >> $GITHUB_OUTPUT
+      run: echo "value=$(python3 -c 'import uuid; print(uuid.uuid4())')" >> "$GITHUB_OUTPUT"
 
     - name: Archive problems report
       if: always()
