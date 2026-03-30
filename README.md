@@ -972,6 +972,19 @@ See also [`config-npm`](#config-npm) input environment variables.
 | `provenance`                | Whether to generate provenance attestation for built artifacts                                                               | `false`                                                                                      |
 | `provenance-artifact-paths` | Relative paths of artifacts for provenance attestation (glob pattern). See [Provenance Attestation](#provenance-attestation) | (optional)                                                                                   |
 | `generate-summary`          | Whether to generate a workflow summary after the build                                                                       | `true`                                                                                       |
+| `job-identifier`            | Unique identifier for the npm-logs artifact name. Set to a matrix dimension (e.g. `${{ matrix.module }}`) when using this action inside a reusable workflow invoked in a matrix. Auto-generated UUID when omitted. | (optional) |
+
+> [!TIP]
+> When using this action inside a reusable workflow that is itself called in a matrix, set
+> `job-identifier` to a matrix dimension to produce readable artifact names:
+>
+> ```yaml
+> - uses: SonarSource/ci-github-actions/build-npm@v1
+>   with:
+>     job-identifier: ${{ matrix.module }}
+> ```
+>
+> Without this, a UUID is generated automatically — artifact names will be unique but opaque.
 
 ### Outputs
 
