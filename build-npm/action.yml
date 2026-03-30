@@ -64,7 +64,7 @@ inputs:
       Unique identifier appended to the artifact name (`npm-logs-<job-identifier>`).
       Set this to a matrix dimension value (e.g. the value of `matrix.module`) when calling this action
       from a reusable workflow that is invoked in a matrix, to produce human-readable artifact
-      names. When omitted, a UUID is generated automatically to guarantee uniqueness.
+      names. When omitted, the run ID and runner name are used to guarantee uniqueness.
     default: ''
 
 outputs:
@@ -180,17 +180,11 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       run: $ACTION_PATH_BUILD_NPM/build.sh
 
-    - name: Generate unique job ID
-      id: uid
-      if: always()
-      shell: bash
-      run: echo "value=$(python3 -c 'import uuid; print(uuid.uuid4())')" >> "$GITHUB_OUTPUT"
-
     - name: Archive logs
       if: failure()
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
-        name: npm-logs-${{ inputs.job-identifier != '' && inputs.job-identifier || steps.uid.outputs.value }}
+        name: npm-logs-${{ inputs.job-identifier != '' && inputs.job-identifier || format('{0}-{1}', github.run_id, runner.name) }}
         path: ~/.npm/_logs/
         if-no-files-found: ignore
 
