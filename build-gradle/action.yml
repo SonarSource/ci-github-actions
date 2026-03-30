@@ -67,13 +67,12 @@ inputs:
   generate-summary:
     description: Whether to generate a workflow summary after the build.
     default: 'true'
-  artifact-name:
+  job-identifier:
     description: >-
-      Suffix appended to the problems-report artifact name: `problems-report-<artifact-name>`.
-      Defaults to `<github.job><strategy.job-index>`, which is unique for direct matrix jobs but
-      collides when this action is called from a reusable workflow (where `github.job` is always
-      the called workflow's job id). Override with a unique value (e.g. the module name) when
-      using this action inside a reusable workflow that is invoked in a matrix.
+      Unique identifier appended to the artifact name (`problems-report-<job-identifier>`).
+      Set this to a matrix dimension (e.g. `${{ matrix.module }}`) when calling this action
+      from a reusable workflow that is invoked in a matrix, to produce human-readable artifact
+      names. When omitted, a UUID is generated automatically to guarantee uniqueness.
     default: ''
 
 outputs:
@@ -183,11 +182,17 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       run: $ACTION_PATH_BUILD_GRADLE/build.sh
 
+    - name: Generate unique job ID
+      id: uid
+      if: always()
+      shell: bash
+      run: echo "value=$(cat /proc/sys/kernel/random/uuid)" >> $GITHUB_OUTPUT
+
     - name: Archive problems report
       if: always()
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
-        name: problems-report-${{ inputs.artifact-name != '' && inputs.artifact-name || format('{0}{1}', github.job, strategy.job-index) }}
+        name: problems-report-${{ inputs.job-identifier != '' && inputs.job-identifier || steps.uid.outputs.value }}
         path: build/reports/problems/problems-report.html
         if-no-files-found: ignore
 
