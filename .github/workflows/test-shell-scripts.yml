@@ -22,7 +22,7 @@ jobs:
       - uses: ./config-npm
       - uses: jdx/mise-action@5228313ee0372e111a38da051671ca30fc5a96db # v3.6.3
         with:
-          version: 2026.3.7
+          version: 2026.3.17
       - name: Run ShellSpec tests
         # FIXME BUILD-8337: improve setup of kcov
         run: |

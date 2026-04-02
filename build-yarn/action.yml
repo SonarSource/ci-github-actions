@@ -118,7 +118,7 @@ runs:
 
     - uses: jdx/mise-action@5228313ee0372e111a38da051671ca30fc5a96db # v3.6.3
       with:
-        version: 2026.3.7
+        version: 2026.3.17
         working_directory: ${{ inputs.working-directory }}
 
     - name: Cache Yarn dependencies
