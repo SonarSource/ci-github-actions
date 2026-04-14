@@ -183,7 +183,7 @@ runs:
         KEY_FRAGMENT: ${{ inputs.cache-fragment }}
       run: |
         if [[ -n "$KEY_FRAGMENT" ]]; then
-          KEY="$KEY-$(echo -n "$KEY_FRAGMENT" | shasum -a 256)"
+          KEY="$KEY-$(echo -n "$KEY_FRAGMENT" | sha256sum)"
         fi
 
         echo "key=${KEY// /-}" >> "$GITHUB_OUTPUT"
