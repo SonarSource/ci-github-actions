@@ -1,0 +1,109 @@
+---
+name: Check SCA
+description: >-
+  Verify that SonarQube SCA (Software Composition Analysis) ran for the project.
+  Discovers project keys from config files, polls all three SonarQube instances,
+  and fails if SCA data is missing after timeout.
+
+inputs:
+  project-key:
+    description: >-
+      Explicit SonarQube project key to include when checking SCA results.
+      The action also discovers additional project keys from
+      .sonarlint/connectedMode.json, sonar-project.properties, pom.xml,
+      build.gradle(.kts), and GITHUB_REPOSITORY. The explicit key is checked first.
+    default: ''
+  poll-timeout:
+    description: Maximum time in seconds to poll for SCA results before failing.
+    default: '300'
+  poll-interval:
+    description: Time in seconds between polling attempts.
+    default: '15'
+  working-directory:
+    description: Relative path under github.workspace to look for project config files.
+    default: .
+
+outputs:
+  sca-verified:
+    description: Whether SCA was verified on at least one platform (true or false)
+    value: ${{ steps.check.outputs.sca-verified || steps.vault-fail.outputs.sca-verified || 'false' }}
+  platform:
+    description: The SonarQube platform where SCA was found (next, sqc-us, or sqc-eu)
+    value: ${{ steps.check.outputs.platform }}
+  project-key:
+    description: The project key where SCA was verified
+    value: ${{ steps.check.outputs.project-key }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set local action paths
+      shell: bash
+      run: |
+        ACTION_PATH_CHECK_SCA="${{ github.action_path }}"
+        echo "ACTION_PATH_CHECK_SCA=$ACTION_PATH_CHECK_SCA" >> "$GITHUB_ENV"
+
+    - uses: SonarSource/vault-action-wrapper@c154b4a417b51cb98dd71137f49bf20e77c56820 # 3.4.0
+      id: secrets
+      continue-on-error: true
+      with:
+        secrets: |
+          development/kv/data/next url | NEXT_URL;
+          development/kv/data/next token | NEXT_TOKEN;
+          development/kv/data/sonarqube-us url | SQC_US_URL;
+          development/kv/data/sonarqube-us token | SQC_US_TOKEN;
+          development/kv/data/sonarcloud url | SQC_EU_URL;
+          development/kv/data/sonarcloud token | SQC_EU_TOKEN;
+
+    - name: Fail on missing Vault access
+      if: steps.secrets.outcome == 'failure'
+      id: vault-fail
+      shell: bash
+      # yamllint disable rule:line-length
+      run: |
+        echo "sca-verified=false" >> "$GITHUB_OUTPUT"
+        SUMMARY="$GITHUB_STEP_SUMMARY"
+        echo "## SCA Verification" >> "$SUMMARY"
+        echo "SCA verification **FAILED** — this repository does not have Vault access to SonarQube credentials." >> "$SUMMARY"
+        echo "" >> "$SUMMARY"
+        echo "This means the repository cannot authenticate to SonarQube, so SCA is not running." >> "$SUMMARY"
+        DOCS="https://xtranet-sonarsource.atlassian.net/wiki/x/ooAenQ"
+        echo "To fix this, ensure the repository has a Vault role provisioned (see [Vault End-User docs]($DOCS))." >> "$SUMMARY"
+        echo "If this repository should be exempt from SCA checks, disable this workflow in the org ruleset." >> "$SUMMARY"
+        MSG="Vault authentication failed — this repo cannot access SonarQube credentials."
+        MSG="$MSG SCA is not running on this repository."
+        echo "::error title=SCA check failed::$MSG"
+        exit 1
+      # yamllint enable rule:line-length
+
+    - name: Verify SCA ran
+      if: steps.secrets.outcome == 'success'
+      id: check
+      shell: bash
+      env:
+        PROJECT_KEY_INPUT: ${{ inputs.project-key }}
+        POLL_TIMEOUT: ${{ inputs.poll-timeout }}
+        POLL_INTERVAL: ${{ inputs.poll-interval }}
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        NEXT_URL: ${{ fromJSON(steps.secrets.outputs.vault).NEXT_URL }}
+        NEXT_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).NEXT_TOKEN }}
+        SQC_US_URL: ${{ fromJSON(steps.secrets.outputs.vault).SQC_US_URL }}
+        SQC_US_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SQC_US_TOKEN }}
+        SQC_EU_URL: ${{ fromJSON(steps.secrets.outputs.vault).SQC_EU_URL }}
+        SQC_EU_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SQC_EU_TOKEN }}
+      run: ${ACTION_PATH_CHECK_SCA}/check-sca.sh
+
+    - name: Generate workflow summary
+      if: always() && steps.vault-fail.outcome != 'failure'
+      shell: bash
+      env:
+        SCA_VERIFIED: ${{ steps.check.outputs.sca-verified }}
+        SCA_PLATFORM: ${{ steps.check.outputs.platform }}
+        SCA_PROJECT_KEY: ${{ steps.check.outputs.project-key }}
+      run: |
+        echo "## SCA Verification" >> "$GITHUB_STEP_SUMMARY"
+        if [[ "$SCA_VERIFIED" == "true" ]]; then
+          echo "SCA verified on **${SCA_PLATFORM}** for project \`${SCA_PROJECT_KEY}\`" >> "$GITHUB_STEP_SUMMARY"
+        else
+          echo "SCA verification **FAILED** - no SCA data found on any platform" >> "$GITHUB_STEP_SUMMARY"
+        fi
