@@ -1392,7 +1392,7 @@ platform after the timeout.
 The action reads shared SonarQube credentials from Vault using the repo's auto-provisioned `github-{org}-{repo}` role. No per-repo
 configuration is required for SonarSource repositories. If Vault auth fails (e.g. the repo doesn't have a Vault role provisioned), the
 action fails with a link to the
-[Vault End-User docs](https://xtranet-sonarsource.atlassian.net/wiki/x/ooAenQ). The following Vault paths are read:
+[Vault End-User docs](https://xtranet-sonarsource.atlassian.net/wiki/x/ooAenQ#GitHub-Presets). The following Vault paths are read:
 
 - `development/kv/data/next`
 - `development/kv/data/sonarqube-us`
@@ -1415,7 +1415,7 @@ jobs:
     runs-on: sonar-xs  # Private repos default; use github-ubuntu-latest-s for public repos
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-      - uses: SonarSource/ci-github-actions/check-sca@master
+      - uses: SonarSource/ci-github-actions/check-sca@v1
 ```
 
 ### Inputs

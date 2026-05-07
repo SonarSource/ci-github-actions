@@ -10,6 +10,9 @@ permissions:
 
 jobs:
   verify-sca:
-    runs-on: ubuntu-latest
+    runs-on: github-ubuntu-latest-s
     steps:
-      - uses: SonarSource/ci-github-actions/check-sca@master
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          sparse-checkout: check-sca
+      - uses: ./check-sca
