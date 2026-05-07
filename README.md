@@ -60,6 +60,7 @@ These badges show the status of workflows in dummy repositories that use (or sho
 - [`promote`](#promote)
 - [`pr_cleanup`](#pr_cleanup)
 - [`code-signing`](#code-signing)
+- [`check-sca`](#check-sca)
 
 ---
 
@@ -1368,6 +1369,71 @@ After running this action, the following environment variables are available:
 - `SM_CLIENT_CERT_PASSWORD`: Client certificate password
 - `SM_CODE_SIGNING_CERT_SHA1_HASH`: Certificate fingerprint for signing
 - `SMTOOLS_PATH`: Path where SMTools are installed, certificate and `.cfg` file is stored.
+
+---
+
+## `check-sca`
+
+Verify that SonarQube SCA (Software Composition Analysis) ran for the project.
+
+The action discovers project keys from `.sonarlint/connectedMode.json`, `sonar-project.properties`, `pom.xml`, `build.gradle(.kts)`, and
+`GITHUB_REPOSITORY`, then polls the Next, SonarCloud US, and SonarCloud EU instances. It fails if SCA data is missing on every
+platform after the timeout.
+
+### Requirements
+
+#### Required GitHub Permissions
+
+- `id-token: write`
+- `contents: read`
+
+#### Vault Access
+
+The action reads shared SonarQube credentials from Vault using the repo's auto-provisioned `github-{org}-{repo}` role. No per-repo
+configuration is required for SonarSource repositories. If Vault auth fails (e.g. the repo doesn't have a Vault role provisioned), the
+action fails with a link to the
+[Vault End-User docs](https://xtranet-sonarsource.atlassian.net/wiki/x/ooAenQ). The following Vault paths are read:
+
+- `development/kv/data/next`
+- `development/kv/data/sonarqube-us`
+- `development/kv/data/sonarcloud`
+
+### Usage
+
+```yaml
+name: Required SCA Check
+on:
+  pull_request:
+  merge_group:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  verify-sca:
+    runs-on: sonar-xs  # Private repos default; use github-ubuntu-latest-s for public repos
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: SonarSource/ci-github-actions/check-sca@master
+```
+
+### Inputs
+
+| Input               | Description                                                                                                                       | Default |
+|---------------------|-----------------------------------------------------------------------------------------------------------------------------------|---------|
+| `project-key`       | Explicit SonarQube project key to include when checking SCA results. The action also discovers additional keys from config files. | `''`    |
+| `poll-timeout`      | Maximum time in seconds to poll for SCA results before failing.                                                                   | `300`   |
+| `poll-interval`     | Time in seconds between polling attempts.                                                                                         | `15`    |
+| `working-directory` | Relative path under `github.workspace` to look for project config files.                                                          | `.`     |
+
+### Outputs
+
+| Output         | Description                                                          |
+|----------------|----------------------------------------------------------------------|
+| `sca-verified` | Whether SCA was verified on at least one platform (`true` or `false`) |
+| `platform`     | The SonarQube platform where SCA was found (`next`, `sqc-us`, or `sqc-eu`). Only set when `sca-verified` is `true`. |
+| `project-key`  | The project key where SCA was verified. Only set when `sca-verified` is `true`.                               |
 
 ---
 
