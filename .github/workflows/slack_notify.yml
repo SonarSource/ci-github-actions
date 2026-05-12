@@ -10,7 +10,7 @@ permissions:
   checks: read
 jobs:
   notify:
-    runs-on: github-ubuntu-latest-s
+    runs-on: warp-custom-ubuntu-24-04
     steps:
       - name: Send Slack Notification
         env:
