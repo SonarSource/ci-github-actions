@@ -3,6 +3,8 @@ pre-commit = "4.2.0"
 shellcheck = "0.10.0"
 shellspec = "0.28.1"
 jfrog-cli = "2.96.0"
+node = "24.15.0"
+python = "3.14"
 "npm:markdownlint-cli" = "0.39.0"
 
 [env]
