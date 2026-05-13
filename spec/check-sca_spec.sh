@@ -140,6 +140,13 @@ Describe 'discover_project_keys()'
     The output should include "FromGradle"
   End
 
+  It 'reads from build.gradle.kts property syntax'
+    export PROJECT_KEY_INPUT=""
+    printf 'property("sonar.projectKey", "org.sonarsource.php:php")\n' > "$TEST_DIR/build.gradle.kts"
+    When call discover_project_keys
+    The output should include "org.sonarsource.php:php"
+  End
+
   It 'derives key from GITHUB_REPOSITORY as fallback'
     export PROJECT_KEY_INPUT=""
     export GITHUB_REPOSITORY="SonarSource/my-repo"
