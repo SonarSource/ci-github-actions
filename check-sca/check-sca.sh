@@ -116,7 +116,13 @@ discover_project_keys() {
   for gradle_file in "$work_dir/build.gradle" "$work_dir/build.gradle.kts"; do
     if [[ -f "$gradle_file" ]]; then
       local key
-      key=$(perl -ne 'print $1 if /sonar\.projectKey[^"]*"([^"]+)"/' "$gradle_file" 2>/dev/null | head -1 || true)
+      key=$(perl -ne '
+        if (/sonar\.projectKey\s*[=:]\s*["\x27]([^"\x27]+)["\x27]/ ||
+            /sonar\.projectKey["\x27]\s*,\s*["\x27]([^"\x27]+)["\x27]/) {
+          print "$1\n";
+          exit;
+        }
+      ' "$gradle_file" 2>/dev/null || true)
       if [[ -n "$key" ]]; then
         keys+=("$key")
       fi
