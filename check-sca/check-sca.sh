@@ -68,10 +68,46 @@ discover_project_keys() {
   # 4. pom.xml
   local pom_file="$work_dir/pom.xml"
   if [[ -f "$pom_file" ]]; then
+    # 4a. Explicit sonar.projectKey property (highest priority within pom.xml)
     local key
-    key=$(perl -ne 'print $1 if /<sonar\.projectKey>([^<]+)/' "$pom_file" 2>/dev/null | head -1 || true)
+    key=$(perl -0777 -ne '
+      if (/<sonar\.projectKey>([^<]+)/s) {
+        my $key = $1;
+        $key =~ s/^\s+|\s+$//g;
+        print $key;
+      }
+    ' "$pom_file" 2>/dev/null || true)
     if [[ -n "$key" ]]; then
       keys+=("$key")
+    fi
+
+    # 4b. Derive groupId:artifactId (Maven default project key)
+    local maven_key
+    maven_key=$(perl -0777 -ne '
+      sub trim {
+        my ($value) = @_;
+        $value = "" unless defined $value;
+        $value =~ s/^\s+|\s+$//g;
+        return $value;
+      }
+
+      my $parent_gid = ($_ =~ /<parent>.*?<groupId>([^<]+)/s) ? $1 : "";
+      (my $proj = $_) =~ s/<parent>.*?<\/parent>//s;
+      $proj =~ s/<dependencyManagement>.*?<\/dependencyManagement>//s;
+      $proj =~ s/<dependencies>.*?<\/dependencies>//sg;
+      $proj =~ s/<build>.*?<\/build>//s;
+      $proj =~ s/<profiles>.*?<\/profiles>//s;
+      $proj =~ s/<reporting>.*?<\/reporting>//s;
+      $proj =~ s/<modules>.*?<\/modules>//s;
+      $parent_gid = trim($parent_gid);
+      my $gid = ($proj =~ /<groupId>([^<]+)/s) ? $1 : $parent_gid;
+      my $aid = ($proj =~ /<artifactId>([^<]+)/s) ? $1 : "";
+      $gid = trim($gid);
+      $aid = trim($aid);
+      print "$gid:$aid" if $gid ne "" && $aid ne "";
+    ' "$pom_file" 2>/dev/null || true)
+    if [[ -n "$maven_key" ]]; then
+      keys+=("$maven_key")
     fi
   fi
 
