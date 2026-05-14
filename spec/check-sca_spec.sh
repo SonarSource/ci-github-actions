@@ -89,6 +89,50 @@ Describe 'discover_project_keys()'
     The output should include "FromPom"
   End
 
+  It 'derives groupId:artifactId from pom.xml with project-level groupId'
+    export PROJECT_KEY_INPUT=""
+    printf '<project>\n  <parent>\n    <groupId>org.sonarsource.parent</groupId>\n    <artifactId>parent</artifactId>\n    <version>1.0</version>\n  </parent>\n  <groupId>org.sonarsource.plugins.cayc</groupId>\n  <artifactId>sonar-cayc-plugin</artifactId>\n</project>\n' \
+      > "$TEST_DIR/pom.xml"
+    When call discover_project_keys
+    The output should include "org.sonarsource.plugins.cayc:sonar-cayc-plugin"
+  End
+
+  It 'derives groupId:artifactId from pom.xml with inherited parent groupId'
+    export PROJECT_KEY_INPUT=""
+    printf '<project>\n  <parent>\n    <groupId>org.jenkins-ci.plugins</groupId>\n    <artifactId>plugin</artifactId>\n    <version>4.0</version>\n  </parent>\n  <artifactId>sonar</artifactId>\n</project>\n' \
+      > "$TEST_DIR/pom.xml"
+    When call discover_project_keys
+    The output should include "org.jenkins-ci.plugins:sonar"
+  End
+
+  It 'prefers sonar.projectKey over groupId:artifactId from pom.xml'
+    export PROJECT_KEY_INPUT=""
+    printf '<project>\n  <groupId>com.example</groupId>\n  <artifactId>my-app</artifactId>\n  <properties>\n    <sonar.projectKey>ExplicitKey</sonar.projectKey>\n  </properties>\n</project>\n' \
+      > "$TEST_DIR/pom.xml"
+    When call discover_project_keys
+    The line 1 should equal "ExplicitKey"
+    The line 2 should equal "com.example:my-app"
+  End
+
+  It 'trims whitespace when reading pom.xml project keys'
+    export PROJECT_KEY_INPUT=""
+    printf '<project>\n  <groupId>\n    com.example\n  </groupId>\n  <artifactId>\n    my-app\n  </artifactId>\n  <properties>\n    <sonar.projectKey>\n      ExplicitKey\n    </sonar.projectKey>\n  </properties>\n</project>\n' \
+      > "$TEST_DIR/pom.xml"
+    When call discover_project_keys
+    The line 1 should equal "ExplicitKey"
+    The line 2 should equal "com.example:my-app"
+  End
+
+  It 'does not derive Maven key when pom.xml has only parent block'
+    export PROJECT_KEY_INPUT=""
+    export GITHUB_REPOSITORY=""
+    printf '<project>\n  <parent>\n    <groupId>org.sonarsource.parent</groupId>\n    <artifactId>parent</artifactId>\n    <version>1.0</version>\n  </parent>\n</project>\n' \
+      > "$TEST_DIR/pom.xml"
+    When call discover_project_keys
+    The output should not include "org.sonarsource.parent:parent"
+    The output should equal ""
+  End
+
   It 'reads from build.gradle'
     export PROJECT_KEY_INPUT=""
     printf 'sonar.projectKey = "FromGradle"\n' > "$TEST_DIR/build.gradle"
