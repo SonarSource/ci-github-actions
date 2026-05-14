@@ -1401,7 +1401,7 @@ action fails with a link to the
 ### Usage
 
 ```yaml
-name: Required SCA Check
+name: SCA Check
 on:
   pull_request:
   merge_group:
@@ -1412,7 +1412,7 @@ permissions:
 
 jobs:
   verify-sca:
-    runs-on: sonar-xs  # Private repos default; use github-ubuntu-latest-s for public repos
+    runs-on: sonar-xs
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - uses: SonarSource/ci-github-actions/check-sca@v1
