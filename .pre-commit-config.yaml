@@ -17,8 +17,8 @@ repos:
     hooks:
       - id: yamllint
         args: [--strict, --config-file=.yamllint.yaml]
-  - repo: https://github.com/gruntwork-io/pre-commit
-    rev: d0bcdb35c6999a4a120b528f050d2b11778fd3d0  # v0.1.23
+  - repo: https://github.com/koalaman/shellcheck-precommit
+    rev: 99470f5e12208ff0fb17ab81c3c494f7620a1d8d  # v0.11.0
     hooks:
       - id: shellcheck
   - repo: https://github.com/python-jsonschema/check-jsonschema
