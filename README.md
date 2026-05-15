@@ -1380,6 +1380,8 @@ The action discovers project keys from `.sonarlint/connectedMode.json`, `sonar-p
 `GITHUB_REPOSITORY`, then polls the Next, SonarCloud US, and SonarCloud EU instances. It fails if SCA data is missing on every
 platform after the timeout.
 
+This is a test commit
+
 ### Requirements
 
 #### Required GitHub Permissions
