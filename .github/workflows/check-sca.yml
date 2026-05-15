@@ -11,6 +11,17 @@ permissions:
 jobs:
   verify-sca:
     runs-on: warp-custom-ubuntu-24-04
+    # `id-token: write` (above) makes GitHub mint an OIDC token, which the
+    # check-sca composite action exchanges with Vault for SonarQube
+    # credentials. Per the SonarSource OIDC standard, the `environment`
+    # claim is mandatory: Vault role bindings include it in
+    # `include_claim_keys` by default. A job with `id-token: write` but no
+    # `environment:` produces a token without the claim, and Vault rejects
+    # it: "OIDC error: the claim 'environment' cannot be null or empty".
+    # `dev` is the most widely-defined GitHub environment across consumer
+    # repos and is appropriate here — this is a pre-merge check, not a
+    # deployment.
+    environment: dev
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: SonarSource/ci-github-actions/check-sca@master
