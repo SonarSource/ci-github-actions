@@ -18,10 +18,9 @@ jobs:
     # `include_claim_keys` by default. A job with `id-token: write` but no
     # `environment:` produces a token without the claim, and Vault rejects
     # it: "OIDC error: the claim 'environment' cannot be null or empty".
-    # `dev` is the most widely-defined GitHub environment across consumer
-    # repos and is appropriate here — this is a pre-merge check, not a
-    # deployment.
-    environment: dev
+    # `sca-checking` is appropriate here as it is a unique value and
+    # will not be triggered on dev deploys.
+    environment: sca-checking
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: SonarSource/ci-github-actions/check-sca@master
