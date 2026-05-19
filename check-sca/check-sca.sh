@@ -34,6 +34,20 @@ PLATFORMS=(
   "sqc-eu:SQC_EU_URL:SQC_EU_TOKEN"
 )
 
+# Parse a key=value property from a file. Returns the trimmed value or empty string.
+parse_property_value() {
+  local file="$1" key="$2"
+  grep -E "^${key}=" "$file" | head -1 | cut -d= -f2- | tr -d '[:space:]'
+}
+
+# Read a value from .github/repo-metadata.yaml under a given top-level section.
+# Usage: read_repo_metadata <file> <section> <key>
+# Example: read_repo_metadata repo-metadata.yaml "check-sca" "project-key"
+read_repo_metadata() {
+  local file="$1" section="$2" key="$3"
+  sed -n "/^${section}:/,/^[^ ]/{ /^  ${key}:/{ s/^  ${key}:[ ]*//; s/^['\"]//; s/['\"]$//; p; q; }; }" "$file" | tr -d '[:space:]'
+}
+
 # Discover candidate SonarQube project keys from config files.
 # Returns one key per line, deduplicated, in priority order.
 discover_project_keys() {
@@ -45,7 +59,21 @@ discover_project_keys() {
     keys+=("$PROJECT_KEY_INPUT")
   fi
 
-  # 2. .sonarlint/connectedMode.json
+  # 2. .github/repo-metadata.yaml or .yml (always at repo root, not working-directory)
+  local repo_root="${GITHUB_WORKSPACE:-$work_dir}"
+  local metadata_file
+  for metadata_file in "$repo_root/.github/repo-metadata.yaml" "$repo_root/.github/repo-metadata.yml"; do
+    if [[ -f "$metadata_file" ]]; then
+      local key
+      key=$(read_repo_metadata "$metadata_file" "check-sca" "project-key")
+      if [[ -n "$key" ]]; then
+        keys+=("$key")
+      fi
+      break
+    fi
+  done
+
+  # 3. .sonarlint/connectedMode.json
   local sonarlint_file="$work_dir/.sonarlint/connectedMode.json"
   if [[ -f "$sonarlint_file" ]]; then
     local key
@@ -55,20 +83,20 @@ discover_project_keys() {
     fi
   fi
 
-  # 3. sonar-project.properties
+  # 4. sonar-project.properties
   local sonar_props="$work_dir/sonar-project.properties"
   if [[ -f "$sonar_props" ]]; then
     local key
-    key=$(grep -E '^sonar\.projectKey=' "$sonar_props" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '[:space:]')
+    key=$(parse_property_value "$sonar_props" 'sonar\.projectKey')
     if [[ -n "$key" ]]; then
       keys+=("$key")
     fi
   fi
 
-  # 4. pom.xml
+  # 5. pom.xml
   local pom_file="$work_dir/pom.xml"
   if [[ -f "$pom_file" ]]; then
-    # 4a. Explicit sonar.projectKey property (highest priority within pom.xml)
+    # 5a. Explicit sonar.projectKey property (highest priority within pom.xml)
     local key
     key=$(perl -0777 -ne '
       if (/<sonar\.projectKey>([^<]+)/s) {
@@ -81,7 +109,7 @@ discover_project_keys() {
       keys+=("$key")
     fi
 
-    # 4b. Derive groupId:artifactId (Maven default project key)
+    # 5b. Derive groupId:artifactId (Maven default project key)
     local maven_key
     maven_key=$(perl -0777 -ne '
       sub trim {
@@ -111,7 +139,7 @@ discover_project_keys() {
     fi
   fi
 
-  # 5. build.gradle / build.gradle.kts
+  # 6. build.gradle / build.gradle.kts
   local gradle_file
   for gradle_file in "$work_dir/build.gradle" "$work_dir/build.gradle.kts"; do
     if [[ -f "$gradle_file" ]]; then
@@ -129,7 +157,7 @@ discover_project_keys() {
     fi
   done
 
-  # 6. Derive from GITHUB_REPOSITORY (e.g. SonarSource/repo-name -> SonarSource_repo-name)
+  # 7. Derive from GITHUB_REPOSITORY (e.g. SonarSource/repo-name -> SonarSource_repo-name)
   if [[ -n "${GITHUB_REPOSITORY:-}" ]]; then
     local derived_key="${GITHUB_REPOSITORY/\//_}"
     keys+=("$derived_key")

@@ -1376,9 +1376,19 @@ After running this action, the following environment variables are available:
 
 Verify that SonarQube SCA (Software Composition Analysis) ran for the project.
 
-The action discovers project keys from `.sonarlint/connectedMode.json`, `sonar-project.properties`, `pom.xml`, `build.gradle(.kts)`, and
-`GITHUB_REPOSITORY`, then polls the Next, SonarCloud US, and SonarCloud EU instances. It fails if SCA data is missing on every
-platform after the timeout.
+The action discovers project keys from `.github/repo-metadata.yaml`, `.sonarlint/connectedMode.json`, `sonar-project.properties`,
+`pom.xml`, `build.gradle(.kts)`, and `GITHUB_REPOSITORY`, then polls the Next, SonarCloud US, and SonarCloud EU instances. It fails
+if SCA data is missing on every platform after the timeout.
+
+### Manually setting the project key for the check
+
+For repos that don't have standard SonarQube config files (e.g. repos using SonarCloud Automatic Analysis), create
+`.github/repo-metadata.yaml` with the project key under the `check-sca` section:
+
+```yaml
+check-sca:
+  project-key: your-project-key
+```
 
 ### Requirements
 
