@@ -46,11 +46,13 @@ Describe 'discover_project_keys()'
   setup() {
     TEST_DIR=$(mktemp -d)
     export WORKING_DIRECTORY="$TEST_DIR"
+    export GITHUB_WORKSPACE="$TEST_DIR"
     return 0
   }
   # shellcheck disable=SC2329  # Function invoked indirectly by AfterEach
   teardown() {
     rm -rf "$TEST_DIR"
+    unset GITHUB_WORKSPACE
     return 0
   }
 
@@ -72,6 +74,81 @@ Describe 'discover_project_keys()'
     End
     When call discover_project_keys
     The output should include "FromSonarlint"
+  End
+
+  It 'reads from .github/repo-metadata.yaml'
+    export PROJECT_KEY_INPUT=""
+    mkdir -p "$TEST_DIR/.github"
+    printf 'check-sca:\n  project-key: FromMetadata\n' > "$TEST_DIR/.github/repo-metadata.yaml"
+    When call discover_project_keys
+    The output should include "FromMetadata"
+  End
+
+  It 'reads from .github/repo-metadata.yml'
+    export PROJECT_KEY_INPUT=""
+    mkdir -p "$TEST_DIR/.github"
+    printf 'check-sca:\n  project-key: FromYml\n' > "$TEST_DIR/.github/repo-metadata.yml"
+    When call discover_project_keys
+    The output should include "FromYml"
+  End
+
+  It 'prefers .yaml over .yml when both exist'
+    export PROJECT_KEY_INPUT=""
+    export GITHUB_REPOSITORY=""
+    mkdir -p "$TEST_DIR/.github"
+    printf 'check-sca:\n  project-key: FromYaml\n' > "$TEST_DIR/.github/repo-metadata.yaml"
+    printf 'check-sca:\n  project-key: FromYml\n' > "$TEST_DIR/.github/repo-metadata.yml"
+    When call discover_project_keys
+    The line 1 should equal "FromYaml"
+  End
+
+  It 'reads quoted values from .github/repo-metadata.yaml'
+    export PROJECT_KEY_INPUT=""
+    mkdir -p "$TEST_DIR/.github"
+    printf 'check-sca:\n  project-key: "QuotedKey"\n' > "$TEST_DIR/.github/repo-metadata.yaml"
+    When call discover_project_keys
+    The output should include "QuotedKey"
+  End
+
+  It 'ignores .github/repo-metadata.yaml when check-sca section is missing'
+    export PROJECT_KEY_INPUT=""
+    export GITHUB_REPOSITORY=""
+    mkdir -p "$TEST_DIR/.github"
+    printf 'jira:\n  project-key: BUILD\n' > "$TEST_DIR/.github/repo-metadata.yaml"
+    When call discover_project_keys
+    The output should equal ""
+  End
+
+  It 'prioritizes .github/repo-metadata.yaml over sonar-project.properties'
+    export PROJECT_KEY_INPUT=""
+    export GITHUB_REPOSITORY=""
+    mkdir -p "$TEST_DIR/.github"
+    printf 'check-sca:\n  project-key: FromMetadata\n' > "$TEST_DIR/.github/repo-metadata.yaml"
+    echo "sonar.projectKey=FromProperties" > "$TEST_DIR/sonar-project.properties"
+    When call discover_project_keys
+    The line 1 should equal "FromMetadata"
+    The line 2 should equal "FromProperties"
+  End
+
+  It 'keeps both explicit input and .github/repo-metadata.yaml keys'
+    export PROJECT_KEY_INPUT="explicit-key"
+    mkdir -p "$TEST_DIR/.github"
+    printf 'check-sca:\n  project-key: FromMetadata\n' > "$TEST_DIR/.github/repo-metadata.yaml"
+    When call discover_project_keys
+    The line 1 should equal "explicit-key"
+    The line 2 should equal "FromMetadata"
+  End
+
+  It 'reads .github/repo-metadata.yaml from repo root when working-directory is a subdirectory'
+    export PROJECT_KEY_INPUT=""
+    export GITHUB_REPOSITORY=""
+    export GITHUB_WORKSPACE="$TEST_DIR"
+    mkdir -p "$TEST_DIR/.github"
+    printf 'check-sca:\n  project-key: RootKey\n' > "$TEST_DIR/.github/repo-metadata.yaml"
+    mkdir -p "$TEST_DIR/services/my-app"
+    export WORKING_DIRECTORY="$TEST_DIR/services/my-app"
+    When call discover_project_keys
+    The output should include "RootKey"
   End
 
   It 'reads from sonar-project.properties'
@@ -164,15 +241,18 @@ Describe 'discover_project_keys()'
 
   It 'returns keys from multiple sources in priority order'
     export PROJECT_KEY_INPUT="explicit-key"
+    mkdir -p "$TEST_DIR/.github"
+    printf 'check-sca:\n  project-key: metadata-key\n' > "$TEST_DIR/.github/repo-metadata.yaml"
     mkdir -p "$TEST_DIR/.sonarlint"
     echo '{"projectKey": "sonarlint-key"}' > "$TEST_DIR/.sonarlint/connectedMode.json"
     echo "sonar.projectKey=props-key" > "$TEST_DIR/sonar-project.properties"
     export GITHUB_REPOSITORY="SonarSource/test-repo"
     When call discover_project_keys
     The line 1 should equal "explicit-key"
-    The line 2 should equal "sonarlint-key"
-    The line 3 should equal "props-key"
-    The line 4 should equal "SonarSource_test-repo"
+    The line 2 should equal "metadata-key"
+    The line 3 should equal "sonarlint-key"
+    The line 4 should equal "props-key"
+    The line 5 should equal "SonarSource_test-repo"
   End
 
   It 'returns empty when no sources available'
