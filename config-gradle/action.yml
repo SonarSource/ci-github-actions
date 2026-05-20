@@ -137,7 +137,7 @@ runs:
 
     - name: Configure Gradle
       if: steps.config-gradle-completed.outputs.skip != 'true'
-      uses: gradle/actions/setup-gradle@748248ddd2a24f49513d8f472f81c3a07d4d50e1 # v4.4.4
+      uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
       with:
         develocity-injection-enabled: ${{ inputs.use-develocity == 'true' }}
         cache-disabled: true
