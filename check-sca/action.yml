@@ -85,6 +85,7 @@ runs:
         POLL_TIMEOUT: ${{ inputs.poll-timeout }}
         POLL_INTERVAL: ${{ inputs.poll-interval }}
         WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        PULL_REQUEST: ${{ github.event.pull_request.number || '' }}
         NEXT_URL: ${{ fromJSON(steps.secrets.outputs.vault).NEXT_URL }}
         NEXT_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).NEXT_TOKEN }}
         SQC_US_URL: ${{ fromJSON(steps.secrets.outputs.vault).SQC_US_URL }}

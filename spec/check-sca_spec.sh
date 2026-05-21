@@ -284,6 +284,12 @@ Describe 'check_sca_metric()'
     return 0
   }
 
+  # shellcheck disable=SC2329  # Function invoked indirectly by ShellSpec assertions
+  first_match_contents() {
+    [[ -f "${RESULT_DIR}/match" ]] && cat "${RESULT_DIR}/match"
+    return 0
+  }
+
   BeforeEach 'setup'
   AfterEach 'teardown'
 
@@ -293,7 +299,7 @@ Describe 'check_sca_metric()'
     End
     When call check_sca_metric "https://next.sonarqube.com" "token" "good-key" "next" "$RESULT_DIR"
     The status should be success
-    The contents of file "${RESULT_DIR}/match" should equal "next:good-key"
+    The result of "first_match_contents()" should equal "next:good-key"
   End
 
   It 'returns success when sca_count_any_issue value is 0'
@@ -302,7 +308,7 @@ Describe 'check_sca_metric()'
     End
     When call check_sca_metric "https://next.sonarqube.com" "token" "zero-key" "sqc-eu" "$RESULT_DIR"
     The status should be success
-    The contents of file "${RESULT_DIR}/match" should equal "sqc-eu:zero-key"
+    The result of "first_match_contents()" should equal "sqc-eu:zero-key"
   End
 
   It 'returns failure when measures array is empty'
@@ -328,6 +334,21 @@ Describe 'check_sca_metric()'
     When call check_sca_metric "https://next.sonarqube.com" "token" "bad-key" "next" "$RESULT_DIR"
     The status should be failure
   End
+
+  It 'passes qualifiers to the API URL'
+    Mock curl
+      # Capture the URL argument (last positional param to curl)
+      for arg; do :; done
+      if echo "$arg" | grep -q 'pullRequest=42'; then
+        printf '{"component":{"measures":[{"metric":"sca_count_any_issue","value":"1"}]}}\n200'
+      else
+        printf '{"component":{"measures":[]}}\n200'
+      fi
+    End
+    When call check_sca_metric "https://next.sonarqube.com" "token" "pr-key" "next" "$RESULT_DIR" "&pullRequest=42"
+    The status should be success
+    The result of "first_match_contents()" should equal "next:pr-key"
+  End
 End
 
 Describe 'main() success'
@@ -348,6 +369,58 @@ Describe 'main() success'
     The output should include "for project key: SonarSource_test-repo"
     The contents of file "$GITHUB_OUTPUT" should include "sca-verified=true"
     The contents of file "$GITHUB_OUTPUT" should include "project-key=SonarSource_test-repo"
+  End
+End
+
+Describe 'main() success via branch analysis'
+  Mock curl
+    # Return SCA data only when branch=main is in the URL
+    for arg; do :; done
+    if echo "$arg" | grep -q 'branch=main'; then
+      printf '{"component":{"measures":[{"metric":"sca_count_any_issue","value":"4"}]}}\n200'
+    else
+      printf '{"component":{"measures":[]}}\n200'
+    fi
+  End
+
+  BeforeEach 'setup_main'
+  AfterEach 'teardown_main'
+
+  It 'succeeds when SCA metric is found on a named branch'
+    export PROJECT_KEY_INPUT="SonarSource_test-repo"
+    export GITHUB_REPOSITORY="SonarSource/test-repo"
+    export POLL_TIMEOUT="300"
+    When run script check-sca/check-sca.sh
+    The status should be success
+    The output should include "SCA verified on"
+    The contents of file "$GITHUB_OUTPUT" should include "sca-verified=true"
+  End
+End
+
+Describe 'main() success via PR analysis'
+  Mock curl
+    # Return SCA data only when pullRequest= is in the URL
+    for arg; do :; done
+    if echo "$arg" | grep -q 'pullRequest='; then
+      printf '{"component":{"measures":[{"metric":"sca_count_any_issue","value":"2"}]}}\n200'
+    else
+      printf '{"component":{"measures":[]}}\n200'
+    fi
+  End
+
+  BeforeEach 'setup_main'
+  AfterEach 'teardown_main'
+
+  It 'succeeds when SCA metric is found only on PR analysis'
+    export PROJECT_KEY_INPUT="SonarSource_test-repo"
+    export GITHUB_REPOSITORY="SonarSource/test-repo"
+    export PULL_REQUEST="42"
+    export POLL_TIMEOUT="300"
+    When run script check-sca/check-sca.sh
+    The status should be success
+    The output should include "SCA verified on"
+    The output should include "PR #42"
+    The contents of file "$GITHUB_OUTPUT" should include "sca-verified=true"
   End
 End
 
