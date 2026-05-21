@@ -16,6 +16,7 @@
 #   PROJECT_KEY_INPUT             - Explicit project key (additional to discovered keys)
 #   POLL_TIMEOUT                  - Max polling time in seconds (default: 300)
 #   POLL_INTERVAL                 - Seconds between polls (default: 15)
+#   PULL_REQUEST                  - PR number; when set, also checks PR-specific analysis
 #   WORKING_DIRECTORY             - Directory to search for config files (default: .)
 
 set -euo pipefail
@@ -23,7 +24,7 @@ set -euo pipefail
 : "${NEXT_URL:?}" "${NEXT_TOKEN:?}" "${SQC_US_URL:?}" "${SQC_US_TOKEN:?}" "${SQC_EU_URL:?}" "${SQC_EU_TOKEN:?}"
 : "${GITHUB_REPOSITORY:?}" "${GITHUB_OUTPUT:?}"
 : "${POLL_TIMEOUT:=300}" "${POLL_INTERVAL:=15}" "${WORKING_DIRECTORY:=.}"
-: "${PROJECT_KEY_INPUT:=}"
+: "${PROJECT_KEY_INPUT:=}" "${PULL_REQUEST:=}"
 
 readonly ENDGROUP="::endgroup::"
 
@@ -183,11 +184,12 @@ discover_project_keys() {
 
 # Check if the sca_count_any_issue metric exists for a project on a SonarQube instance.
 # Writes "platform_name:project_key" to result_file on success.
-# Args: url token project_key platform_name result_dir
+# Args: url token project_key platform_name result_dir [qualifiers]
+#   qualifiers - optional extra query parameters (e.g. "&pullRequest=123")
 check_sca_metric() {
-  local url="${1:?}" token="${2:?}" project_key="${3:?}" platform_name="${4:?}" result_dir="${5:?}"
+  local url="${1:?}" token="${2:?}" project_key="${3:?}" platform_name="${4:?}" result_dir="${5:?}" qualifiers="${6:-}"
 
-  local api_url="${url}/api/measures/component?component=${project_key}&metricKeys=sca_count_any_issue"
+  local api_url="${url}/api/measures/component?component=${project_key}&metricKeys=sca_count_any_issue${qualifiers}"
 
   local response http_code body
   response=$(curl -s --max-time 10 -w "\n%{http_code}" \
@@ -265,9 +267,24 @@ main() {
         IFS=':' read -r platform_name url_var token_var <<< "$platform_def"
         local url="${!url_var}" token="${!token_var}"
 
+        # Check SQ project's primary branch (no qualifier = SQ default, may differ from main/master)
         echo "  Checking $platform_name / $key ..."
         check_sca_metric "$url" "$token" "$key" "$platform_name" "$result_dir" &
         pids+=($!)
+
+        # Also check well-known branch names explicitly
+        for branch_name in main master; do
+          echo "  Checking $platform_name / $key (branch: $branch_name) ..."
+          check_sca_metric "$url" "$token" "$key" "$platform_name" "$result_dir" "&branch=${branch_name}" &
+          pids+=($!)
+        done
+
+        # Check PR-specific analysis when running on a pull request
+        if [[ -n "${PULL_REQUEST:-}" ]]; then
+          echo "  Checking $platform_name / $key (PR #${PULL_REQUEST}) ..."
+          check_sca_metric "$url" "$token" "$key" "$platform_name" "$result_dir" "&pullRequest=${PULL_REQUEST}" &
+          pids+=($!)
+        fi
       done
     done
 
