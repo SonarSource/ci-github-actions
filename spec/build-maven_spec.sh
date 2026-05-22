@@ -376,9 +376,19 @@ Describe 'build_maven()'
       The line 6 should include "Build and analyze def_main"
       The line 7 should start with "Maven command: mvn install"
       The line 8 should start with "mvn install"
-      The line 8 should include "-Pcoverage -Prelease,sign"
+      The line 8 should include "-Pcoverage"
       The line 9 should equal "::endgroup::"
       The line 10 should start with "orchestrate_sonar_platforms"
+    End
+
+    It 'excludes release and sign profiles when DEPLOY is false'
+      export DEPLOY="false"
+
+      When call build_maven
+      The status should be success
+      The output should include "Maven command: mvn install -Pcoverage"
+      The output should not include "release"
+      The output should not include "sign"
     End
   End
 
@@ -512,8 +522,17 @@ Describe 'build_maven()'
       The line 5 should include "Build dogfood branch dogfood-on-something"
       The line 6 should start with "Maven command: mvn install"
       The line 7 should start with "mvn install"
-      The line 7 should include "-Prelease"
       The line 8 should equal "::endgroup::"
+    End
+
+    It 'excludes release and sign profiles when DEPLOY is false'
+      export DEPLOY="false"
+
+      When call build_maven
+      The status should be success
+      The output should include "Maven command: mvn install"
+      The output should not include "release"
+      The output should not include "sign"
     End
   End
 
