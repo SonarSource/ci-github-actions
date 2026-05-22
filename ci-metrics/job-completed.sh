@@ -1,0 +1,463 @@
+#!/usr/bin/env bash
+# CI metrics completion hook.
+#
+# Reads cgroup v2 + /proc/net/dev as totals (no baseline; ephemeral runners), writes ${CI_METRICS_DIR}/job-metrics.json, and appends a
+# metrics table to $GITHUB_STEP_SUMMARY.
+# Fail-open: any error → exit 0 without breaking the job.
+#
+# Feature flag (presence-only file written by job-started.sh; may also be touched/removed by GitHub actions (i.e. gh-action_cache) to honour
+# a workflow-env override:
+#   ${CI_METRICS_DIR}/enabled  no-op early exit unless this file exists
+#
+# Env overrides (used by tests; do not set in production):
+#   CI_METRICS_CGROUP_ROOT     default /sys/fs/cgroup (mount root)
+#   CI_METRICS_CGROUP_LEAF     override the resolved leaf cgroup dir
+#   CI_METRICS_PROC_SELF_CGROUP default /proc/self/cgroup (for leaf discovery)
+#   CI_METRICS_PROC_NET_DEV    default /proc/net/dev
+#   CI_METRICS_PROC_PID1       default /proc/1
+#   CI_METRICS_BASELINE_FILE   default /var/lib/ci-metrics/baseline.json (WarpBuild)
+#   CI_METRICS_NOW_EPOCH       default $(date +%s) -- for golden tests
+#   CI_METRICS_DIR             output dir, default /tmp/ci-metrics
+#   GITHUB_STEP_SUMMARY        default /dev/null (skip table emission)
+
+set -u
+
+# Fail-open: any unexpected error returns rc=0.
+# The script also has an explicit `exit 0` at the bottom, so the trap only fires on errors.
+# No EXIT trap: it would suppress non-zero returns if the hook is sourced.
+trap 'exit 0' ERR
+
+# shellcheck disable=SC2317  # invoked indirectly via traps and helpers
+log() {
+  printf '[ci-metrics] %s\n' "$*" >&2;
+}
+
+# ---------- Feature flag ----------
+gate_file="${CI_METRICS_DIR:-/tmp/ci-metrics}/enabled"
+if [[ -e "$gate_file" ]]; then
+    log "collecting metrics (gate: ${gate_file} present)"
+else
+    log "skipped: ${gate_file} is absent"
+    exit 0
+fi
+unset gate_file
+
+# ---------- Paths ----------
+CGROUP_ROOT="${CI_METRICS_CGROUP_ROOT:-/sys/fs/cgroup}"
+PROC_SELF_CGROUP="${CI_METRICS_PROC_SELF_CGROUP:-/proc/self/cgroup}"
+PROC_NET_DEV="${CI_METRICS_PROC_NET_DEV:-/proc/net/dev}"
+PROC_PID1="${CI_METRICS_PROC_PID1:-/proc/1}"
+BASELINE_FILE="${CI_METRICS_BASELINE_FILE:-/var/lib/ci-metrics/baseline.json}"
+CI_METRICS_DIR="${CI_METRICS_DIR:-/tmp/ci-metrics}"
+mkdir -p "$CI_METRICS_DIR" 2>/dev/null || true
+
+# Resolve the leaf cgroup directory. On cgroup v2 the relevant line is the first one and has the shape "0::<relative-path>". The leaf dir is
+# the concatenation of the mount root and that relative path. Tests can short-circuit discovery with CI_METRICS_CGROUP_LEAF.
+if [[ -n "${CI_METRICS_CGROUP_LEAF:-}" ]]; then
+    CGROUP_LEAF="$CI_METRICS_CGROUP_LEAF"
+else
+    # Cgroup v2 entry has the shape "0::<path>". On hybrid (v1+v2) systems the v2 line may not be the first one, so select it explicitly
+    # rather than blindly taking NR==1. Fall back to the mount root on no match.
+    cg_rel=""
+    if [[ -r "$PROC_SELF_CGROUP" ]]; then
+        cg_rel=$(awk -F: '$1=="0" && $2=="" {print $3; exit}' "$PROC_SELF_CGROUP" 2>/dev/null || true)
+    fi
+    if [[ -n "$cg_rel" && "$cg_rel" != "/" ]]; then
+        CGROUP_LEAF="${CGROUP_ROOT}${cg_rel}"
+    else
+        CGROUP_LEAF="$CGROUP_ROOT"
+    fi
+fi
+
+# ---------- Helpers ----------
+read_file() { [[ -r "$1" ]] && cat "$1" 2>/dev/null || printf ''; }
+
+# Parse cgroup file. $1=file, $2=key. Echo value or empty.
+cg_field() {
+    local file=$1 key=$2 line
+    line=$(awk -v k="$key" '$1==k {print $2}' "$file" 2>/dev/null) || true
+    printf '%s' "$line"
+}
+
+# Numeric guard: prints $1 if it looks like a number, else "null".
+num() {
+    local v=${1:-}
+    if [[ "$v" =~ ^-?[0-9]+(\.[0-9]+)?$ ]]; then printf '%s' "$v"; else printf 'null'; fi
+}
+
+# Bytes → human-readable.
+fmt_bytes() {
+    local b=${1:-0}
+    if   (( b >= 1073741824 )); then awk -v b="$b" 'BEGIN{printf "%.2f GiB", b/1073741824}'
+    elif (( b >= 1048576   )); then awk -v b="$b" 'BEGIN{printf "%.2f MiB", b/1048576}'
+    elif (( b >= 1024      )); then awk -v b="$b" 'BEGIN{printf "%.2f KiB", b/1024}'
+    else                            printf '%s B' "$b"
+    fi
+}
+
+# Seconds → "Xm Ys" or "Xs".
+fmt_duration() {
+    local s=${1:-0}
+    local total_int=${s%.*}
+    if (( total_int >= 60 )); then
+        printf '%dm %ds' "$((total_int/60))" "$((total_int%60))"
+    else
+        printf '%.1fs' "$s"
+    fi
+}
+
+# Round a float to 2dp/3dp safely.
+# shellcheck disable=SC2317  # all helpers below are called via command substitution
+round2() { awk -v v="${1:-0}" 'BEGIN{printf "%.2f", v}'; }
+# shellcheck disable=SC2317
+round3() { awk -v v="${1:-0}" 'BEGIN{printf "%.3f", v}'; }
+
+# Ratio (0–1) → percentage strings. pct0 = integer dp, pct1 = one dp.
+# Centralised so the display precision is consistent everywhere.
+# shellcheck disable=SC2317
+pct0() { awk -v r="${1:-0}" 'BEGIN{printf "%.0f", r*100}'; }
+# shellcheck disable=SC2317
+pct1() { awk -v r="${1:-0}" 'BEGIN{printf "%.1f", r*100}'; }
+
+# ---------- Timestamps + duration ----------
+now_epoch="${CI_METRICS_NOW_EPOCH:-$(date +%s)}"
+# GNU `date` supports -d "@epoch" and %6N (microseconds).
+# On BSD `date` (e.g. macOS) the call may succeed but emit a literal "%6N"; fall back to an ISO-8601 second-resolution when that happens.
+captured_at=$(date -u -d "@${now_epoch}" +"%Y-%m-%dT%H:%M:%S.%6NZ" 2>/dev/null \
+              || date -u +"%Y-%m-%dT%H:%M:%SZ")
+if [[ "$captured_at" == *"%6N"* || -z "$captured_at" ]]; then
+    captured_at=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+fi
+# Belt-and-braces: an ISO-8601-ish timestamp uses only [0-9T:.Z-+]. Reject anything else so a misbehaving date can't inject characters that
+# would break the JSON we emit below.
+[[ "$captured_at" =~ ^[0-9T:.Z+-]+$ ]] || captured_at=""
+
+# Job-start proxy: cgroup leaf directory's mtime, which is set when the cgroup is created. On ARC that equals container/job start.
+# Fall back to /proc/1 mtime, then to "now" (→ duration_seconds 0.000).
+job_start_epoch=$(stat -c %Y "$CGROUP_LEAF" 2>/dev/null || true)
+if [[ -z "$job_start_epoch" ]]; then
+    job_start_epoch=$(stat -c %Y "$PROC_PID1" 2>/dev/null || echo "$now_epoch")
+fi
+duration_seconds=$(awk -v n="$now_epoch" -v s="$job_start_epoch" \
+                       'BEGIN{d=n-s; if (d<0) d=0; printf "%.3f", d}')
+
+# ---------- cgroup CPU ----------
+cpu_stat_file="$CGROUP_LEAF/cpu.stat"
+cpu_usage_usec=$(cg_field "$cpu_stat_file" usage_usec)
+cpu_throttled_usec=$(cg_field "$cpu_stat_file" throttled_usec)
+cpu_nr_throttled=$(cg_field "$cpu_stat_file" nr_throttled)
+
+cpu_max=$(read_file "$CGROUP_LEAF/cpu.max")
+cpu_quota=${cpu_max%% *}
+cpu_period=${cpu_max#* }
+if [[ -z "$cpu_max" || "$cpu_quota" == "max" ]]; then
+    cpu_limit_cores=""
+else
+    cpu_limit_cores=$(awk -v q="$cpu_quota" -v p="$cpu_period" \
+        'BEGIN{ if (p+0>0) printf "%.3f", q/p; }')
+fi
+
+# Derived CPU metrics.
+# usage_seconds / throttled_seconds depend only on the raw counter being present. Rate / utilization additionally need a non-zero duration.
+if [[ -n "$cpu_usage_usec" ]]; then
+    cpu_usage_seconds=$(awk -v u="$cpu_usage_usec" 'BEGIN{printf "%.3f", u/1000000}')
+else
+    cpu_usage_seconds=""
+fi
+# Arithmetic guard on duration (not a string compare on the "%.3f" output).
+if [[ -n "$cpu_usage_usec" && -n "$cpu_limit_cores" && -n "$duration_seconds" ]] \
+   && awk -v d="$duration_seconds" 'BEGIN{exit !(d+0>0)}'; then
+    cpu_avg_utilization=$(awk -v u="$cpu_usage_usec" -v d="$duration_seconds" -v c="$cpu_limit_cores" \
+        'BEGIN{ if (d>0 && c>0) printf "%.4f", (u/1000000)/(d*c) }')
+else
+    cpu_avg_utilization=""
+fi
+
+if [[ -n "$cpu_throttled_usec" ]]; then
+    cpu_throttled_seconds=$(awk -v t="$cpu_throttled_usec" 'BEGIN{printf "%.3f", t/1000000}')
+else
+    cpu_throttled_seconds=""
+fi
+if [[ -n "$cpu_throttled_usec" && -n "$duration_seconds" ]] \
+   && awk -v d="$duration_seconds" 'BEGIN{exit !(d+0>0)}'; then
+    cpu_throttle_rate=$(awk -v t="$cpu_throttled_usec" -v d="$duration_seconds" \
+        'BEGIN{ if (d>0) printf "%.4f", (t/1000000)/d }')
+else
+    cpu_throttle_rate=""
+fi
+
+# CPU pressure (PSI). Line shape: "some avg10=X.YZ avg60=... avg300=... total=..."
+# $1=line $2=key — explicit args (no closure on outer variables, mirroring cg_field).
+# shellcheck disable=SC2317  # called via command substitution below
+psi_field() {
+    printf '%s' "$1" | awk -v k="$2" \
+        '{ for (i=2;i<=NF;i++) { split($i,a,"="); if (a[1]==k) print a[2] } }'
+}
+cpu_pressure_file="$CGROUP_LEAF/cpu.pressure"
+pressure_some_line=$(awk '$1=="some"' "$cpu_pressure_file" 2>/dev/null || true)
+pressure_some_avg10=$(psi_field "$pressure_some_line" avg10)
+pressure_some_avg60=$(psi_field "$pressure_some_line" avg60)
+pressure_some_avg300=$(psi_field "$pressure_some_line" avg300)
+
+# ---------- cgroup memory ----------
+memory_peak_bytes=$(read_file "$CGROUP_LEAF/memory.peak")
+memory_peak_bytes=${memory_peak_bytes//$'\n'/}
+memory_limit_raw=$(read_file "$CGROUP_LEAF/memory.max")
+memory_limit_raw=${memory_limit_raw//$'\n'/}
+if [[ "$memory_limit_raw" == "max" || -z "$memory_limit_raw" ]]; then
+    memory_limit_bytes=""
+else
+    memory_limit_bytes="$memory_limit_raw"
+fi
+if [[ -n "$memory_peak_bytes" && -n "$memory_limit_bytes" ]]; then
+    memory_peak_utilization=$(awk -v p="$memory_peak_bytes" -v l="$memory_limit_bytes" \
+        'BEGIN{ if (l>0) printf "%.4f", p/l }')
+else
+    memory_peak_utilization=""
+fi
+
+# ---------- /proc/net/dev ----------
+declare -A net_rx net_tx
+net_rx_total=0
+net_tx_total=0
+if [[ -r "$PROC_NET_DEV" ]]; then
+    # Skip 2 header lines. Field 1 = "iface:" (with trailing colon),
+    # field 2 = rx_bytes, field 10 = tx_bytes. Emit them with a single
+    # awk per line to avoid spawning three processes per interface.
+    while read -r iface rx tx; do
+        [[ -z "$iface" || -z "$rx" || -z "$tx" ]] && continue
+        # Defensive guards before arithmetic:
+        # - rx/tx must be non-negative integers (malformed lines drop out)
+        # - iface name kept to the IFNAMSIZ-safe alphanumeric + ._- set (Linux netdevice(7)), preventing any character that would require
+        # JSON escaping later.
+        [[ "$rx" =~ ^[0-9]+$ && "$tx" =~ ^[0-9]+$ ]] || continue
+        [[ "$iface" =~ ^[A-Za-z0-9._-]+$ ]] || continue
+        net_rx[$iface]=$rx
+        net_tx[$iface]=$tx
+        # Skip loopback for totals; still include in by_interface.
+        if [[ "$iface" != "lo" ]]; then
+            net_rx_total=$(( net_rx_total + rx ))
+            net_tx_total=$(( net_tx_total + tx ))
+        fi
+    done < <(tail -n +3 "$PROC_NET_DEV" 2>/dev/null \
+             | awk '{ gsub(":","",$1); print $1, $2, $10 }' || true)
+fi
+
+# Apply baseline subtraction if present (WarpBuild boot snapshot).
+# The awk parser below assumes baseline values are unquoted integers (rx_bytes / tx_bytes), which is what the WarpBuild snapshot writes.
+# It is not a general JSON parser — strings containing spaces/commas would tokenise wrong, but that's fine for this file format.
+# Non-numeric / missing values silently skip subtraction (fail-open).
+if [[ -r "$BASELINE_FILE" ]]; then
+    base_rx=$(awk -F'[":, ]+' '/"rx_bytes"/ { for (i=1;i<=NF;i++) if ($i=="rx_bytes") print $(i+1); exit }' \
+              "$BASELINE_FILE" 2>/dev/null || true)
+    base_tx=$(awk -F'[":, ]+' '/"tx_bytes"/ { for (i=1;i<=NF;i++) if ($i=="tx_bytes") print $(i+1); exit }' \
+              "$BASELINE_FILE" 2>/dev/null || true)
+    if [[ "$base_rx" =~ ^[0-9]+$ ]] && (( net_rx_total >= base_rx )); then
+        net_rx_total=$(( net_rx_total - base_rx ))
+    fi
+    if [[ "$base_tx" =~ ^[0-9]+$ ]] && (( net_tx_total >= base_tx )); then
+        net_tx_total=$(( net_tx_total - base_tx ))
+    fi
+fi
+
+# ---------- JSON assembly ----------
+json_by_interface=""
+sep=""
+for iface in "${!net_rx[@]}"; do
+    json_by_interface+="${sep}\"${iface}\":{\"rx_bytes\":${net_rx[$iface]},\"tx_bytes\":${net_tx[$iface]}}"
+    sep=","
+done
+
+job_metrics_json=$(cat <<EOF
+{"schema_version":1,"captured_at":"$captured_at","duration_seconds":$(num "$duration_seconds"),"cgroup":{"version":2,"cpu":{"usage_seconds":$(num "$cpu_usage_seconds"),"throttled_seconds":$(num "$cpu_throttled_seconds"),"nr_throttled":$(num "$cpu_nr_throttled"),"limit_cores":$(num "$cpu_limit_cores"),"avg_utilization":$(num "$cpu_avg_utilization"),"throttle_rate":$(num "$cpu_throttle_rate"),"pressure_some_avg10":$(num "$pressure_some_avg10"),"pressure_some_avg60":$(num "$pressure_some_avg60"),"pressure_some_avg300":$(num "$pressure_some_avg300")},"memory":{"peak_bytes":$(num "$memory_peak_bytes"),"limit_bytes":$(num "$memory_limit_bytes"),"peak_utilization":$(num "$memory_peak_utilization")}},"net":{"rx_bytes":${net_rx_total},"tx_bytes":${net_tx_total},"by_interface":{${json_by_interface}}}}
+EOF
+)
+
+# ---------- Cache JSON ingestion ----------
+# Each gh-action_cache invocation writes ${CI_METRICS_DIR}/cache-${slug}.json
+# (schema documented in https://github.com/SonarSource/gh-action_cache/pull/62).
+# We aggregate every snippet into one cache[] array, augment job_metrics_json with it, and render the summary table below.
+# Skipped gracefully when:
+#   - jq is missing (degraded ARC image)
+#   - no cache-*.json files exist (no cache step in the job)
+#   - all files fail to parse
+cache_json="[]"
+shopt -s nullglob
+cache_files=("${CI_METRICS_DIR}"/cache-*.json)
+shopt -u nullglob
+# Filter to readable, non-empty files; sort by name for deterministic order.
+readable_cache_files=()
+for f in "${cache_files[@]}"; do
+    [[ -s "$f" && -r "$f" ]] && readable_cache_files+=("$f")
+done
+if (( ${#readable_cache_files[@]} > 0 )) && command -v jq >/dev/null 2>&1; then
+    # Bash globs are already sorted lexicographically, so `readable_cache_files` is in deterministic order — no extra sort needed.
+    # Build a JSON array incrementally so a single bad file doesn't abort the whole pipeline.
+    parsed=()
+    for f in "${readable_cache_files[@]}"; do
+        if obj=$(jq -c '.' "$f" 2>/dev/null); then
+            parsed+=("$obj")
+        else
+            log "skipping invalid cache JSON: $f"
+        fi
+    done
+    if (( ${#parsed[@]} > 0 )); then
+        # Comma-join the validated objects into a JSON array literal.
+        # `%` in the joined value is safe: `printf '[%s]' "$arg"` only honors specifiers in the format string, not in the substituted arg.
+        printf -v cache_json '[%s]' "$(IFS=,; printf '%s' "${parsed[*]}")"
+        # Merge into job_metrics_json. Fall back to the un-augmented value on jq failure (fail-open).
+        # Skipped entirely when no cache file parsed: keeps `cache` key absent so M1.2 output stays byte-identical.
+        merged=$(jq -cn --argjson base "$job_metrics_json" --argjson cache "$cache_json" \
+            '$base + {cache: $cache}' 2>/dev/null) && job_metrics_json="$merged"
+    fi
+fi
+
+# Persist + stdout-log.
+printf '%s\n' "$job_metrics_json" > "${CI_METRICS_DIR}/job-metrics.json" 2>/dev/null || true
+printf '%s\n' "$job_metrics_json"
+
+# ---------- Step summary ----------
+summary_target="${GITHUB_STEP_SUMMARY:-/dev/null}"
+
+# Pretty values
+v_duration=$(fmt_duration "$duration_seconds")
+
+if [[ -n "$cpu_usage_seconds" ]]; then
+    v_cpu_usage="${cpu_usage_seconds} CPU-s"
+else
+    v_cpu_usage="n/a"
+fi
+
+if [[ -n "$cpu_avg_utilization" && -n "$cpu_limit_cores" ]]; then
+    avg_cores=$(awk -v u="$cpu_avg_utilization" -v c="$cpu_limit_cores" \
+        'BEGIN{printf "%.2f", u*c}')
+    v_cpu_avg="${avg_cores} cores ($(pct0 "$cpu_avg_utilization")% of $(round2 "$cpu_limit_cores") allocated)"
+elif [[ -n "$cpu_usage_seconds" && -n "$duration_seconds" ]]; then
+    avg_cores=$(awk -v u="$cpu_usage_seconds" -v d="$duration_seconds" \
+        'BEGIN{ if (d>0) printf "%.2f", u/d }')
+    if [[ -n "$avg_cores" ]]; then
+        v_cpu_avg="${avg_cores} cores (no limit)"
+    else
+        v_cpu_avg="n/a"
+    fi
+else
+    v_cpu_avg="n/a"
+fi
+
+if [[ -n "$cpu_throttled_seconds" ]]; then
+    if [[ -n "$cpu_throttle_rate" ]]; then
+        v_cpu_throttled="${cpu_throttled_seconds}s ($(pct1 "$cpu_throttle_rate")%, ${cpu_nr_throttled:-0} events)"
+    else
+        v_cpu_throttled="${cpu_throttled_seconds}s (${cpu_nr_throttled:-0} events)"
+    fi
+else
+    v_cpu_throttled="n/a"
+fi
+
+v_pressure="${pressure_some_avg60:-n/a}"
+[[ "$v_pressure" != "n/a" ]] && v_pressure="${v_pressure}%"
+
+if [[ -n "$memory_peak_bytes" ]]; then
+    if [[ -n "$memory_limit_bytes" && -n "$memory_peak_utilization" ]]; then
+        # Reuse the ratio already computed for JSON to keep the two outputs in sync.
+        v_mem="$(fmt_bytes "$memory_peak_bytes") / $(fmt_bytes "$memory_limit_bytes") ($(pct0 "$memory_peak_utilization")%)"
+    else
+        v_mem="$(fmt_bytes "$memory_peak_bytes") (no limit)"
+    fi
+else
+    v_mem="n/a"
+fi
+
+v_net_rx=$(fmt_bytes "$net_rx_total")
+v_net_tx=$(fmt_bytes "$net_tx_total")
+
+{
+    printf '## CI Metrics\n'
+    printf '| Metric | Value |\n'
+    printf '|---|---|\n'
+    printf '| Duration | %s |\n' "$v_duration"
+    printf '| CPU usage | %s |\n' "$v_cpu_usage"
+    printf '| CPU avg utilization | %s |\n' "$v_cpu_avg"
+    printf '| CPU throttled | %s |\n' "$v_cpu_throttled"
+    printf '| CPU pressure (some, 60s avg) | %s |\n' "$v_pressure"
+    printf '| Memory peak | %s |\n' "$v_mem"
+    printf '| Network rx | %s |\n' "$v_net_rx"
+    printf '| Network tx | %s |\n' "$v_net_tx"
+} >> "$summary_target" 2>/dev/null || true
+
+# ---------- Cache section ----------
+# Render one row per ${CI_METRICS_DIR}/cache-*.json entry that we previously parsed and folded into $cache_json.
+# Skipped silently when no rows.
+# The "Hit" column is three-state: yes (exact), partial (<restore-key>), no.
+# "Size Saved" is only meaningful when `saved == true` (cache action will persist the post-step size); otherwise the on-disk path size
+# doesn't correspond to anything saved, so show n/a.
+if [[ "$cache_json" != "[]" ]] && command -v jq >/dev/null 2>&1; then
+    # Fields joined by ASCII Unit Separator (US, 0x1f).
+    # Both sides reference the byte via escapes (jq accepts the \uXXXX form, bash uses $'\xNN') so this file stays YAML-safe when
+    # runner.yaml.gotmpl reads it verbatim into an init-container body.
+    # Booleans emit as "true"/"false" strings so jq's `//` doesn't swallow `false`.
+    # Numeric sizes emit as digits or "" (null/missing); the bash side maps "" → "n/a".
+    # Fail-open on jq error.
+    cache_rows=$(jq -r --argjson c "$cache_json" -n '
+        $c
+        | sort_by(.step // "")
+        | .[]
+        | [
+            (.key // ""),
+            (if ."cache-hit" == true then "true" else "false" end),
+            (."restore-key-hit" // ""),
+            (.backend // "unknown"),
+            (if (."size-bytes-restored"|type) == "number" then (."size-bytes-restored"|tostring) else "" end),
+            (if .saved == true then "true" elif .saved == false then "false" else "" end),
+            (if (."size-bytes-at-end"|type) == "number" then (."size-bytes-at-end"|tostring) else "" end)
+          ]
+        | join("\u001f")
+    ' 2>/dev/null) || cache_rows=""
+
+    if [[ -n "$cache_rows" ]]; then
+        {
+            printf '\n### Cache\n'
+            printf '| Key | Hit | Backend | Size Restored | Saved | Size Saved |\n'
+            printf '|---|---|---|---|---|---|\n'
+            # `|| [[ -n "$c_key" ]]` is the canonical idiom for a final line lacking a trailing newline. `jq -r` always emits `\n` today,
+            # but the guard keeps us safe if that ever changes.
+            while IFS=$'\x1f' read -r c_key c_hit c_rkey c_backend c_size_r c_saved c_size_e || [[ -n "$c_key" ]]; do
+                # Hit column: three-state.
+                if [[ "$c_hit" == "true" ]]; then
+                    v_hit="yes"
+                elif [[ -n "$c_rkey" ]]; then
+                    v_hit="partial (${c_rkey})"
+                else
+                    v_hit="no"
+                fi
+                # Sizes: only format if numeric.
+                if [[ "$c_size_r" =~ ^[0-9]+$ ]]; then
+                    v_size_r=$(fmt_bytes "$c_size_r")
+                else
+                    v_size_r="n/a"
+                fi
+                # Size Saved is only meaningful when `saved == true`. Otherwise size-bytes-at-end reflects on-disk size at job end, not what
+                # got persisted, so we render "n/a". The Saved column stays three-state: "yes" / "no" / "n/a" (missing/null), so a rendered
+                # row distinguishes "cache action skipped save" from "we don't know whether it saved" — don't collapse them.
+                if [[ "$c_saved" == "true" ]]; then
+                    v_saved="yes"
+                    if [[ "$c_size_e" =~ ^[0-9]+$ ]]; then
+                        v_size_e=$(fmt_bytes "$c_size_e")
+                    else
+                        v_size_e="n/a"
+                    fi
+                elif [[ "$c_saved" == "false" ]]; then
+                    v_saved="no"
+                    v_size_e="n/a"
+                else
+                    v_saved="n/a"
+                    v_size_e="n/a"
+                fi
+                printf '| %s | %s | %s | %s | %s | %s |\n' \
+                    "$c_key" "$v_hit" "$c_backend" "$v_size_r" "$v_saved" "$v_size_e"
+            done <<< "$cache_rows"
+        } >> "$summary_target" 2>/dev/null || true
+    fi
+fi
+
+exit 0
