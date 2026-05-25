@@ -36,7 +36,7 @@ runs:
         echo "::warning:: This action is deprecated and will be removed in future releases." \
           "Please migrate to using the SonarSource/gh-action_cache action directly." >&2
 
-    - uses: SonarSource/gh-action_cache@master # dogfood
+    - uses: SonarSource/gh-action_cache@feat/jcarsique/BUILD-11417-extract-symlink-keeper # TEST ONLY — BUILD-11417
       id: cache
       with:
         path: ${{ inputs.path }}

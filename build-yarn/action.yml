@@ -122,7 +122,7 @@ runs:
         working_directory: ${{ inputs.working-directory }}
 
     - name: Cache Yarn dependencies
-      uses: SonarSource/gh-action_cache@master # dogfood
+      uses: SonarSource/gh-action_cache@feat/jcarsique/BUILD-11417-extract-symlink-keeper # TEST ONLY — BUILD-11417
       if: ${{ inputs.cache-yarn == 'true' && inputs.disable-caching != 'true' }}
       with:
         path: |

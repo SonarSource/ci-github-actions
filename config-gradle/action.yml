@@ -169,7 +169,7 @@ runs:
       run: echo "workflow_name=${WORKFLOW_NAME// /-}" >> "$GITHUB_OUTPUT"
 
     - name: Gradle Cache
-      uses: SonarSource/gh-action_cache@master # dogfood
+      uses: SonarSource/gh-action_cache@feat/jcarsique/BUILD-11417-extract-symlink-keeper # TEST ONLY — BUILD-11417
       if: steps.config-gradle-completed.outputs.skip != 'true' && inputs.disable-caching == 'false'
       with:
         path: ${{ inputs.cache-paths }}

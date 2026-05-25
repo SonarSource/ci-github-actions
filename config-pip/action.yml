@@ -100,7 +100,7 @@ runs:
       run: echo "workflow_name=${WORKFLOW_NAME// /-}" >> "$GITHUB_OUTPUT"
 
     - name: Cache pip dependencies
-      uses: SonarSource/gh-action_cache@master # dogfood
+      uses: SonarSource/gh-action_cache@feat/jcarsique/BUILD-11417-extract-symlink-keeper # TEST ONLY — BUILD-11417
       if: inputs.disable-caching == 'false'
       with:
         path: ${{ inputs.cache-paths }}

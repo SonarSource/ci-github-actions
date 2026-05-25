@@ -24,7 +24,7 @@ runs:
         echo "JSIGN_CACHE_PATH=/tmp/jsign-cache" >> "$GITHUB_ENV"
 
     - name: Cache code signing tools
-      uses: SonarSource/gh-action_cache@master # dogfood
+      uses: SonarSource/gh-action_cache@feat/jcarsique/BUILD-11417-extract-symlink-keeper # TEST ONLY — BUILD-11417
       id: tools-cache
       with:
         path: |
