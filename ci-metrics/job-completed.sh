@@ -109,7 +109,7 @@ fmt_duration() {
 # Round a float to 2dp/3dp safely.
 # shellcheck disable=SC2317  # all helpers below are called via command substitution
 round2() { awk -v v="${1:-0}" 'BEGIN{printf "%.2f", v}'; }
-# shellcheck disable=SC2317
+# shellcheck disable=SC2317,SC2329
 round3() { awk -v v="${1:-0}" 'BEGIN{printf "%.3f", v}'; }
 
 # Ratio (0–1) → percentage strings. pct0 = integer dp, pct1 = one dp.
