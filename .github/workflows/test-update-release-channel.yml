@@ -11,7 +11,7 @@ on:
 
 jobs:
   test-urc-happy-path:
-    runs-on: warp-custom-ubuntu-24-04
+    runs-on: sonar-xs
     permissions:
       contents: read
     steps:
@@ -36,7 +36,7 @@ jobs:
           check-jsonschema --schemafile update-release-channel/schema/v1.json /tmp/body.json
 
   test-urc-invalid-product:
-    runs-on: warp-custom-ubuntu-24-04
+    runs-on: sonar-xs
     permissions:
       contents: read
     steps:
@@ -55,7 +55,7 @@ jobs:
           [[ "${{ steps.urc.outcome }}" == "failure" ]]
 
   test-urc-invalid-channel:
-    runs-on: warp-custom-ubuntu-24-04
+    runs-on: sonar-xs
     permissions:
       contents: read
     steps:
@@ -73,7 +73,7 @@ jobs:
           [[ "${{ steps.urc.outcome }}" == "failure" ]]
 
   test-urc-custom-prefix:
-    runs-on: warp-custom-ubuntu-24-04
+    runs-on: sonar-xs
     permissions:
       contents: read
     steps:
@@ -98,7 +98,7 @@ jobs:
       - test-urc-invalid-product
       - test-urc-invalid-channel
       - test-urc-custom-prefix
-    runs-on: warp-custom-ubuntu-24-04
+    runs-on: sonar-xs
     permissions:
       id-token: write
       contents: read
