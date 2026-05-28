@@ -5,7 +5,7 @@
 #
 # Required environment variables:
 #   VERSION - Version the channel should point at (e.g. "0.9.0.977")
-#   CHANNEL - Channel name (latest|stable|beta|rc)
+#   CHANNEL - Channel name (latest|stable|beta|rc|dogfood)
 #   PREFIX  - S3 key prefix (default in action.yml: "Distribution")
 #   PRODUCT - Product folder on S3 (default in action.yml: GitHub repo name)
 #   DRY_RUN - "true" to skip the AWS call and just print the planned PutObject
