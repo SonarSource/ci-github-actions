@@ -94,16 +94,16 @@ Describe 'update-release-channel/update-release-channel.sh'
   Describe 'non-dry-run path'
     Mock aws
       body_file=""
-      while [ "$#" -gt 0 ]; do
-        if [ "$1" = "--body" ]; then
+      while [[ "$#" -gt 0 ]]; do
+        if [[ "$1" == "--body" ]]; then
           body_file="$2"
           break
         fi
         shift
       done
-      [ -n "$body_file" ] || exit 1
-      [ "$body_file" != "/dev/stdin" ] || exit 1
-      [ -f "$body_file" ] || exit 1
+      [[ -n "$body_file" ]] || exit 1
+      [[ "$body_file" != "/dev/stdin" ]] || exit 1
+      [[ -f "$body_file" ]] || exit 1
       grep -q '"version":"0.9.0.977"' "$body_file" || exit 1
       echo '{"ServerSideEncryption":"AES256"}'
     End
