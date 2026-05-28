@@ -8,7 +8,7 @@ inputs:
     description: Version that the channel should be updated to point at (e.g. `0.9.0.977`).
     required: true
   channel:
-    description: Release channel name. One of `latest`, `stable`, `beta`, `rc`.
+    description: Release channel name. One of `latest`, `stable`, `beta`, `rc`, `dogfood`.
     default: latest
   prefix:
     description: S3 key prefix under the bucket. Defaults to `Distribution` (existing layout convention).

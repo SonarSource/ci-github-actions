@@ -19,7 +19,7 @@ contract.
 | Input     | Required | Default                                  | Description                                                                |
 | --------- | -------- | ---------------------------------------- | -------------------------------------------------------------------------- |
 | `version` | yes      | —                                        | Version the channel should point at (e.g. `0.9.0.977`).                    |
-| `channel` | no       | `latest`                                 | Release channel name. One of `latest`, `stable`, `beta`, `rc`.             |
+| `channel` | no       | `latest`                                 | Release channel name. One of `latest`, `stable`, `beta`, `rc`, `dogfood`.  |
 | `prefix`  | no       | `Distribution`                           | S3 key prefix under the bucket. Other values warn but are accepted.        |
 | `product` | no       | `${{ github.event.repository.name }}`    | Product folder name on S3.                                                 |
 | `dryRun`  | no       | `false`                                  | Resolve and validate inputs, print the planned `PutObject`, skip the call. |
