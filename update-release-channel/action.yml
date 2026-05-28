@@ -24,13 +24,13 @@ inputs:
 outputs:
   bucket:
     description: S3 bucket the channel pointer was (or would be) written to.
-    value: ${{ steps.write.outputs.bucket }}
+    value: ${{ steps.update.outputs.bucket }}
   key:
     description: S3 key of the channel pointer (e.g. `Distribution/<product>/<channel>.json`).
-    value: ${{ steps.write.outputs.key }}
-  etag:
-    description: ETag returned by S3 after `PutObject`. Empty in dry-run.
-    value: ${{ steps.write.outputs.etag }}
+    value: ${{ steps.update.outputs.key }}
+  url:
+    description: Public URL of the channel pointer (e.g. `https://binaries.sonarsource.com/Distribution/<product>/<channel>.json`).
+    value: ${{ steps.update.outputs.url }}
 
 runs:
   using: composite
@@ -40,6 +40,15 @@ runs:
       run: |
         ACTION_PATH_URC="${{ github.action_path }}"
         echo "ACTION_PATH_URC=$ACTION_PATH_URC" >> "$GITHUB_ENV"
+
+    - name: Install AWS CLI
+      if: inputs.dryRun != 'true'
+      uses: step-security/mise-action@c7396e2a2a4ad1ea43abee3317d964292da354ae # v4.0.1
+      with:
+        version: 2026.5.9
+        mise_toml: |
+          [tools]
+          awscli = "2.34.55"
 
     - name: Fetch AWS credentials from Vault
       id: secrets
@@ -51,8 +60,8 @@ runs:
           development/aws/sts/downloads secret_key | AWS_SECRET_ACCESS_KEY;
           development/aws/sts/downloads security_token | AWS_SESSION_TOKEN;
 
-    - name: Write channel pointer
-      id: write
+    - name: Update release channel
+      id: update
       shell: bash
       env:
         VERSION: ${{ inputs.version }}
@@ -64,4 +73,4 @@ runs:
         AWS_ACCESS_KEY_ID: ${{ inputs.dryRun != 'true' && fromJSON(steps.secrets.outputs.vault).AWS_ACCESS_KEY_ID || '' }}
         AWS_SECRET_ACCESS_KEY: ${{ inputs.dryRun != 'true' && fromJSON(steps.secrets.outputs.vault).AWS_SECRET_ACCESS_KEY || '' }}
         AWS_SESSION_TOKEN: ${{ inputs.dryRun != 'true' && fromJSON(steps.secrets.outputs.vault).AWS_SESSION_TOKEN || '' }}
-      run: ${ACTION_PATH_URC}/write_channel.sh
+      run: ${ACTION_PATH_URC}/update-release-channel.sh
