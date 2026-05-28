@@ -61,6 +61,7 @@ These badges show the status of workflows in dummy repositories that use (or sho
 - [`pr_cleanup`](#pr_cleanup)
 - [`code-signing`](#code-signing)
 - [`check-sca`](#check-sca)
+- [`update-release-channel`](#update-release-channel)
 
 ---
 
@@ -1444,6 +1445,74 @@ jobs:
 | `sca-verified` | Whether SCA was verified on at least one platform (`true` or `false`) |
 | `platform`     | The SonarQube platform where SCA was found (`next`, `sqc-us`, or `sqc-eu`). Only set when `sca-verified` is `true`. |
 | `project-key`  | The project key where SCA was verified. Only set when `sca-verified` is `true`.                               |
+
+---
+
+## `update-release-channel`
+
+Maintain per-channel JSON pointer files on `binaries.sonarsource.com` so consumers can discover the currently published
+version for each release channel of a product. Writes one JSON file per channel at
+`<prefix>/<product>/<channel>.json` (atomic per channel, single S3 `PutObject`).
+
+See [`update-release-channel/README.md`](update-release-channel/README.md) for the full reference: operational
+recipes (rollback, delayed promotion, backfill, channel migration), the recommended GitHub Environment with reviewer
+gate, and the publish-vs-promote atomicity caveat.
+
+### Requirements
+
+#### Required GitHub Permissions
+
+- `id-token: write`
+- `contents: read`
+
+#### Required Vault Permissions
+
+- `development/aws/sts/downloads`: STS credentials to write to `s3://downloads-cdn-eu-central-1-prod`. This is the same
+  preset already provisioned for `SonarSource/gh-action_release`.
+
+#### Other Dependencies
+
+The action installs the AWS CLI on demand via `mise` — no other tooling needs to be pre-installed on the runner.
+
+### Usage
+
+```yaml
+jobs:
+  release:
+    uses: SonarSource/gh-action_release/.github/workflows/main.yaml@7.0.1
+    with: { ... }
+
+  update-channel:
+    needs: release
+    if: ${{ !inputs.dryRun }}
+    runs-on: sonar-xs
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: SonarSource/ci-github-actions/update-release-channel@v1
+        with:
+          version: ${{ inputs.version }}
+```
+
+### Inputs
+
+| Input     | Description                                                                                                | Default                               |
+|-----------|------------------------------------------------------------------------------------------------------------|---------------------------------------|
+| `version` | Version the channel should point at (e.g. `0.9.0.977`). Required.                                          | —                                     |
+| `channel` | Release channel name. One of `latest`, `stable`, `beta`, `rc`, `dogfood`.                                  | `latest`                              |
+| `prefix`  | S3 key prefix under the bucket. Other values warn but are accepted.                                        | `Distribution`                        |
+| `product` | Product folder name on S3. Set explicitly when the S3 folder differs from the GitHub repo name.            | `${{ github.event.repository.name }}` |
+| `dryRun`  | Resolve and validate inputs, print the planned `PutObject`, skip Vault + AWS calls.                        | `false`                               |
+
+### Outputs
+
+| Output   | Description                                                                                |
+|----------|--------------------------------------------------------------------------------------------|
+| `bucket` | S3 bucket the channel pointer was (or would be) written to.                                |
+| `key`    | S3 key of the channel pointer (e.g. `Distribution/<product>/<channel>.json`).              |
+| `url`    | Public URL of the channel pointer.                                                         |
+| `body`   | JSON body written (or that would be written) to S3. Useful for schema validation in tests. |
 
 ---
 
