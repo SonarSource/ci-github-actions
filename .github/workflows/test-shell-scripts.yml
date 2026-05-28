@@ -20,7 +20,7 @@ jobs:
         with:
           fetch-depth: 0
       - uses: ./config-npm
-      - uses: step-security/mise-action@c7396e2a2a4ad1ea43abee3317d964292da354ae # v4.0.1
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
         with:
           version: 2026.5.9
           tool_versions: |

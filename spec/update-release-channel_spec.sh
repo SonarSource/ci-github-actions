@@ -15,9 +15,9 @@ setup() {
 }
 
 extract_body() {
-  # The dry-run line ends with `--body - <<< '<json>'`.
+  # The dry-run body line includes the generated JSON payload.
   local stdout_file="$1"
-  grep -o "<<< '[^']*'" "$stdout_file" | sed -e "s/<<< '//" -e "s/'$//"
+  sed -n 's/^Dry-run body: //p' "$stdout_file"
   return 0
 }
 
@@ -93,7 +93,18 @@ Describe 'update-release-channel/update-release-channel.sh'
 
   Describe 'non-dry-run path'
     Mock aws
-      cat > /dev/null
+      body_file=""
+      while [[ "$#" -gt 0 ]]; do
+        if [[ "$1" == "--body" ]]; then
+          body_file="$2"
+          break
+        fi
+        shift
+      done
+      [[ -n "$body_file" ]] || exit 1
+      [[ "$body_file" != "/dev/stdin" ]] || exit 1
+      [[ -f "$body_file" ]] || exit 1
+      grep -q '"version":"0.9.0.977"' "$body_file" || exit 1
       echo '{"ServerSideEncryption":"AES256"}'
     End
 
