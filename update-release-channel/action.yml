@@ -1,0 +1,67 @@
+---
+name: Update release channel
+description: |
+  Update a release channel pointer (e.g. `Distribution/<product>/latest.json`) on
+  `binaries.sonarsource.com` so consumers can discover the currently published version.
+inputs:
+  version:
+    description: Version that the channel should be updated to point at (e.g. `0.9.0.977`).
+    required: true
+  channel:
+    description: Release channel name. One of `latest`, `stable`, `beta`, `rc`.
+    default: latest
+  prefix:
+    description: S3 key prefix under the bucket. Defaults to `Distribution` (existing layout convention).
+    default: Distribution
+  product:
+    description: Product folder name on S3. Defaults to the GitHub repository name.
+    default: ${{ github.event.repository.name }}
+  dryRun:
+    description: |
+      When `true`, resolve and validate inputs and print the planned `PutObject` without fetching
+      Vault credentials or writing to S3.
+    default: 'false'
+outputs:
+  bucket:
+    description: S3 bucket the channel pointer was (or would be) written to.
+    value: ${{ steps.write.outputs.bucket }}
+  key:
+    description: S3 key of the channel pointer (e.g. `Distribution/<product>/<channel>.json`).
+    value: ${{ steps.write.outputs.key }}
+  etag:
+    description: ETag returned by S3 after `PutObject`. Empty in dry-run.
+    value: ${{ steps.write.outputs.etag }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve action path
+      shell: bash
+      run: |
+        ACTION_PATH_URC="${{ github.action_path }}"
+        echo "ACTION_PATH_URC=$ACTION_PATH_URC" >> "$GITHUB_ENV"
+
+    - name: Fetch AWS credentials from Vault
+      id: secrets
+      if: inputs.dryRun != 'true'
+      uses: SonarSource/vault-action-wrapper@c154b4a417b51cb98dd71137f49bf20e77c56820 # 3.4.0
+      with:
+        secrets: |
+          development/aws/sts/downloads access_key | AWS_ACCESS_KEY_ID;
+          development/aws/sts/downloads secret_key | AWS_SECRET_ACCESS_KEY;
+          development/aws/sts/downloads security_token | AWS_SESSION_TOKEN;
+
+    - name: Write channel pointer
+      id: write
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+        CHANNEL: ${{ inputs.channel }}
+        PREFIX: ${{ inputs.prefix }}
+        PRODUCT: ${{ inputs.product }}
+        DRY_RUN: ${{ inputs.dryRun }}
+        AWS_DEFAULT_REGION: eu-central-1
+        AWS_ACCESS_KEY_ID: ${{ inputs.dryRun != 'true' && fromJSON(steps.secrets.outputs.vault).AWS_ACCESS_KEY_ID || '' }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.dryRun != 'true' && fromJSON(steps.secrets.outputs.vault).AWS_SECRET_ACCESS_KEY || '' }}
+        AWS_SESSION_TOKEN: ${{ inputs.dryRun != 'true' && fromJSON(steps.secrets.outputs.vault).AWS_SESSION_TOKEN || '' }}
+      run: ${ACTION_PATH_URC}/write_channel.sh
