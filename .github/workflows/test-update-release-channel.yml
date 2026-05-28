@@ -1,0 +1,95 @@
+---
+name: Test update-release-channel
+on:
+  pull_request:
+  merge_group:
+  push:
+    branches:
+      - master
+      - branch-*
+  workflow_dispatch:
+
+jobs:
+  test-urc-happy-path:
+    runs-on: sonar-xs
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Update release channel (dry-run, happy path)
+        id: urc
+        uses: ./update-release-channel
+        with:
+          version: 0.0.0-test
+          channel: stable
+          product: test-fixture
+          dryRun: true
+      - name: Assert key output
+        run: |
+          [[ "${{ steps.urc.outputs.key }}" == "Distribution/test-fixture/stable.json" ]]
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+        with:
+          version: 2026.5.9
+      - name: Validate body against schema/v1.json
+        env:
+          BODY: ${{ steps.urc.outputs.body }}
+        run: |
+          printf '%s' "$BODY" > /tmp/body.json
+          check-jsonschema --schemafile update-release-channel/schema/v1.json /tmp/body.json
+
+  test-urc-invalid-product:
+    runs-on: sonar-xs
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Update release channel (invalid product)
+        id: urc
+        continue-on-error: true
+        uses: ./update-release-channel
+        with:
+          version: 0.0.0-test
+          channel: stable
+          product: ../escape
+          dryRun: true
+      - name: Assert action failed
+        run: |
+          [[ "${{ steps.urc.outcome }}" == "failure" ]]
+
+  test-urc-invalid-channel:
+    runs-on: sonar-xs
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Update release channel (invalid channel)
+        id: urc
+        continue-on-error: true
+        uses: ./update-release-channel
+        with:
+          version: 0.0.0-test
+          channel: foo
+          product: test-fixture
+          dryRun: true
+      - name: Assert action failed
+        run: |
+          [[ "${{ steps.urc.outcome }}" == "failure" ]]
+
+  test-urc-custom-prefix:
+    runs-on: sonar-xs
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Update release channel (custom prefix, warns but succeeds)
+        id: urc
+        uses: ./update-release-channel
+        with:
+          version: 0.0.0-test
+          channel: stable
+          product: test-fixture
+          prefix: NotDistribution
+          dryRun: true
+      - name: Assert custom prefix used in key
+        run: |
+          [[ "${{ steps.urc.outputs.key }}" == "NotDistribution/test-fixture/stable.json" ]]

@@ -3,3 +3,4 @@ self-hosted-runner:
   labels:
     - warp-custom-ubuntu-24-04
     - github-windows-latest-s
+    - sonar-xs
