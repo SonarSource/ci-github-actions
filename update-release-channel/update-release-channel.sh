@@ -53,6 +53,7 @@ fi
   echo "bucket=$BUCKET"
   echo "key=$KEY"
   echo "url=$URL"
+  echo "body=$BODY"
 } >> "${GITHUB_OUTPUT:?}"
 
 if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
