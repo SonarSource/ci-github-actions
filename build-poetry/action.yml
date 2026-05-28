@@ -111,7 +111,7 @@ runs:
       with:
         host-actions-root: ${{ steps.set-path.outputs.host_actions_root }}
     - name: Cache local Poetry cache
-      uses: SonarSource/gh-action_cache@bdecdb711dbf5939d90c58d0fcadbfd0749301fa # v1.5.0
+      uses: SonarSource/gh-action_cache@c5032b2d44e013b57458156ce27afdf1b94b0d8f # v1.5.1
       if: inputs.disable-caching == 'false'
       with:
         path: ${{ github.workspace }}/${{ inputs.poetry-cache-dir }}
