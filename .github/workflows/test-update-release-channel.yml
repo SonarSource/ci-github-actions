@@ -95,18 +95,3 @@ jobs:
       - name: Assert custom prefix used in key
         run: |
           [[ "${{ steps.urc.outputs.key }}" == "NotDistribution/test-fixture/stable.json" ]]
-
-  test-urc:
-    if: always()
-    needs:
-      - test-urc-happy-path
-      - test-urc-invalid-product
-      - test-urc-invalid-channel
-      - test-urc-custom-prefix
-    runs-on: sonar-xs
-    permissions:
-      contents: read
-    steps:
-      - uses: re-actors/alls-green@05ac9388f0aebcb5727afa17fcccfecd6f8ec5fe # v1.2.2
-        with:
-          jobs: ${{ toJSON(needs) }}
