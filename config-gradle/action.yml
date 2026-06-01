@@ -169,7 +169,7 @@ runs:
       run: echo "workflow_name=${WORKFLOW_NAME// /-}" >> "$GITHUB_OUTPUT"
 
     - name: Gradle Cache
-      uses: SonarSource/gh-action_cache@bdecdb711dbf5939d90c58d0fcadbfd0749301fa # v1.5.0
+      uses: SonarSource/gh-action_cache@a7d13cdd1c9f097a5f8382ccec463be2831e3dbc # v1.6.0
       if: steps.config-gradle-completed.outputs.skip != 'true' && inputs.disable-caching == 'false'
       with:
         path: ${{ inputs.cache-paths }}
