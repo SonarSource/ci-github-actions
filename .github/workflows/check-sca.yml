@@ -23,4 +23,4 @@ jobs:
     environment: sca-checking
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: SonarSource/ci-github-actions/check-sca@0b6af4d68192fa1c371e9327b5f0513949b39119 # master
+      - uses: SonarSource/ci-github-actions/check-sca@fdeb37e59320b102baec4c58662355e715b1c092 # master
