@@ -147,6 +147,7 @@ runs:
       id: secrets
       with:
         # yamllint disable rule:line-length
+        url: https://vault.dev.sonar.build
         secrets: |
           ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/next url | NEXT_URL;' || '' }}
           ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/next token | NEXT_TOKEN;' || '' }}
