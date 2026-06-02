@@ -5,7 +5,7 @@
 #
 # Required environment variables:
 #   VERSION - Version the channel should point at (e.g. "0.9.0.977")
-#   CHANNEL - Channel name (latest|stable|beta|rc)
+#   CHANNEL - Channel name (latest|stable|beta|rc|dogfood)
 #   PREFIX  - S3 key prefix (default in action.yml: "Distribution")
 #   PRODUCT - Product folder on S3 (default in action.yml: GitHub repo name)
 #   DRY_RUN - "true" to skip the AWS call and just print the planned PutObject
@@ -21,8 +21,8 @@ set -euo pipefail
 readonly BUCKET="downloads-cdn-eu-central-1-prod"
 readonly PUBLIC_BASE_URL="https://binaries.sonarsource.com"
 
-[[ "$CHANNEL" =~ ^(latest|stable|beta|rc)$ ]] \
-  || { echo "::error::Invalid channel '$CHANNEL'. Must be one of: latest, stable, beta, rc." >&2; exit 1; }
+[[ "$CHANNEL" =~ ^(latest|stable|beta|rc|dogfood)$ ]] \
+  || { echo "::error::Invalid channel '$CHANNEL'. Must be one of: latest, stable, beta, rc, dogfood." >&2; exit 1; }
 [[ "$PRODUCT" =~ ^[a-z0-9][a-z0-9._-]*$ ]] \
   || { echo "::error::Invalid product '$PRODUCT'. Must match ^[a-z0-9][a-z0-9._-]*\$." >&2; exit 1; }
 [[ "$PREFIX" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] \

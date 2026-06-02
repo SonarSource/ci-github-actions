@@ -61,6 +61,7 @@ These badges show the status of workflows in dummy repositories that use (or sho
 - [`pr_cleanup`](#pr_cleanup)
 - [`code-signing`](#code-signing)
 - [`check-sca`](#check-sca)
+- [`update-release-channel`](#update-release-channel)
 
 ---
 
@@ -1444,6 +1445,103 @@ jobs:
 | `sca-verified` | Whether SCA was verified on at least one platform (`true` or `false`) |
 | `platform`     | The SonarQube platform where SCA was found (`next`, `sqc-us`, or `sqc-eu`). Only set when `sca-verified` is `true`. |
 | `project-key`  | The project key where SCA was verified. Only set when `sca-verified` is `true`.                               |
+
+---
+
+## `update-release-channel`
+
+Updates a per-channel JSON pointer file on `binaries.sonarsource.com` so consumers can discover the currently published
+version for each release channel of a product. Writes one JSON file per channel at
+`<prefix>/<product>/<channel>.json` (atomic, single S3 `PutObject`). The body follows the
+[v1 schema](update-release-channel/schema/v1.json); see [schema/README.md](update-release-channel/schema/README.md) for the
+field contract.
+
+### Requirements
+
+#### Required GitHub Permissions
+
+- `id-token: write`
+- `contents: read`
+
+#### Required Vault Permissions
+
+- `development/aws/sts/downloads`: STS credentials to write to `s3://downloads-cdn-eu-central-1-prod`. This is the same
+  preset already provisioned for `SonarSource/gh-action_release`.
+
+#### Other Dependencies
+
+The action installs the AWS CLI on demand via `mise` — no other tooling needs to be pre-installed on the runner.
+
+### Usage
+
+As a release-workflow follow-up job (automated `latest` promotion):
+
+```yaml
+jobs:
+  release:
+    uses: SonarSource/gh-action_release/.github/workflows/main.yaml@7.0.1
+    with: { ... }
+
+  update-channel:
+    needs: release
+    if: ${{ !inputs.dryRun }}
+    runs-on: sonar-xs
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: SonarSource/ci-github-actions/update-release-channel@v1
+        with:
+          version: ${{ inputs.version }}
+```
+
+As a standalone `workflow_dispatch` (manual ops — rollback, delayed promotion, backfill):
+
+```yaml
+on:
+  workflow_dispatch:
+    inputs:
+      version: { required: true, type: string }
+      channel: { required: true, type: choice, options: [latest, stable, beta, rc, dogfood] }
+
+jobs:
+  update-channel:
+    runs-on: sonar-xs
+    environment: release-channel-admin   # recommended; see note below
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: SonarSource/ci-github-actions/update-release-channel@v1
+        with:
+          version: ${{ inputs.version }}
+          channel: ${{ inputs.channel }}
+```
+
+Referencing a `release-channel-admin` GitHub Environment (configured with required reviewers) is recommended for
+manual-ops workflows so every manual write requires an approver. The action runs without it — the gate is opt-in,
+set up per consuming repo. Environments at SonarSource are managed in
+[`re-service-config`](https://github.com/SonarSource/re-service-config) via the `github_repository_environment`
+Terraform resource; add the environment for your repo there alongside the existing examples.
+
+### Inputs
+
+| Input     | Description                                                                                                | Default                               |
+|-----------|------------------------------------------------------------------------------------------------------------|---------------------------------------|
+| `version` | Version the channel should point at (e.g. `0.9.0.977`). Required.                                          | —                                     |
+| `channel` | Release channel name. One of `latest`, `stable`, `beta`, `rc`, `dogfood`.                                  | `latest`                              |
+| `prefix`  | S3 key prefix under the bucket. Other values warn but are accepted.                                        | `Distribution`                        |
+| `product` | Product folder name on S3. Set explicitly when the S3 folder differs from the GitHub repo name.            | `${{ github.event.repository.name }}` |
+| `dryRun`  | Resolve and validate inputs, print the planned `PutObject`, skip Vault + AWS calls.                        | `false`                               |
+
+### Outputs
+
+| Output   | Description                                                                     |
+|----------|---------------------------------------------------------------------------------|
+| `bucket` | S3 bucket of the JSON pointer file.                                             |
+| `key`    | S3 key of the JSON pointer file (e.g. `Distribution/<product>/<channel>.json`). |
+| `url`    | Public URL of the JSON pointer file.                                            |
+| `body`   | Content of the JSON pointer file.                                               |
 
 ---
 
