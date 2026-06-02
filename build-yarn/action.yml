@@ -130,7 +130,7 @@ runs:
         key: yarn-${{ runner.os }}-${{ hashFiles('**/yarn.lock') }}
         restore-keys: yarn-${{ runner.os }}-
 
-    - uses: SonarSource/vault-action-wrapper@c154b4a417b51cb98dd71137f49bf20e77c56820 # 3.4.0
+    - uses: SonarSource/vault-action-wrapper@0a3114fe1230b784c35b53b099f9ab1f1e538cc7 # 3.5.0
       id: secrets
       # yamllint disable rule:line-length
       with:
