@@ -29,7 +29,7 @@ Describe 'update-release-channel/update-release-channel.sh'
       When run script update-release-channel/update-release-channel.sh
       The status should be success
       The output should include "Dry-run: aws s3api put-object"
-      The output should include "--cache-control max-age=60"
+      The output should include "--cache-control 'no-cache, no-store, max-age=0'"
       The output should include "--content-type application/json"
       The contents of file "$GITHUB_OUTPUT" should include "bucket=downloads-cdn-eu-central-1-prod"
       The contents of file "$GITHUB_OUTPUT" should include "key=Distribution/sonarqube-cli/latest.json"

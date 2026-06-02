@@ -36,7 +36,7 @@ UPDATED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 BODY="$(jq -cn --arg v "$VERSION" --arg t "$UPDATED_AT" '{schemaVersion:1, version:$v, updatedAt:$t}')"
 
 if [[ "$DRY_RUN" == "true" ]]; then
-  echo "Dry-run: aws s3api put-object --bucket $BUCKET --key $KEY --cache-control max-age=60 --content-type application/json --body <generated-json-file>"
+  echo "Dry-run: aws s3api put-object --bucket $BUCKET --key $KEY --cache-control 'no-cache, no-store, max-age=0' --content-type application/json --body <generated-json-file>"
   echo "Dry-run body: $BODY"
 else
   BODY_FILE="$(mktemp)"
@@ -45,7 +45,7 @@ else
 
   aws s3api put-object \
     --bucket "$BUCKET" --key "$KEY" --body "$BODY_FILE" \
-    --cache-control "max-age=60" --content-type "application/json" > /dev/null
+    --cache-control "no-cache, no-store, max-age=0" --content-type "application/json" > /dev/null
   echo "Wrote $URL"
 fi
 
