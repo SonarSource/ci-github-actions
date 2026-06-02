@@ -48,12 +48,6 @@ inputs:
   common-mvn-flags:
     description: Maven flags for all subsequent mvn calls
     default: --batch-mode --no-transfer-progress --errors --fail-at-end --show-version -Dmaven.test.redirectTestOutputToFile=false
-  repox-url:
-    description: URL for Repox
-    default: https://repox.jfrog.io
-  repox-artifactory-url:
-    description: URL for Repox Artifactory API (overrides repox-url/artifactory if provided)
-    default: ''
   use-develocity:
     description: Whether to use Develocity for build tracking.
     default: 'false'
@@ -116,8 +110,6 @@ runs:
         working-directory: ${{ inputs.working-directory }}
         artifactory-reader-role: ${{ inputs.artifactory-reader-role }}
         common-mvn-flags: ${{ inputs.common-mvn-flags }}
-        repox-url: ${{ inputs.repox-url }}
-        repox-artifactory-url: ${{ inputs.repox-artifactory-url }}
         use-develocity: ${{ inputs.use-develocity }}
         develocity-url: ${{ inputs.develocity-url }}
         cache-paths: ${{ inputs.cache-paths }}
@@ -151,7 +143,7 @@ runs:
         echo "SONARSOURCE_REPOSITORY_URL=${ARTIFACTORY_URL}/sonarsource" >> "$GITHUB_ENV"
       # yamllint enable rule:line-length
 
-    - uses: SonarSource/vault-action-wrapper@0a3114fe1230b784c35b53b099f9ab1f1e538cc7 # 3.5.0
+    - uses: SonarSource/vault-action-wrapper@c154b4a417b51cb98dd71137f49bf20e77c56820 # 3.4.0
       id: secrets
       with:
         # yamllint disable rule:line-length
@@ -238,8 +230,6 @@ runs:
       if: always() && inputs.generate-summary != 'false'
       shell: bash
       env:
-        ARTIFACTORY_URL: ${{ inputs.repox-artifactory-url != '' && inputs.repox-artifactory-url ||
-          format('{0}/artifactory', inputs.repox-url) }}
         JFROG_CLI_COMMAND_SUMMARY_OUTPUT_DIR: ${{ runner.temp }}/jfrog-summary
       run: |
         build_name="${GITHUB_REPOSITORY#*/}"

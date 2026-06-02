@@ -2,12 +2,6 @@
 name: Promote
 description: GitHub Action to promote a project
 inputs:
-  repox-url:
-    description: URL for Repox
-    default: https://repox.jfrog.io
-  repox-artifactory-url:
-    description: URL for Repox Artifactory API (overrides repox-url/artifactory if provided)
-    default: ''
   promote-pull-request:
     description: Whether to promote pull request artifacts. Requires `deploy-pull-request` input to be set to `true` in the build action.
     default: 'false'
@@ -51,7 +45,7 @@ runs:
     - uses: ./.actions/get-build-number
       with:
         host-actions-root: ${{ steps.set-path.outputs.host_actions_root }}
-    - uses: SonarSource/vault-action-wrapper@0a3114fe1230b784c35b53b099f9ab1f1e538cc7 # 3.5.0
+    - uses: SonarSource/vault-action-wrapper@c154b4a417b51cb98dd71137f49bf20e77c56820 # 3.4.0
       id: secrets
       with:
         secrets: |
@@ -63,8 +57,7 @@ runs:
     - name: Promote artifacts
       shell: bash
       env:
-        ARTIFACTORY_URL: ${{ inputs.repox-artifactory-url != '' && inputs.repox-artifactory-url ||
-          format('{0}/artifactory', inputs.repox-url) }}
+        ARTIFACTORY_URL: https://repox.dev.sonar.build/artifactory
         ARTIFACTORY_PROMOTE_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_PROMOTE_ACCESS_TOKEN }}
         GITHUB_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).GITHUB_TOKEN }}
         DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}

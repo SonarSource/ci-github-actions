@@ -171,17 +171,20 @@ By default, Maven caches `~/.m2/repository`. You can customize this behavior:
 #### Required Vault Permissions
 
 - `public-reader` or `private-reader`: Artifactory role for reading dependencies.
+- `development/kv/data/develocity`: Develocity access token (only when `use-develocity: true`).
 
 #### Other Dependencies
 
 The Maven tool must be pre-installed. Use of `mise` is recommended.
+
+Dependencies are resolved from the self-hosted Artifactory instance at `https://repox.dev.sonar.build/artifactory` (not configurable).
 
 ### Usage
 
 ```yaml
 permissions:
   id-token: write
-  contents: write
+  contents: read
 steps:
   - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
   - uses: SonarSource/ci-github-actions/config-maven@v1
@@ -205,8 +208,6 @@ steps:
 | `working-directory`       | Relative path under github.workspace to execute the build in                | `.`                                                                                                                     |
 | `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault                             | `private-reader` for private repos, `public-reader` for public repos                                                    |
 | `common-mvn-flags`        | Maven flags for all subsequent mvn calls                                    | `--batch-mode --no-transfer-progress --errors --fail-at-end --show-version -Dmaven.test.redirectTestOutputToFile=false` |
-| `repox-url`               | URL for Repox                                                               | `https://repox.jfrog.io`                                                                                                |
-| `repox-artifactory-url`   | URL for Repox Artifactory API (overrides repox-url/artifactory if provided) | (optional)                                                                                                              |
 | `use-develocity`          | Whether to use Develocity for build tracking                                | `false`                                                                                                                 |
 | `develocity-url`          | URL for Develocity                                                          | `https://develocity.sonar.build/`                                                                                       |
 | `cache-paths`             | Custom cache paths (multiline).                                             | (optional)                                                                                                              |
@@ -228,13 +229,13 @@ steps:
 | `ARTIFACTORY_ACCESS_USERNAME` | Deprecated alias for `ARTIFACTORY_USERNAME`                                                                                                                                                                                               |
 | `ARTIFACTORY_USERNAME`        | Username for Artifactory authentication                                                                                                                                                                                                   |
 | `ARTIFACTORY_PASSWORD`        | Deprecated alias for `ARTIFACTORY_ACCESS_TOKEN`                                                                                                                                                                                           |
-| `ARTIFACTORY_URL`             | Artifactory (Repox) URL. E.x.: `https://repox.jfrog.io/artifactory`                                                                                                                                                                       |
+| `ARTIFACTORY_URL`             | Artifactory API base URL. E.g. `https://repox.dev.sonar.build/artifactory`                                                                                                                                                            |
 | `BASH_ENV`                    | Path to the bash profile with mvn function for adding common flags to Maven calls                                                                                                                                                         |
 | `CURRENT_VERSION`             | The original project version from pom.xml                                                                                                                                                                                                 |
 | `DEVELOCITY_ACCESS_KEY`       | The Develocity access key when `use-develocity` is true                                                                                                                                                                                   |
 | `MAVEN_OPTS`                  | JVM options for Maven execution.                                                                                                                                                                                                          |
 | `PROJECT_VERSION`             | The project version with build number (after replacement)                                                                                                                                                                                 |
-| `SONARSOURCE_REPOSITORY_URL`  | URL for SonarSource Artifactory root virtual repository (i.e.: [`sonarsource`](https://repox.jfrog.io/artifactory/sonarsource) for release builds or [`sonarsource-qa`](https://repox.jfrog.io/artifactory/sonarsource-qa) for QA builds) |
+| `SONARSOURCE_REPOSITORY_URL`  | URL for SonarSource Artifactory root virtual repository (i.e.: [`sonarsource`](https://repox.dev.sonar.build/artifactory/sonarsource) for release builds or [`sonarsource-qa`](https://repox.dev.sonar.build/artifactory/sonarsource-qa) for QA builds) |
 | `CONFIG_MAVEN_COMPLETED`      | For internal use. If set, the action is skipped                                                                                                                                                                                           |
 | `MAVEN_CONFIG`                | Path to m2 root `$HOME/.m2`                                                                                                                                                                                                               |
 
@@ -311,8 +312,6 @@ See also [`config-maven`](#config-maven) input environment variables.
 | `deploy-pull-request`       | Whether to also deploy for pull requests. If deploy is false, this has no effect.                                            | `false`                                                                                     |
 | `maven-args`                | Additional arguments to pass to Maven                                                                                        | (optional)                                                                                  |
 | `scanner-java-opts`         | Additional Java options for the Sonar scanner (`SONAR_SCANNER_JAVA_OPTS`)                                                    | `-Xmx512m`                                                                                  |
-| `repox-url`                 | URL for Repox                                                                                                                | `https://repox.jfrog.io`                                                                    |
-| `repox-artifactory-url`     | URL for Repox Artifactory API (overrides repox-url/artifactory if provided)                                                  | (optional)                                                                                  |
 | `use-develocity`            | Whether to use Develocity for build tracking                                                                                 | `false`                                                                                     |
 | `develocity-url`            | URL for Develocity                                                                                                           | `https://develocity.sonar.build/`                                                           |
 | `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', 'sqc-us', or 'none'. Use 'none' to skip sonar scans                           | `next`                                                                                      |
@@ -1259,8 +1258,6 @@ promote:
 
 | Input                     | Description                                                                                                               | Default                  |
 |---------------------------|---------------------------------------------------------------------------------------------------------------------------|--------------------------|
-| `repox-url`               | URL for Repox                                                                                                             | `https://repox.jfrog.io` |
-| `repox-artifactory-url`   | URL for Repox Artifactory API (overrides repox-url/artifactory if provided)                                               | (optional)               |
 | `promote-pull-request`    | Whether to promote pull request artifacts. Requires `deploy-pull-request` input to be set to `true` in the build action   | `false`                  |
 | `multi-repo`              | If true, promotes to public and private repositories. For projects with both public and private artifacts                 | (optional)               |
 | `artifactory-deploy-repo` | Repository to deploy to. If not set, it will be retrieved from the build info                                             | (optional)               |
