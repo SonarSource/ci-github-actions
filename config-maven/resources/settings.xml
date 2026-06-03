@@ -62,7 +62,7 @@
           <releases>
             <enabled>true</enabled>
             <!-- no need to always check if new versions are available when executing a Maven plugin without specifying the version -->
-            <updatePolicy>interval:60</updatePolicy>
+            <updatePolicy>always</updatePolicy>
             <checksumPolicy>fail</checksumPolicy>
           </releases>
           <snapshots>
