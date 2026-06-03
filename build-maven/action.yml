@@ -47,7 +47,7 @@ inputs:
     default: ''
   common-mvn-flags:
     description: Maven flags for all subsequent mvn calls
-    default: --batch-mode --no-transfer-progress --errors --fail-at-end --show-version -Dmaven.test.redirectTestOutputToFile=false
+    default: -U --batch-mode --no-transfer-progress --errors --fail-at-end --show-version -Dmaven.test.redirectTestOutputToFile=false
   use-develocity:
     description: Whether to use Develocity for build tracking.
     default: 'false'
