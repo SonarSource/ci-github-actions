@@ -47,7 +47,7 @@ inputs:
     default: ''
   common-mvn-flags:
     description: Maven flags for all subsequent mvn calls
-    default: -U --batch-mode --no-transfer-progress --errors --fail-at-end --show-version -Dmaven.test.redirectTestOutputToFile=false
+    default: --batch-mode --no-transfer-progress --errors --fail-at-end --show-version -Dmaven.test.redirectTestOutputToFile=false
   use-develocity:
     description: Whether to use Develocity for build tracking.
     default: 'false'
@@ -144,10 +144,19 @@ runs:
       # yamllint enable rule:line-length
 
     - uses: SonarSource/vault-action-wrapper@0a3114fe1230b784c35b53b099f9ab1f1e538cc7 # 3.5.0
+      id: artifactory
+      with:
+        url: https://vault.dev.sonar.build
+        # yamllint disable rule:line-length
+        secrets: |
+          ${{ inputs.deploy != 'false' && inputs.run-shadow-scans != 'true' && steps.params.outputs.ARTIFACTORY_DEPLOY_USERNAME_VAULT || '' }}
+          ${{ inputs.deploy != 'false' && inputs.run-shadow-scans != 'true' && steps.params.outputs.ARTIFACTORY_DEPLOY_ACCESS_TOKEN_VAULT || '' }}
+          ${{ inputs.deploy != 'false' && inputs.mixed-privacy == 'true' && steps.params.outputs.ARTIFACTORY_PRIVATE_DEPLOY_ACCESS_TOKEN_VAULT || '' }}
+
+    - uses: SonarSource/vault-action-wrapper@0a3114fe1230b784c35b53b099f9ab1f1e538cc7 # 3.5.0
       id: secrets
       with:
         # yamllint disable rule:line-length
-        url: https://vault.dev.sonar.build
         secrets: |
           ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/next url | NEXT_URL;' || '' }}
           ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/next token | NEXT_TOKEN;' || '' }}
@@ -155,9 +164,6 @@ runs:
           ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/sonarqube-us token | SQC_US_TOKEN;' || '' }}
           ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/sonarcloud url | SQC_EU_URL;' || '' }}
           ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/sonarcloud token | SQC_EU_TOKEN;' || '' }}
-          ${{ inputs.deploy != 'false' && inputs.run-shadow-scans != 'true' && steps.params.outputs.ARTIFACTORY_DEPLOY_USERNAME_VAULT || '' }}
-          ${{ inputs.deploy != 'false' && inputs.run-shadow-scans != 'true' && steps.params.outputs.ARTIFACTORY_DEPLOY_ACCESS_TOKEN_VAULT || '' }}
-          ${{ inputs.deploy != 'false' && inputs.mixed-privacy == 'true' && steps.params.outputs.ARTIFACTORY_PRIVATE_DEPLOY_ACCESS_TOKEN_VAULT || '' }}
           development/kv/data/sign key | SIGN_KEY;
           development/kv/data/sign passphrase | PGP_PASSPHRASE;
         # yamllint enable rule:line-length
@@ -181,9 +187,9 @@ runs:
         ARTIFACTORY_DEPLOY_REPO: ${{ steps.params.outputs.ARTIFACTORY_DEPLOY_REPO }}
 
         # Vault secrets
-        ARTIFACTORY_DEPLOY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_USERNAME }}
-        ARTIFACTORY_DEPLOY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN }}
-        ARTIFACTORY_DEPLOY_PASSWORD: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN }} # used in parent POM
+        ARTIFACTORY_DEPLOY_USERNAME: ${{ fromJSON(steps.artifactory.outputs.vault).ARTIFACTORY_DEPLOY_USERNAME }}
+        ARTIFACTORY_DEPLOY_ACCESS_TOKEN: ${{ fromJSON(steps.artifactory.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN }}
+        ARTIFACTORY_DEPLOY_PASSWORD: ${{ fromJSON(steps.artifactory.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN }} # used in parent POM
         NEXT_URL: ${{ fromJSON(steps.secrets.outputs.vault).NEXT_URL }}
         NEXT_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).NEXT_TOKEN }}
         SQC_EU_URL: ${{ fromJSON(steps.secrets.outputs.vault).SQC_EU_URL }}
