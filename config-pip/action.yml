@@ -13,9 +13,6 @@ inputs:
   repox-url:
     description: URL for Repox
     default: https://repox.jfrog.io
-  repox-artifactory-url:
-    description: URL for Repox Artifactory API (overrides repox-url/artifactory if provided)
-    default: ''
   cache-paths:
     description: Cache paths to use (multiline).
     default: ~/.cache/pip
@@ -76,6 +73,7 @@ runs:
     - uses: SonarSource/vault-action-wrapper@0a3114fe1230b784c35b53b099f9ab1f1e538cc7 # 3.5.0
       id: secrets
       with:
+        url: ${{ contains(inputs.repox-url, 'dev.sonar.build') && 'https://vault.dev.sonar.build' || 'https://vault.sonar.build' }}
         secrets: |
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
@@ -84,9 +82,7 @@ runs:
       id: config
       shell: bash
       env:
-        # Use custom Artifactory URL if provided, otherwise construct from repox-url
-        ARTIFACTORY_URL: ${{ inputs.repox-artifactory-url != '' && inputs.repox-artifactory-url ||
-          format('{0}/artifactory', inputs.repox-url) }}
+        ARTIFACTORY_URL: ${{ format('{0}/artifactory', inputs.repox-url) }}
         ARTIFACTORY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME }}
         ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
       run: $ACTION_PATH_CONFIG_PIP/config.sh

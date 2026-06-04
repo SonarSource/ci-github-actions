@@ -1,5 +1,5 @@
 /**
- * Authenticate repox.jfrog.io repositories with Bearer scheme
+ * Authenticate Repox repositories with Bearer scheme
  * and remove all other Maven repositories (e.g., Maven Central)
  *
  * Credentials can be set by using one of these options:
@@ -82,8 +82,8 @@ allprojects {
 
 class RepoxAuth {
     companion object {
-        const val host = "repox.jfrog.io"
         val artifactoryUrl = System.getenv("ARTIFACTORY_URL") ?: "https://repox.jfrog.io/artifactory"
+        val host = java.net.URI(artifactoryUrl).host
         val sonarsourceRepositoryUrl =
             RepoxAuth.artifactoryUrl.trimEnd('/') + "/" + (System.getenv("SONARSOURCE_REPOSITORY") ?: "sonarsource")
         const val authType = "header"

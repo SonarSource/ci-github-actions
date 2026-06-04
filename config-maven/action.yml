@@ -15,9 +15,6 @@ inputs:
   repox-url:
     description: URL for Repox
     default: https://repox.jfrog.io
-  repox-artifactory-url:
-    description: URL for Repox Artifactory API (overrides repox-url/artifactory if provided)
-    default: ''
   use-develocity:
     description: Whether to use Develocity for build tracking.
     default: 'false'
@@ -94,12 +91,18 @@ runs:
         echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
     - uses: SonarSource/vault-action-wrapper@0a3114fe1230b784c35b53b099f9ab1f1e538cc7 # 3.5.0
       if: steps.config-maven-completed.outputs.skip != 'true'
-      id: secrets
+      id: artifactory
       with:
+        url: ${{ contains(inputs.repox-url, 'dev.sonar.build') && 'https://vault.dev.sonar.build' || 'https://vault.sonar.build' }}
         secrets: |
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
-          ${{ inputs.use-develocity == 'true' && 'development/kv/data/develocity token | DEVELOCITY_TOKEN;' || '' }}
+    - uses: SonarSource/vault-action-wrapper@0a3114fe1230b784c35b53b099f9ab1f1e538cc7 # 3.5.0
+      if: steps.config-maven-completed.outputs.skip != 'true' && inputs.use-develocity == 'true'
+      id: secrets
+      with:
+        secrets: |
+          development/kv/data/develocity token | DEVELOCITY_TOKEN;
 
     - name: Extract Develocity hostname
       id: develocity-hostname
@@ -113,10 +116,11 @@ runs:
       if: steps.config-maven-completed.outputs.skip != 'true'
       shell: bash
       env:
-        ARTIFACTORY_URL: ${{ inputs.repox-artifactory-url != '' && inputs.repox-artifactory-url ||
-          format('{0}/artifactory', inputs.repox-url) }}
-        ARTIFACTORY_USERNAME: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME || '' }}
-        ARTIFACTORY_ACCESS_TOKEN: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN || '' }}
+        ARTIFACTORY_URL: ${{ format('{0}/artifactory', inputs.repox-url) }}
+        # yamllint disable rule:line-length
+        ARTIFACTORY_USERNAME: ${{ steps.artifactory.outputs.vault && fromJSON(steps.artifactory.outputs.vault).ARTIFACTORY_USERNAME || '' }}
+        ARTIFACTORY_ACCESS_TOKEN: ${{ steps.artifactory.outputs.vault && fromJSON(steps.artifactory.outputs.vault).ARTIFACTORY_ACCESS_TOKEN || '' }}
+        # yamllint enable rule:line-length
         DEVELOCITY_TOKEN: ${{ inputs.use-develocity == 'true' && steps.secrets.outputs.vault &&
           fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN || '' }}
       run: |
