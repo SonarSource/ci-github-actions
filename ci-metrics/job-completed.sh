@@ -5,9 +5,7 @@
 # metrics table to $GITHUB_STEP_SUMMARY.
 # Fail-open: any error → exit 0 without breaking the job.
 #
-# Feature flag (presence-only file written by job-started.sh; may also be touched/removed by GitHub actions (i.e. gh-action_cache) to honour
-# a workflow-env override:
-#   ${CI_METRICS_DIR}/enabled  no-op early exit unless this file exists
+# Feature flag: CI_METRICS_ENABLED=true written to $GITHUB_ENV by job-started.sh; no-op early exit unless this env var is true.
 #
 # Env overrides (used by tests; do not set in production):
 #   CI_METRICS_CGROUP_ROOT     default /sys/fs/cgroup (mount root)
@@ -35,14 +33,12 @@ log() {
 }
 
 # ---------- Feature flag ----------
-gate_file="${CI_METRICS_DIR:-/tmp/ci-metrics}/enabled"
-if [[ -e "$gate_file" ]]; then
-    log "collecting metrics (gate: ${gate_file} present)"
+if [[ "${CI_METRICS_ENABLED:-false}" == "true" ]]; then
+    log "collecting metrics (CI_METRICS_ENABLED=true)"
 else
-    log "skipped: ${gate_file} is absent"
+    log "skipped: CI_METRICS_ENABLED is not true (value: ${CI_METRICS_ENABLED:-<unset>})"
     exit 0
 fi
-unset gate_file
 
 # ---------- Paths ----------
 CGROUP_ROOT="${CI_METRICS_CGROUP_ROOT:-/sys/fs/cgroup}"
