@@ -155,6 +155,7 @@ runs:
           if grep -q "^${key}=" "$WRAPPER_PROPS"; then
             sed -i.bak "s/^${key}=.*/${key}=${value}/" "$WRAPPER_PROPS"
           else
+            [[ -s "$WRAPPER_PROPS" && -n "$(tail -c1 "$WRAPPER_PROPS")" ]] && echo >> "$WRAPPER_PROPS"
             echo "${key}=${value}" >> "$WRAPPER_PROPS"
           fi
         }
