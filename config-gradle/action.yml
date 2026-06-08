@@ -139,6 +139,31 @@ runs:
           echo "DEVELOCITY_ACCESS_KEY=${{ steps.develocity-hostname.outputs.hostname }}=$DEVELOCITY_TOKEN" >> "$GITHUB_ENV"
         fi
 
+    - name: Configure Gradle wrapper download resilience
+      if: steps.config-gradle-completed.outputs.skip != 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        WRAPPER_PROPS="gradle/wrapper/gradle-wrapper.properties"
+        if [[ ! -f "$WRAPPER_PROPS" ]]; then
+          echo "No ${WRAPPER_PROPS} found, skipping wrapper resilience config"
+          exit 0
+        fi
+
+        update_prop() {
+          local key="$1" value="$2"
+          if grep -q "^${key}=" "$WRAPPER_PROPS"; then
+            sed -i.bak "s/^${key}=.*/${key}=${value}/" "$WRAPPER_PROPS"
+          else
+            echo "${key}=${value}" >> "$WRAPPER_PROPS"
+          fi
+        }
+
+        update_prop networkTimeout 60000
+        update_prop retries 3
+        update_prop retryBackOffMs 1000
+        rm -f "${WRAPPER_PROPS}.bak"
+
     - name: Configure Gradle
       if: steps.config-gradle-completed.outputs.skip != 'true'
       uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
