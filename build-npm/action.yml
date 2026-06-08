@@ -238,3 +238,10 @@ runs:
           echo "🐸 [Browse build \`${build_name}:${BUILD_NUMBER}\` in Artifactory](${ARTIFACTORY_BROWSE_URL})" >> $GITHUB_STEP_SUMMARY
           "$ACTION_PATH_BUILD_NPM/../shared/generate-jfrog-summary.sh" repox
         fi
+
+    - name: Clean up local action symlinks
+      if: always()
+      shell: bash
+      run: |
+        rm -f .actions/get-build-number .actions/config-npm .actions/shared
+        rmdir .actions 2>/dev/null || true

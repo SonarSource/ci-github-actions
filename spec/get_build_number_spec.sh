@@ -2,7 +2,9 @@
 eval "$(shellspec - -c) exit 1"
 
 export GITHUB_REPOSITORY="my org/my-repo"
-CACHE_FILE="build_number.txt"
+export RUNNER_TEMP="${SHELLSPEC_TMPBASE:-/tmp}"
+export BUILD_NUMBER_FILE="${RUNNER_TEMP}/build_number.txt"
+CACHE_FILE="${BUILD_NUMBER_FILE}"
 
 Mock gh
     echo "gh $*"

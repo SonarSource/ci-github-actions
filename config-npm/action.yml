@@ -161,3 +161,10 @@ runs:
       if: steps.config-npm-completed.outputs.skip != 'true'
       shell: bash
       run: echo "CONFIG_NPM_COMPLETED=$GITHUB_ACTION" >> "$GITHUB_ENV"
+
+    - name: Clean up local action symlinks
+      if: always() && steps.config-npm-completed.outputs.skip != 'true'
+      shell: bash
+      run: |
+        rm -f .actions/get-build-number .actions/shared
+        rmdir .actions 2>/dev/null || true
