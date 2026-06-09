@@ -5,7 +5,7 @@ set -euo pipefail
 
 : "${GITHUB_REPOSITORY:?}"
 GH_API_VERSION_HEADER="X-GitHub-Api-Version: 2022-11-28"
-CACHE_FILE="build_number.txt"
+CACHE_FILE="${BUILD_NUMBER_FILE:-${RUNNER_TEMP}/build_number.txt}"
 
 echo "Fetching build number from repository properties..."
 PROPERTIES_API_URL="repos/${GITHUB_REPOSITORY}/properties/values"

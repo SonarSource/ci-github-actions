@@ -29,6 +29,7 @@ runs:
         fi
         echo "ACTION_PATH_GET_BUILD_NUMBER=$ACTION_PATH_GET_BUILD_NUMBER"
         echo "ACTION_PATH_GET_BUILD_NUMBER=$ACTION_PATH_GET_BUILD_NUMBER" >> "$GITHUB_ENV"
+        echo "BUILD_NUMBER_FILE=${RUNNER_TEMP}/build_number.txt" >> "$GITHUB_ENV"
         echo "::endgroup::"
 
     # Reuse build number from environment if provided (e.g. from a parent workflow)
@@ -38,7 +39,7 @@ runs:
       shell: bash
       run: |
         echo "BUILD_NUMBER ${BUILD_NUMBER} provided from environment, skipping both increment and save to cache."
-        echo "${BUILD_NUMBER}" > build_number.txt
+        echo "${BUILD_NUMBER}" > "$BUILD_NUMBER_FILE"
         echo "skip=true" >> $GITHUB_OUTPUT
 
     # Reuse current build number in case of rerun
@@ -47,7 +48,7 @@ runs:
       uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       id: current-build-number
       with:
-        path: build_number.txt
+        path: ${{ env.BUILD_NUMBER_FILE }}
         key: build-number-${{ github.run_id }}
         enableCrossOsArchive: true
 
@@ -69,7 +70,7 @@ runs:
       id: export
       shell: bash
       run: |
-        BUILD_NUMBER=$(cat build_number.txt)
+        BUILD_NUMBER=$(cat "$BUILD_NUMBER_FILE")
         echo "BUILD_NUMBER: ${BUILD_NUMBER}"
         echo "BUILD_NUMBER=${BUILD_NUMBER}" >> "$GITHUB_ENV"
         echo "BUILD_NUMBER=${BUILD_NUMBER}" >> "$GITHUB_OUTPUT"
@@ -78,6 +79,6 @@ runs:
       uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       if: steps.from-env.outputs.skip != 'true' && steps.current-build-number.outputs.cache-hit != 'true'
       with:
-        path: build_number.txt
+        path: ${{ env.BUILD_NUMBER_FILE }}
         key: build-number-${{ github.run_id }}
         enableCrossOsArchive: true

@@ -100,7 +100,7 @@ Describe 'set_build_env()'
     The line 1 should include "Configuring JFrog and NPM repositories"
     The line 2 should equal "jf config add repox --url https://repox.jfrog.io --artifactory-url https://repox.jfrog.io/artifactory --access-token reader-token"
     The line 3 should equal "jf config use repox"
-    The line 4 should equal "jf npm-config --repo-resolve npm"
+    The line 4 should equal "jf npm-config --global --repo-resolve npm"
   End
 End
 
