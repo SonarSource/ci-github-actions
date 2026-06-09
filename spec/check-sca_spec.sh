@@ -442,3 +442,94 @@ Describe 'main() timeout'
     The contents of file "$GITHUB_OUTPUT" should include "sca-verified=false"
   End
 End
+
+Describe 'main() timeout diagnosis'
+  # One poll round (timeout 1s, interval 1s) then time out, so the diagnosis
+  # reflects what the probes observed.
+  BeforeEach 'setup_main'
+  AfterEach 'teardown_main'
+
+  Describe 'when the project is found but has no SCA data (HTTP 200, empty measures)'
+    Mock curl
+      printf '{"component":{"measures":[]}}\n200'
+    End
+
+    It 'reports that the project was found but no SCA data was published'
+      export PROJECT_KEY_INPUT="my-project"
+      export GITHUB_REPOSITORY="SonarSource/diag-test"
+      export POLL_TIMEOUT="1"
+      export POLL_INTERVAL="1"
+      When run script check-sca/check-sca.sh
+      The status should be failure
+      The stderr should include "::error title=SCA check timeout"
+      The stderr should include "project found but no SCA data"
+      The output should include "Diagnosis:"
+      The output should include "my-project"
+      The contents of file "$GITHUB_OUTPUT" should include "sca-verified=false"
+    End
+  End
+
+  Describe 'when no matching project is found (HTTP 404)'
+    Mock curl
+      printf '{"errors":[{"msg":"Component not found"}]}\n404'
+    End
+
+    It 'reports a missing project and points to the project-key config'
+      export PROJECT_KEY_INPUT="wrong-key"
+      export GITHUB_REPOSITORY="SonarSource/diag-test"
+      export POLL_TIMEOUT="1"
+      export POLL_INTERVAL="1"
+      When run script check-sca/check-sca.sh
+      The status should be failure
+      The stderr should include "no matching SonarQube project was found"
+      The output should include "repo-metadata.yaml"
+      The output should include "wrong-key"
+      The contents of file "$GITHUB_OUTPUT" should include "sca-verified=false"
+    End
+  End
+
+  Describe 'when the API is unreachable or errors (HTTP 5xx)'
+    Mock curl
+      printf '{"errors":[{"msg":"server error"}]}\n500'
+    End
+
+    It 'reports that the SonarQube API was unreachable or returned errors'
+      export PROJECT_KEY_INPUT="my-project"
+      export GITHUB_REPOSITORY="SonarSource/diag-test"
+      export POLL_TIMEOUT="1"
+      export POLL_INTERVAL="1"
+      When run script check-sca/check-sca.sh
+      The status should be failure
+      The stderr should include "API was unreachable or returned errors"
+      The output should include "Diagnosis:"
+      The contents of file "$GITHUB_OUTPUT" should include "sca-verified=false"
+    End
+  End
+
+  Describe 'when only the hosting platform errors (API_ERROR mixed with routine 404s)'
+    # A project lives on one platform: the hosting platform (next) errors with a
+    # 5xx while the other two return their routine 404 (NOT_FOUND). The real error
+    # must not be masked by that expected 404 noise.
+    Mock curl
+      for arg; do :; done
+      if echo "$arg" | grep -q 'next.sonarqube.com'; then
+        printf '{"errors":[{"msg":"server error"}]}\n503'
+      else
+        printf '{"errors":[{"msg":"Component not found"}]}\n404'
+      fi
+    End
+
+    It 'surfaces the API error rather than "no matching project"'
+      export PROJECT_KEY_INPUT="my-project"
+      export GITHUB_REPOSITORY="SonarSource/diag-test"
+      export POLL_TIMEOUT="1"
+      export POLL_INTERVAL="1"
+      When run script check-sca/check-sca.sh
+      The status should be failure
+      The stderr should include "API was unreachable or returned errors"
+      The stderr should not include "no matching SonarQube project"
+      The output should include "Diagnosis:"
+      The contents of file "$GITHUB_OUTPUT" should include "sca-verified=false"
+    End
+  End
+End
