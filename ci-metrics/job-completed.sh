@@ -404,12 +404,12 @@ if [[ "$cache_json" != "[]" ]] && command -v jq >/dev/null 2>&1; then
         | .[]
         | [
             (.key // ""),
-            (if ."cache-hit" == true then "true" else "false" end),
-            (."restore-key-hit" // ""),
+            (if .cache_hit == true then "true" else "false" end),
+            (.restore_key_hit // ""),
             (.backend // "unknown"),
-            (if (."size-bytes-restored"|type) == "number" then (."size-bytes-restored"|tostring) else "" end),
+            (if (.size_bytes_restored|type) == "number" then (.size_bytes_restored|tostring) else "" end),
             (if .saved == true then "true" elif .saved == false then "false" else "" end),
-            (if (."size-bytes-at-end"|type) == "number" then (."size-bytes-at-end"|tostring) else "" end)
+            (if (.size_bytes_at_end|type) == "number" then (.size_bytes_at_end|tostring) else "" end)
           ]
         | join("\u001f")
     ' 2>/dev/null) || cache_rows=""
