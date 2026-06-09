@@ -3,7 +3,8 @@
 #
 # Discovers project keys from config files, polls the SonarQube measures API
 # on all three instances (next, sqc-us, sqc-eu), and fails if SCA data is
-# missing after timeout.
+# missing after timeout. On timeout it reports an actionable diagnosis based on
+# what was observed (project not found, found-but-no-SCA-data, or API errors).
 #
 # Required environment variables:
 #   NEXT_URL, NEXT_TOKEN         - SonarQube Next credentials
@@ -182,8 +183,23 @@ discover_project_keys() {
   return 0
 }
 
+# Record a diagnostic observation from a probe so a timeout can be explained.
+# States, from least to most informative (see state_rank): NOT_FOUND < API_ERROR
+# < MEASURE_MISSING. Each probe drops a unique file under "<result_dir>/states";
+# main() folds them into the best state seen and tailors the timeout message.
+record_state() {
+  local result_dir="$1" state="$2"
+  local states_dir="${result_dir}/states"
+  mkdir -p "$states_dir" 2>/dev/null || return 0
+  local state_file
+  state_file=$(mktemp "${states_dir}/s.XXXXXX" 2>/dev/null) || return 0
+  printf '%s' "$state" > "$state_file"
+  return 0
+}
+
 # Check if the sca_count_any_issue metric exists for a project on a SonarQube instance.
-# Writes "platform_name:project_key" to result_file on success.
+# Writes "platform_name:project_key" to result_file on success. On failure, records a
+# diagnostic state (NOT_FOUND / MEASURE_MISSING / API_ERROR) for timeout reporting.
 # Args: url token project_key platform_name result_dir [qualifiers]
 #   qualifiers - optional extra query parameters (e.g. "&pullRequest=123")
 check_sca_metric() {
@@ -192,14 +208,22 @@ check_sca_metric() {
   local api_url="${url}/api/measures/component?component=${project_key}&metricKeys=sca_count_any_issue${qualifiers}"
 
   local response http_code body
+  # Network failure / unreachable host: the API never answered.
   response=$(curl -s --max-time 10 -w "\n%{http_code}" \
     -H "Authorization: Bearer ${token}" \
-    "${api_url}" 2>/dev/null) || return 1
+    "${api_url}" 2>/dev/null) || { record_state "$result_dir" "API_ERROR"; return 1; }
 
   http_code=$(echo "$response" | tail -1)
   body=$(echo "$response" | sed '$d')
 
   if [[ "$http_code" != "200" ]]; then
+    # 404 means the component/branch/PR isn't known to this platform (likely a
+    # wrong/absent project key); anything else (401/403/5xx) is an API error.
+    if [[ "$http_code" == "404" ]]; then
+      record_state "$result_dir" "NOT_FOUND"
+    else
+      record_state "$result_dir" "API_ERROR"
+    fi
     return 1
   fi
 
@@ -208,14 +232,70 @@ check_sca_metric() {
     .component.measures[]?
     | select(.metric == "sca_count_any_issue")
     | .value // empty
-  ' 2>/dev/null) || return 1
+  ' 2>/dev/null) || { record_state "$result_dir" "API_ERROR"; return 1; }
 
   if [[ -n "$metric_value" ]]; then
     echo "${platform_name}:${project_key}" > "${result_dir}/match"
     return 0
   fi
 
+  # HTTP 200 but no SCA measure: the project exists and was analyzed, but the SCA
+  # portion produced no data (SCA disabled, or analysis still running / failed).
+  record_state "$result_dir" "MEASURE_MISSING"
   return 1
+}
+
+# Numeric rank for a diagnostic state, so the most informative observation wins.
+# A project lives on a single platform, so the other two always answer 404
+# (NOT_FOUND); that 404 is routine noise and must rank below a genuine API_ERROR
+# (auth/5xx/network) on the hosting platform. NOT_FOUND therefore only wins as the
+# final diagnosis when every probe 404s — i.e. the key truly exists nowhere.
+state_rank() {
+  local state="$1"
+  case "$state" in
+    MEASURE_MISSING) echo 3 ;; # a platform has the project but no SCA data
+    API_ERROR) echo 2 ;;       # could not determine existence (auth/5xx/network)
+    NOT_FOUND) echo 1 ;;       # expected 404 from non-hosting platforms
+    *) echo 0 ;;               # NONE / unknown
+  esac
+}
+
+# Return whichever of two states is more informative.
+higher_state() {
+  local current="$1" candidate="$2"
+  if (( $(state_rank "$current") >= $(state_rank "$candidate") )); then
+    echo "$current"
+  else
+    echo "$candidate"
+  fi
+}
+
+# Emit an actionable error explaining *why* the poll timed out, based on the best
+# state observed across all probes. Keeps the "SCA check timeout" annotation title
+# so existing alerting/grouping continues to work.
+report_timeout() {
+  local state="$1" keys_csv="$2"
+  local msg detail
+  case "$state" in
+    MEASURE_MISSING)
+      msg="Timed out after ${POLL_TIMEOUT}s — SonarQube project found but no SCA data was published"
+      detail="The project exists and was analyzed, but no 'sca_count_any_issue' measure was produced. SCA may be disabled for this project, or the SCA analysis is still running or failed. Check the SonarQube SCA analysis for project key(s): ${keys_csv}."
+      ;;
+    NOT_FOUND)
+      msg="Timed out after ${POLL_TIMEOUT}s — no matching SonarQube project was found"
+      detail="None of the discovered project key(s) (${keys_csv}) were found on any platform (next, sqc-us, sqc-eu). Verify the project key — set 'check-sca.project-key' in .github/repo-metadata.yaml — and confirm the project exists and has been analyzed at least once."
+      ;;
+    API_ERROR)
+      msg="Timed out after ${POLL_TIMEOUT}s — the SonarQube API was unreachable or returned errors"
+      detail="Every request to the SonarQube measures API failed (network error, authentication failure, or 5xx). Check Vault/token access and SonarQube availability, then re-run."
+      ;;
+    *)
+      msg="Timed out after ${POLL_TIMEOUT}s waiting for SCA data"
+      detail="No response was observed from the SonarQube measures API within the timeout. If this repository's SCA analysis is legitimately slow, raise the 'poll-timeout' input; otherwise verify the project key(s) (${keys_csv}) and that SCA is enabled."
+      ;;
+  esac
+  echo "::error title=SCA check timeout::${msg}" >&2
+  echo "Diagnosis: ${detail}"
 }
 
 main() {
@@ -238,10 +318,15 @@ main() {
   done
   echo "$ENDGROUP"
 
+  # Comma-separated key list for diagnostic messages.
+  local keys_csv
+  keys_csv=$(IFS=,; echo "${project_keys[*]}")
+
   echo "::group::Poll for SCA data"
   local start_time
   start_time=$(date +%s)
   local attempt=0
+  local best_state="NONE"
   local result_dir
   result_dir=$(mktemp -d)
 
@@ -250,7 +335,7 @@ main() {
     local elapsed=$(( $(date +%s) - start_time ))
 
     if [[ $elapsed -ge $POLL_TIMEOUT ]]; then
-      echo "::error title=SCA check timeout::Timed out after ${POLL_TIMEOUT}s waiting for SCA data" >&2
+      report_timeout "$best_state" "$keys_csv"
       echo "$ENDGROUP"
       echo "sca-verified=false" >> "$GITHUB_OUTPUT"
       rm -rf "$result_dir"
@@ -259,8 +344,9 @@ main() {
 
     echo "--- Poll attempt $attempt (${elapsed}s / ${POLL_TIMEOUT}s) ---"
 
-    # Run all checks in parallel
+    # Run all checks in parallel. Clear last round's match flag and diagnostic states.
     rm -f "${result_dir}/match"
+    rm -rf "${result_dir}/states"
     local pids=()
     for key in "${project_keys[@]}"; do
       for platform_def in "${PLATFORMS[@]}"; do
@@ -308,6 +394,17 @@ main() {
       } >> "$GITHUB_OUTPUT"
       rm -rf "$result_dir"
       exit 0
+    fi
+
+    # No match this round: fold the probes' observations into the best state so
+    # far, so a subsequent timeout can report the most informative reason.
+    if [[ -d "${result_dir}/states" ]]; then
+      local state_file observed
+      for state_file in "${result_dir}/states"/*; do
+        [[ -e "$state_file" ]] || continue
+        observed=$(cat "$state_file")
+        best_state=$(higher_state "$best_state" "$observed")
+      done
     fi
 
     echo "SCA data not yet available. Waiting ${POLL_INTERVAL}s..."
