@@ -18,6 +18,8 @@
 #   CI_METRICS_BASELINE_FILE   default /var/lib/ci-metrics/baseline.json (WarpBuild)
 #   CI_METRICS_NOW_EPOCH       default $(date +%s) -- for golden tests
 #   CI_METRICS_DIR             output dir, default /tmp/ci-metrics
+#   CI_METRICS_DISK_PATH       filesystem to report disk usage for, default ${GITHUB_WORKSPACE:-/}
+#   CI_METRICS_NPROC           override CPU count (no-quota denominator), default $(nproc)
 #   GITHUB_STEP_SUMMARY        default /dev/null (skip table emission)
 
 set -u
@@ -95,17 +97,6 @@ fmt_bytes() {
     fi
 }
 
-# Seconds → "Xm Ys" or "Xs".
-fmt_duration() {
-    local s=${1:-0}
-    local total_int=${s%.*}
-    if (( total_int >= 60 )); then
-        printf '%dm %ds' "$((total_int/60))" "$((total_int%60))"
-    else
-        printf '%.1fs' "$s"
-    fi
-}
-
 # Round a float to 2dp/3dp safely.
 # shellcheck disable=SC2317  # all helpers below are called via command substitution
 round2() { awk -v v="${1:-0}" 'BEGIN{printf "%.2f", v}'; }
@@ -156,6 +147,11 @@ else
     cpu_limit_cores=$(awk -v q="$cpu_quota" -v p="$cpu_period" \
         'BEGIN{ if (p+0>0) printf "%.3f", q/p; }')
 fi
+
+# Online CPU count — the denominator for utilisation when there is no cgroup quota
+# (the common case for our runners). Overridable for deterministic tests.
+cpu_online_count="${CI_METRICS_NPROC:-$(nproc 2>/dev/null || true)}"
+[[ "$cpu_online_count" =~ ^[0-9]+$ ]] || cpu_online_count=""
 
 # Derived CPU metrics.
 # usage_seconds / throttled_seconds depend only on the raw counter being present. Rate / utilization additionally need a non-zero duration.
@@ -216,6 +212,13 @@ else
     memory_peak_utilization=""
 fi
 
+# OOM accounting from memory.events. `oom` = times the cgroup hit its limit and
+# entered reclaim/OOM; `oom_kill` = processes actually killed. Either being >0 is
+# the explanation for a job that died with no other signal, so it is surfaced.
+memory_events_file="$CGROUP_LEAF/memory.events"
+memory_oom=$(cg_field "$memory_events_file" oom)
+memory_oom_kill=$(cg_field "$memory_events_file" oom_kill)
+
 # ---------- /proc/net/dev ----------
 declare -A net_rx net_tx
 net_rx_total=0
@@ -260,6 +263,36 @@ if [[ -r "$BASELINE_FILE" ]]; then
     fi
 fi
 
+# ---------- Disk ----------
+# Point-in-time filesystem usage at job end for the workspace mount. cgroup v2 has
+# no per-job disk-space counter, so this is the runner-wide fs that holds the
+# checkout/build artifacts — the thing that triggers "no space left on device".
+# `df -kP` gives portable 1K-block output: cols 2/3/4 = total/used/available KiB.
+disk_path="${CI_METRICS_DISK_PATH:-${GITHUB_WORKSPACE:-/}}"
+disk_total_bytes=""
+disk_used_bytes=""
+disk_avail_bytes=""
+disk_utilization=""
+if df_line=$(df -kP "$disk_path" 2>/dev/null | awk 'NR==2{print $2, $3, $4}'); then
+    read -r df_total_k df_used_k df_avail_k <<<"$df_line"
+    if [[ "$df_total_k" =~ ^[0-9]+$ && "$df_used_k" =~ ^[0-9]+$ && "$df_avail_k" =~ ^[0-9]+$ ]]; then
+        disk_total_bytes=$(( df_total_k * 1024 ))
+        disk_used_bytes=$(( df_used_k * 1024 ))
+        disk_avail_bytes=$(( df_avail_k * 1024 ))
+        if (( disk_used_bytes + disk_avail_bytes > 0 )); then
+            disk_utilization=$(awk -v u="$disk_used_bytes" -v a="$disk_avail_bytes" \
+                'BEGIN{ printf "%.4f", u/(u+a) }')
+        fi
+    fi
+fi
+# Only emit the path in JSON if it is a plain, JSON-safe string (no quotes/control
+# chars). Otherwise null it to avoid corrupting the document.
+if [[ ! "$disk_path" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+    disk_path_json="null"
+else
+    disk_path_json="\"$disk_path\""
+fi
+
 # ---------- JSON assembly ----------
 json_by_interface=""
 sep=""
@@ -269,7 +302,7 @@ for iface in "${!net_rx[@]}"; do
 done
 
 job_metrics_json=$(cat <<EOF
-{"schema_version":1,"captured_at":"$captured_at","duration_seconds":$(num "$duration_seconds"),"cgroup":{"version":2,"cpu":{"usage_seconds":$(num "$cpu_usage_seconds"),"throttled_seconds":$(num "$cpu_throttled_seconds"),"nr_throttled":$(num "$cpu_nr_throttled"),"limit_cores":$(num "$cpu_limit_cores"),"avg_utilization":$(num "$cpu_avg_utilization"),"throttle_rate":$(num "$cpu_throttle_rate"),"pressure_some_avg10":$(num "$pressure_some_avg10"),"pressure_some_avg60":$(num "$pressure_some_avg60"),"pressure_some_avg300":$(num "$pressure_some_avg300")},"memory":{"peak_bytes":$(num "$memory_peak_bytes"),"limit_bytes":$(num "$memory_limit_bytes"),"peak_utilization":$(num "$memory_peak_utilization")}},"net":{"rx_bytes":${net_rx_total},"tx_bytes":${net_tx_total},"by_interface":{${json_by_interface}}}}
+{"schema_version":2,"captured_at":"$captured_at","duration_seconds":$(num "$duration_seconds"),"cgroup":{"version":2,"cpu":{"usage_seconds":$(num "$cpu_usage_seconds"),"throttled_seconds":$(num "$cpu_throttled_seconds"),"nr_throttled":$(num "$cpu_nr_throttled"),"limit_cores":$(num "$cpu_limit_cores"),"online_count":$(num "$cpu_online_count"),"avg_utilization":$(num "$cpu_avg_utilization"),"throttle_rate":$(num "$cpu_throttle_rate"),"pressure_some_avg10":$(num "$pressure_some_avg10"),"pressure_some_avg60":$(num "$pressure_some_avg60"),"pressure_some_avg300":$(num "$pressure_some_avg300")},"memory":{"peak_bytes":$(num "$memory_peak_bytes"),"limit_bytes":$(num "$memory_limit_bytes"),"peak_utilization":$(num "$memory_peak_utilization"),"oom":$(num "$memory_oom"),"oom_kill":$(num "$memory_oom_kill")}},"net":{"rx_bytes":${net_rx_total},"tx_bytes":${net_tx_total},"by_interface":{${json_by_interface}}},"disk":{"path":${disk_path_json},"total_bytes":$(num "$disk_total_bytes"),"used_bytes":$(num "$disk_used_bytes"),"available_bytes":$(num "$disk_avail_bytes"),"utilization":$(num "$disk_utilization")}}
 EOF
 )
 
@@ -320,43 +353,29 @@ printf '%s\n' "$job_metrics_json"
 summary_target="${GITHUB_STEP_SUMMARY:-/dev/null}"
 
 # Pretty values
-v_duration=$(fmt_duration "$duration_seconds")
 
-if [[ -n "$cpu_usage_seconds" ]]; then
-    v_cpu_usage="${cpu_usage_seconds} CPU-s"
-else
-    v_cpu_usage="n/a"
-fi
-
-if [[ -n "$cpu_avg_utilization" && -n "$cpu_limit_cores" ]]; then
-    avg_cores=$(awk -v u="$cpu_avg_utilization" -v c="$cpu_limit_cores" \
-        'BEGIN{printf "%.2f", u*c}')
-    v_cpu_avg="${avg_cores} cores ($(pct0 "$cpu_avg_utilization")% of $(round2 "$cpu_limit_cores") allocated)"
-elif [[ -n "$cpu_usage_seconds" && -n "$duration_seconds" ]]; then
-    avg_cores=$(awk -v u="$cpu_usage_seconds" -v d="$duration_seconds" \
+# CPU avg: mean cores used over the job, shown against the cores available so the number
+# is actionable for right-sizing. Denominator is the cgroup quota when one is set,
+# otherwise the online CPU count. Falls back to bare cores, then n/a.
+cpu_avg_cores=""
+if [[ -n "$cpu_usage_seconds" && -n "$duration_seconds" ]]; then
+    cpu_avg_cores=$(awk -v u="$cpu_usage_seconds" -v d="$duration_seconds" \
         'BEGIN{ if (d>0) printf "%.2f", u/d }')
-    if [[ -n "$avg_cores" ]]; then
-        v_cpu_avg="${avg_cores} cores (no limit)"
-    else
-        v_cpu_avg="n/a"
-    fi
+fi
+if [[ -n "$cpu_avg_cores" && -n "$cpu_limit_cores" && -n "$cpu_avg_utilization" ]]; then
+    v_cpu_avg="${cpu_avg_cores} / $(round2 "$cpu_limit_cores") cores ($(pct0 "$cpu_avg_utilization")%)"
+elif [[ -n "$cpu_avg_cores" && -n "$cpu_online_count" ]] \
+     && (( cpu_online_count > 0 )); then
+    cpu_avg_pct=$(awk -v c="$cpu_avg_cores" -v n="$cpu_online_count" \
+        'BEGIN{ printf "%.0f", (c/n)*100 }')
+    v_cpu_avg="${cpu_avg_cores} / ${cpu_online_count} cores (${cpu_avg_pct}%)"
+elif [[ -n "$cpu_avg_cores" ]]; then
+    v_cpu_avg="${cpu_avg_cores} cores"
 else
     v_cpu_avg="n/a"
 fi
 
-if [[ -n "$cpu_throttled_seconds" ]]; then
-    if [[ -n "$cpu_throttle_rate" ]]; then
-        v_cpu_throttled="${cpu_throttled_seconds}s ($(pct1 "$cpu_throttle_rate")%, ${cpu_nr_throttled:-0} events)"
-    else
-        v_cpu_throttled="${cpu_throttled_seconds}s (${cpu_nr_throttled:-0} events)"
-    fi
-else
-    v_cpu_throttled="n/a"
-fi
-
-v_pressure="${pressure_some_avg60:-n/a}"
-[[ "$v_pressure" != "n/a" ]] && v_pressure="${v_pressure}%"
-
+# Memory peak: high-water mark vs limit.
 if [[ -n "$memory_peak_bytes" ]]; then
     if [[ -n "$memory_limit_bytes" && -n "$memory_peak_utilization" ]]; then
         # Reuse the ratio already computed for JSON to keep the two outputs in sync.
@@ -368,21 +387,46 @@ else
     v_mem="n/a"
 fi
 
-v_net_rx=$(fmt_bytes "$net_rx_total")
-v_net_tx=$(fmt_bytes "$net_tx_total")
+# Disk: point-in-time fs usage at job end (used / total).
+if [[ -n "$disk_used_bytes" && -n "$disk_total_bytes" && -n "$disk_utilization" ]]; then
+    v_disk="$(fmt_bytes "$disk_used_bytes") / $(fmt_bytes "$disk_total_bytes") ($(pct0 "$disk_utilization")%)"
+else
+    v_disk="n/a"
+fi
+
+# Network total: cumulative bytes over the job, both directions on one row.
+v_net="$(fmt_bytes "$net_rx_total") ↓ / $(fmt_bytes "$net_tx_total") ↑"
+
+# CPU throttled (conditional): only meaningful when a CPU quota exists and throttling
+# actually occurred. On our no-limit runners this is always absent.
+show_throttled=0
+if [[ -n "$cpu_limit_cores" && -n "$cpu_throttled_seconds" ]] \
+   && awk -v t="$cpu_throttled_seconds" 'BEGIN{exit !(t+0>0)}'; then
+    show_throttled=1
+    if [[ -n "$cpu_throttle_rate" ]]; then
+        v_cpu_throttled="${cpu_throttled_seconds}s ($(pct1 "$cpu_throttle_rate")%, ${cpu_nr_throttled:-0} events)"
+    else
+        v_cpu_throttled="${cpu_throttled_seconds}s (${cpu_nr_throttled:-0} events)"
+    fi
+fi
+
+# OOM kills (conditional): only shown when the cgroup recorded a kill. This is the
+# explanation for an otherwise-silent job failure.
+show_oom=0
+if [[ "$memory_oom_kill" =~ ^[0-9]+$ ]] && (( memory_oom_kill > 0 )); then
+    show_oom=1
+fi
 
 {
     printf '## CI Metrics\n'
     printf '| Metric | Value |\n'
     printf '|---|---|\n'
-    printf '| Duration | %s |\n' "$v_duration"
-    printf '| CPU usage | %s |\n' "$v_cpu_usage"
-    printf '| CPU avg utilization | %s |\n' "$v_cpu_avg"
-    printf '| CPU throttled | %s |\n' "$v_cpu_throttled"
-    printf '| CPU pressure (some, 60s avg) | %s |\n' "$v_pressure"
+    printf '| CPU avg | %s |\n' "$v_cpu_avg"
     printf '| Memory peak | %s |\n' "$v_mem"
-    printf '| Network rx | %s |\n' "$v_net_rx"
-    printf '| Network tx | %s |\n' "$v_net_tx"
+    printf '| Disk | %s |\n' "$v_disk"
+    printf '| Network total | %s |\n' "$v_net"
+    (( show_throttled )) && printf '| CPU throttled | %s |\n' "$v_cpu_throttled"
+    (( show_oom ))       && printf '| OOM kills | %s |\n' "$memory_oom_kill"
 } >> "$summary_target" 2>/dev/null || true
 
 # ---------- Cache section ----------
