@@ -14,9 +14,6 @@ End
 # Minimal environment variables
 export GITHUB_ENV=/dev/null
 export ARTIFACTORY_URL="https://dummy.repox"
-export ARTIFACTORY_PYPI_REPO="<repox pypi repo>"
-export ARTIFACTORY_ACCESS_TOKEN="dummy access token"
-export ARTIFACTORY_USERNAME="dummy-user"
 export ARTIFACTORY_DEPLOY_REPO="<deploy repo>"
 export ARTIFACTORY_DEPLOY_ACCESS_TOKEN="<deploy token>"
 export GITHUB_REPOSITORY="my-org/my-repo"
@@ -70,7 +67,7 @@ Describe 'build-poetry/build.sh'
     export GITHUB_OUTPUT
     When run script build-poetry/build.sh
       The status should be success
-      The lines of stdout should equal 37
+      The lines of stdout should equal 34
       The line 1 should equal "::group::Check tools"
       The line 2 should include "jq"
       The line 3 should include "jq"
@@ -98,15 +95,13 @@ Describe 'build-poetry/build.sh'
       The line 25 should equal "======= Build other branch ======="
       The line 26 should equal "::group::Install dependencies"
       The line 27 should equal "Installing dependencies..."
-      The line 28 should equal "jf config add repox --url https://dummy.repox --artifactory-url https://dummy.repox --access-token dummy access token"
-      The line 29 should equal "jf config use repox"
-      The line 30 should equal "jf poetry-config --server-id-resolve repox --repo-resolve <repox pypi repo>"
-      The line 31 should equal "poetry install"
-      The line 32 should equal "::endgroup::"
-      The line 33 should equal "::group::Build project"
-      The line 35 should equal "poetry build"
-      The line 36 should equal "::endgroup::"
-      The line 37 should equal "=== Build completed successfully ==="
+      The line 28 should equal "poetry install"
+      The line 29 should equal "::endgroup::"
+      The line 30 should equal "::group::Build project"
+      The line 31 should equal "Building project..."
+      The line 32 should equal "poetry build"
+      The line 33 should equal "::endgroup::"
+      The line 34 should equal "=== Build completed successfully ==="
     End
 End
 
@@ -301,14 +296,11 @@ Describe 'set_project_version()'
   End
 End
 
-Describe 'jfrog_poetry_install()'
+Describe 'poetry_install_dependencies()'
   export PROJECT="my-repo"
-  It 'configures JFrog and installs with plain poetry install'
-    When call jfrog_poetry_install
-    The line 1 should include "jf config add repox"
-    The line 2 should include "jf config use repox"
-    The line 3 should include "jf poetry-config"
-    The line 4 should equal "poetry install"
+  It 'installs dependencies with plain poetry install'
+    When call poetry_install_dependencies
+    The line 1 should equal "poetry install"
   End
 End
 
@@ -333,7 +325,7 @@ Describe 'build_poetry()'
   End
   export PROJECT_VERSION="1.0.0.$BUILD_NUMBER"
   export PROJECT="my-repo"
-  Mock jfrog_poetry_install
+  Mock poetry_install_dependencies
   End
 
   It 'builds and publishes when on the default branch (main) and not a PR'

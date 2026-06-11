@@ -64,7 +64,7 @@ outputs:
     value: ${{ steps.build.outputs.project-version }}
   BUILD_NUMBER:
     description: The build number, incremented or reused if already cached
-    value: ${{ steps.get_build_number.outputs.BUILD_NUMBER }}
+    value: ${{ steps.config.outputs.BUILD_NUMBER }}
   deployed:
     description: Whether artifacts were deployed
     value: ${{ steps.build.outputs.deployed }}
@@ -87,6 +87,7 @@ runs:
 
         mkdir -p ".actions"
         ln -sf "$host_actions_root/get-build-number" .actions/get-build-number
+        ln -sf "$host_actions_root/config-poetry" .actions/config-poetry
         ln -sf "$host_actions_root/shared" .actions/shared
         ls -la .actions/*
         echo "::endgroup::"
@@ -103,29 +104,29 @@ runs:
         echo "ARTIFACTORY_DEPLOYER_ROLE=${ARTIFACTORY_DEPLOYER_ROLE}" >> "$GITHUB_ENV"
         cp "$ACTION_PATH_BUILD_POETRY/mise.local.toml" mise.local.toml
 
-    - uses: ./.actions/get-build-number
-      id: get_build_number
-      with:
-        host-actions-root: ${{ steps.set-path.outputs.host_actions_root }}
-    - name: Cache local Poetry cache
-      uses: SonarSource/gh-action_cache@0666e03d7b6480758214db522a3aac989d67b026 # v1.7.0
-      if: inputs.disable-caching == 'false'
-      with:
-        path: ${{ github.workspace }}/${{ inputs.poetry-cache-dir }}
-        key: poetry-${{ runner.os }}-${{ hashFiles('poetry.lock') }}
-        restore-keys: poetry-${{ runner.os }}-
     - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
       with:
         version: 2026.5.9
+
+    - uses: ./.actions/config-poetry
+      id: config
+      with:
+        host-actions-root: ${{ steps.set-path.outputs.host_actions_root }}
+        artifactory-reader-role: ${{ env.ARTIFACTORY_READER_ROLE }}
+        repox-url: ${{ inputs.repox-url }}
+        working-directory: ${{ inputs.working-directory }}
+        poetry-cache-dir: ${{ inputs.poetry-cache-dir }}
+        poetry-virtualenvs-path: ${{ inputs.poetry-virtualenvs-path }}
+        disable-caching: ${{ inputs.disable-caching }}
+
     - uses: SonarSource/vault-action-wrapper@0a3114fe1230b784c35b53b099f9ab1f1e538cc7 # 3.5.0
+      if: inputs.deploy != 'false' && inputs.run-shadow-scans != 'true'
       id: artifactory
       with:
         url: ${{ contains(inputs.repox-url, 'dev.sonar.build') && 'https://vault.dev.sonar.build' || 'https://vault.sonar.build' }}
         # yamllint disable rule:line-length
         secrets: |
-          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
-          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
-          ${{ inputs.deploy != 'false' && inputs.run-shadow-scans != 'true' && format('development/artifactory/token/{{REPO_OWNER_NAME_DASH}}-{0} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;', env.ARTIFACTORY_DEPLOYER_ROLE) || '' }}
+          ${{ format('development/artifactory/token/{{REPO_OWNER_NAME_DASH}}-{0} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;', env.ARTIFACTORY_DEPLOYER_ROLE) }}
         # yamllint enable rule:line-length
     - uses: SonarSource/vault-action-wrapper@0a3114fe1230b784c35b53b099f9ab1f1e538cc7 # 3.5.0
       id: secrets
@@ -152,12 +153,12 @@ runs:
         ARTIFACTORY_URL: ${{ format('{0}/artifactory', inputs.repox-url) }}
         DEPLOY: ${{ inputs.deploy }}
         DEPLOY_PULL_REQUEST: ${{ inputs.deploy-pull-request }}
-        ARTIFACTORY_PYPI_REPO: ${{ inputs.public == 'true' && 'sonarsource-pypi' || 'sonarsource-pypi' }} # FIXME: sonarsource-pypi-public
         ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo != '' && inputs.artifactory-deploy-repo ||
           github.event.repository.visibility == 'public' && 'sonarsource-pypi-public-qa' || 'sonarsource-pypi-private-qa' }}
-        ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.artifactory.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
-        ARTIFACTORY_USERNAME: ${{ fromJSON(steps.artifactory.outputs.vault).ARTIFACTORY_USERNAME }}
-        ARTIFACTORY_DEPLOY_ACCESS_TOKEN: ${{ fromJSON(steps.artifactory.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN }}
+        # yamllint disable rule:line-length
+        ARTIFACTORY_DEPLOY_ACCESS_TOKEN: ${{ steps.artifactory.outputs.vault &&
+          fromJSON(steps.artifactory.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN || '' }}
+        # yamllint enable rule:line-length
         POETRY_VIRTUALENVS_PATH: ${{ github.workspace }}/${{ inputs.poetry-virtualenvs-path }}
         POETRY_CACHE_DIR: ${{ github.workspace }}/${{ inputs.poetry-cache-dir }}
 
@@ -215,3 +216,10 @@ runs:
           echo "🐸 [Browse build \`${build_name}:${BUILD_NUMBER}\` in Artifactory](${ARTIFACTORY_BROWSE_URL})" >> $GITHUB_STEP_SUMMARY
           "$ACTION_PATH_BUILD_POETRY/../shared/generate-jfrog-summary.sh" repox
         fi
+
+    - name: Clean up local action symlinks
+      if: always()
+      shell: bash
+      run: |
+        rm -f .actions/get-build-number .actions/config-poetry .actions/shared
+        rmdir .actions 2>/dev/null || true

@@ -5,8 +5,6 @@
 # Required inputs (must be explicitly provided):
 # - BUILD_NUMBER: Build number for versioning
 # - ARTIFACTORY_URL: URL to Artifactory repository
-# - ARTIFACTORY_PYPI_REPO: Repository to install dependencies from
-# - ARTIFACTORY_ACCESS_TOKEN: Access token to read Repox repositories
 # - ARTIFACTORY_DEPLOY_REPO: Deployment repository name
 # - ARTIFACTORY_DEPLOY_ACCESS_TOKEN: Access token to deploy to the repository
 # - DEFAULT_BRANCH: Default branch name (e.g. main)
@@ -45,7 +43,7 @@ set -euo pipefail
 # shellcheck source=../shared/common-functions.sh
 source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 
-: "${ARTIFACTORY_URL:?}" "${ARTIFACTORY_PYPI_REPO:?}" "${ARTIFACTORY_ACCESS_TOKEN:?}" "${ARTIFACTORY_USERNAME:?}" "${RUN_SHADOW_SCANS:?}"
+: "${ARTIFACTORY_URL:?}" "${RUN_SHADOW_SCANS:?}"
 : "${ARTIFACTORY_DEPLOY_REPO:?}" "${DEPLOY_PULL_REQUEST:=false}"
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}" "${GITHUB_EVENT_PATH:?}"
 : "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}" "${GITHUB_ENV:?}" "${GITHUB_OUTPUT:?}" "${GITHUB_SHA:?}" "${GITHUB_RUN_ID:?}"
@@ -262,13 +260,7 @@ get_build_config() {
   export BUILD_SONAR_ARGS="${sonar_args[*]:-}"
 }
 
-jfrog_poetry_install() {
-  jf config remove repox > /dev/null 2>&1 || true # Ignore inexistent configuration
-  jf config add repox --url "${ARTIFACTORY_URL%/artifactory*}" --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_ACCESS_TOKEN"
-  jf config use repox
-  jf poetry-config --server-id-resolve repox --repo-resolve "$ARTIFACTORY_PYPI_REPO"
-  export POETRY_HTTP_BASIC_REPOX_USERNAME="$ARTIFACTORY_USERNAME"
-  export POETRY_HTTP_BASIC_REPOX_PASSWORD="$ARTIFACTORY_ACCESS_TOKEN"
+poetry_install_dependencies() {
   poetry install
 }
 
@@ -302,7 +294,7 @@ build_poetry() {
 
   echo "::group::Install dependencies"
   echo "Installing dependencies..."
-  jfrog_poetry_install
+  poetry_install_dependencies
   echo "::endgroup::"
 
   echo "::group::Build project"
