@@ -43,6 +43,25 @@ runs:
         ACTION_PATH_CHECK_SCA="${{ github.action_path }}"
         echo "ACTION_PATH_CHECK_SCA=$ACTION_PATH_CHECK_SCA" >> "$GITHUB_ENV"
 
+    - name: Build Manage Vault Policy link
+      id: vault-link
+      shell: bash
+      # yamllint disable rule:line-length
+      run: |
+        # Port self-service deep link with this repo prefilled. actionInputs uses
+        # Port's JSURL encoding; ignore_secrets=true pre-selects the auth-only fix
+        # (adds auth.github, no kv_paths); current_week mirrors the action's
+        # default_jq_query (now | strftime("%Y_%V")).
+        NAME="${GITHUB_REPOSITORY##*/}"
+        WEEK="$(date -u +%Y_%V)"
+        # jsurl-escape '_' -> '*_'; prefix '*' to force string for digit-led values
+        NAME_J="${NAME//_/*_}"; case "$NAME" in [0-9]*) NAME_J="*${NAME_J}" ;; esac
+        WEEK_J="*${WEEK//_/*_}"
+        INPUTS="(*StargetEntity~${NAME_J}~ignore*_secrets~_T~current*_week~${WEEK_J}~ref~master~use*_sandbox~_F)~"
+        INPUTS="${INPUTS//(/%28}"; INPUTS="${INPUTS//)/%29}"; INPUTS="${INPUTS//\~/%7E}"
+        echo "url=https://app.getport.io/org_FnpuoXpSHY1JC3yg/self-serve?action=manage_vault_policy&actionInputs=${INPUTS}" >> "$GITHUB_OUTPUT"
+      # yamllint enable rule:line-length
+
     - uses: SonarSource/vault-action-wrapper@0a3114fe1230b784c35b53b099f9ab1f1e538cc7 # 3.5.0
       id: secrets
       continue-on-error: true
@@ -59,20 +78,23 @@ runs:
       if: steps.secrets.outcome == 'failure'
       id: vault-fail
       shell: bash
+      env:
+        PORT: ${{ steps.vault-link.outputs.url }}
+        FAQ: https://xtranet-sonarsource.atlassian.net/wiki/spaces/Platform/pages/5136908364/SCA+Scanning+Checks#FAQ
       # yamllint disable rule:line-length
       run: |
         echo "sca-verified=false" >> "$GITHUB_OUTPUT"
-        SUMMARY="$GITHUB_STEP_SUMMARY"
-        echo "## SCA Verification" >> "$SUMMARY"
-        echo "SCA verification **FAILED** — this repository does not have Vault access to SonarQube credentials." >> "$SUMMARY"
-        echo "" >> "$SUMMARY"
-        echo "This means the repository cannot authenticate to SonarQube, so SCA is not running." >> "$SUMMARY"
-        DOCS="https://xtranet-sonarsource.atlassian.net/wiki/x/ooAenQ"
-        echo "To fix this, ensure the repository has a Vault role provisioned (see [Vault End-User docs]($DOCS))." >> "$SUMMARY"
-        echo "If this repository should be exempt from SCA checks, disable this workflow in the org ruleset." >> "$SUMMARY"
-        MSG="Vault authentication failed — this repo cannot access SonarQube credentials."
-        MSG="$MSG SCA is not running on this repository."
-        echo "::error title=SCA check failed::$MSG"
+        NAME="${GITHUB_REPOSITORY##*/}"
+        {
+          echo "## SCA check failed — Vault access missing"
+          echo ""
+          echo "\`${NAME}\` isn't allowed to read the SonarQube secrets from Vault, so the SCA scan never ran."
+          echo ""
+          echo "**Fix:** run the **[Manage Vault Policy SPEED action](${PORT})** to grant \`${NAME}\` access, then re-run this check."
+          echo ""
+          echo "ℹ️ [SCA Scanning Checks FAQ](${FAQ})"
+        } >> "$GITHUB_STEP_SUMMARY"
+        echo "::error title=SCA check failed — Vault access missing for ${NAME}::Run the Manage Vault Policy SPEED action to grant ${NAME} access to the SonarQube secrets, then re-run. Link in the job summary."
         exit 1
       # yamllint enable rule:line-length
 
@@ -101,10 +123,24 @@ runs:
         SCA_VERIFIED: ${{ steps.check.outputs.sca-verified }}
         SCA_PLATFORM: ${{ steps.check.outputs.platform }}
         SCA_PROJECT_KEY: ${{ steps.check.outputs.project-key }}
+        PORT: ${{ steps.vault-link.outputs.url }}
+        FAQ: https://xtranet-sonarsource.atlassian.net/wiki/spaces/Platform/pages/5136908364/SCA+Scanning+Checks#FAQ
+      # yamllint disable rule:line-length
       run: |
-        echo "## SCA Verification" >> "$GITHUB_STEP_SUMMARY"
-        if [[ "$SCA_VERIFIED" == "true" ]]; then
-          echo "SCA verified on **${SCA_PLATFORM}** for project \`${SCA_PROJECT_KEY}\`" >> "$GITHUB_STEP_SUMMARY"
-        else
-          echo "SCA verification **FAILED** - no SCA data found on any platform" >> "$GITHUB_STEP_SUMMARY"
-        fi
+        NAME="${GITHUB_REPOSITORY##*/}"
+        {
+          echo "## SCA Verification"
+          echo ""
+          if [[ "$SCA_VERIFIED" == "true" ]]; then
+            echo "SCA verified on **${SCA_PLATFORM}** for project \`${SCA_PROJECT_KEY}\`."
+          else
+            echo "SCA check failed — no SCA data could be read for \`${NAME}\`."
+            echo ""
+            echo "Most often the repo isn't allowed to read the SonarQube secrets from Vault. **Fix:** run the **[Manage Vault Policy SPEED action](${PORT})** to grant \`${NAME}\` access, then re-run."
+            echo ""
+            echo "If access is already set up, the project may not be analyzed yet or \`check-sca.project-key\` may not match — see the **Verify SCA ran** logs above."
+          fi
+          echo ""
+          echo "ℹ️ [SCA Scanning Checks FAQ](${FAQ})"
+        } >> "$GITHUB_STEP_SUMMARY"
+      # yamllint enable rule:line-length
