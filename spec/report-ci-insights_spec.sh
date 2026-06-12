@@ -178,4 +178,121 @@ Describe 'report-ci-insights/lib.sh'
       The output should equal ''
     End
   End
+
+  # Shared JSON fixtures for the rendering functions. Each is one schema_version 2
+  # job-metrics object. Records are built as "<name>\t<json>\n" lines, mirroring
+  # the aggregator input (the output of collect_job_metrics).
+  #
+  #   build : heavy CPU (40s/62s, limit 2.00 cores, util 0.32), 3.20 GiB peak mem,
+  #           1.0 GiB rx / 200 MiB tx, disk used, restored+saved cache, no flags.
+  #   test  : lighter (10s/62s, online_count 4, util null), 100 MB peak, 500 MB rx /
+  #           100 MB tx, disk used, OOM-killed (oom_kill 1), one cache hit.
+  #   lint  : tiny (2s/62s), no disk data (nulls), no cache, CPU-throttled (3.5s).
+  J_BUILD='{"schema_version":2,"captured_at":"t","duration_seconds":62.0,"cgroup":{"cpu":{"usage_seconds":40.0,"throttled_seconds":0.0,"nr_throttled":0,"limit_cores":2.0,"online_count":4,"avg_utilization":0.32,"throttle_rate":null,"pressure_some_avg10":null,"pressure_some_avg60":null,"pressure_some_avg300":null},"memory":{"peak_bytes":3435973836,"limit_bytes":4294967296,"peak_utilization":0.80,"oom":0,"oom_kill":0}},"net":{"rx_bytes":1073741824,"tx_bytes":209715200,"by_interface":{}},"disk":{"path":"/","total_bytes":32212254720,"used_bytes":6442450944,"available_bytes":null,"utilization":0.20},"cache":[{"key":"maven-abc","cache_hit":true,"restore_key_hit":null,"backend":"s3","size_bytes_restored":471859200,"saved":true,"size_bytes_at_end":492832000}]}'
+  J_TEST='{"schema_version":2,"captured_at":"t","duration_seconds":62.0,"cgroup":{"cpu":{"usage_seconds":10.0,"throttled_seconds":0.0,"nr_throttled":0,"limit_cores":null,"online_count":4,"avg_utilization":null,"throttle_rate":null,"pressure_some_avg10":null,"pressure_some_avg60":null,"pressure_some_avg300":null},"memory":{"peak_bytes":104857600,"limit_bytes":4294967296,"peak_utilization":0.02,"oom":0,"oom_kill":1}},"net":{"rx_bytes":524288000,"tx_bytes":104857600,"by_interface":{}},"disk":{"path":"/","total_bytes":32212254720,"used_bytes":3221225472,"available_bytes":null,"utilization":0.10},"cache":[{"key":"npm-xyz","cache_hit":true,"restore_key_hit":null,"backend":"gha","size_bytes_restored":104857600,"saved":false,"size_bytes_at_end":null}]}'
+  J_LINT='{"schema_version":2,"captured_at":"t","duration_seconds":62.0,"cgroup":{"cpu":{"usage_seconds":2.0,"throttled_seconds":3.5,"nr_throttled":7,"limit_cores":2.0,"online_count":4,"avg_utilization":0.01,"throttle_rate":0.05,"pressure_some_avg10":null,"pressure_some_avg60":null,"pressure_some_avg300":null},"memory":{"peak_bytes":52428800,"limit_bytes":4294967296,"peak_utilization":0.01,"oom":0,"oom_kill":0}},"net":{"rx_bytes":0,"tx_bytes":0,"by_interface":{}},"disk":{"path":"/","total_bytes":null,"used_bytes":null,"available_bytes":null,"utilization":null}}'
+
+  Describe 'render_headline()'
+    It 'renders correct totals: CPU-seconds, worst peak mem with job, net, cache'
+      records=$(printf '%s\t%s\n' 'build' "$J_BUILD" 'test' "$J_TEST" 'lint' "$J_LINT")
+      When call render_headline "$records"
+      The status should be success
+      # CPU 40+10+2 = 52.0 CPU-s. Peak mem max is build's 3.20 GiB.
+      # net rx 1073741824+524288000+0 = 1.49 GiB ; tx 209715200+104857600+0 = 300.00 MiB
+      # cache restored 471859200+104857600 = 550.00 MiB ; saved 492832000 = 470.00 MiB
+      The line 1 of output should equal '**3 jobs** · CPU 52.0 CPU-s · peak mem 3.20 GiB (build) · net 1.49 GiB ↓ / 300.00 MiB ↑ · cache 550.00 MiB restored / 470.00 MiB saved'
+    End
+
+    It 'emits a flags line with OOM and throttle counts when present'
+      records=$(printf '%s\t%s\n' 'build' "$J_BUILD" 'test' "$J_TEST" 'lint' "$J_LINT")
+      When call render_headline "$records"
+      The status should be success
+      # test was OOM-killed; lint was CPU-throttled.
+      The line 2 of output should equal '> ⚠️ 1 job OOM-killed (test) · 1 job CPU-throttled (lint)'
+    End
+
+    It 'emits NO flags line when no job has OOM or throttle'
+      # Only build (no flags). Output is a single line.
+      records=$(printf '%s\t%s\n' 'build' "$J_BUILD")
+      When call render_headline "$records"
+      The status should be success
+      The output should not include '⚠️'
+      The lines of output should equal 1
+    End
+  End
+
+  Describe 'render_table()'
+    It 'renders one row per job inside a details/summary block'
+      records=$(printf '%s\t%s\n' 'build' "$J_BUILD" 'test' "$J_TEST" 'lint' "$J_LINT")
+      When call render_table "$records"
+      The status should be success
+      The output should include '<details><summary>Per-job breakdown (3 jobs)</summary>'
+      The output should include '| Job |'
+      The output should include '| build |'
+      The output should include '| test |'
+      The output should include '| lint |'
+    End
+
+    It 'drops the Disk column when no job has disk data'
+      # lint has null disk; give a set where EVERY job lacks disk data.
+      lint2=$(printf '%s' "$J_LINT")
+      records=$(printf '%s\t%s\n' 'lint' "$lint2" 'lint-b' "$lint2")
+      When call render_table "$records"
+      The status should be success
+      The output should not include 'Disk'
+    End
+
+    It 'keeps the Disk column when at least one job has disk data'
+      records=$(printf '%s\t%s\n' 'build' "$J_BUILD" 'lint' "$J_LINT")
+      When call render_table "$records"
+      The status should be success
+      The output should include 'Disk'
+    End
+
+    It 'shows the Flags column with 🔴 only on the OOM-killed row'
+      records=$(printf '%s\t%s\n' 'build' "$J_BUILD" 'test' "$J_TEST")
+      When call render_table "$records"
+      The status should be success
+      The output should include 'Flags'
+      # The OOM row carries 🔴; the clean build row does not.
+      The output should include '🔴'
+    End
+
+    It 'drops the Flags column when no job has any flag'
+      records=$(printf '%s\t%s\n' 'build' "$J_BUILD")
+      When call render_table "$records"
+      The status should be success
+      The output should not include 'Flags'
+      The output should not include '🔴'
+      The output should not include '🟡'
+    End
+
+    It 'shows n/a in the CPU cell when a job lacks CPU data but another has it'
+      # build has CPU data so the column survives; job-x has none -> its cell is n/a.
+      nocpu='{"schema_version":2,"duration_seconds":null,"cgroup":{"cpu":{"usage_seconds":null,"throttled_seconds":0.0,"nr_throttled":0,"limit_cores":null,"online_count":null,"avg_utilization":null,"throttle_rate":null},"memory":{"peak_bytes":1024,"limit_bytes":null,"peak_utilization":null,"oom":0,"oom_kill":0}},"net":{"rx_bytes":0,"tx_bytes":0,"by_interface":{}},"disk":{"path":"/","total_bytes":null,"used_bytes":null,"available_bytes":null,"utilization":null}}'
+      records=$(printf '%s\t%s\n' 'build' "$J_BUILD" 'job-x' "$nocpu")
+      When call render_table "$records"
+      The status should be success
+      The output should include 'n/a'
+    End
+  End
+
+  Describe 'render_cache_fold()'
+    It 'renders a cache block when at least one job has a cache entry'
+      records=$(printf '%s\t%s\n' 'build' "$J_BUILD" 'test' "$J_TEST" 'lint' "$J_LINT")
+      When call render_cache_fold "$records"
+      The status should be success
+      # 2 cache entries total (build + test); lint has none.
+      The output should include '<details><summary>Cache (2 entries)</summary>'
+      The output should include 'maven-abc'
+      The output should include 'npm-xyz'
+    End
+
+    It 'returns empty string when no job has a cache entry'
+      records=$(printf '%s\t%s\n' 'lint' "$J_LINT")
+      When call render_cache_fold "$records"
+      The status should be success
+      The output should equal ''
+    End
+  End
 End
