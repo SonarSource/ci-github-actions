@@ -1,0 +1,41 @@
+---
+name: Test Config NPM in Container
+on:
+  pull_request:
+    paths:
+      - config-npm/**
+      - get-build-number/**
+      - shared/**
+      - .github/workflows/test-config-npm-container.yml
+  merge_group:
+  push:
+    branches:
+      - master
+      - branch-*
+    paths:
+      - config-npm/**
+      - get-build-number/**
+      - shared/**
+      - .github/workflows/test-config-npm-container.yml
+  workflow_dispatch:
+
+jobs:
+  test-config-npm-container:
+    runs-on: warp-custom-ubuntu-24-04
+    container: node:24-bookworm
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./config-npm
+        with:
+          # gh-action_cache prepare-keys.sh needs jq after config-npm restores mise files.
+          disable-caching: "true"
+      - name: Verify config-npm completed in container
+        shell: bash
+        run: |
+          test -f "${ACTION_PATH_CONFIG_NPM}/mise.local.toml"
+          test -f "${ACTION_PATH_CONFIG_NPM}/npm_config.sh"
+          [[ "${ACTION_PATH_CONFIG_NPM}" == "${GITHUB_ACTION_PATH}" ]]
+          [[ "${BUILD_NUMBER}" =~ ^[0-9]+$ ]]

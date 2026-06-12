@@ -19,7 +19,7 @@ inputs:
     description: URL for Repox
     default: https://repox.jfrog.io
   host-actions-root:
-    description: Path to the actions folder on the host (used when called from another local action)
+    description: Path to the actions folder on the host (used when called from another local action via a workspace symlink). Ignored when it points at the container mount (/__w).
     default: ''
 
 outputs:
@@ -54,12 +54,14 @@ runs:
         echo "::group::Fix for using local actions"
         echo "GITHUB_ACTION_PATH=$GITHUB_ACTION_PATH"
         echo "github.action_path=${{ github.action_path }}"
-        ACTION_PATH_CONFIG_NPM="${{ github.action_path }}"
+        ACTION_PATH_CONFIG_NPM="$GITHUB_ACTION_PATH"
         host_actions_root="${{ inputs.host-actions-root }}"
         if [[ -z "$host_actions_root" ]]; then
-          host_actions_root="$(dirname "$ACTION_PATH_CONFIG_NPM")"
-        else
-          ACTION_PATH_CONFIG_NPM="$host_actions_root/config-npm"
+          host_actions_root="$(dirname "${{ github.action_path }}")"
+        elif [[ "$host_actions_root" == /__w/* ]]; then
+          echo "::warning::host-actions-root points at the container mount ($host_actions_root);" \
+            "using host path for local action symlinks." >&2
+          host_actions_root="$(dirname "${{ github.action_path }}")"
         fi
         echo "ACTION_PATH_CONFIG_NPM=$ACTION_PATH_CONFIG_NPM"
         echo "ACTION_PATH_CONFIG_NPM=$ACTION_PATH_CONFIG_NPM" >> "$GITHUB_ENV"

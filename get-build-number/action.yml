@@ -20,13 +20,8 @@ runs:
         echo "::group::Fix for using local actions"
         echo "GITHUB_ACTION_PATH=$GITHUB_ACTION_PATH"
         echo "github.action_path=${{ github.action_path }}"
-        ACTION_PATH_GET_BUILD_NUMBER="${{ github.action_path }}"
-        host_actions_root="${{ inputs.host-actions-root }}"
-        if [[ -z "$host_actions_root" ]]; then
-          host_actions_root="$(dirname "$ACTION_PATH_GET_BUILD_NUMBER")"
-        else
-          ACTION_PATH_GET_BUILD_NUMBER="$host_actions_root/get-build-number"
-        fi
+        # Scripts run inside the job environment (container or host).
+        ACTION_PATH_GET_BUILD_NUMBER="$GITHUB_ACTION_PATH"
         echo "ACTION_PATH_GET_BUILD_NUMBER=$ACTION_PATH_GET_BUILD_NUMBER"
         echo "ACTION_PATH_GET_BUILD_NUMBER=$ACTION_PATH_GET_BUILD_NUMBER" >> "$GITHUB_ENV"
         echo "BUILD_NUMBER_FILE=${RUNNER_TEMP}/build_number.txt" >> "$GITHUB_ENV"
