@@ -366,4 +366,65 @@ body'
       The output should not include '1001'
     End
   End
+
+  Describe 'main()'
+    # These tests isolate main()'s ORCHESTRATION logic (PR-context guard, empty
+    # guard, body assembly + upsert) from the real collect/render/upsert
+    # implementations, which have their own dedicated Describe blocks above.
+    # We override those lib functions AFTER Include so main calls the stubs:
+    #   - collect_job_metrics  -> echoes a canned record (or nothing)
+    #   - render_headline/table/cache_fold -> echo sentinels HEADLINE/TABLE/CACHE
+    #   - upsert_comment       -> echoes 'UPSERT:<body>' so the test can inspect
+    #     exactly what body main built (and assert it was called at all).
+    # An unset PR_NUMBER and an empty collect must result in NO 'UPSERT:' line.
+
+    # shellcheck disable=SC2329  # Stubs are invoked indirectly by main()
+    stub_renderers() {
+      render_headline()    { echo "HEADLINE"; }
+      render_table()       { echo "TABLE"; }
+      render_cache_fold()  { echo "CACHE"; }
+      upsert_comment()     { echo "UPSERT:$1"; }
+    }
+
+    It 'skips with no PR context (PR_NUMBER unset) and never upserts'
+      export REPO=o/r RUN_ID=1 SELF_JOB=report-ci-insights
+      unset PR_NUMBER
+      # shellcheck disable=SC2329  # Invoked indirectly by main()
+      collect_job_metrics() { printf 'build\t{"job":"build"}\n'; }
+      stub_renderers
+      When call main
+      The status should be success
+      The output should include '::notice::'
+      The output should not include 'UPSERT:'
+    End
+
+    It 'skips when collect returns no metrics and never upserts'
+      export REPO=o/r RUN_ID=1 SELF_JOB=report-ci-insights PR_NUMBER=7
+      # shellcheck disable=SC2329  # Invoked indirectly by main()
+      collect_job_metrics() { :; }
+      stub_renderers
+      When call main
+      The status should be success
+      The output should include '::notice::'
+      The output should include 'no CI metrics'
+      The output should not include 'UPSERT:'
+    End
+
+    It 'upserts once with the marker as the FIRST body line when records are present'
+      export REPO=o/r RUN_ID=1 SELF_JOB=report-ci-insights PR_NUMBER=7
+      # shellcheck disable=SC2329  # Invoked indirectly by main()
+      collect_job_metrics() { printf 'build\t{"job":"build"}\n'; }
+      stub_renderers
+      When call main
+      The status should be success
+      # main must have called upsert exactly once.
+      The output should include 'UPSERT:'
+      # The body's FIRST line must be the marker (upsert relies on this to match
+      # an existing sticky comment on re-runs).
+      The line 1 of output should equal 'UPSERT:<!-- ci-metrics-report -->'
+      # And the assembled body must carry the rendered sections.
+      The output should include 'HEADLINE'
+      The output should include 'TABLE'
+    End
+  End
 End

@@ -275,7 +275,25 @@ upsert_comment() {
   fi
 }
 
-# Entry point. Implemented across later phases (collect → render → upsert).
+# Entry point: collect sibling job metrics, render the report, upsert the sticky
+# PR comment. Fail-open is provided by the caller's ERR trap. Two early returns:
+#   - no PR context (push/master run) -> nothing to comment on;
+#   - no sibling produced metrics -> post NOTHING (never an empty comment).
+# The marker MUST be the first line of the body so upsert_comment matches and
+# updates the existing comment on re-runs instead of duplicating it.
 main() {
-  :
+  [[ -n "${PR_NUMBER:-}" ]] || { echo "::notice::report-ci-insights: no PR context, skipping"; return 0; }
+  local records
+  records=$(collect_job_metrics)
+  [[ -n "$records" ]] || { echo "::notice::report-ci-insights: no CI metrics found, skipping comment"; return 0; }
+  local marker='<!-- ci-metrics-report -->'
+  local body
+  body="$marker
+## 📊 CI Metrics
+
+$(render_headline "$records")
+
+$(render_table "$records")
+$(render_cache_fold "$records")"
+  upsert_comment "$body"
 }
