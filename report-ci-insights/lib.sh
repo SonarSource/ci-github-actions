@@ -258,6 +258,23 @@ render_cache_fold() {
   printf '\n</details>\n'
 }
 
+# Post or update the sticky CI-metrics PR comment, matched by the hidden marker.
+# The caller embeds the marker as the first line of <body>. We list the PR's
+# comments, find the FIRST whose body contains the marker, and PATCH it; if none
+# matches we POST a new one. This keeps the report idempotent across re-runs:
+# the same comment is updated rather than duplicated. A failed list is treated as
+# "no existing comment" (|| true), so the create path runs.
+upsert_comment() {
+  local body=$1 marker='<!-- ci-metrics-report -->' id
+  id=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate \
+        -q ".[] | select(.body | contains(\"$marker\")) | .id" | head -1) || true
+  if [[ -n "$id" ]]; then
+    gh api "repos/$REPO/issues/comments/$id" -X PATCH -f body="$body"
+  else
+    gh api "repos/$REPO/issues/$PR_NUMBER/comments" -X POST -f body="$body"
+  fi
+}
+
 # Entry point. Implemented across later phases (collect → render → upsert).
 main() {
   :

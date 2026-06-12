@@ -295,4 +295,75 @@ Describe 'report-ci-insights/lib.sh'
       The output should equal ''
     End
   End
+
+  Describe 'upsert_comment()'
+    # The marker the caller embeds as the first line of <body>. upsert_comment
+    # finds the FIRST existing PR comment whose body contains it and PATCHes that
+    # comment; otherwise it POSTs a new one — idempotent across re-runs.
+    export REPO=o/r PR_NUMBER=7
+
+    # gh is mocked to branch on the call kind. The three real calls are:
+    #   1. LIST (GET): repos/$REPO/issues/$PR_NUMBER/comments with -q '...id'.
+    #      The real function captures id=$(gh ... -q ...); the mock stands in for
+    #      the jq-filtered output, so it echoes the matched id (999) or nothing.
+    #   2. PATCH: repos/$REPO/issues/comments/<id> -X PATCH  -> echoes 'PATCHED <id>'.
+    #   3. POST:  repos/$REPO/issues/$PR_NUMBER/comments -X POST -> echoes 'POSTED'.
+    # Distinguishing GET vs PATCH vs POST is done purely on the presence of
+    # '-X PATCH' / '-X POST' in "$*"; the GET has neither.
+
+    It 'PATCHes the existing comment when a marker comment is found'
+      Mock gh
+        case "$*" in
+          *"-X PATCH"*) echo "PATCHED 999" ;;
+          *"-X POST"*)  echo "POSTED" ;;
+          # LIST/GET: stand in for the -q jq-filtered output; marker comment id.
+          *issues/*/comments*) echo "999" ;;
+          *) echo "unexpected gh call: $*" >&2; return 1 ;;
+        esac
+      End
+      When call upsert_comment '<!-- ci-metrics-report -->
+hello'
+      The status should be success
+      The output should include 'PATCHED 999'
+      The output should not include 'POSTED'
+    End
+
+    It 'POSTs a new comment when no marker comment exists'
+      Mock gh
+        case "$*" in
+          *"-X PATCH"*) echo "PATCHED 999" ;;
+          *"-X POST"*)  echo "POSTED" ;;
+          # LIST/GET: no marker match -> empty -> id is empty -> create path.
+          *issues/*/comments*) : ;;
+          *) echo "unexpected gh call: $*" >&2; return 1 ;;
+        esac
+      End
+      When call upsert_comment '<!-- ci-metrics-report -->
+hello'
+      The status should be success
+      The output should include 'POSTED'
+      The output should not include 'PATCHED'
+    End
+
+    It 'PATCHes only the first marked id when several ids are returned'
+      # The LIST mock returns two ids (999 then 1001), standing in for the -q
+      # filtered output across paginated comments. The function's `head -1` must
+      # pick 999, so the PATCH path targets repos/.../comments/999 and never 1001.
+      Mock gh
+        case "$*" in
+          *comments/1001*) echo "PATCHED 1001" ;;
+          *comments/999*)  echo "PATCHED 999" ;;
+          *"-X POST"*)     echo "POSTED" ;;
+          *issues/*/comments*) printf '%s\n' 999 1001 ;;
+          *) echo "unexpected gh call: $*" >&2; return 1 ;;
+        esac
+      End
+      When call upsert_comment '<!-- ci-metrics-report -->
+body'
+      The status should be success
+      The output should include 'PATCHED 999'
+      The output should not include 'POSTED'
+      The output should not include '1001'
+    End
+  End
 End
