@@ -122,7 +122,7 @@ runs:
       run: echo "workflow_name=${WORKFLOW_NAME// /-}" >> "$GITHUB_OUTPUT"
 
     - name: Cache NPM dependencies
-      uses: SonarSource/gh-action_cache@a7d13cdd1c9f097a5f8382ccec463be2831e3dbc # v1.6.0
+      uses: SonarSource/gh-action_cache@feat/jcarsique/BUILD-11444-github-env-gate # TEMP: test PR #81 - restore decision-file gate
       if: steps.config-npm-completed.outputs.skip != 'true' && inputs.disable-caching != 'true' && inputs.cache-npm == 'true'
       with:
         path: ~/.npm
