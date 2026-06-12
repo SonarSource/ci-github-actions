@@ -341,9 +341,10 @@ if (( ${#readable_cache_files[@]} > 0 )) && command -v jq >/dev/null 2>&1; then
     fi
 fi
 
-# Persist + stdout-log.
+# Persist + stdout-log. The stdout copy is wrapped in sentinels so report-ci-insights
+# (BUILD-11310) can recover the metrics JSON from the job log via the Actions API.
 printf '%s\n' "$job_metrics_json" > "${CI_METRICS_DIR}/job-metrics.json" 2>/dev/null || true
-printf '%s\n' "$job_metrics_json"
+printf '===CI_METRICS_JSON_BEGIN===%s===CI_METRICS_JSON_END===\n' "$job_metrics_json"
 
 # ---------- Step summary ----------
 summary_target="${GITHUB_STEP_SUMMARY:-/dev/null}"
