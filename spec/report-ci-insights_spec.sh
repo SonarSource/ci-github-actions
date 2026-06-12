@@ -62,4 +62,120 @@ Describe 'report-ci-insights/lib.sh'
       The output should equal "$payload"
     End
   End
+
+  Describe 'collect_job_metrics()'
+    # Job IDs map to distinct skip/emit paths exercised by the mock below:
+    #   10 build           completed   -> log has metrics  -> emitted
+    #   11 test (linux)    completed   -> log has metrics  -> emitted
+    #   12 flaky           in_progress -> skipped (not completed)
+    #   13 report-ci-insights completed -> skipped (name == SELF_JOB)
+    #   14 no-metrics-job  completed   -> log lacks sentinel -> skipped
+    #   15 boom            completed   -> log download fails -> continue
+    export REPO=o/r RUN_ID=123 SELF_JOB=report-ci-insights
+
+    Mock gh
+      case "$*" in
+        *runs/*/jobs*)
+          printf '%s\n' \
+            '10	build	completed' \
+            '11	test (linux)	completed' \
+            '12	flaky	in_progress' \
+            '13	report-ci-insights	completed' \
+            '14	no-metrics-job	completed' \
+            '15	boom	completed'
+          ;;
+        *jobs/10/logs*)
+          # Sentinels are written literally: shellspec Mock bodies do not inherit
+          # the spec-level BEGIN/END shell vars, so referencing them would expand
+          # to empty and silently strip the sentinels from the fixture.
+          printf '%s\n' \
+            '2026-06-12T09:00:00Z start build' \
+            '2026-06-12T09:00:01Z ===CI_METRICS_JSON_BEGIN==={"job":"build"}===CI_METRICS_JSON_END===' \
+            '2026-06-12T09:00:02Z done'
+          ;;
+        *jobs/11/logs*)
+          printf '%s\n' \
+            '2026-06-12T09:00:00Z start test' \
+            '2026-06-12T09:00:01Z ===CI_METRICS_JSON_BEGIN==={"job":"test-linux"}===CI_METRICS_JSON_END==='
+          ;;
+        *jobs/14/logs*)
+          printf '%s\n' \
+            '2026-06-12T09:00:00Z start no-metrics' \
+            '2026-06-12T09:00:01Z nothing here'
+          ;;
+        *jobs/15/logs*)
+          return 1
+          ;;
+        *)
+          echo "unexpected gh call: $*" >&2
+          return 1
+          ;;
+      esac
+    End
+
+    It 'emits name\tjson only for completed siblings whose log carries metrics'
+      # Exact full-output equality also pins the order (build before test (linux)).
+      expected=$(printf '%s\n' \
+        "$(printf 'build\t{"job":"build"}')" \
+        "$(printf 'test (linux)\t{"job":"test-linux"}')")
+      When call collect_job_metrics
+      The status should be success
+      The output should equal "$expected"
+    End
+
+    It 'skips the in-progress job'
+      When call collect_job_metrics
+      The status should be success
+      The output should not include 'flaky'
+    End
+
+    It 'skips the report job itself (name == SELF_JOB)'
+      When call collect_job_metrics
+      The status should be success
+      The output should not include 'report-ci-insights'
+    End
+
+    It 'skips a completed job whose log has no metrics block'
+      When call collect_job_metrics
+      The status should be success
+      The output should not include 'no-metrics-job'
+    End
+
+    It 'continues past a job whose log download fails'
+      When call collect_job_metrics
+      The status should be success
+      The output should not include 'boom'
+    End
+
+    It 'also skips matrix-display self jobs prefixed with SELF_JOB'
+      Mock gh
+        case "$*" in
+          *runs/*/jobs*)
+            printf '%s\n' '20	report-ci-insights (1)	completed'
+            ;;
+          *jobs/20/logs*)
+            printf '%s\n' '2026-06-12T09:00:01Z ===CI_METRICS_JSON_BEGIN==={"job":"self-matrix"}===CI_METRICS_JSON_END==='
+            ;;
+          *)
+            return 1
+            ;;
+        esac
+      End
+      When call collect_job_metrics
+      The status should be success
+      The output should equal ''
+    End
+
+    It 'returns 0 with empty output when the run has no jobs'
+      Mock gh
+        case "$*" in
+          *runs/*/jobs*) : ;;
+          *) return 1 ;;
+        esac
+      End
+      When call collect_job_metrics
+      The status should be success
+      The output should equal ''
+    End
+  End
 End
