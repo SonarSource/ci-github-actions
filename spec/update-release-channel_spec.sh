@@ -43,7 +43,7 @@ Describe 'update-release-channel/update-release-channel.sh'
     It 'produces a JSON body that validates against schema/v1.json'
       stdout_file=$(mktemp)
       bash update-release-channel/update-release-channel.sh > "$stdout_file"
-      body_file=$(mktemp --suffix=.json)
+      body_file=$(mktemp)
       extract_body "$stdout_file" > "$body_file"
       When call check-jsonschema --schemafile update-release-channel/schema/v1.json "$body_file"
       The status should be success
