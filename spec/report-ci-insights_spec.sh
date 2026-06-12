@@ -71,6 +71,7 @@ Describe 'report-ci-insights/lib.sh'
     #   13 report-ci-insights completed -> skipped (name == SELF_JOB)
     #   14 no-metrics-job  completed   -> log lacks sentinel -> skipped
     #   15 boom            completed   -> log download fails -> continue
+    #   16 corrupt         completed   -> log has sentinel but malformed JSON -> skipped
     export REPO=o/r RUN_ID=123 SELF_JOB=report-ci-insights
 
     Mock gh
@@ -82,7 +83,8 @@ Describe 'report-ci-insights/lib.sh'
             '12	flaky	in_progress' \
             '13	report-ci-insights	completed' \
             '14	no-metrics-job	completed' \
-            '15	boom	completed'
+            '15	boom	completed' \
+            '16	corrupt	completed'
           ;;
         *jobs/10/logs*)
           # Sentinels are written literally: shellspec Mock bodies do not inherit
@@ -105,6 +107,11 @@ Describe 'report-ci-insights/lib.sh'
           ;;
         *jobs/15/logs*)
           return 1
+          ;;
+        *jobs/16/logs*)
+          printf '%s\n' \
+            '2026-06-12T09:00:00Z start corrupt' \
+            '2026-06-12T09:00:01Z ===CI_METRICS_JSON_BEGIN==={bad json,,,===CI_METRICS_JSON_END==='
           ;;
         *)
           echo "unexpected gh call: $*" >&2
@@ -145,6 +152,12 @@ Describe 'report-ci-insights/lib.sh'
       When call collect_job_metrics
       The status should be success
       The output should not include 'boom'
+    End
+
+    It 'drops a job whose sentinel block contains malformed JSON'
+      When call collect_job_metrics
+      The status should be success
+      The output should not include 'corrupt'
     End
 
     It 'also skips matrix-display self jobs prefixed with SELF_JOB'
@@ -267,6 +280,15 @@ Describe 'report-ci-insights/lib.sh'
       The output should not include '🟡'
     End
 
+    It 'escapes pipe characters in a job name so it cannot inject phantom columns'
+      # A job name containing a literal pipe must render as build\|x; an unescaped
+      # pipe would split the row into an extra markdown column.
+      records=$(printf '%s\t%s\n' 'build|x' "$J_BUILD")
+      When call render_table "$records"
+      The status should be success
+      The output should include '| build\|x |'
+    End
+
     It 'shows n/a in the CPU cell when a job lacks CPU data but another has it'
       # build has CPU data so the column survives; job-x has none -> its cell is n/a.
       nocpu='{"schema_version":2,"duration_seconds":null,"cgroup":{"cpu":{"usage_seconds":null,"throttled_seconds":0.0,"nr_throttled":0,"limit_cores":null,"online_count":null,"avg_utilization":null,"throttle_rate":null},"memory":{"peak_bytes":1024,"limit_bytes":null,"peak_utilization":null,"oom":0,"oom_kill":0}},"net":{"rx_bytes":0,"tx_bytes":0,"by_interface":{}},"disk":{"path":"/","total_bytes":null,"used_bytes":null,"available_bytes":null,"utilization":null}}'
@@ -293,6 +315,19 @@ Describe 'report-ci-insights/lib.sh'
       When call render_cache_fold "$records"
       The status should be success
       The output should equal ''
+    End
+
+    It 'escapes pipe characters in a cache key so it cannot inject phantom columns'
+      # A cache key containing a literal pipe must render as deps\|v2; an unescaped
+      # pipe would split the row into an extra markdown column.
+      pipekey='{"schema_version":2,"duration_seconds":62.0,"cgroup":{"cpu":{"usage_seconds":1.0,"throttled_seconds":0.0},"memory":{"peak_bytes":1024,"oom_kill":0}},"net":{"rx_bytes":0,"tx_bytes":0},"disk":{"total_bytes":null,"used_bytes":null},"cache":[{"key":"deps|v2","cache_hit":true,"backend":"s3","size_bytes_restored":1024,"saved":false,"size_bytes_at_end":null}]}'
+      records=$(printf '%s\t%s\n' 'build' "$pipekey")
+      When call render_cache_fold "$records"
+      The status should be success
+      The output should include 'deps\|v2'
+      # The data row must keep exactly 6 columns (7 pipes). An unescaped key
+      # would yield 8 pipes and break the table structure.
+      The output should include '| deps\|v2 | yes | s3 |'
     End
   End
 

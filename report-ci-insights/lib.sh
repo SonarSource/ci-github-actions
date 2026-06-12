@@ -22,6 +22,8 @@ extract_metrics_json() {
 #     log 404s mid-run, so a failed download must never abort the whole collection;
 #   - jobs whose log has no sentinel-wrapped metrics block (nothing to report).
 # A failure to list jobs at all is treated as "nothing to collect" (return 0).
+# Emitted records are "<name>\t<json>": this relies on job names containing no tab
+# or newline and on the producer emitting single-line JSON.
 collect_job_metrics() {
   local jobs id name status log metrics
   jobs=$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs" --paginate \
@@ -33,6 +35,9 @@ collect_job_metrics() {
     log=$(gh api "repos/$REPO/actions/jobs/$id/logs" 2>/dev/null) || continue
     metrics=$(extract_metrics_json "$log")
     [[ -n "$metrics" ]] || continue
+    # Drop siblings whose sentinel block holds malformed/truncated JSON, so a
+    # corrupt record never reaches the renderers.
+    jq -e . >/dev/null 2>&1 <<< "$metrics" || continue
     printf '%s\t%s\n' "$name" "$metrics"
   done <<< "$jobs"
 }
@@ -94,16 +99,16 @@ render_headline() {
     [[ -z "$json" ]] && continue
     njobs=$((njobs + 1))
     local peak okill thr
-    peak=$(jq -r '.cgroup.memory.peak_bytes // -1' <<< "$json")
+    peak=$(jq -r '.cgroup.memory.peak_bytes // -1' <<< "$json" 2>/dev/null)
     if [[ "$peak" =~ ^[0-9]+$ ]] && (( peak > worst_peak )); then
       worst_peak=$peak; worst_name=$name
     fi
-    okill=$(jq -r '.cgroup.memory.oom_kill // 0' <<< "$json")
+    okill=$(jq -r '.cgroup.memory.oom_kill // 0' <<< "$json" 2>/dev/null)
     if [[ "$okill" =~ ^[0-9]+$ ]] && (( okill > 0 )); then
       oom_count=$((oom_count + 1))
       oom_jobs="${oom_jobs:+$oom_jobs, }$name"
     fi
-    thr=$(jq -r '.cgroup.cpu.throttled_seconds // 0' <<< "$json")
+    thr=$(jq -r '.cgroup.cpu.throttled_seconds // 0' <<< "$json" 2>/dev/null)
     if awk -v t="$thr" 'BEGIN{exit !(t+0>0)}'; then
       thr_count=$((thr_count + 1))
       thr_jobs="${thr_jobs:+$thr_jobs, }$name"
@@ -185,6 +190,8 @@ render_table() {
   # One row per job, emitting only the surviving columns.
   while IFS=$'\t' read -r name json; do
     [[ -z "$json" ]] && continue
+    # Escape pipes in the (author-controlled) job name so it can't inject columns.
+    name=${name//|/\\|}
     local row="| ${name} |"
     if (( has_cpu )); then row="${row} $(_rci_cpu_cell "$json") |"; fi
     if (( has_mem )); then
@@ -243,6 +250,9 @@ render_cache_fold() {
       restored_b=$(jq -r ".cache[$i].size_bytes_restored // empty" <<< "$json")
       saved_flag=$(jq -r ".cache[$i].saved // false | if . then \"yes\" else \"no\" end" <<< "$json")
       end_b=$(jq -r ".cache[$i].size_bytes_at_end // empty" <<< "$json")
+      # Escape pipes in author-controlled cells so they can't inject columns.
+      key=${key//|/\\|}
+      backend=${backend//|/\\|}
       rows="${rows}| ${key} | ${hit} | ${backend} | $(_rci_fmt_bytes "$restored_b") | ${saved_flag} | $(_rci_fmt_bytes "$end_b") |
 "
     done
