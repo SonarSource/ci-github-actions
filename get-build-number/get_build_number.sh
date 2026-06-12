@@ -1,11 +1,11 @@
 #!/bin/bash
-# Get the build number for a GitHub repository and save the incremented value to build_number.txt
+# Get the build number for a GitHub repository and save the incremented value to .build_number.txt
 
 set -euo pipefail
 
 : "${GITHUB_REPOSITORY:?}"
 GH_API_VERSION_HEADER="X-GitHub-Api-Version: 2022-11-28"
-CACHE_FILE="${BUILD_NUMBER_FILE:-${RUNNER_TEMP}/build_number.txt}"
+BUILD_NUMBER_FILE="${BUILD_NUMBER_FILE:-.build_number.txt}"
 
 echo "Fetching build number from repository properties..."
 PROPERTIES_API_URL="repos/${GITHUB_REPOSITORY}/properties/values"
@@ -21,4 +21,4 @@ gh api --method PATCH -H "$GH_API_VERSION_HEADER" "$PROPERTIES_API_URL" \
   -f "properties[][property_name]=build_number" \
   -f "properties[][value]=${BUILD_NUMBER}"
 echo "Incremented 'build_number' repository property to ${BUILD_NUMBER}"
-echo "${BUILD_NUMBER}" > "$CACHE_FILE"
+echo "${BUILD_NUMBER}" > "$BUILD_NUMBER_FILE"

@@ -29,7 +29,7 @@ runs:
         fi
         echo "ACTION_PATH_GET_BUILD_NUMBER=$ACTION_PATH_GET_BUILD_NUMBER"
         echo "ACTION_PATH_GET_BUILD_NUMBER=$ACTION_PATH_GET_BUILD_NUMBER" >> "$GITHUB_ENV"
-        echo "BUILD_NUMBER_FILE=${RUNNER_TEMP}/build_number.txt" >> "$GITHUB_ENV"
+        echo "BUILD_NUMBER_FILE=.build_number.txt" >> "$GITHUB_ENV"
         echo "::endgroup::"
 
     # Reuse build number from environment if provided (e.g. from a parent workflow)
@@ -82,3 +82,8 @@ runs:
         path: ${{ env.BUILD_NUMBER_FILE }}
         key: build-number-${{ github.run_id }}
         enableCrossOsArchive: true
+
+    - name: Remove build number file from workspace
+      if: always()
+      shell: bash
+      run: rm -f "$BUILD_NUMBER_FILE"

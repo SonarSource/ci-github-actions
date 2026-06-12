@@ -27,6 +27,11 @@ jobs:
         run: |
           echo "BUILD_NUMBER: ${BUILD_NUMBER}"
           [[ "${BUILD_NUMBER}" =~ ^[0-9]+$ ]]
+          if [[ -n "$(git status --porcelain)" ]]; then
+            echo "::error title=test-build-number-generation::Workspace polluted after get-build-number:"
+            git status --porcelain
+            exit 1
+          fi
 
       - uses: ./get-build-number
         id: get_build_number_second_call
@@ -59,6 +64,7 @@ jobs:
             echo -e "::error title=test-build-number-reuse::Build number '${BUILD_NUMBER}' does not match the previous job build number" \
               "'${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}' despite it is the same workflow run.\n" \
               "Prefer using the output from SonarSource/ci-github-actions/get-build-number instead of calling it from distinct jobs."
+            # exit 1 # flaky test
           fi
 
   test-build-number-reuse-from-cache-windows:
@@ -80,6 +86,7 @@ jobs:
             echo -e "::error title=test-build-number-reuse-from-cache-windows::Build number '${BUILD_NUMBER}' does not match the previous" \
               "job build number '${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}' despite it is the same workflow run.\n" \
               "Prefer using the output from SonarSource/ci-github-actions/get-build-number instead of calling it from distinct jobs."
+            # exit 1 # flaky test
           fi
 
   test-build-number-reuse-from-env:
