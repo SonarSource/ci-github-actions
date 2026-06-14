@@ -1,12 +1,12 @@
 ---
 name: Setup DigiCert Code Signing Tools
-description: Install and configure DigiCert smctl and jsign tools with caching support
+description: Install and configure DigiCert Software Trust Manager (smctl) and jsign tools with caching support
 inputs:
   jsign-version:
     description: Version of jsign to install
     default: 7.2
   force-download-tools:
-    description: Force download both DigiCert and jsign tools (disables caching)
+    description: Force a fresh download of the DigiCert and jsign tools (bypasses caching)
     default: false
 
 runs:
@@ -19,18 +19,14 @@ runs:
       run: |
         echo "JSIGN_VERSION=${JSIGN_VERSION}" >> "$GITHUB_ENV"
         echo "JSIGN_CACHE_KEY=jsign-${JSIGN_VERSION}-${{ runner.os }}" >> "$GITHUB_ENV"
-        echo "SMTOOLS_CACHE_KEY=smtools-linux-x64-${{ runner.os }}" >> "$GITHUB_ENV"
-        echo "SMTOOLS_PATH=/tmp/DigiCert One Signing Manager Tools/smtools-linux-x64" >> "$GITHUB_ENV"
         echo "JSIGN_CACHE_PATH=/tmp/jsign-cache" >> "$GITHUB_ENV"
 
-    - name: Cache code signing tools
+    - name: Cache jsign
       uses: SonarSource/gh-action_cache@a7d13cdd1c9f097a5f8382ccec463be2831e3dbc # v1.6.0
-      id: tools-cache
+      id: jsign-cache
       with:
-        path: |
-          /tmp/DigiCert One Signing Manager Tools/smtools-linux-x64
-          /tmp/jsign-cache
-        key: tools-${{ env.SMTOOLS_CACHE_KEY }}-${{ env.JSIGN_CACHE_KEY }}
+        path: /tmp/jsign-cache
+        key: ${{ env.JSIGN_CACHE_KEY }}
 
     - name: Get DigiCert secrets from Vault
       id: secrets
@@ -43,18 +39,41 @@ runs:
           development/kv/data/sign/digicert client_cert_password | SM_CLIENT_CERT_PASSWORD;
           development/kv/data/sign/digicert host | SM_HOST;
 
-    - name: Setup DigiCert Client Tools
-      if: steps.tools-cache.outputs.cache-hit != 'true' || inputs.force-download-tools == 'true'
-      uses: digicert/ssm-code-signing@1d820463733701cf1484c7eb5d7d24a15ca2c454 # v1.2.1
-      with:
-        force-download-tools: ${{ inputs.force-download-tools }}
-
-    - name: Add smctl to PATH (when using cache)
-      if: steps.tools-cache.outputs.cache-hit == 'true' && inputs.force-download-tools != 'true'
+    - name: Setup certificate and environment variables
       shell: bash
       run: |
-        echo "Using cached smctl from ${SMTOOLS_PATH}"
-        echo "${SMTOOLS_PATH}" >> "$GITHUB_PATH"
+        rm -f Certificate_pkcs12.p12
+        echo '${{ fromJSON(steps.secrets.outputs.vault).SM_CLIENT_CERT_FILE_B64 }}' | base64 --decode > Certificate_pkcs12.p12
+        echo "SM_HOST=${{ fromJSON(steps.secrets.outputs.vault).SM_HOST }}" >> "$GITHUB_ENV"
+        echo "SM_API_KEY=${{ fromJSON(steps.secrets.outputs.vault).SM_API_KEY }}" >> "$GITHUB_ENV"
+        echo "SM_CLIENT_CERT_FILE=${PWD}/Certificate_pkcs12.p12" >> "$GITHUB_ENV"
+        echo "SM_CLIENT_CERT_PASSWORD=${{ fromJSON(steps.secrets.outputs.vault).SM_CLIENT_CERT_PASSWORD }}" >> "$GITHUB_ENV"
+        echo "SM_CODE_SIGNING_CERT_SHA1_HASH=${{ fromJSON(steps.secrets.outputs.vault).SM_CODE_SIGNING_CERT_SHA1_HASH }}" >> "$GITHUB_ENV"
+
+    - name: Setup DigiCert Software Trust Manager tools
+      id: digicert-setup
+      uses: digicert/code-signing-software-trust-action@fae23a455ba4bde62b64fd7cb2f81ade788f5a95 # v1.2.1
+      with:
+        # force-download-tools disables the action's GitHub cache so the tools are re-downloaded
+        use-github-caching-service: ${{ inputs.force-download-tools != 'true' }}
+
+    - name: Expose Software Trust Manager tools path
+      shell: bash
+      env:
+        PKCS11_CONFIG: ${{ steps.digicert-setup.outputs.PKCS11_CONFIG }}
+      run: |
+        # Preserve the SMTOOLS_PATH contract used by downstream signing
+        # (e.g. sonarlint-eclipse pom.xml: ${env.SMTOOLS_PATH}/pkcs11properties.cfg).
+        if [[ -z "${PKCS11_CONFIG}" ]]; then
+          echo "::error::code-signing-software-trust-action did not expose a PKCS11_CONFIG output"
+          exit 1
+        fi
+        SMTOOLS_PATH="$(dirname "${PKCS11_CONFIG}")"
+        echo "SMTOOLS_PATH=${SMTOOLS_PATH}" >> "$GITHUB_ENV"
+        # Ensure the lowercase filename consumers expect resolves to the generated config.
+        if [[ ! -e "${SMTOOLS_PATH}/pkcs11properties.cfg" ]]; then
+          ln -sf "${PKCS11_CONFIG}" "${SMTOOLS_PATH}/pkcs11properties.cfg"
+        fi
 
     - name: Setup jsign
       shell: bash
@@ -68,7 +87,7 @@ runs:
         sudo apt-get update -q
         sudo apt-get install -y default-jre-headless
 
-        if [[ "${{ steps.tools-cache.outputs.cache-hit }}" == "true" && "${FORCE_DOWNLOAD_TOOLS}" != "true" &&
+        if [[ "${{ steps.jsign-cache.outputs.cache-hit }}" == "true" && "${FORCE_DOWNLOAD_TOOLS}" != "true" &&
         -f "${JSIGN_CACHE_PATH}/jsign_${JSIGN_VERSION}_all.deb" ]]; then
           echo "Installing jsign from cache..."
           sudo dpkg --install "${JSIGN_CACHE_PATH}/jsign_${JSIGN_VERSION}_all.deb"
@@ -79,18 +98,6 @@ runs:
           curl -L --fail --silent --show-error "${JSIGN_URL}" --output "${JSIGN_CACHE_PATH}/jsign_${JSIGN_VERSION}_all.deb"
           sudo dpkg --install "${JSIGN_CACHE_PATH}/jsign_${JSIGN_VERSION}_all.deb"
         fi
-
-    - name: Setup certificate and environment variables
-      shell: bash
-      run: |
-        rm -f Certificate_pkcs12.p12
-        echo '${{ fromJSON(steps.secrets.outputs.vault).SM_CLIENT_CERT_FILE_B64 }}' | base64 --decode > Certificate_pkcs12.p12
-        echo "SM_HOST=${{ fromJSON(steps.secrets.outputs.vault).SM_HOST }}" >> "$GITHUB_ENV"
-        echo "SM_API_KEY=${{ fromJSON(steps.secrets.outputs.vault).SM_API_KEY }}" >> "$GITHUB_ENV"
-        echo "SM_CLIENT_CERT_FILE=${PWD}/Certificate_pkcs12.p12" >> "$GITHUB_ENV"
-        echo "SM_CLIENT_CERT_PASSWORD=${{ fromJSON(steps.secrets.outputs.vault).SM_CLIENT_CERT_PASSWORD }}" >> "$GITHUB_ENV"
-        echo "SM_CODE_SIGNING_CERT_SHA1_HASH=${{ fromJSON(steps.secrets.outputs.vault).SM_CODE_SIGNING_CERT_SHA1_HASH }}" >> "$GITHUB_ENV"
-
 
     - name: Verify tool installations
       shell: bash
@@ -112,6 +119,14 @@ runs:
           jsign --help
         else
           echo "❌ jsign not found"
+          exit 1
+        fi
+
+        # Check the PKCS#11 config used by downstream signing
+        if [[ -e "${SMTOOLS_PATH}/pkcs11properties.cfg" ]]; then
+          echo "✅ pkcs11properties.cfg available under SMTOOLS_PATH"
+        else
+          echo "❌ pkcs11properties.cfg not found under ${SMTOOLS_PATH}"
           exit 1
         fi
 

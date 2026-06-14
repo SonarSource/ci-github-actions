@@ -1307,10 +1307,12 @@ No outputs are provided by this action.
 
 ## `code-signing`
 
-Install and configure DigiCert smctl and jsign tools for code signing with caching support.
+Install and configure DigiCert Software Trust Manager (smctl) and jsign tools for code signing with caching support.
 
-This action provides a complete setup for DigiCert's SigningManager tools (smctl) and jsign with intelligent caching
+This action provides a complete setup for DigiCert's Software Trust Manager tools (smctl) and jsign with intelligent caching
 to avoid re-downloading tools on every run. It handles all DigiCert authentication setup and environment configuration.
+It uses the maintained [DigiCert Binary Signing](https://github.com/marketplace/actions/digicert-binary-signing) action
+(`digicert/code-signing-software-trust-action`), which replaces the deprecated `digicert/ssm-code-signing`.
 
 ### Requirements
 
@@ -1363,7 +1365,7 @@ After running this action, the following environment variables are available:
 - `SM_CLIENT_CERT_FILE`: Path to the decoded client certificate file
 - `SM_CLIENT_CERT_PASSWORD`: Client certificate password
 - `SM_CODE_SIGNING_CERT_SHA1_HASH`: Certificate fingerprint for signing
-- `SMTOOLS_PATH`: Path where SMTools are installed, certificate and `.cfg` file is stored.
+- `SMTOOLS_PATH`: Directory containing the generated `pkcs11properties.cfg` PKCS#11 provider config used for signing.
 
 ---
 
