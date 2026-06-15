@@ -232,6 +232,19 @@ Describe 'report-ci-insights/lib.sh'
       The output should not include '⚠️'
       The lines of output should equal 1
     End
+
+    It 'renders the saved-only cache segment when a job saved bytes but restored none'
+      # A cache entry that SAVED bytes (saved:true, size_bytes_at_end>0) but
+      # RESTORED nothing (size_bytes_restored:0). No restored bytes anywhere ->
+      # the cache segment must read "cache <N> saved" with no "restored" form.
+      savedonly='{"schema_version":2,"duration_seconds":62.0,"cgroup":{"cpu":{"usage_seconds":5.0,"throttled_seconds":0.0},"memory":{"peak_bytes":1024,"oom_kill":0}},"net":{"rx_bytes":0,"tx_bytes":0},"disk":{"total_bytes":null,"used_bytes":null},"cache":[{"key":"npm-fresh","cache_hit":false,"backend":"s3","size_bytes_restored":0,"saved":true,"size_bytes_at_end":104857600}]}'
+      records=$(printf '%s\t%s\n' 'build' "$savedonly")
+      When call render_headline "$records"
+      The status should be success
+      # 104857600 bytes = 100.00 MiB saved, nothing restored.
+      The line 1 of output should include '· cache 100.00 MiB saved'
+      The output should not include 'restored'
+    End
   End
 
   Describe 'render_table()'
@@ -462,5 +475,22 @@ body'
       The output should include 'HEADLINE'
       The output should include 'TABLE'
     End
+  End
+End
+
+Describe 'report-ci-insights/report-ci-insights.sh'
+  # Exercise the orchestrator ENTRY script as a subprocess (not the lib functions)
+  # so kcov attributes its lines: set -u, the ERR trap, sourcing lib.sh, main "$@",
+  # exit 0. The script sources lib.sh relative to its own dir, so it resolves from
+  # the repo-root cwd shellspec runs in.
+  It 'skips with status 0 and a notice when there is no PR context'
+    # No PR context: main hits the "no PR context" guard, emits ::notice:: and
+    # returns 0; the script then exits 0. This drives every orchestrator line.
+    export REPO=o/r RUN_ID=1 SELF_JOB=report-ci-insights
+    unset PR_NUMBER
+    When run script report-ci-insights/report-ci-insights.sh
+    The status should be success
+    The output should include '::notice::'
+    The output should include 'no PR context'
   End
 End
