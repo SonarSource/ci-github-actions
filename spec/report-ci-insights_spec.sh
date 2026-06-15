@@ -415,17 +415,18 @@ body'
 
     # shellcheck disable=SC2329  # Stubs are invoked indirectly by main()
     stub_renderers() {
-      render_headline()    { echo "HEADLINE"; }
-      render_table()       { echo "TABLE"; }
-      render_cache_fold()  { echo "CACHE"; }
-      upsert_comment()     { echo "UPSERT:$1"; }
+      render_headline()    { echo "HEADLINE"; return 0; }
+      render_table()       { echo "TABLE"; return 0; }
+      render_cache_fold()  { echo "CACHE"; return 0; }
+      upsert_comment()     { local body=$1; echo "UPSERT:$body"; return 0; }
+      return 0
     }
 
     It 'skips with no PR context (PR_NUMBER unset) and never upserts'
       export REPO=o/r RUN_ID=1 SELF_JOB=report-ci-insights
       unset PR_NUMBER
       # shellcheck disable=SC2329  # Invoked indirectly by main()
-      collect_job_metrics() { printf 'build\t{"job":"build"}\n'; }
+      collect_job_metrics() { printf 'build\t{"job":"build"}\n'; return 0; }
       stub_renderers
       When call main
       The status should be success
@@ -436,7 +437,7 @@ body'
     It 'skips when collect returns no metrics and never upserts'
       export REPO=o/r RUN_ID=1 SELF_JOB=report-ci-insights PR_NUMBER=7
       # shellcheck disable=SC2329  # Invoked indirectly by main()
-      collect_job_metrics() { :; }
+      collect_job_metrics() { return 0; }
       stub_renderers
       When call main
       The status should be success
@@ -448,7 +449,7 @@ body'
     It 'upserts once with the marker as the FIRST body line when records are present'
       export REPO=o/r RUN_ID=1 SELF_JOB=report-ci-insights PR_NUMBER=7
       # shellcheck disable=SC2329  # Invoked indirectly by main()
-      collect_job_metrics() { printf 'build\t{"job":"build"}\n'; }
+      collect_job_metrics() { printf 'build\t{"job":"build"}\n'; return 0; }
       stub_renderers
       When call main
       The status should be success
