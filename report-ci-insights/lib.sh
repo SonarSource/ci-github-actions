@@ -26,8 +26,7 @@ extract_metrics_json() {
 # or newline and on the producer emitting single-line JSON.
 collect_job_metrics() {
   local jobs id name status log metrics
-  jobs=$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs" --paginate \
-           -q '.jobs[] | "\(.id)\t\(.name)\t\(.status)"') || return 0
+  jobs=$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs" --paginate -q '.jobs[] | "\(.id)\t\(.name)\t\(.status)"') || return 0
   while IFS=$'\t' read -r id name status; do
     [[ -z "$id" ]] && continue
     [[ "$status" == "completed" ]] || continue
@@ -60,17 +59,7 @@ _rci_fmt_bytes() {
 #   "<cores> / <avail> cores (<pct>%)", falling back to bare cores, then "n/a".
 _rci_cpu_cell() {
   local json=$1
-  jq -r '
-    .cgroup.cpu as $c | .duration_seconds as $d |
-    if ($c.usage_seconds != null and $d != null and $d > 0)
-    then (($c.usage_seconds / $d) * 100 | round / 100) as $cores |
-      if ($c.limit_cores != null and $c.avg_utilization != null)
-      then "\($cores) / \(($c.limit_cores*100|round)/100) cores (\(($c.avg_utilization*100)|round)%)"
-      elif ($c.online_count != null and $c.online_count > 0)
-      then "\($cores) / \($c.online_count) cores (\((($cores/$c.online_count)*100)|round)%)"
-      else "\($cores) cores" end
-    else "n/a" end
-  ' <<< "$json"
+  jq -r '.cgroup.cpu as $c | .duration_seconds as $d | if ($c.usage_seconds != null and $d != null and $d > 0) then (($c.usage_seconds / $d) * 100 | round / 100) as $cores | if ($c.limit_cores != null and $c.avg_utilization != null) then "\($cores) / \(($c.limit_cores*100|round)/100) cores (\(($c.avg_utilization*100)|round)%)" elif ($c.online_count != null and $c.online_count > 0) then "\($cores) / \($c.online_count) cores (\((($cores/$c.online_count)*100)|round)%)" else "\($cores) cores" end else "n/a" end' <<< "$json"
 }
 
 # Sum a numeric jq path across all record JSONs; nulls count as 0. Echoes an integer-ish sum.
@@ -253,8 +242,7 @@ render_cache_fold() {
       # Escape pipes in author-controlled cells so they can't inject columns.
       key=${key//|/\\|}
       backend=${backend//|/\\|}
-      rows="${rows}| ${key} | ${hit} | ${backend} | $(_rci_fmt_bytes "$restored_b") | ${saved_flag} | $(_rci_fmt_bytes "$end_b") |
-"
+      rows="${rows}| ${key} | ${hit} | ${backend} | $(_rci_fmt_bytes "$restored_b") | ${saved_flag} | $(_rci_fmt_bytes "$end_b") |"$'\n'
     done
   done <<< "$records"
 
@@ -276,8 +264,7 @@ render_cache_fold() {
 # "no existing comment" (|| true), so the create path runs.
 upsert_comment() {
   local body=$1 marker='<!-- ci-metrics-report -->' id
-  id=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate \
-        -q ".[] | select(.body | contains(\"$marker\")) | .id" | head -1) || true
+  id=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate -q ".[] | select(.body | contains(\"$marker\")) | .id" | head -1) || true
   if [[ -n "$id" ]]; then
     gh api "repos/$REPO/issues/comments/$id" -X PATCH -f body="$body"
   else
