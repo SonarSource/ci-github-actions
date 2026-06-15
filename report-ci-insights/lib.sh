@@ -38,8 +38,9 @@ _rci_md_cell() {
   s=${s//|/\\|}
   s=${s//$'\r'/ }
   s=${s//$'\n'/ }
-  s=${s//</&lt;}
-  s=${s//>/&gt;}
+  # Escape the & in the replacement: bash 4.3+ treats a bare & as the matched text.
+  s=${s//</\&lt;}
+  s=${s//>/\&gt;}
   printf '%s' "$s"
 }
 
