@@ -41,6 +41,19 @@ collect_job_metrics() {
   done <<< "$jobs"
 }
 
+# Sanitize an author-influenced value for safe inclusion in a markdown table cell:
+# escape pipes (column injection), collapse CR/LF (row/line injection), and neutralize
+# angle brackets (HTML/details injection) since the comment is posted with write scope.
+_rci_md_cell() {
+  local s=$1
+  s=${s//|/\\|}
+  s=${s//$'\r'/ }
+  s=${s//$'\n'/ }
+  s=${s//</&lt;}
+  s=${s//>/&gt;}
+  printf '%s' "$s"
+}
+
 # Bytes → human-readable, matching the producer hook's fmt_bytes (2dp, IEC units).
 # A blank/non-numeric arg renders as "n/a" so callers can pass jq nulls directly.
 _rci_fmt_bytes() {
@@ -179,8 +192,8 @@ render_table() {
   # One row per job, emitting only the surviving columns.
   while IFS=$'\t' read -r name json; do
     [[ -z "$json" ]] && continue
-    # Escape pipes in the (author-controlled) job name so it can't inject columns.
-    name=${name//|/\\|}
+    # Sanitize the (author-controlled) job name so it can't inject columns, rows, or HTML.
+    name=$(_rci_md_cell "$name")
     local row="| ${name} |"
     if (( has_cpu )); then row="${row} $(_rci_cpu_cell "$json") |"; fi
     if (( has_mem )); then
@@ -239,9 +252,9 @@ render_cache_fold() {
       restored_b=$(jq -r ".cache[$i].size_bytes_restored // empty" <<< "$json")
       saved_flag=$(jq -r ".cache[$i].saved // false | if . then \"yes\" else \"no\" end" <<< "$json")
       end_b=$(jq -r ".cache[$i].size_bytes_at_end // empty" <<< "$json")
-      # Escape pipes in author-controlled cells so they can't inject columns.
-      key=${key//|/\\|}
-      backend=${backend//|/\\|}
+      # Sanitize author-controlled cells so they can't inject columns, rows, or HTML.
+      key=$(_rci_md_cell "$key")
+      backend=$(_rci_md_cell "$backend")
       rows="${rows}| ${key} | ${hit} | ${backend} | $(_rci_fmt_bytes "$restored_b") | ${saved_flag} | $(_rci_fmt_bytes "$end_b") |"$'\n'
     done
   done <<< "$records"

@@ -302,6 +302,17 @@ Describe 'report-ci-insights/lib.sh'
       The output should include '| build\|x |'
     End
 
+    It 'neutralizes angle brackets in a job name so it cannot inject HTML/details'
+      # A job name carrying </details> must render with escaped angle brackets so it
+      # cannot prematurely close the foldable section or inject raw HTML into the
+      # write-scoped PR comment.
+      records=$(printf '%s\t%s\n' 'build</details>' "$J_BUILD")
+      When call render_table "$records"
+      The status should be success
+      The output should include '| build&lt;/details&gt; |'
+      The output should not include '| build</details> |'
+    End
+
     It 'shows n/a in the CPU cell when a job lacks CPU data but another has it'
       # build has CPU data so the column survives; job-x has none -> its cell is n/a.
       nocpu='{"schema_version":2,"duration_seconds":null,"cgroup":{"cpu":{"usage_seconds":null,"throttled_seconds":0.0,"nr_throttled":0,"limit_cores":null,"online_count":null,"avg_utilization":null,"throttle_rate":null},"memory":{"peak_bytes":1024,"limit_bytes":null,"peak_utilization":null,"oom":0,"oom_kill":0}},"net":{"rx_bytes":0,"tx_bytes":0,"by_interface":{}},"disk":{"path":"/","total_bytes":null,"used_bytes":null,"available_bytes":null,"utilization":null}}'
@@ -341,6 +352,22 @@ Describe 'report-ci-insights/lib.sh'
       # The data row must keep exactly 6 columns (7 pipes). An unescaped key
       # would yield 8 pipes and break the table structure.
       The output should include '| deps\|v2 | yes | s3 |'
+    End
+
+    It 'collapses newlines and neutralizes angle brackets in author-controlled cache cells'
+      # jq -r materializes the JSON \n into a real newline; a crafted key/backend can
+      # use that plus </details> to break the table row or inject HTML into the
+      # write-scoped PR comment. The sanitizer must collapse the newline onto one line
+      # and escape the angle brackets.
+      evilkey='{"schema_version":2,"duration_seconds":62.0,"cgroup":{"cpu":{"usage_seconds":1.0,"throttled_seconds":0.0},"memory":{"peak_bytes":1024,"oom_kill":0}},"net":{"rx_bytes":0,"tx_bytes":0},"disk":{"total_bytes":null,"used_bytes":null},"cache":[{"key":"deps\n</details>","cache_hit":true,"backend":"s3\nevil","size_bytes_restored":1024,"saved":false,"size_bytes_at_end":null}]}'
+      records=$(printf '%s\t%s\n' 'build' "$evilkey")
+      When call render_cache_fold "$records"
+      The status should be success
+      # The whole cache row stays on a single line: key newline collapsed to a space,
+      # backend newline collapsed too, angle brackets escaped.
+      The output should include '| deps &lt;/details&gt; | yes | s3 evil |'
+      # No raw closing tag leaks into the comment body.
+      The output should not include '</details></details>'
     End
   End
 
