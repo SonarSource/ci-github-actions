@@ -1,9 +1,9 @@
-name: Report CI Insights
+name: Report CI Metrics
 description: Aggregate per-job CI metrics from the run and post a sticky PR comment
 runs:
   using: composite
   steps:
-    - name: Report CI insights
+    - name: Report CI metrics
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
@@ -11,4 +11,4 @@ runs:
         REPO: ${{ github.repository }}
         PR_NUMBER: ${{ github.event.pull_request.number }}
         SELF_JOB: ${{ github.job }}
-      run: ${GITHUB_ACTION_PATH}/report-ci-insights.sh
+      run: ${GITHUB_ACTION_PATH}/report-ci-metrics.sh

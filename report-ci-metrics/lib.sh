@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# report-ci-insights library functions. Tested directly via shellspec.
+# report-ci-metrics library functions. Tested directly via shellspec.
 
 # Recover the last sentinel-wrapped metrics JSON from a job log's text. Empty if absent.
 extract_metrics_json() {
@@ -268,10 +268,10 @@ upsert_comment() {
 # Entry point: collect sibling metrics, render, upsert the sticky comment. Returns early
 # (no comment) when there's no PR context or no metrics. Marker must lead the body.
 main() {
-  [[ -n "${PR_NUMBER:-}" ]] || { echo "::notice::report-ci-insights: no PR context, skipping"; return 0; }
+  [[ -n "${PR_NUMBER:-}" ]] || { echo "::notice::report-ci-metrics: no PR context, skipping"; return 0; }
   local records
   records=$(collect_job_metrics)
-  [[ -n "$records" ]] || { echo "::notice::report-ci-insights: no CI metrics found, skipping comment"; return 0; }
+  [[ -n "$records" ]] || { echo "::notice::report-ci-metrics: no CI metrics found, skipping comment"; return 0; }
   local marker='<!-- ci-metrics-report -->'
   local body
   body="$marker

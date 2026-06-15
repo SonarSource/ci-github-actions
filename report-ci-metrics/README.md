@@ -1,4 +1,4 @@
-# Report CI Insights
+# Report CI Metrics
 
 Aggregate per-job CI resource metrics from the current workflow run and post a sticky pull-request comment summarising them.
 
@@ -8,7 +8,7 @@ Add a dedicated reporting job that runs after all the jobs you want covered. It 
 so the comment is posted even when an earlier job fails:
 
 ```yaml
-report-ci-insights:
+report-ci-metrics:
   needs: [build, test, lint]  # list every job whose metrics you want reported
   if: always() && github.event_name == 'pull_request'
   runs-on: sonar-xs
@@ -16,7 +16,7 @@ report-ci-insights:
     actions: read           # read sibling job logs via the Actions API
     pull-requests: write    # post / update the sticky comment
   steps:
-    - uses: SonarSource/ci-github-actions/report-ci-insights@v1
+    - uses: SonarSource/ci-github-actions/report-ci-metrics@v1
 ```
 
 ## How it works

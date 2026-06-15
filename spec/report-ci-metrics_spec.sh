@@ -5,8 +5,8 @@ eval "$(shellspec - -c) exit 1"
 BEGIN='===CI_METRICS_JSON_BEGIN==='
 END='===CI_METRICS_JSON_END==='
 
-Describe 'report-ci-insights/lib.sh'
-  Include report-ci-insights/lib.sh
+Describe 'report-ci-metrics/lib.sh'
+  Include report-ci-metrics/lib.sh
 
   Describe 'extract_metrics_json()'
     It 'extracts the JSON from a realistic timestamped multi-line log'
@@ -63,7 +63,7 @@ Describe 'report-ci-insights/lib.sh'
 
   Describe 'collect_job_metrics()'
     # Mock job IDs: 10/11 emit, 12 in_progress, 13 self, 14 no-metrics, 15 log-fails, 16 corrupt.
-    export REPO=o/r RUN_ID=123 SELF_JOB=report-ci-insights
+    export REPO=o/r RUN_ID=123 SELF_JOB=report-ci-metrics
 
     Mock gh
       case "$*" in
@@ -72,7 +72,7 @@ Describe 'report-ci-insights/lib.sh'
             '10	build	completed' \
             '11	test (linux)	completed' \
             '12	flaky	in_progress' \
-            '13	report-ci-insights	completed' \
+            '13	report-ci-metrics	completed' \
             '14	no-metrics-job	completed' \
             '15	boom	completed' \
             '16	corrupt	completed'
@@ -128,7 +128,7 @@ Describe 'report-ci-insights/lib.sh'
     It 'skips the report job itself (name == SELF_JOB)'
       When call collect_job_metrics
       The status should be success
-      The output should not include 'report-ci-insights'
+      The output should not include 'report-ci-metrics'
     End
 
     It 'skips a completed job whose log has no metrics block'
@@ -153,7 +153,7 @@ Describe 'report-ci-insights/lib.sh'
       Mock gh
         case "$*" in
           *runs/*/jobs*)
-            printf '%s\n' '20	report-ci-insights (1)	completed'
+            printf '%s\n' '20	report-ci-metrics (1)	completed'
             ;;
           *jobs/20/logs*)
             printf '%s\n' '2026-06-12T09:00:01Z ===CI_METRICS_JSON_BEGIN==={"job":"self-matrix"}===CI_METRICS_JSON_END==='
@@ -399,7 +399,7 @@ body'
     }
 
     It 'skips with no PR context (PR_NUMBER unset) and never upserts'
-      export REPO=o/r RUN_ID=1 SELF_JOB=report-ci-insights
+      export REPO=o/r RUN_ID=1 SELF_JOB=report-ci-metrics
       unset PR_NUMBER
       # shellcheck disable=SC2329  # Invoked indirectly by main()
       collect_job_metrics() { printf 'build\t{"job":"build"}\n'; return 0; }
@@ -411,7 +411,7 @@ body'
     End
 
     It 'skips when collect returns no metrics and never upserts'
-      export REPO=o/r RUN_ID=1 SELF_JOB=report-ci-insights PR_NUMBER=7
+      export REPO=o/r RUN_ID=1 SELF_JOB=report-ci-metrics PR_NUMBER=7
       # shellcheck disable=SC2329  # Invoked indirectly by main()
       collect_job_metrics() { return 0; }
       stub_renderers
@@ -423,7 +423,7 @@ body'
     End
 
     It 'upserts once with the marker as the FIRST body line when records are present'
-      export REPO=o/r RUN_ID=1 SELF_JOB=report-ci-insights PR_NUMBER=7
+      export REPO=o/r RUN_ID=1 SELF_JOB=report-ci-metrics PR_NUMBER=7
       # shellcheck disable=SC2329  # Invoked indirectly by main()
       collect_job_metrics() { printf 'build\t{"job":"build"}\n'; return 0; }
       stub_renderers
@@ -438,12 +438,12 @@ body'
   End
 End
 
-Describe 'report-ci-insights/report-ci-insights.sh'
+Describe 'report-ci-metrics/report-ci-metrics.sh'
   # Run the entry script as a subprocess so kcov attributes its lines.
   It 'skips with status 0 and a notice when there is no PR context'
-    export REPO=o/r RUN_ID=1 SELF_JOB=report-ci-insights
+    export REPO=o/r RUN_ID=1 SELF_JOB=report-ci-metrics
     unset PR_NUMBER
-    When run script report-ci-insights/report-ci-insights.sh
+    When run script report-ci-metrics/report-ci-metrics.sh
     The status should be success
     The output should include '::notice::'
     The output should include 'no PR context'
