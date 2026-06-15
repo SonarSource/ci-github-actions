@@ -2,8 +2,6 @@
 # report-ci-insights library functions. Tested directly via shellspec.
 
 # Recover the last sentinel-wrapped metrics JSON from a job log's text. Empty if absent.
-# grep -o is line-oriented, so a decoy mention of the BEGIN sentinel on its own
-# line (without a matching END sentinel) cannot match and is ignored.
 extract_metrics_json() {
   local text=$1
   printf '%s' "$text" \
@@ -13,17 +11,9 @@ extract_metrics_json() {
 }
 
 # List the run's jobs and emit "<name>\t<json>" for each completed sibling whose log
-# carries a metrics block. Skips, with distinct reasons:
-#   - non-completed jobs (still running / queued have no final metrics);
-#   - the report job itself: github.job is the YAML job id (SELF_JOB) while the jobs
-#     API reports the DISPLAY name, which usually matches but for matrix jobs becomes
-#     "id (val)". We skip on exact match OR "$SELF_JOB " prefix to cover both, AND
-#     defensively `continue` when the log download fails — the running report job's own
-#     log 404s mid-run, so a failed download must never abort the whole collection;
-#   - jobs whose log has no sentinel-wrapped metrics block (nothing to report).
-# A failure to list jobs at all is treated as "nothing to collect" (return 0).
-# Emitted records are "<name>\t<json>": this relies on job names containing no tab
-# or newline and on the producer emitting single-line JSON.
+# carries a metrics block. Skips: non-completed jobs, the report job itself (exact or
+# matrix "id (val)" prefix match on SELF_JOB), log-download failures, and jobs with no
+# metrics block. Record format relies on job names having no tab/newline.
 collect_job_metrics() {
   local jobs id name status log metrics
   jobs=$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs" --paginate -q '.jobs[] | "\(.id)\t\(.name)\t\(.status)"') || return 0
@@ -34,8 +24,7 @@ collect_job_metrics() {
     log=$(gh api "repos/$REPO/actions/jobs/$id/logs" 2>/dev/null) || continue
     metrics=$(extract_metrics_json "$log")
     [[ -n "$metrics" ]] || continue
-    # Drop siblings whose sentinel block holds malformed/truncated JSON, so a
-    # corrupt record never reaches the renderers.
+    # Drop malformed/truncated JSON so it never reaches the renderers.
     jq -e . >/dev/null 2>&1 <<< "$metrics" || continue
     printf '%s\t%s\n' "$name" "$metrics"
   done <<< "$jobs"
@@ -87,8 +76,7 @@ _rci_sum() {
   printf '%s' "$total"
 }
 
-# render_headline <records> — one totals line for the run, then an optional flags line.
-# records: newline-separated "<name>\t<job_metrics_json>" lines (collect_job_metrics output).
+# render_headline <records> — a totals line, then a flags line if any job OOM'd/throttled.
 render_headline() {
   local records=$1
   local njobs cpu_total rx tx restored saved
@@ -155,9 +143,8 @@ render_headline() {
   fi
 }
 
-# render_table <records> — a foldable per-job breakdown table. Columns with no data
-# in ANY job are dropped (folding rule). Pre-scans the records to decide the column
-# set, then renders header + one row per job using only the surviving columns.
+# render_table <records> — foldable per-job table. Columns with no data in any job are
+# dropped: pre-scan to pick the surviving columns, then render header + one row per job.
 render_table() {
   local records=$1
   local njobs=0 name json
@@ -192,7 +179,6 @@ render_table() {
   # One row per job, emitting only the surviving columns.
   while IFS=$'\t' read -r name json; do
     [[ -z "$json" ]] && continue
-    # Sanitize the (author-controlled) job name so it can't inject columns, rows, or HTML.
     name=$(_rci_md_cell "$name")
     local row="| ${name} |"
     if (( has_cpu )); then row="${row} $(_rci_cpu_cell "$json") |"; fi
@@ -229,8 +215,7 @@ render_table() {
   printf '\n</details>\n'
 }
 
-# render_cache_fold <records> — a foldable cache table. Emits the empty string unless
-# at least one job has a non-empty .cache array (folding rule).
+# render_cache_fold <records> — foldable cache table; empty string unless a job has cache.
 render_cache_fold() {
   local records=$1
   local count=0 name json rows=""
@@ -242,7 +227,6 @@ render_cache_fold() {
     [[ "$n" =~ ^[0-9]+$ ]] || n=0
     (( n == 0 )) && continue
     count=$((count + n))
-    # One markdown row per cache entry. Bytes rendered via the shared formatter.
     local i
     for (( i = 0; i < n; i++ )); do
       local key hit backend restored_b saved_flag end_b
@@ -252,7 +236,6 @@ render_cache_fold() {
       restored_b=$(jq -r ".cache[$i].size_bytes_restored // empty" <<< "$json")
       saved_flag=$(jq -r ".cache[$i].saved // false | if . then \"yes\" else \"no\" end" <<< "$json")
       end_b=$(jq -r ".cache[$i].size_bytes_at_end // empty" <<< "$json")
-      # Sanitize author-controlled cells so they can't inject columns, rows, or HTML.
       key=$(_rci_md_cell "$key")
       backend=$(_rci_md_cell "$backend")
       rows="${rows}| ${key} | ${hit} | ${backend} | $(_rci_fmt_bytes "$restored_b") | ${saved_flag} | $(_rci_fmt_bytes "$end_b") |"$'\n'
@@ -269,12 +252,8 @@ render_cache_fold() {
   printf '\n</details>\n'
 }
 
-# Post or update the sticky CI-metrics PR comment, matched by the hidden marker.
-# The caller embeds the marker as the first line of <body>. We list the PR's
-# comments, find the FIRST whose body contains the marker, and PATCH it; if none
-# matches we POST a new one. This keeps the report idempotent across re-runs:
-# the same comment is updated rather than duplicated. A failed list is treated as
-# "no existing comment" (|| true), so the create path runs.
+# Post or update the sticky comment, matched by the marker in <body>'s first line:
+# PATCH the first comment containing the marker, else POST a new one (idempotent on re-run).
 upsert_comment() {
   local body=$1 marker='<!-- ci-metrics-report -->' id
   id=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate -q ".[] | select(.body | contains(\"$marker\")) | .id" | head -1) || true
@@ -285,12 +264,8 @@ upsert_comment() {
   fi
 }
 
-# Entry point: collect sibling job metrics, render the report, upsert the sticky
-# PR comment. Fail-open is provided by the caller's ERR trap. Two early returns:
-#   - no PR context (push/master run) -> nothing to comment on;
-#   - no sibling produced metrics -> post NOTHING (never an empty comment).
-# The marker MUST be the first line of the body so upsert_comment matches and
-# updates the existing comment on re-runs instead of duplicating it.
+# Entry point: collect sibling metrics, render, upsert the sticky comment. Returns early
+# (no comment) when there's no PR context or no metrics. Marker must lead the body.
 main() {
   [[ -n "${PR_NUMBER:-}" ]] || { echo "::notice::report-ci-insights: no PR context, skipping"; return 0; }
   local records

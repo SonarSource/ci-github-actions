@@ -39,9 +39,7 @@ Describe 'report-ci-insights/lib.sh'
     End
 
     It 'ignores an earlier prose mention of the BEGIN sentinel and extracts the real block'
-      # Decoy: an earlier line mentions the literal BEGIN sentinel in noise but
-      # has NO matching END sentinel. A greedy match spanning lines would grab
-      # from the decoy line. Correct line-oriented extraction returns the real JSON.
+      # Decoy BEGIN sentinel without a matching END must not be matched.
       log=$(printf '%s\n' \
         "2026-06-12T09:00:00.0000000Z note: the producer prints ${BEGIN} then the payload" \
         '2026-06-12T09:00:01.0000000Z unrelated log noise' \
@@ -64,14 +62,7 @@ Describe 'report-ci-insights/lib.sh'
   End
 
   Describe 'collect_job_metrics()'
-    # Job IDs map to distinct skip/emit paths exercised by the mock below:
-    #   10 build           completed   -> log has metrics  -> emitted
-    #   11 test (linux)    completed   -> log has metrics  -> emitted
-    #   12 flaky           in_progress -> skipped (not completed)
-    #   13 report-ci-insights completed -> skipped (name == SELF_JOB)
-    #   14 no-metrics-job  completed   -> log lacks sentinel -> skipped
-    #   15 boom            completed   -> log download fails -> continue
-    #   16 corrupt         completed   -> log has sentinel but malformed JSON -> skipped
+    # Mock job IDs: 10/11 emit, 12 in_progress, 13 self, 14 no-metrics, 15 log-fails, 16 corrupt.
     export REPO=o/r RUN_ID=123 SELF_JOB=report-ci-insights
 
     Mock gh
@@ -87,9 +78,7 @@ Describe 'report-ci-insights/lib.sh'
             '16	corrupt	completed'
           ;;
         *jobs/10/logs*)
-          # Sentinels are written literally: shellspec Mock bodies do not inherit
-          # the spec-level BEGIN/END shell vars, so referencing them would expand
-          # to empty and silently strip the sentinels from the fixture.
+          # Sentinels written literally (Mock bodies don't inherit the BEGIN/END vars).
           printf '%s\n' \
             '2026-06-12T09:00:00Z start build' \
             '2026-06-12T09:00:01Z ===CI_METRICS_JSON_BEGIN==={"job":"build"}===CI_METRICS_JSON_END===' \
@@ -121,7 +110,7 @@ Describe 'report-ci-insights/lib.sh'
     End
 
     It 'emits name\tjson only for completed siblings whose log carries metrics'
-      # Exact full-output equality also pins the order (build before test (linux)).
+      # Exact-equality also pins emit order.
       expected=$(printf '%s\n' \
         "$(printf 'build\t{"job":"build"}')" \
         "$(printf 'test (linux)\t{"job":"test-linux"}')")
@@ -192,15 +181,8 @@ Describe 'report-ci-insights/lib.sh'
     End
   End
 
-  # Shared JSON fixtures for the rendering functions. Each is one schema_version 2
-  # job-metrics object. Records are built as "<name>\t<json>\n" lines, mirroring
-  # the aggregator input (the output of collect_job_metrics).
-  #
-  #   build : heavy CPU (40s/62s, limit 2.00 cores, util 0.32), 3.20 GiB peak mem,
-  #           1.0 GiB rx / 200 MiB tx, disk used, restored+saved cache, no flags.
-  #   test  : lighter (10s/62s, online_count 4, util null), 100 MB peak, 500 MB rx /
-  #           100 MB tx, disk used, OOM-killed (oom_kill 1), one cache hit.
-  #   lint  : tiny (2s/62s), no disk data (nulls), no cache, CPU-throttled (3.5s).
+  # schema_version 2 fixtures (one "<name>\t<json>" record each):
+  #   build = cache restored+saved, no flags; test = OOM-killed; lint = no disk, throttled.
   J_BUILD='{"schema_version":2,"captured_at":"t","duration_seconds":62.0,"cgroup":{"cpu":{"usage_seconds":40.0,"throttled_seconds":0.0,"nr_throttled":0,"limit_cores":2.0,"online_count":4,"avg_utilization":0.32,"throttle_rate":null,"pressure_some_avg10":null,"pressure_some_avg60":null,"pressure_some_avg300":null},"memory":{"peak_bytes":3435973836,"limit_bytes":4294967296,"peak_utilization":0.80,"oom":0,"oom_kill":0}},"net":{"rx_bytes":1073741824,"tx_bytes":209715200,"by_interface":{}},"disk":{"path":"/","total_bytes":32212254720,"used_bytes":6442450944,"available_bytes":null,"utilization":0.20},"cache":[{"key":"maven-abc","cache_hit":true,"restore_key_hit":null,"backend":"s3","size_bytes_restored":471859200,"saved":true,"size_bytes_at_end":492832000}]}'
   J_TEST='{"schema_version":2,"captured_at":"t","duration_seconds":62.0,"cgroup":{"cpu":{"usage_seconds":10.0,"throttled_seconds":0.0,"nr_throttled":0,"limit_cores":null,"online_count":4,"avg_utilization":null,"throttle_rate":null,"pressure_some_avg10":null,"pressure_some_avg60":null,"pressure_some_avg300":null},"memory":{"peak_bytes":104857600,"limit_bytes":4294967296,"peak_utilization":0.02,"oom":0,"oom_kill":1}},"net":{"rx_bytes":524288000,"tx_bytes":104857600,"by_interface":{}},"disk":{"path":"/","total_bytes":32212254720,"used_bytes":3221225472,"available_bytes":null,"utilization":0.10},"cache":[{"key":"npm-xyz","cache_hit":true,"restore_key_hit":null,"backend":"gha","size_bytes_restored":104857600,"saved":false,"size_bytes_at_end":null}]}'
   J_LINT='{"schema_version":2,"captured_at":"t","duration_seconds":62.0,"cgroup":{"cpu":{"usage_seconds":2.0,"throttled_seconds":3.5,"nr_throttled":7,"limit_cores":2.0,"online_count":4,"avg_utilization":0.01,"throttle_rate":0.05,"pressure_some_avg10":null,"pressure_some_avg60":null,"pressure_some_avg300":null},"memory":{"peak_bytes":52428800,"limit_bytes":4294967296,"peak_utilization":0.01,"oom":0,"oom_kill":0}},"net":{"rx_bytes":0,"tx_bytes":0,"by_interface":{}},"disk":{"path":"/","total_bytes":null,"used_bytes":null,"available_bytes":null,"utilization":null}}'
@@ -210,9 +192,6 @@ Describe 'report-ci-insights/lib.sh'
       records=$(printf '%s\t%s\n' 'build' "$J_BUILD" 'test' "$J_TEST" 'lint' "$J_LINT")
       When call render_headline "$records"
       The status should be success
-      # CPU 40+10+2 = 52.0 CPU-s. Peak mem max is build's 3.20 GiB.
-      # net rx 1073741824+524288000+0 = 1.49 GiB ; tx 209715200+104857600+0 = 300.00 MiB
-      # cache restored 471859200+104857600 = 550.00 MiB ; saved 492832000 = 470.00 MiB
       The line 1 of output should equal '**3 jobs** · CPU 52.0 CPU-s · peak mem 3.20 GiB (build) · net 1.49 GiB ↓ / 300.00 MiB ↑ · cache 550.00 MiB restored / 470.00 MiB saved'
     End
 
@@ -220,12 +199,10 @@ Describe 'report-ci-insights/lib.sh'
       records=$(printf '%s\t%s\n' 'build' "$J_BUILD" 'test' "$J_TEST" 'lint' "$J_LINT")
       When call render_headline "$records"
       The status should be success
-      # test was OOM-killed; lint was CPU-throttled.
       The line 2 of output should equal '> ⚠️ 1 job OOM-killed (test) · 1 job CPU-throttled (lint)'
     End
 
     It 'emits NO flags line when no job has OOM or throttle'
-      # Only build (no flags). Output is a single line.
       records=$(printf '%s\t%s\n' 'build' "$J_BUILD")
       When call render_headline "$records"
       The status should be success
@@ -234,14 +211,11 @@ Describe 'report-ci-insights/lib.sh'
     End
 
     It 'renders the saved-only cache segment when a job saved bytes but restored none'
-      # A cache entry that SAVED bytes (saved:true, size_bytes_at_end>0) but
-      # RESTORED nothing (size_bytes_restored:0). No restored bytes anywhere ->
-      # the cache segment must read "cache <N> saved" with no "restored" form.
+      # saved>0 with restored==0 -> "cache <N> saved", no "restored" form.
       savedonly='{"schema_version":2,"duration_seconds":62.0,"cgroup":{"cpu":{"usage_seconds":5.0,"throttled_seconds":0.0},"memory":{"peak_bytes":1024,"oom_kill":0}},"net":{"rx_bytes":0,"tx_bytes":0},"disk":{"total_bytes":null,"used_bytes":null},"cache":[{"key":"npm-fresh","cache_hit":false,"backend":"s3","size_bytes_restored":0,"saved":true,"size_bytes_at_end":104857600}]}'
       records=$(printf '%s\t%s\n' 'build' "$savedonly")
       When call render_headline "$records"
       The status should be success
-      # 104857600 bytes = 100.00 MiB saved, nothing restored.
       The line 1 of output should include '· cache 100.00 MiB saved'
       The output should not include 'restored'
     End
@@ -260,7 +234,6 @@ Describe 'report-ci-insights/lib.sh'
     End
 
     It 'drops the Disk column when no job has disk data'
-      # lint has null disk; give a set where EVERY job lacks disk data.
       lint2=$(printf '%s' "$J_LINT")
       records=$(printf '%s\t%s\n' 'lint' "$lint2" 'lint-b' "$lint2")
       When call render_table "$records"
@@ -280,7 +253,6 @@ Describe 'report-ci-insights/lib.sh'
       When call render_table "$records"
       The status should be success
       The output should include 'Flags'
-      # The OOM row carries 🔴; the clean build row does not.
       The output should include '🔴'
     End
 
@@ -294,8 +266,6 @@ Describe 'report-ci-insights/lib.sh'
     End
 
     It 'escapes pipe characters in a job name so it cannot inject phantom columns'
-      # A job name containing a literal pipe must render as build\|x; an unescaped
-      # pipe would split the row into an extra markdown column.
       records=$(printf '%s\t%s\n' 'build|x' "$J_BUILD")
       When call render_table "$records"
       The status should be success
@@ -303,9 +273,6 @@ Describe 'report-ci-insights/lib.sh'
     End
 
     It 'neutralizes angle brackets in a job name so it cannot inject HTML/details'
-      # A job name carrying </details> must render with escaped angle brackets so it
-      # cannot prematurely close the foldable section or inject raw HTML into the
-      # write-scoped PR comment.
       records=$(printf '%s\t%s\n' 'build</details>' "$J_BUILD")
       When call render_table "$records"
       The status should be success
@@ -314,7 +281,6 @@ Describe 'report-ci-insights/lib.sh'
     End
 
     It 'shows n/a in the CPU cell when a job lacks CPU data but another has it'
-      # build has CPU data so the column survives; job-x has none -> its cell is n/a.
       nocpu='{"schema_version":2,"duration_seconds":null,"cgroup":{"cpu":{"usage_seconds":null,"throttled_seconds":0.0,"nr_throttled":0,"limit_cores":null,"online_count":null,"avg_utilization":null,"throttle_rate":null},"memory":{"peak_bytes":1024,"limit_bytes":null,"peak_utilization":null,"oom":0,"oom_kill":0}},"net":{"rx_bytes":0,"tx_bytes":0,"by_interface":{}},"disk":{"path":"/","total_bytes":null,"used_bytes":null,"available_bytes":null,"utilization":null}}'
       records=$(printf '%s\t%s\n' 'build' "$J_BUILD" 'job-x' "$nocpu")
       When call render_table "$records"
@@ -328,7 +294,6 @@ Describe 'report-ci-insights/lib.sh'
       records=$(printf '%s\t%s\n' 'build' "$J_BUILD" 'test' "$J_TEST" 'lint' "$J_LINT")
       When call render_cache_fold "$records"
       The status should be success
-      # 2 cache entries total (build + test); lint has none.
       The output should include '<details><summary>Cache (2 entries)</summary>'
       The output should include 'maven-abc'
       The output should include 'npm-xyz'
@@ -342,49 +307,30 @@ Describe 'report-ci-insights/lib.sh'
     End
 
     It 'escapes pipe characters in a cache key so it cannot inject phantom columns'
-      # A cache key containing a literal pipe must render as deps\|v2; an unescaped
-      # pipe would split the row into an extra markdown column.
       pipekey='{"schema_version":2,"duration_seconds":62.0,"cgroup":{"cpu":{"usage_seconds":1.0,"throttled_seconds":0.0},"memory":{"peak_bytes":1024,"oom_kill":0}},"net":{"rx_bytes":0,"tx_bytes":0},"disk":{"total_bytes":null,"used_bytes":null},"cache":[{"key":"deps|v2","cache_hit":true,"backend":"s3","size_bytes_restored":1024,"saved":false,"size_bytes_at_end":null}]}'
       records=$(printf '%s\t%s\n' 'build' "$pipekey")
       When call render_cache_fold "$records"
       The status should be success
       The output should include 'deps\|v2'
-      # The data row must keep exactly 6 columns (7 pipes). An unescaped key
-      # would yield 8 pipes and break the table structure.
       The output should include '| deps\|v2 | yes | s3 |'
     End
 
     It 'collapses newlines and neutralizes angle brackets in author-controlled cache cells'
-      # jq -r materializes the JSON \n into a real newline; a crafted key/backend can
-      # use that plus </details> to break the table row or inject HTML into the
-      # write-scoped PR comment. The sanitizer must collapse the newline onto one line
-      # and escape the angle brackets.
+      # jq -r turns JSON \n into a real newline; sanitizer must collapse it and escape <>.
       evilkey='{"schema_version":2,"duration_seconds":62.0,"cgroup":{"cpu":{"usage_seconds":1.0,"throttled_seconds":0.0},"memory":{"peak_bytes":1024,"oom_kill":0}},"net":{"rx_bytes":0,"tx_bytes":0},"disk":{"total_bytes":null,"used_bytes":null},"cache":[{"key":"deps\n</details>","cache_hit":true,"backend":"s3\nevil","size_bytes_restored":1024,"saved":false,"size_bytes_at_end":null}]}'
       records=$(printf '%s\t%s\n' 'build' "$evilkey")
       When call render_cache_fold "$records"
       The status should be success
-      # The whole cache row stays on a single line: key newline collapsed to a space,
-      # backend newline collapsed too, angle brackets escaped.
       The output should include '| deps &lt;/details&gt; | yes | s3 evil |'
-      # No raw closing tag leaks into the comment body.
       The output should not include '</details></details>'
     End
   End
 
   Describe 'upsert_comment()'
-    # The marker the caller embeds as the first line of <body>. upsert_comment
-    # finds the FIRST existing PR comment whose body contains it and PATCHes that
-    # comment; otherwise it POSTs a new one — idempotent across re-runs.
     export REPO=o/r PR_NUMBER=7
 
-    # gh is mocked to branch on the call kind. The three real calls are:
-    #   1. LIST (GET): repos/$REPO/issues/$PR_NUMBER/comments with -q '...id'.
-    #      The real function captures id=$(gh ... -q ...); the mock stands in for
-    #      the jq-filtered output, so it echoes the matched id (999) or nothing.
-    #   2. PATCH: repos/$REPO/issues/comments/<id> -X PATCH  -> echoes 'PATCHED <id>'.
-    #   3. POST:  repos/$REPO/issues/$PR_NUMBER/comments -X POST -> echoes 'POSTED'.
-    # Distinguishing GET vs PATCH vs POST is done purely on the presence of
-    # '-X PATCH' / '-X POST' in "$*"; the GET has neither.
+    # gh mock branches on "$*": the LIST/GET stands in for the -q-filtered id output
+    # (echoes the matched id or nothing); PATCH/POST are matched by '-X PATCH'/'-X POST'.
 
     It 'PATCHes the existing comment when a marker comment is found'
       Mock gh
@@ -421,9 +367,7 @@ hello'
     End
 
     It 'PATCHes only the first marked id when several ids are returned'
-      # The LIST mock returns two ids (999 then 1001), standing in for the -q
-      # filtered output across paginated comments. The function's `head -1` must
-      # pick 999, so the PATCH path targets repos/.../comments/999 and never 1001.
+      # Two ids returned; head -1 must pick 999, never 1001.
       Mock gh
         case "$*" in
           *comments/1001*) echo "PATCHED 1001" ;;
@@ -443,15 +387,7 @@ body'
   End
 
   Describe 'main()'
-    # These tests isolate main()'s ORCHESTRATION logic (PR-context guard, empty
-    # guard, body assembly + upsert) from the real collect/render/upsert
-    # implementations, which have their own dedicated Describe blocks above.
-    # We override those lib functions AFTER Include so main calls the stubs:
-    #   - collect_job_metrics  -> echoes a canned record (or nothing)
-    #   - render_headline/table/cache_fold -> echo sentinels HEADLINE/TABLE/CACHE
-    #   - upsert_comment       -> echoes 'UPSERT:<body>' so the test can inspect
-    #     exactly what body main built (and assert it was called at all).
-    # An unset PR_NUMBER and an empty collect must result in NO 'UPSERT:' line.
+    # Isolate main()'s orchestration by overriding the lib functions it calls with stubs.
 
     # shellcheck disable=SC2329  # Stubs are invoked indirectly by main()
     stub_renderers() {
@@ -493,12 +429,9 @@ body'
       stub_renderers
       When call main
       The status should be success
-      # main must have called upsert exactly once.
       The output should include 'UPSERT:'
-      # The body's FIRST line must be the marker (upsert relies on this to match
-      # an existing sticky comment on re-runs).
+      # Marker must lead the body so re-runs update the same comment.
       The line 1 of output should equal 'UPSERT:<!-- ci-metrics-report -->'
-      # And the assembled body must carry the rendered sections.
       The output should include 'HEADLINE'
       The output should include 'TABLE'
     End
@@ -506,13 +439,8 @@ body'
 End
 
 Describe 'report-ci-insights/report-ci-insights.sh'
-  # Exercise the orchestrator ENTRY script as a subprocess (not the lib functions)
-  # so kcov attributes its lines: set -u, the ERR trap, sourcing lib.sh, main "$@",
-  # exit 0. The script sources lib.sh relative to its own dir, so it resolves from
-  # the repo-root cwd shellspec runs in.
+  # Run the entry script as a subprocess so kcov attributes its lines.
   It 'skips with status 0 and a notice when there is no PR context'
-    # No PR context: main hits the "no PR context" guard, emits ::notice:: and
-    # returns 0; the script then exits 0. This drives every orchestrator line.
     export REPO=o/r RUN_ID=1 SELF_JOB=report-ci-insights
     unset PR_NUMBER
     When run script report-ci-insights/report-ci-insights.sh
