@@ -119,7 +119,7 @@ runs:
         working_directory: ${{ inputs.working-directory }}
 
     - name: Cache Yarn dependencies
-      uses: SonarSource/gh-action_cache@a7d13cdd1c9f097a5f8382ccec463be2831e3dbc # v1.6.0
+      uses: SonarSource/gh-action_cache@0666e03d7b6480758214db522a3aac989d67b026 # v1.7.0
       if: ${{ inputs.cache-yarn == 'true' && inputs.disable-caching != 'true' }}
       with:
         path: |
