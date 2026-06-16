@@ -20,7 +20,11 @@ jobs:
     # it: "OIDC error: the claim 'environment' cannot be null or empty".
     # `sca-checking` is appropriate here as it is a unique value and
     # will not be triggered on dev deploys.
-    environment: sca-checking
+    environment:
+      name: sca-checking
+      # Suppress the temporary deployment record/notification (GA 2026-03)
+      # while keeping the OIDC `environment` claim that Vault requires.
+      deployment: false
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: SonarSource/ci-github-actions/check-sca@440aa1c41e5d7fb10f3354faeebb7a648ddc29ac # master
