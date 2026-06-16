@@ -25,6 +25,8 @@ repos:
     rev: 96ee1570b119e6337aafcc2f299bb0d902b68328  # 0.28.6
     hooks:
       - id: check-github-workflows
+        # TEMP: bundled schema predates `environment.deployment` (GA 2026-03)
+        exclude: ^\.github/workflows/check-sca\.yml$
   - repo: https://github.com/igorshubovych/markdownlint-cli
     rev: f295829140d25717bc79368d3f966fc1f67a824f  # v0.41.0
     hooks:
@@ -37,3 +39,7 @@ repos:
     rev: 62dc61a45fc95efe8c800af7a557ab0b9165d63b  # v1.7.1
     hooks:
       - id: actionlint
+        # TEMP: actionlint v1.7.1 schema predates `environment.deployment`
+        args:
+          - -ignore
+          - unexpected key "deployment" for "environment" section
