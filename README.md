@@ -422,12 +422,16 @@ steps:
 | Output         | Description                                                               |
 |----------------|---------------------------------------------------------------------------|
 | `BUILD_NUMBER` | The current build number. Also set as environment variable `BUILD_NUMBER` |
+| `current-version` | The project version from pyproject.toml (before replacement). Also set as environment variable `CURRENT_VERSION` |
+| `project-version` | The project version with build number (after replacement). Also set as environment variable `PROJECT_VERSION` |
 
 ### Output Environment Variables
 
 | Environment Variable               | Description              |
 |------------------------------------|--------------------------|
 | `BUILD_NUMBER`                     | The current build number |
+| `CURRENT_VERSION`                  | The project version from pyproject.toml (before replacement) |
+| `PROJECT_VERSION`                  | The project version with build number (after replacement) |
 | `POETRY_HTTP_BASIC_REPOX_USERNAME` | Repox username for Poetry |
 | `POETRY_HTTP_BASIC_REPOX_PASSWORD` | Repox access token for Poetry |
 

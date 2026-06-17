@@ -20,7 +20,7 @@ configure_poetry_repox() {
   jf config remove repox > /dev/null 2>&1 || true # Ignore inexistent configuration
   jf config add repox --url "${ARTIFACTORY_URL%/artifactory*}" --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_ACCESS_TOKEN"
   jf config use repox
-  jf poetry-config --server-id-resolve repox --repo-resolve "$ARTIFACTORY_PYPI_REPO"
+  jf poetry-config --global --server-id-resolve repox --repo-resolve "$ARTIFACTORY_PYPI_REPO"
 
   {
     echo "POETRY_HTTP_BASIC_REPOX_USERNAME=$ARTIFACTORY_USERNAME"

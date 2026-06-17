@@ -161,36 +161,6 @@ set_build_env() {
   git_fetch_unshallow
 }
 
-set_project_version() {
-  local current_version release_version digit_count
-
-  if ! current_version=$(poetry version -s); then
-    echo "::error title=Invalid project version::Could not get version from Poetry project ('poetry version -s')" >&2
-    echo "$current_version" >&2
-    return 1
-  fi
-  export CURRENT_VERSION=$current_version
-
-  release_version=${current_version%".dev"*}
-  # In case of 2 digits, we need to add a '0' as the 3rd digit.
-  digit_count=$(echo "${release_version//./ }" | wc -w)
-  if [[ "$digit_count" -lt 3 ]]; then
-    release_version="$release_version.0"
-  fi
-  if [[ "$digit_count" -gt 3 && $release_version =~ [0-9]+\.[0-9]+\.[0-9]+ ]]; then
-    release_version="${BASH_REMATCH[0]}"
-    echo "::warning title=Version truncated::Version was truncated to $release_version because it had more than 3 digits" >&2
-  fi
-  release_version="$release_version.${BUILD_NUMBER}"
-
-  echo "Replacing version $current_version with $release_version"
-  poetry version "$release_version"
-  echo "project-version=$release_version" >> "$GITHUB_OUTPUT"
-  echo "PROJECT_VERSION=$release_version" >> "$GITHUB_ENV"
-  echo "PROJECT_VERSION=$release_version"
-  export PROJECT_VERSION=$release_version
-}
-
 # Determine build configuration based on branch type
 get_build_config() {
   local enable_sonar enable_deploy
@@ -260,10 +230,6 @@ get_build_config() {
   export BUILD_SONAR_ARGS="${sonar_args[*]:-}"
 }
 
-poetry_install_dependencies() {
-  poetry install
-}
-
 jfrog_poetry_publish() {
   jf config remove repox > /dev/null 2>&1 || true # Ignore inexistent configuration
   jf config add repox --url "${ARTIFACTORY_URL%/artifactory*}" --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_DEPLOY_ACCESS_TOKEN"
@@ -286,15 +252,11 @@ build_poetry() {
   echo "Pull Request: ${PULL_REQUEST}"
   echo "Deploy Pull Request: ${DEPLOY_PULL_REQUEST}"
 
-  echo "::group::Set project version"
-  set_project_version
-  echo "::endgroup::"
-
   get_build_config
 
   echo "::group::Install dependencies"
   echo "Installing dependencies..."
-  poetry_install_dependencies
+  poetry install
   echo "::endgroup::"
 
   echo "::group::Build project"

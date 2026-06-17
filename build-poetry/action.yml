@@ -61,7 +61,7 @@ inputs:
 outputs:
   project-version:
     description: The project version from pyproject.toml with BUILD_NUMBER
-    value: ${{ steps.build.outputs.project-version }}
+    value: ${{ steps.config.outputs.project-version }}
   BUILD_NUMBER:
     description: The build number, incremented or reused if already cached
     value: ${{ steps.config.outputs.BUILD_NUMBER }}
