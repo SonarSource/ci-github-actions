@@ -231,6 +231,14 @@ Describe 'discover_project_keys()'
     The output should include "SonarSource_my-repo"
   End
 
+  It 'falls back to GITHUB_REPOSITORY when sonar-project.properties lacks sonar.projectKey'
+    export PROJECT_KEY_INPUT=""
+    export GITHUB_REPOSITORY="SonarSource/my-repo"
+    echo "sonar.python.version=3.13" > "$TEST_DIR/sonar-project.properties"
+    When call discover_project_keys
+    The output should include "SonarSource_my-repo"
+  End
+
   It 'deduplicates keys'
     export PROJECT_KEY_INPUT="SonarSource_test-repo"
     export GITHUB_REPOSITORY="SonarSource/test-repo"

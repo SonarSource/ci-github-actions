@@ -39,7 +39,7 @@ PLATFORMS=(
 # Parse a key=value property from a file. Returns the trimmed value or empty string.
 parse_property_value() {
   local file="$1" key="$2"
-  grep -E "^${key}=" "$file" | head -1 | cut -d= -f2- | tr -d '[:space:]'
+  grep -E "^${key}=" "$file" | head -1 | cut -d= -f2- | tr -d '[:space:]' || true
 }
 
 # Read a value from .github/repo-metadata.yaml under a given top-level section.
