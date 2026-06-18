@@ -68,8 +68,11 @@ fi
   echo "key=$KEY"
   echo "url=$URL"
   echo "body=$JSON_BODY"
+  echo "version-key=$VERSION_KEY"
+  echo "version-url=$VERSION_URL"
+  echo "version=$VERSION"
 } >> "${GITHUB_OUTPUT:?}"
 
 if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
-  echo "**update-release-channel** → [\`$KEY\`]($URL), [\`$VERSION_KEY\`]($VERSION_URL) (version \`$VERSION\`, dry-run \`$DRY_RUN\`)" >> "$GITHUB_STEP_SUMMARY"
+  echo "**update-release-channel** → [\`$KEY\`]($URL) (version \`$VERSION\`, dry-run \`$DRY_RUN\`)" >> "$GITHUB_STEP_SUMMARY"
 fi

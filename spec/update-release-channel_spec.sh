@@ -38,9 +38,12 @@ Describe 'update-release-channel/update-release-channel.sh'
       The contents of file "$GITHUB_OUTPUT" should include "key=Distribution/sonarqube-cli/latest.json"
       The contents of file "$GITHUB_OUTPUT" should include "url=https://binaries.sonarsource.com/Distribution/sonarqube-cli/latest.json"
       The contents of file "$GITHUB_OUTPUT" should include "body={"
+      The contents of file "$GITHUB_OUTPUT" should include "version-key=Distribution/sonarqube-cli/latest.version"
+      The contents of file "$GITHUB_OUTPUT" should include "version-url=https://binaries.sonarsource.com/Distribution/sonarqube-cli/latest.version"
+      The contents of file "$GITHUB_OUTPUT" should include "version=0.9.0.977"
       The contents of file "$GITHUB_STEP_SUMMARY" should include "update-release-channel"
       The contents of file "$GITHUB_STEP_SUMMARY" should include "Distribution/sonarqube-cli/latest.json"
-      The contents of file "$GITHUB_STEP_SUMMARY" should include "Distribution/sonarqube-cli/latest.version"
+      The contents of file "$GITHUB_STEP_SUMMARY" should not include "Distribution/sonarqube-cli/latest.version"
     End
 
     # Requires `check-jsonschema` on PATH (installed by the CI workflow).
@@ -93,6 +96,7 @@ Describe 'update-release-channel/update-release-channel.sh'
       The stderr should include "::warning::Custom prefix 'NotDistribution'"
       The output should include "--key NotDistribution/sonarqube-cli/latest.json"
       The contents of file "$GITHUB_OUTPUT" should include "key=NotDistribution/sonarqube-cli/latest.json"
+      The contents of file "$GITHUB_OUTPUT" should include "version-key=NotDistribution/sonarqube-cli/latest.version"
     End
   End
 
@@ -149,6 +153,8 @@ Describe 'update-release-channel/update-release-channel.sh'
       The output should include "Wrote https://binaries.sonarsource.com/Distribution/sonarqube-cli/latest.version"
       The contents of file "$GITHUB_OUTPUT" should include "url=https://binaries.sonarsource.com/Distribution/sonarqube-cli/latest.json"
       The contents of file "$GITHUB_OUTPUT" should include "body={"
+      The contents of file "$GITHUB_OUTPUT" should include "version-url=https://binaries.sonarsource.com/Distribution/sonarqube-cli/latest.version"
+      The contents of file "$GITHUB_OUTPUT" should include "version=0.9.0.977"
     End
   End
 End
