@@ -36,15 +36,6 @@ outputs:
       The JSON body written (or that would be written) to S3. Always set.
       Useful for schema validation and debugging in dry-run mode.
     value: ${{ steps.update.outputs.body }}
-  version-key:
-    description: S3 key of the sibling plain-text version file (e.g. `Distribution/<product>/<channel>.version`).
-    value: ${{ steps.update.outputs.version-key }}
-  version-url:
-    description: Public URL of the sibling plain-text version file.
-    value: ${{ steps.update.outputs.version-url }}
-  version-body:
-    description: Version string written to the sibling plain-text version file. Always set.
-    value: ${{ steps.update.outputs.version-body }}
 
 runs:
   using: composite

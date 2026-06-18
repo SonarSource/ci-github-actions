@@ -68,9 +68,6 @@ fi
   echo "key=$KEY"
   echo "url=$URL"
   echo "body=$BODY"
-  echo "version-key=$VERSION_KEY"
-  echo "version-url=$VERSION_URL"
-  echo "version-body=$VERSION_BODY"
 } >> "${GITHUB_OUTPUT:?}"
 
 if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then

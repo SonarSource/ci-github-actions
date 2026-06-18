@@ -1531,15 +1531,12 @@ Terraform resource; add the environment for your repo there alongside the existi
 
 ### Outputs
 
-| Output         | Description                                                                              |
-|----------------|------------------------------------------------------------------------------------------|
-| `bucket`       | S3 bucket of the channel files.                                                          |
-| `key`          | S3 key of the JSON pointer file (e.g. `Distribution/<product>/<channel>.json`).         |
-| `url`          | Public URL of the JSON pointer file.                                                     |
-| `body`         | Content of the JSON pointer file.                                                        |
-| `version-key`  | S3 key of the sibling plain-text version file (e.g. `Distribution/<product>/<channel>.version`). |
-| `version-url`  | Public URL of the sibling plain-text version file.                                       |
-| `version-body` | Content of the sibling plain-text version file.                                          |
+| Output   | Description                                                                     |
+|----------|---------------------------------------------------------------------------------|
+| `bucket` | S3 bucket of the channel files.                                                 |
+| `key`    | S3 key of the JSON pointer file (e.g. `Distribution/<product>/<channel>.json`). |
+| `url`    | Public URL of the JSON pointer file.                                            |
+| `body`   | Content of the JSON pointer file.                                               |
 
 ---
 

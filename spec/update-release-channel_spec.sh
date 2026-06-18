@@ -38,9 +38,6 @@ Describe 'update-release-channel/update-release-channel.sh'
       The contents of file "$GITHUB_OUTPUT" should include "key=Distribution/sonarqube-cli/latest.json"
       The contents of file "$GITHUB_OUTPUT" should include "url=https://binaries.sonarsource.com/Distribution/sonarqube-cli/latest.json"
       The contents of file "$GITHUB_OUTPUT" should include "body={"
-      The contents of file "$GITHUB_OUTPUT" should include "version-key=Distribution/sonarqube-cli/latest.version"
-      The contents of file "$GITHUB_OUTPUT" should include "version-url=https://binaries.sonarsource.com/Distribution/sonarqube-cli/latest.version"
-      The contents of file "$GITHUB_OUTPUT" should include "version-body=0.9.0.977"
       The contents of file "$GITHUB_STEP_SUMMARY" should include "update-release-channel"
       The contents of file "$GITHUB_STEP_SUMMARY" should include "Distribution/sonarqube-cli/latest.json"
       The contents of file "$GITHUB_STEP_SUMMARY" should include "Distribution/sonarqube-cli/latest.version"
@@ -152,8 +149,6 @@ Describe 'update-release-channel/update-release-channel.sh'
       The output should include "Wrote https://binaries.sonarsource.com/Distribution/sonarqube-cli/latest.version"
       The contents of file "$GITHUB_OUTPUT" should include "url=https://binaries.sonarsource.com/Distribution/sonarqube-cli/latest.json"
       The contents of file "$GITHUB_OUTPUT" should include "body={"
-      The contents of file "$GITHUB_OUTPUT" should include "version-url=https://binaries.sonarsource.com/Distribution/sonarqube-cli/latest.version"
-      The contents of file "$GITHUB_OUTPUT" should include "version-body=0.9.0.977"
     End
   End
 End
