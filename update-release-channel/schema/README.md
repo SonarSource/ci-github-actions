@@ -1,7 +1,11 @@
 # Release channel pointer schema
 
-JSON Schema for the per-channel pointer file written by the `update-release-channel` GitHub Action to
+JSON Schema for the per-channel pointer JSON file written by the `update-release-channel` GitHub Action to
 `s3://downloads-cdn-eu-central-1-prod/<prefix>/<product>/<channel>.json`.
+
+The action also writes a sibling plain-text file at
+`s3://downloads-cdn-eu-central-1-prod/<prefix>/<product>/<channel>.version` containing only the version string. That
+file is not covered by this JSON schema.
 
 ## Versioning
 

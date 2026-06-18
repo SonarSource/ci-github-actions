@@ -31,12 +31,19 @@ Describe 'update-release-channel/update-release-channel.sh'
       The output should include "Dry-run: aws s3api put-object"
       The output should include "--cache-control 'no-cache, no-store, max-age=0'"
       The output should include "--content-type application/json"
+      The output should include "--key Distribution/sonarqube-cli/latest.version"
+      The output should include "--content-type text/plain"
+      The output should include "Dry-run version body: 0.9.0.977"
       The contents of file "$GITHUB_OUTPUT" should include "bucket=downloads-cdn-eu-central-1-prod"
       The contents of file "$GITHUB_OUTPUT" should include "key=Distribution/sonarqube-cli/latest.json"
       The contents of file "$GITHUB_OUTPUT" should include "url=https://binaries.sonarsource.com/Distribution/sonarqube-cli/latest.json"
       The contents of file "$GITHUB_OUTPUT" should include "body={"
+      The contents of file "$GITHUB_OUTPUT" should include "version-key=Distribution/sonarqube-cli/latest.version"
+      The contents of file "$GITHUB_OUTPUT" should include "version-url=https://binaries.sonarsource.com/Distribution/sonarqube-cli/latest.version"
+      The contents of file "$GITHUB_OUTPUT" should include "version-body=0.9.0.977"
       The contents of file "$GITHUB_STEP_SUMMARY" should include "update-release-channel"
       The contents of file "$GITHUB_STEP_SUMMARY" should include "Distribution/sonarqube-cli/latest.json"
+      The contents of file "$GITHUB_STEP_SUMMARY" should include "Distribution/sonarqube-cli/latest.version"
     End
 
     # Requires `check-jsonschema` on PATH (installed by the CI workflow).
@@ -95,17 +102,45 @@ Describe 'update-release-channel/update-release-channel.sh'
   Describe 'non-dry-run path'
     Mock aws
       body_file=""
+      content_type=""
+      key=""
       while [[ "$#" -gt 0 ]]; do
-        if [[ "$1" == "--body" ]]; then
-          body_file="$2"
-          break
-        fi
-        shift
+        case "$1" in
+          --body)
+            body_file="$2"
+            shift 2
+            ;;
+          --content-type)
+            content_type="$2"
+            shift 2
+            ;;
+          --key)
+            key="$2"
+            shift 2
+            ;;
+          *)
+            shift
+            ;;
+        esac
       done
       [[ -n "$body_file" ]] || exit 1
+      [[ -n "$content_type" ]] || exit 1
+      [[ -n "$key" ]] || exit 1
       [[ "$body_file" != "/dev/stdin" ]] || exit 1
       [[ -f "$body_file" ]] || exit 1
-      grep -q '"version":"0.9.0.977"' "$body_file" || exit 1
+      case "$key" in
+        "Distribution/sonarqube-cli/latest.json")
+          [[ "$content_type" == "application/json" ]] || exit 1
+          grep -q '"version":"0.9.0.977"' "$body_file" || exit 1
+          ;;
+        "Distribution/sonarqube-cli/latest.version")
+          [[ "$content_type" == "text/plain" ]] || exit 1
+          [[ "$(cat "$body_file")" == "0.9.0.977" ]] || exit 1
+          ;;
+        *)
+          exit 1
+          ;;
+      esac
       echo '{"ServerSideEncryption":"AES256"}'
     End
 
@@ -114,8 +149,11 @@ Describe 'update-release-channel/update-release-channel.sh'
       When run script update-release-channel/update-release-channel.sh
       The status should be success
       The output should include "Wrote https://binaries.sonarsource.com/Distribution/sonarqube-cli/latest.json"
+      The output should include "Wrote https://binaries.sonarsource.com/Distribution/sonarqube-cli/latest.version"
       The contents of file "$GITHUB_OUTPUT" should include "url=https://binaries.sonarsource.com/Distribution/sonarqube-cli/latest.json"
       The contents of file "$GITHUB_OUTPUT" should include "body={"
+      The contents of file "$GITHUB_OUTPUT" should include "version-url=https://binaries.sonarsource.com/Distribution/sonarqube-cli/latest.version"
+      The contents of file "$GITHUB_OUTPUT" should include "version-body=0.9.0.977"
     End
   End
 End

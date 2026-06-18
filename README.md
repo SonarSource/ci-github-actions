@@ -1445,11 +1445,11 @@ jobs:
 
 ## `update-release-channel`
 
-Updates a per-channel JSON pointer file on `binaries.sonarsource.com` so consumers can discover the currently published
-version for each release channel of a product. Writes one JSON file per channel at
-`<prefix>/<product>/<channel>.json` (atomic, single S3 `PutObject`). The body follows the
-[v1 schema](update-release-channel/schema/v1.json); see [schema/README.md](update-release-channel/schema/README.md) for the
-field contract.
+Updates per-channel release files on `binaries.sonarsource.com` so consumers can discover the currently published
+version for each release channel of a product. Writes two files per channel:
+`<prefix>/<product>/<channel>.json` and `<prefix>/<product>/<channel>.version`. The JSON body follows the
+[v1 schema](update-release-channel/schema/v1.json); the `.version` file contains only the version string. See
+[schema/README.md](update-release-channel/schema/README.md) for the JSON field contract.
 
 ### Requirements
 
@@ -1531,12 +1531,15 @@ Terraform resource; add the environment for your repo there alongside the existi
 
 ### Outputs
 
-| Output   | Description                                                                     |
-|----------|---------------------------------------------------------------------------------|
-| `bucket` | S3 bucket of the JSON pointer file.                                             |
-| `key`    | S3 key of the JSON pointer file (e.g. `Distribution/<product>/<channel>.json`). |
-| `url`    | Public URL of the JSON pointer file.                                            |
-| `body`   | Content of the JSON pointer file.                                               |
+| Output         | Description                                                                              |
+|----------------|------------------------------------------------------------------------------------------|
+| `bucket`       | S3 bucket of the channel files.                                                          |
+| `key`          | S3 key of the JSON pointer file (e.g. `Distribution/<product>/<channel>.json`).         |
+| `url`          | Public URL of the JSON pointer file.                                                     |
+| `body`         | Content of the JSON pointer file.                                                        |
+| `version-key`  | S3 key of the sibling plain-text version file (e.g. `Distribution/<product>/<channel>.version`). |
+| `version-url`  | Public URL of the sibling plain-text version file.                                       |
+| `version-body` | Content of the sibling plain-text version file.                                          |
 
 ---
 
