@@ -132,6 +132,7 @@ runs:
         ARTIFACTORY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME }}
         ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
         ARTIFACTORY_PYPI_REPO: ${{ inputs.artifactory-pypi-repo }}
+        POETRY_VIRTUALENVS_PATH: ${{ inputs.poetry-virtualenvs-path }}
       run: $ACTION_PATH_CONFIG_POETRY/poetry_config.sh
 
     - name: Restore mise files
