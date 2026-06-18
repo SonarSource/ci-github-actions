@@ -27,4 +27,4 @@ jobs:
       deployment: false
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: SonarSource/ci-github-actions/check-sca@4141fcfc3d24b82284dc65c0512983388b4d16a6 # particular commit on master
+      - uses: SonarSource/ci-github-actions/check-sca@dbb67125fd1079332320dd80d4423e7a5ee58ecc # particular commit on master
