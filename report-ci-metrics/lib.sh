@@ -58,7 +58,7 @@ _rci_fmt_bytes() {
 
 # CPU-avg display cell for one job's JSON, mirroring the hook's step-summary logic.
 # Denominator preference: limit_cores -> request_cores ("requested", ARC burstable) ->
-# online_count ("available", WarpBuild VM) -> bare cores -> "n/a". See BUILD-11593.
+# online_count ("available", WarpBuild VM) -> bare cores -> "n/a".
 _rci_cpu_cell() {
   local json=$1
   jq -r '.cgroup.cpu as $c | .duration_seconds as $d | if ($c.usage_seconds != null and $d != null and $d > 0) then (($c.usage_seconds / $d) * 100 | round / 100) as $cores | if ($c.limit_cores != null and $c.avg_utilization != null) then "\($cores) / \(($c.limit_cores*100|round)/100) cores (\(($c.avg_utilization*100)|round)%)" elif ($c.request_cores != null and $c.request_cores > 0) then "\($cores) / \(($c.request_cores*100|round)/100) cores requested (\((($cores/$c.request_cores)*100)|round)%)" elif ($c.online_count != null and $c.online_count > 0) then "\($cores) / \($c.online_count) cores available (\((($cores/$c.online_count)*100)|round)%)" else "\($cores) cores" end else "n/a" end' <<< "$json"

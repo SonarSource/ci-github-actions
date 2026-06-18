@@ -290,7 +290,7 @@ Describe 'report-ci-metrics/lib.sh'
   End
 
   Describe '_rci_cpu_cell() denominator preference'
-    # cores = usage/duration. Denominator: limit -> request -> online_count -> bare. (BUILD-11593)
+    # cores = usage/duration. Denominator: limit -> request -> online_count -> bare.
     It 'uses the cgroup limit when present'
       j='{"duration_seconds":62.0,"cgroup":{"cpu":{"usage_seconds":31.0,"limit_cores":2.0,"avg_utilization":0.25,"request_cores":1.0,"online_count":32}}}'
       When call _rci_cpu_cell "$j"

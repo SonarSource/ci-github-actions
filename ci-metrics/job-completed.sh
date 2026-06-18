@@ -150,7 +150,7 @@ fi
 #      CI_METRICS_CPU_REQUEST_MILLI (millicores). Exact; the right denominator for our
 #      burstable ARC runners (no quota, request set). Absent on WarpBuild.
 #   3. cpu_online_count — nproc. Only correct when the runner owns the host (WarpBuild
-#      dedicated VM); on ARC this is the whole node, so it's the last resort. See BUILD-11593.
+#      dedicated VM); on ARC this is the whole node, so it's the last resort.
 if [[ "${CI_METRICS_CPU_REQUEST_MILLI:-}" =~ ^[0-9]+$ ]] && (( CI_METRICS_CPU_REQUEST_MILLI > 0 )); then
     cpu_request_cores=$(awk -v m="$CI_METRICS_CPU_REQUEST_MILLI" 'BEGIN{printf "%.3f", m/1000}')
 else
@@ -362,11 +362,13 @@ summary_target="${GITHUB_STEP_SUMMARY:-/dev/null}"
 # Pretty values
 
 # CPU avg: mean cores used over the job, shown against a denominator so the number is
-# actionable for right-sizing. Denominator preference (see BUILD-11593):
+# actionable for right-sizing. Denominator preference:
 #   1. cgroup quota  -> "/ N cores (P%)"            (hard limit)
 #   2. CPU request   -> "/ N cores requested (P%)"  (ARC burstable; P can exceed 100% when bursting)
 #   3. nproc         -> "/ N cores available (P%)"  (WarpBuild dedicated VM)
 # Falls back to bare cores, then n/a.
+# This rendering mirrors _rci_cpu_cell in report-ci-metrics/lib.sh; the expected output per tier
+# is pinned by the "_rci_cpu_cell() denominator preference" spec — keep both in sync if changed.
 cpu_avg_cores=""
 if [[ -n "$cpu_usage_seconds" && -n "$duration_seconds" ]]; then
     cpu_avg_cores=$(awk -v u="$cpu_usage_seconds" -v d="$duration_seconds" \
