@@ -1,7 +1,7 @@
 ---
 name: Update release channel
 description: |
-  Update release channel files (e.g. `Distribution/<product>/latest.json` and `.version`) on
+  Update release channel files (e.g. `Distribution/<product>/latest.json` and `Distribution/<product>/latest.version`) on
   `binaries.sonarsource.com` so consumers can discover the currently published version.
 inputs:
   version:
