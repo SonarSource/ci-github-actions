@@ -1,7 +1,9 @@
 #!/bin/bash
-# Update a release channel pointer at
+# Update release channel files at
 # s3://downloads-cdn-eu-central-1-prod/<prefix>/<product>/<channel>.json
-# (served at https://binaries.sonarsource.com/<prefix>/<product>/<channel>.json).
+# and s3://downloads-cdn-eu-central-1-prod/<prefix>/<product>/<channel>.version
+# (served at https://binaries.sonarsource.com/<prefix>/<product>/<channel>.json
+# and https://binaries.sonarsource.com/<prefix>/<product>/<channel>.version).
 #
 # Required environment variables:
 #   VERSION - Version the channel should point at (e.g. "0.9.0.977")
@@ -20,6 +22,7 @@ set -euo pipefail
 
 readonly BUCKET="downloads-cdn-eu-central-1-prod"
 readonly PUBLIC_BASE_URL="https://binaries.sonarsource.com"
+readonly CACHE_CONTROL="no-cache, no-store, max-age=0"
 
 [[ "$CHANNEL" =~ ^(latest|stable|beta|rc|dogfood)$ ]] \
   || { echo "::error::Invalid channel '$CHANNEL'. Must be one of: latest, stable, beta, rc, dogfood." >&2; exit 1; }
@@ -32,28 +35,42 @@ readonly PUBLIC_BASE_URL="https://binaries.sonarsource.com"
 
 KEY="$PREFIX/$PRODUCT/$CHANNEL.json"
 URL="$PUBLIC_BASE_URL/$KEY"
+VERSION_KEY="$PREFIX/$PRODUCT/$CHANNEL.version"
+VERSION_URL="$PUBLIC_BASE_URL/$VERSION_KEY"
 UPDATED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-BODY="$(jq -cn --arg v "$VERSION" --arg t "$UPDATED_AT" '{schemaVersion:1, version:$v, updatedAt:$t}')"
+JSON_BODY="$(jq -cn --arg v "$VERSION" --arg t "$UPDATED_AT" '{schemaVersion:1, version:$v, updatedAt:$t}')"
+VERSION_BODY="$VERSION"
 
 if [[ "$DRY_RUN" == "true" ]]; then
-  echo "Dry-run: aws s3api put-object --bucket $BUCKET --key $KEY --cache-control 'no-cache, no-store, max-age=0' --content-type application/json --body <generated-json-file>"
-  echo "Dry-run body: $BODY"
+  echo "Dry-run: aws s3api put-object --bucket $BUCKET --key $KEY --cache-control '$CACHE_CONTROL' --content-type application/json --body <generated-json-file>"
+  echo "Dry-run body: $JSON_BODY"
+  echo "Dry-run: aws s3api put-object --bucket $BUCKET --key $VERSION_KEY --cache-control '$CACHE_CONTROL' --content-type text/plain --body <generated-version-file>"
+  echo "Dry-run version body: $VERSION_BODY"
 else
-  BODY_FILE="$(mktemp)"
-  trap 'rm -f "$BODY_FILE"' EXIT
-  printf '%s' "$BODY" > "$BODY_FILE"
+  JSON_FILE="$(mktemp)"
+  VERSION_FILE="$(mktemp)"
+  trap 'rm -f "$JSON_FILE" "$VERSION_FILE"' EXIT
+  printf '%s' "$JSON_BODY" > "$JSON_FILE"
+  printf '%s' "$VERSION_BODY" > "$VERSION_FILE"
 
   aws s3api put-object \
-    --bucket "$BUCKET" --key "$KEY" --body "$BODY_FILE" \
-    --cache-control "no-cache, no-store, max-age=0" --content-type "application/json" > /dev/null
+    --bucket "$BUCKET" --key "$KEY" --body "$JSON_FILE" \
+    --cache-control "$CACHE_CONTROL" --content-type "application/json" > /dev/null
+  aws s3api put-object \
+    --bucket "$BUCKET" --key "$VERSION_KEY" --body "$VERSION_FILE" \
+    --cache-control "$CACHE_CONTROL" --content-type "text/plain" > /dev/null
   echo "Wrote $URL"
+  echo "Wrote $VERSION_URL"
 fi
 
 {
   echo "bucket=$BUCKET"
   echo "key=$KEY"
   echo "url=$URL"
-  echo "body=$BODY"
+  echo "body=$JSON_BODY"
+  echo "version-key=$VERSION_KEY"
+  echo "version-url=$VERSION_URL"
+  echo "version=$VERSION"
 } >> "${GITHUB_OUTPUT:?}"
 
 if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then

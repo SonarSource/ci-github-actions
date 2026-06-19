@@ -1,7 +1,7 @@
 ---
 name: Update release channel
 description: |
-  Update a release channel pointer (e.g. `Distribution/<product>/latest.json`) on
+  Update release channel files (e.g. `Distribution/<product>/latest.json` and `Distribution/<product>/latest.version`) on
   `binaries.sonarsource.com` so consumers can discover the currently published version.
 inputs:
   version:
@@ -23,7 +23,7 @@ inputs:
     default: 'false'
 outputs:
   bucket:
-    description: S3 bucket the channel pointer was (or would be) written to.
+    description: S3 bucket the channel files were (or would be) written to.
     value: ${{ steps.update.outputs.bucket }}
   key:
     description: S3 key of the channel pointer (e.g. `Distribution/<product>/<channel>.json`).
@@ -36,6 +36,15 @@ outputs:
       The JSON body written (or that would be written) to S3. Always set.
       Useful for schema validation and debugging in dry-run mode.
     value: ${{ steps.update.outputs.body }}
+  version-key:
+    description: S3 key of the sibling plain-text version file (e.g. `Distribution/<product>/<channel>.version`).
+    value: ${{ steps.update.outputs.version-key }}
+  version-url:
+    description: Public URL of the sibling plain-text version file.
+    value: ${{ steps.update.outputs.version-url }}
+  version:
+    description: Version string written to the sibling plain-text version file. Always set.
+    value: ${{ steps.update.outputs.version }}
 
 runs:
   using: composite
