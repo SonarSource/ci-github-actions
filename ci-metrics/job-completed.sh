@@ -437,12 +437,6 @@ if [[ "$memory_oom_kill" =~ ^[0-9]+$ ]] && (( memory_oom_kill > 0 )); then
 fi
 
 # ---------- Step summary: one collapsible CI Metrics block per job ----------
-# Folded by default to keep a multi-job matrix summary compact; the <summary> line carries a digest
-# so the common case needs no expand. Title is plain "CI Metrics" to stay distinct from the
-# aggregated CI Metrics table emitted by ci-github-actions' report-ci-metrics action.
-
-# Digest: middot-joined token per available metric; n/a metrics are dropped. Anomaly tokens (OOM /
-# throttling) lead and trigger a "[!]" prefix so they show while collapsed. Net is always present.
 digest_parts=()
 (( show_oom )) && digest_parts+=("OOM kill ×${memory_oom_kill}")
 if (( show_throttled )); then
