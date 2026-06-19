@@ -144,8 +144,18 @@ else
         'BEGIN{ if (p+0>0) printf "%.3f", q/p; }')
 fi
 
-# Online CPU count — the denominator for utilisation when there is no cgroup quota
-# (the common case for our runners). Overridable for deterministic tests.
+# CPU-avg denominator candidates, in preference order:
+#   1. cpu_limit_cores  — hard cgroup quota (above), when set.
+#   2. cpu_request_cores — the runner's CPU request from the Downward API env var
+#      CI_METRICS_CPU_REQUEST_MILLI (millicores). Exact; the right denominator for our
+#      burstable ARC runners (no quota, request set). Absent on WarpBuild.
+#   3. cpu_online_count — nproc. Only correct when the runner owns the host (WarpBuild
+#      dedicated VM); on ARC this is the whole node, so it's the last resort.
+if [[ "${CI_METRICS_CPU_REQUEST_MILLI:-}" =~ ^[0-9]+$ ]] && (( CI_METRICS_CPU_REQUEST_MILLI > 0 )); then
+    cpu_request_cores=$(awk -v m="$CI_METRICS_CPU_REQUEST_MILLI" 'BEGIN{printf "%.3f", m/1000}')
+else
+    cpu_request_cores=""
+fi
 cpu_online_count="${CI_METRICS_NPROC:-$(nproc 2>/dev/null || true)}"
 [[ "$cpu_online_count" =~ ^[0-9]+$ ]] || cpu_online_count=""
 
@@ -298,7 +308,7 @@ for iface in "${!net_rx[@]}"; do
 done
 
 job_metrics_json=$(cat <<EOF
-{"schema_version":2,"captured_at":"$captured_at","duration_seconds":$(num "$duration_seconds"),"cgroup":{"version":2,"cpu":{"usage_seconds":$(num "$cpu_usage_seconds"),"throttled_seconds":$(num "$cpu_throttled_seconds"),"nr_throttled":$(num "$cpu_nr_throttled"),"limit_cores":$(num "$cpu_limit_cores"),"online_count":$(num "$cpu_online_count"),"avg_utilization":$(num "$cpu_avg_utilization"),"throttle_rate":$(num "$cpu_throttle_rate"),"pressure_some_avg10":$(num "$pressure_some_avg10"),"pressure_some_avg60":$(num "$pressure_some_avg60"),"pressure_some_avg300":$(num "$pressure_some_avg300")},"memory":{"peak_bytes":$(num "$memory_peak_bytes"),"limit_bytes":$(num "$memory_limit_bytes"),"peak_utilization":$(num "$memory_peak_utilization"),"oom":$(num "$memory_oom"),"oom_kill":$(num "$memory_oom_kill")}},"net":{"rx_bytes":${net_rx_total},"tx_bytes":${net_tx_total},"by_interface":{${json_by_interface}}},"disk":{"path":${disk_path_json},"total_bytes":$(num "$disk_total_bytes"),"used_bytes":$(num "$disk_used_bytes"),"available_bytes":$(num "$disk_avail_bytes"),"utilization":$(num "$disk_utilization")}}
+{"schema_version":3,"captured_at":"$captured_at","duration_seconds":$(num "$duration_seconds"),"cgroup":{"version":2,"cpu":{"usage_seconds":$(num "$cpu_usage_seconds"),"throttled_seconds":$(num "$cpu_throttled_seconds"),"nr_throttled":$(num "$cpu_nr_throttled"),"limit_cores":$(num "$cpu_limit_cores"),"request_cores":$(num "$cpu_request_cores"),"online_count":$(num "$cpu_online_count"),"avg_utilization":$(num "$cpu_avg_utilization"),"throttle_rate":$(num "$cpu_throttle_rate"),"pressure_some_avg10":$(num "$pressure_some_avg10"),"pressure_some_avg60":$(num "$pressure_some_avg60"),"pressure_some_avg300":$(num "$pressure_some_avg300")},"memory":{"peak_bytes":$(num "$memory_peak_bytes"),"limit_bytes":$(num "$memory_limit_bytes"),"peak_utilization":$(num "$memory_peak_utilization"),"oom":$(num "$memory_oom"),"oom_kill":$(num "$memory_oom_kill")}},"net":{"rx_bytes":${net_rx_total},"tx_bytes":${net_tx_total},"by_interface":{${json_by_interface}}},"disk":{"path":${disk_path_json},"total_bytes":$(num "$disk_total_bytes"),"used_bytes":$(num "$disk_used_bytes"),"available_bytes":$(num "$disk_avail_bytes"),"utilization":$(num "$disk_utilization")}}
 EOF
 )
 
@@ -351,9 +361,14 @@ summary_target="${GITHUB_STEP_SUMMARY:-/dev/null}"
 
 # Pretty values
 
-# CPU avg: mean cores used over the job, shown against the cores available so the number
-# is actionable for right-sizing. Denominator is the cgroup quota when one is set,
-# otherwise the online CPU count. Falls back to bare cores, then n/a.
+# CPU avg: mean cores used over the job, shown against a denominator so the number is
+# actionable for right-sizing. Denominator preference:
+#   1. cgroup quota  -> "/ N cores (P%)"            (hard limit)
+#   2. CPU request   -> "/ N cores requested (P%)"  (ARC burstable; P can exceed 100% when bursting)
+#   3. nproc         -> "/ N cores available (P%)"  (WarpBuild dedicated VM)
+# Falls back to bare cores, then n/a.
+# This rendering mirrors _rci_cpu_cell in report-ci-metrics/lib.sh; the expected output per tier
+# is pinned by the "_rci_cpu_cell() denominator preference" spec — keep both in sync if changed.
 cpu_avg_cores=""
 if [[ -n "$cpu_usage_seconds" && -n "$duration_seconds" ]]; then
     cpu_avg_cores=$(awk -v u="$cpu_usage_seconds" -v d="$duration_seconds" \
@@ -361,11 +376,16 @@ if [[ -n "$cpu_usage_seconds" && -n "$duration_seconds" ]]; then
 fi
 if [[ -n "$cpu_avg_cores" && -n "$cpu_limit_cores" && -n "$cpu_avg_utilization" ]]; then
     v_cpu_avg="${cpu_avg_cores} / $(round2 "$cpu_limit_cores") cores ($(pct0 "$cpu_avg_utilization")%)"
+elif [[ -n "$cpu_avg_cores" && -n "$cpu_request_cores" ]] \
+     && awk -v r="$cpu_request_cores" 'BEGIN{exit !(r+0>0)}'; then
+    cpu_avg_pct=$(awk -v c="$cpu_avg_cores" -v r="$cpu_request_cores" \
+        'BEGIN{ printf "%.0f", (c/r)*100 }')
+    v_cpu_avg="${cpu_avg_cores} / $(round2 "$cpu_request_cores") cores requested (${cpu_avg_pct}%)"
 elif [[ -n "$cpu_avg_cores" && -n "$cpu_online_count" ]] \
      && (( cpu_online_count > 0 )); then
     cpu_avg_pct=$(awk -v c="$cpu_avg_cores" -v n="$cpu_online_count" \
         'BEGIN{ printf "%.0f", (c/n)*100 }')
-    v_cpu_avg="${cpu_avg_cores} / ${cpu_online_count} cores (${cpu_avg_pct}%)"
+    v_cpu_avg="${cpu_avg_cores} / ${cpu_online_count} cores available (${cpu_avg_pct}%)"
 elif [[ -n "$cpu_avg_cores" ]]; then
     v_cpu_avg="${cpu_avg_cores} cores"
 else

@@ -181,11 +181,11 @@ Describe 'report-ci-metrics/lib.sh'
     End
   End
 
-  # schema_version 2 fixtures (one "<name>\t<json>" record each):
+  # schema_version 3 fixtures (one "<name>\t<json>" record each):
   #   build = cache restored+saved, no flags; test = OOM-killed; lint = no disk, throttled.
-  J_BUILD='{"schema_version":2,"captured_at":"t","duration_seconds":62.0,"cgroup":{"cpu":{"usage_seconds":40.0,"throttled_seconds":0.0,"nr_throttled":0,"limit_cores":2.0,"online_count":4,"avg_utilization":0.32,"throttle_rate":null,"pressure_some_avg10":null,"pressure_some_avg60":null,"pressure_some_avg300":null},"memory":{"peak_bytes":3435973836,"limit_bytes":4294967296,"peak_utilization":0.80,"oom":0,"oom_kill":0}},"net":{"rx_bytes":1073741824,"tx_bytes":209715200,"by_interface":{}},"disk":{"path":"/","total_bytes":32212254720,"used_bytes":6442450944,"available_bytes":null,"utilization":0.20},"cache":[{"key":"maven-abc","cache_hit":true,"restore_key_hit":null,"backend":"s3","size_bytes_restored":471859200,"saved":true,"size_bytes_at_end":492832000}]}'
-  J_TEST='{"schema_version":2,"captured_at":"t","duration_seconds":62.0,"cgroup":{"cpu":{"usage_seconds":10.0,"throttled_seconds":0.0,"nr_throttled":0,"limit_cores":null,"online_count":4,"avg_utilization":null,"throttle_rate":null,"pressure_some_avg10":null,"pressure_some_avg60":null,"pressure_some_avg300":null},"memory":{"peak_bytes":104857600,"limit_bytes":4294967296,"peak_utilization":0.02,"oom":0,"oom_kill":1}},"net":{"rx_bytes":524288000,"tx_bytes":104857600,"by_interface":{}},"disk":{"path":"/","total_bytes":32212254720,"used_bytes":3221225472,"available_bytes":null,"utilization":0.10},"cache":[{"key":"npm-xyz","cache_hit":true,"restore_key_hit":null,"backend":"gha","size_bytes_restored":104857600,"saved":false,"size_bytes_at_end":null}]}'
-  J_LINT='{"schema_version":2,"captured_at":"t","duration_seconds":62.0,"cgroup":{"cpu":{"usage_seconds":2.0,"throttled_seconds":3.5,"nr_throttled":7,"limit_cores":2.0,"online_count":4,"avg_utilization":0.01,"throttle_rate":0.05,"pressure_some_avg10":null,"pressure_some_avg60":null,"pressure_some_avg300":null},"memory":{"peak_bytes":52428800,"limit_bytes":4294967296,"peak_utilization":0.01,"oom":0,"oom_kill":0}},"net":{"rx_bytes":0,"tx_bytes":0,"by_interface":{}},"disk":{"path":"/","total_bytes":null,"used_bytes":null,"available_bytes":null,"utilization":null}}'
+  J_BUILD='{"schema_version":3,"captured_at":"t","duration_seconds":62.0,"cgroup":{"cpu":{"usage_seconds":40.0,"throttled_seconds":0.0,"nr_throttled":0,"limit_cores":2.0,"request_cores":1.0,"online_count":4,"avg_utilization":0.32,"throttle_rate":null,"pressure_some_avg10":null,"pressure_some_avg60":null,"pressure_some_avg300":null},"memory":{"peak_bytes":3435973836,"limit_bytes":4294967296,"peak_utilization":0.80,"oom":0,"oom_kill":0}},"net":{"rx_bytes":1073741824,"tx_bytes":209715200,"by_interface":{}},"disk":{"path":"/","total_bytes":32212254720,"used_bytes":6442450944,"available_bytes":null,"utilization":0.20},"cache":[{"key":"maven-abc","cache_hit":true,"restore_key_hit":null,"backend":"s3","size_bytes_restored":471859200,"saved":true,"size_bytes_at_end":492832000}]}'
+  J_TEST='{"schema_version":3,"captured_at":"t","duration_seconds":62.0,"cgroup":{"cpu":{"usage_seconds":10.0,"throttled_seconds":0.0,"nr_throttled":0,"limit_cores":null,"request_cores":1.0,"online_count":4,"avg_utilization":null,"throttle_rate":null,"pressure_some_avg10":null,"pressure_some_avg60":null,"pressure_some_avg300":null},"memory":{"peak_bytes":104857600,"limit_bytes":4294967296,"peak_utilization":0.02,"oom":0,"oom_kill":1}},"net":{"rx_bytes":524288000,"tx_bytes":104857600,"by_interface":{}},"disk":{"path":"/","total_bytes":32212254720,"used_bytes":3221225472,"available_bytes":null,"utilization":0.10},"cache":[{"key":"npm-xyz","cache_hit":true,"restore_key_hit":null,"backend":"gha","size_bytes_restored":104857600,"saved":false,"size_bytes_at_end":null}]}'
+  J_LINT='{"schema_version":3,"captured_at":"t","duration_seconds":62.0,"cgroup":{"cpu":{"usage_seconds":2.0,"throttled_seconds":3.5,"nr_throttled":7,"limit_cores":2.0,"request_cores":1.0,"online_count":4,"avg_utilization":0.01,"throttle_rate":0.05,"pressure_some_avg10":null,"pressure_some_avg60":null,"pressure_some_avg300":null},"memory":{"peak_bytes":52428800,"limit_bytes":4294967296,"peak_utilization":0.01,"oom":0,"oom_kill":0}},"net":{"rx_bytes":0,"tx_bytes":0,"by_interface":{}},"disk":{"path":"/","total_bytes":null,"used_bytes":null,"available_bytes":null,"utilization":null}}'
 
   Describe 'render_headline()'
     It 'renders correct totals: CPU-seconds, worst peak mem with job, net, cache'
@@ -286,6 +286,33 @@ Describe 'report-ci-metrics/lib.sh'
       When call render_table "$records"
       The status should be success
       The output should include 'n/a'
+    End
+  End
+
+  Describe '_rci_cpu_cell() denominator preference'
+    # cores = usage/duration. Denominator: limit -> request -> online_count -> bare.
+    It 'uses the cgroup limit when present'
+      j='{"duration_seconds":62.0,"cgroup":{"cpu":{"usage_seconds":31.0,"limit_cores":2.0,"avg_utilization":0.25,"request_cores":1.0,"online_count":32}}}'
+      When call _rci_cpu_cell "$j"
+      The output should equal '0.5 / 2 cores (25%)'
+    End
+
+    It 'uses the CPU request (not nproc) when there is no limit — the ARC bug fix'
+      j='{"duration_seconds":62.0,"cgroup":{"cpu":{"usage_seconds":4.34,"limit_cores":null,"avg_utilization":null,"request_cores":1.0,"online_count":32}}}'
+      When call _rci_cpu_cell "$j"
+      The output should equal '0.07 / 1 cores requested (7%)'
+    End
+
+    It 'falls back to online_count (available) on WarpBuild when no limit/request'
+      j='{"duration_seconds":62.0,"cgroup":{"cpu":{"usage_seconds":31.0,"limit_cores":null,"avg_utilization":null,"request_cores":null,"online_count":8}}}'
+      When call _rci_cpu_cell "$j"
+      The output should equal '0.5 / 8 cores available (6%)'
+    End
+
+    It 'shows bare cores when no denominator is available'
+      j='{"duration_seconds":62.0,"cgroup":{"cpu":{"usage_seconds":31.0,"limit_cores":null,"avg_utilization":null,"request_cores":null,"online_count":null}}}'
+      When call _rci_cpu_cell "$j"
+      The output should equal '0.5 cores'
     End
   End
 
