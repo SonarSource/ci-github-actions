@@ -13,6 +13,7 @@ jobs:
   test-urc-happy-path:
     runs-on: sonar-xs
     permissions:
+      id-token: write
       contents: read
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -30,6 +31,7 @@ jobs:
           [[ "${{ steps.urc.outputs.version-key }}" == "Distribution/test-fixture/stable.version" ]]
           [[ "${{ steps.urc.outputs.version-url }}" == "https://binaries.sonarsource.com/Distribution/test-fixture/stable.version" ]]
           [[ "${{ steps.urc.outputs.version }}" == "0.0.0-test" ]]
+      - uses: ./config-npm
       - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
         with:
           version: 2026.5.9
