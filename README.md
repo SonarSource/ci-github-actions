@@ -50,6 +50,7 @@ These badges show the status of workflows in dummy repositories that use (or sho
 - [`get-build-number`](#get-build-number)
 - [`config-maven`](#config-maven)
 - [`build-maven`](#build-maven)
+- [`config-poetry`](#config-poetry)
 - [`build-poetry`](#build-poetry)
 - [`config-gradle`](#config-gradle)
 - [`build-gradle`](#build-gradle)
@@ -369,9 +370,80 @@ See also [`config-maven`](#config-maven) output environment variables.
 
 ---
 
+## `config-poetry`
+
+Configure Poetry build environment with build number, JFrog authentication, and caching.
+
+This action configures Poetry to pull packages from the internal JFrog Artifactory registry instead of the public PyPI.
+
+> **Note:** This action automatically calls [`get-build-number`](#get-build-number) to manage the build number.
+
+### Requirements
+
+#### Required GitHub Permissions
+
+- `id-token: write`
+- `contents: write`
+
+#### Required Vault Permissions
+
+- `public-reader` or `private-reader`: Artifactory role for reading dependencies
+
+#### Other Dependencies
+
+The Python and Poetry tools must be pre-installed. Use of `mise` is recommended.
+
+### Usage
+
+```yaml
+permissions:
+  id-token: write
+  contents: write
+steps:
+  - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+  - uses: SonarSource/ci-github-actions/config-poetry@v1
+  - run: poetry install
+```
+
+### Inputs
+
+| Input                     | Description                                                                 | Default                                                              |
+|---------------------------|-----------------------------------------------------------------------------|----------------------------------------------------------------------|
+| `working-directory`       | Relative path under github.workspace to execute the build in                | `.`                                                                  |
+| `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault                             | `private-reader` for private repos, `public-reader` for public repos |
+| `artifactory-pypi-repo`   | PyPI virtual repository to resolve dependencies from                        | `sonarsource-pypi`                                                   |
+| `repox-url`               | URL for Repox                                                               | `https://repox.jfrog.io`                                             |
+| `poetry-virtualenvs-path` | Path to the Poetry virtual environments, relative to GitHub workspace       | `.cache/pypoetry/virtualenvs`                                        |
+| `poetry-cache-dir`        | Path to the Poetry cache directory, relative to GitHub workspace            | `.cache/pypoetry`                                                    |
+| `disable-caching`         | Whether to disable Poetry caching entirely                                  | `false`                                                              |
+
+### Outputs
+
+| Output         | Description                                                               |
+|----------------|---------------------------------------------------------------------------|
+| `BUILD_NUMBER` | The current build number. Also set as environment variable `BUILD_NUMBER` |
+| `current-version` | The project version from pyproject.toml (before replacement). Also set as environment variable `CURRENT_VERSION` |
+| `project-version` | The project version with build number (after replacement). Also set as environment variable `PROJECT_VERSION` |
+
+### Output Environment Variables
+
+| Environment Variable               | Description              |
+|------------------------------------|--------------------------|
+| `BUILD_NUMBER`                     | The current build number |
+| `CURRENT_VERSION`                  | The project version from pyproject.toml (before replacement) |
+| `PROJECT_VERSION`                  | The project version with build number (after replacement) |
+| `POETRY_HTTP_BASIC_REPOX_USERNAME` | Repox username for Poetry |
+| `POETRY_HTTP_BASIC_REPOX_PASSWORD` | Repox access token for Poetry |
+
+See also [`get-build-number`](#get-build-number) output environment variables.
+
+---
+
 ## `build-poetry`
 
 Build, analyze, and publish a Python project using Poetry with SonarQube integration and Artifactory deployment.
+
+> **Note:** This action automatically calls [`config-poetry`](#config-poetry) to set up the Poetry environment.
 
 ### Requirements
 
