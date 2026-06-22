@@ -370,12 +370,14 @@ summary_target="${GITHUB_STEP_SUMMARY:-/dev/null}"
 # This rendering mirrors _rci_cpu_cell in report-ci-metrics/lib.sh; the expected output per tier
 # is pinned by the "_rci_cpu_cell() denominator preference" spec — keep both in sync if changed.
 cpu_avg_cores=""
+cpu_avg_pct=""   # set when a denominator exists; drives both the table % and the digest line
 if [[ -n "$cpu_usage_seconds" && -n "$duration_seconds" ]]; then
     cpu_avg_cores=$(awk -v u="$cpu_usage_seconds" -v d="$duration_seconds" \
         'BEGIN{ if (d>0) printf "%.2f", u/d }')
 fi
 if [[ -n "$cpu_avg_cores" && -n "$cpu_limit_cores" && -n "$cpu_avg_utilization" ]]; then
-    v_cpu_avg="${cpu_avg_cores} / $(round2 "$cpu_limit_cores") cores ($(pct0 "$cpu_avg_utilization")%)"
+    cpu_avg_pct=$(pct0 "$cpu_avg_utilization")
+    v_cpu_avg="${cpu_avg_cores} / $(round2 "$cpu_limit_cores") cores (${cpu_avg_pct}%)"
 elif [[ -n "$cpu_avg_cores" && -n "$cpu_request_cores" ]] \
      && awk -v r="$cpu_request_cores" 'BEGIN{exit !(r+0>0)}'; then
     cpu_avg_pct=$(awk -v c="$cpu_avg_cores" -v r="$cpu_request_cores" \
@@ -434,31 +436,15 @@ if [[ "$memory_oom_kill" =~ ^[0-9]+$ ]] && (( memory_oom_kill > 0 )); then
     show_oom=1
 fi
 
-{
-    printf '## CI Metrics\n'
-    printf '| Metric | Value |\n'
-    printf '|---|---|\n'
-    printf '| CPU avg | %s |\n' "$v_cpu_avg"
-    printf '| Memory peak | %s |\n' "$v_mem"
-    printf '| Disk | %s |\n' "$v_disk"
-    printf '| Network total | %s |\n' "$v_net"
-    (( show_throttled )) && printf '| CPU throttled | %s |\n' "$v_cpu_throttled"
-    (( show_oom ))       && printf '| OOM kills | %s |\n' "$memory_oom_kill"
-} >> "$summary_target" 2>/dev/null || true
+# ---------- Step summary: one collapsible CI Metrics block per job ----------
 
-# ---------- Cache section ----------
-# Render one row per ${CI_METRICS_DIR}/cache-*.json entry that we previously parsed and folded into $cache_json.
-# Skipped silently when no rows.
-# The "Hit" column is three-state: yes (exact), partial (<restore-key>), no.
-# "Size Saved" is only meaningful when `saved == true` (cache action will persist the post-step size); otherwise the on-disk path size
-# doesn't correspond to anything saved, so show n/a.
+# Parse the cache entries first: one ${CI_METRICS_DIR}/cache-*.json each, sorted by step. A job can
+# have several (e.g. maven + npm), so we derive both a headline cache token and the per-entry fold
+# detail from the same parse. Fields joined by ASCII Unit Separator ( / $'\x1f'); escaped so the
+# file stays YAML-safe when runner.yaml.gotmpl embeds it verbatim. Booleans as strings so jq `//`
+# keeps `false`. Numeric sizes are digits or "" (null/missing). Fail-open on jq error.
+cache_rows=""
 if [[ "$cache_json" != "[]" ]] && command -v jq >/dev/null 2>&1; then
-    # Fields joined by ASCII Unit Separator (US, 0x1f).
-    # Both sides reference the byte via escapes (jq accepts the \uXXXX form, bash uses $'\xNN') so this file stays YAML-safe when
-    # runner.yaml.gotmpl reads it verbatim into an init-container body.
-    # Booleans emit as "true"/"false" strings so jq's `//` doesn't swallow `false`.
-    # Numeric sizes emit as digits or "" (null/missing); the bash side maps "" → "n/a".
-    # Fail-open on jq error.
     cache_rows=$(jq -r --argjson c "$cache_json" -n '
         $c
         | sort_by(.step // "")
@@ -474,51 +460,94 @@ if [[ "$cache_json" != "[]" ]] && command -v jq >/dev/null 2>&1; then
           ]
         | join("\u001f")
     ' 2>/dev/null) || cache_rows=""
+fi
 
-    if [[ -n "$cache_rows" ]]; then
-        {
-            printf '\n### Cache\n'
-            printf '| Key | Hit | Backend | Size Restored | Saved | Size Saved |\n'
-            printf '|---|---|---|---|---|---|\n'
-            # `|| [[ -n "$c_key" ]]` is the canonical idiom for a final line lacking a trailing newline. `jq -r` always emits `\n` today,
-            # but the guard keeps us safe if that ever changes.
-            while IFS=$'\x1f' read -r c_key c_hit c_rkey c_backend c_size_r c_saved c_size_e || [[ -n "$c_key" ]]; do
-                # Hit column: three-state.
-                if [[ "$c_hit" == "true" ]]; then
-                    v_hit="yes"
-                elif [[ -n "$c_rkey" ]]; then
-                    v_hit="partial (${c_rkey})"
-                else
-                    v_hit="no"
-                fi
-                # Sizes: only format if numeric.
-                if [[ "$c_size_r" =~ ^[0-9]+$ ]]; then
-                    v_size_r=$(fmt_bytes "$c_size_r")
-                else
-                    v_size_r="n/a"
-                fi
-                # Size Saved is only meaningful when `saved == true`. Otherwise size-bytes-at-end reflects on-disk size at job end, not what
-                # got persisted, so we render "n/a". The Saved column stays three-state: "yes" / "no" / "n/a" (missing/null), so a rendered
-                # row distinguishes "cache action skipped save" from "we don't know whether it saved" — don't collapse them.
-                if [[ "$c_saved" == "true" ]]; then
-                    v_saved="yes"
-                    if [[ "$c_size_e" =~ ^[0-9]+$ ]]; then
-                        v_size_e=$(fmt_bytes "$c_size_e")
-                    else
-                        v_size_e="n/a"
-                    fi
-                elif [[ "$c_saved" == "false" ]]; then
-                    v_saved="no"
-                    v_size_e="n/a"
-                else
-                    v_saved="n/a"
-                    v_size_e="n/a"
-                fi
-                printf '| %s | %s | %s | %s | %s | %s |\n' \
-                    "$c_key" "$v_hit" "$c_backend" "$v_size_r" "$v_saved" "$v_size_e"
-            done <<< "$cache_rows"
-        } >> "$summary_target" 2>/dev/null || true
+# Single pass over the parsed rows: count hit/miss for the headline, remember the lone entry's short
+# status for the 1-entry case, and build the labeled fold detail lines.
+cache_n=0 cache_hits=0 cache_misses=0 cache_one_short="" cache_detail=""
+if [[ -n "$cache_rows" ]]; then
+    # `|| [[ -n "$c_key" ]]` guards a final line without a trailing newline.
+    while IFS=$'\x1f' read -r c_key c_hit c_rkey c_backend c_size_r c_saved c_size_e || [[ -n "$c_key" ]]; do
+        cache_n=$((cache_n + 1))
+        # status: hit (partial restore-key counts as a hit) / miss. Detail keeps the restored size.
+        if [[ "$c_hit" == "true" ]]; then
+            cache_hits=$((cache_hits + 1))
+            short="hit"; [[ "$c_size_r" =~ ^[0-9]+$ ]] && short="hit ($(fmt_bytes "$c_size_r"))"
+            v_status="hit"; [[ "$c_size_r" =~ ^[0-9]+$ ]] && v_status="hit (restored $(fmt_bytes "$c_size_r"))"
+        elif [[ -n "$c_rkey" ]]; then
+            cache_hits=$((cache_hits + 1))
+            short="partial"; v_status="partial (${c_rkey})"
+        else
+            cache_misses=$((cache_misses + 1))
+            short="miss"; v_status="miss"
+        fi
+        cache_one_short="$short"
+        # "saved <size>" only when the action persisted it; size-at-end is otherwise just the
+        # job-end on-disk size, which corresponds to nothing saved.
+        v_saved=""
+        if [[ "$c_saved" == "true" ]]; then
+            v_saved=", saved"; [[ "$c_size_e" =~ ^[0-9]+$ ]] && v_saved=", saved $(fmt_bytes "$c_size_e")"
+        fi
+        # shellcheck disable=SC2016  # backticks are literal Markdown code-span, not command substitution
+        cache_detail+=$(printf -- '- `%s` — %s, backend %s%s' "$c_key" "$v_status" "$c_backend" "$v_saved")$'\n'
+    done <<< "$cache_rows"
+fi
+
+# Headline cache token: lone entry shows its status (+restored size on a hit); multiple entries show
+# hit/miss counts. Glanceable while collapsed; the fold carries key/backend/saved detail.
+cache_token=""
+if (( cache_n == 1 )); then
+    cache_token="cache ${cache_one_short}"
+elif (( cache_n > 1 )); then
+    cache_token="cache ${cache_hits} hit, ${cache_misses} miss"
+fi
+
+# Digest: middot-joined token per available metric; n/a metrics are dropped. Anomaly tokens (OOM /
+# throttling) lead and trigger a "[!]" prefix so they show while collapsed. Net is always present.
+digest_parts=()
+(( show_oom )) && digest_parts+=("OOM kill ×${memory_oom_kill}")
+if (( show_throttled )); then
+    if [[ -n "$cpu_throttle_rate" ]]; then
+        digest_parts+=("throttled $(pct0 "$cpu_throttle_rate")%")
+    else
+        digest_parts+=("throttled ${cpu_throttled_seconds}s")
     fi
 fi
+if [[ -n "$cpu_avg_pct" ]]; then
+    digest_parts+=("CPU ${cpu_avg_pct}%")
+elif [[ -n "$cpu_avg_cores" ]]; then
+    digest_parts+=("CPU ${cpu_avg_cores} cores")
+fi
+if [[ -n "$memory_peak_utilization" ]]; then
+    digest_parts+=("Mem $(pct0 "$memory_peak_utilization")%")
+elif [[ -n "$memory_peak_bytes" ]]; then
+    digest_parts+=("Mem $(fmt_bytes "$memory_peak_bytes")")
+fi
+[[ -n "$disk_utilization" ]] && digest_parts+=("Disk $(pct0 "$disk_utilization")%")
+digest_parts+=("Net $(fmt_bytes "$net_rx_total")↓ $(fmt_bytes "$net_tx_total")↑")
+[[ -n "$cache_token" ]] && digest_parts+=("$cache_token")
+
+digest=""
+for part in "${digest_parts[@]}"; do
+    digest+="${digest:+ · }${part}"
+done
+summary_line="CI Metrics — ${digest}"
+(( show_oom || show_throttled )) && summary_line="[!] ${summary_line}"
+
+# Open the fold and emit the metric table, then the per-entry cache detail. A blank line after
+# </summary> is required for the Markdown table inside <details> to render on GitHub.
+{
+    printf '<details><summary>%s</summary>\n\n' "$summary_line"
+    printf '| Metric | Value |\n'
+    printf '|---|---|\n'
+    printf '| CPU avg | %s |\n' "$v_cpu_avg"
+    printf '| Memory peak | %s |\n' "$v_mem"
+    printf '| Disk | %s |\n' "$v_disk"
+    printf '| Network total | %s |\n' "$v_net"
+    (( show_throttled )) && printf '| CPU throttled | %s |\n' "$v_cpu_throttled"
+    (( show_oom ))       && printf '| OOM kills | %s |\n' "$memory_oom_kill"
+    [[ -n "$cache_detail" ]] && printf '\n**Cache**\n%s' "$cache_detail"
+    printf '\n</details>\n'
+} >> "$summary_target" 2>/dev/null || true
 
 exit 0
