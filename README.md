@@ -1617,22 +1617,24 @@ Terraform resource; add the environment for your repo there alongside the existi
 
 ## `report-ci-metrics`
 
-Aggregate per-job CI resource metrics from the current workflow run and post a sticky pull-request comment summarising them.
+Aggregate per-job CI resource metrics from the current workflow run and post a sticky pull-request comment summarising them,
+with trend deltas against the latest default-branch run. On a default-branch push it writes the same summary (delta vs the
+previous default-branch run) to the job summary instead of a comment.
 
 ### Usage
 
-Add a dedicated reporting job that runs after all the jobs you want covered. It must run on every pull-request outcome
-(`if: always()`) so the comment is posted even when an earlier job fails:
+Add a dedicated reporting job that runs after all the jobs you want covered. It must run on every outcome (`if: always()`) so the
+report is produced even when an earlier job fails. To get trend lines, let it run on both pull requests and default-branch pushes:
 
 ```yaml
 jobs:
   report-ci-metrics:
     needs: [build, test, lint]  # list every job whose metrics you want reported
-    if: always() && github.event_name == 'pull_request'
+    if: always() && (github.event_name == 'pull_request' || github.ref == format('refs/heads/{0}', github.event.repository.default_branch))
     runs-on: sonar-xs
     permissions:
       actions: read           # read sibling job logs via the Actions API
-      pull-requests: write    # post / update the sticky comment
+      pull-requests: write    # post / update the sticky comment (PR runs)
     steps:
       - uses: SonarSource/ci-github-actions/report-ci-metrics@v1
 ```
@@ -1643,15 +1645,22 @@ jobs:
 2. Recovers the metrics JSON that the runner-side CI-metrics hook emitted into the log (a sentinel-wrapped block), skipping the
    report job itself and any job without a metrics block.
 3. Renders a headline of run totals (CPU-seconds, peak memory, network, cache) plus foldable per-job and cache breakdown tables.
-4. Posts a sticky comment matched by a hidden marker — re-runs update the same comment instead of duplicating it. If no sibling
-   produced metrics, nothing is posted.
+4. Computes a **trend line** against a baseline run found via the Actions API (latest default-branch run for a PR; the previous
+   default-branch run for a default-branch push), showing the cache hit-rate delta and the worst-job peak-memory-vs-limit delta.
+   Shows `no baseline yet` on the first run or when the baseline's logs have aged out.
+5. On a pull request, posts a sticky comment matched by a hidden marker — re-runs update the same comment instead of duplicating
+   it. On a default-branch push, writes the headline + trend to the job summary. If no sibling produced metrics, nothing is posted.
 
 ### Scope and behaviour
 
 - Metrics are produced only on **Linux ARC and WarpBuild runners** where the CI Metrics runner hook runs; jobs on other runners
   simply contribute no data.
 - **Fail-open**: any error is logged as a warning and the step exits `0`, so this action never fails the workflow.
-- Runs only for `pull_request` events — there is no PR to comment on otherwise.
+- The trend deliberately covers only **cache hit-rate** and **peak memory vs limit** — the two signals attributable to a PR's
+  diff. Run duration and network bandwidth are dominated by infrastructure noise, so they are shown as current values only (in
+  the per-job table), not as trend deltas.
+- Baselines are recovered by re-reading the baseline run's job logs (same mechanism as the current run); there is no separate
+  persisted store, so trend availability is bounded by Actions log retention.
 
 ---
 

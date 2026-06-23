@@ -221,6 +221,142 @@ Describe 'report-ci-metrics/lib.sh'
     End
   End
 
+  Describe 'trend metrics'
+    Describe '_rci_cache_hit_rate()'
+      It 'computes the integer hit-rate percent across all jobs cache entries'
+        # build hit + test hit = 2/2 = 100; add a synthetic miss to get a mixed rate.
+        miss='{"cache":[{"cache_hit":false}]}'
+        records=$(printf '%s\t%s\n' 'build' "$J_BUILD" 'test' "$J_TEST" 'm' "$miss")
+        When call _rci_cache_hit_rate "$records"
+        The output should equal '67'
+      End
+
+      It 'is 100 when every cache entry is a hit'
+        records=$(printf '%s\t%s\n' 'build' "$J_BUILD" 'test' "$J_TEST")
+        When call _rci_cache_hit_rate "$records"
+        The output should equal '100'
+      End
+
+      It 'is 0 when every cache entry is a miss'
+        miss='{"cache":[{"cache_hit":false},{"cache_hit":false}]}'
+        When call _rci_cache_hit_rate "$(printf '%s\t%s\n' 'm' "$miss")"
+        The output should equal '0'
+      End
+
+      It 'is empty when no job has any cache entry (nothing to rate)'
+        # lint has no cache array.
+        When call _rci_cache_hit_rate "$(printf '%s\t%s\n' 'lint' "$J_LINT")"
+        The output should equal ''
+      End
+    End
+
+    Describe '_rci_worst_mem_util()'
+      It 'returns the highest peak_utilization with its job name'
+        # build=0.80, test=0.02, lint=0.01 → build wins.
+        records=$(printf '%s\t%s\n' 'build' "$J_BUILD" 'test' "$J_TEST" 'lint' "$J_LINT")
+        When call _rci_worst_mem_util "$records"
+        The output should equal "$(printf '0.80\tbuild')"
+      End
+
+      It 'is empty when no job reports peak_utilization'
+        nomem='{"cgroup":{"memory":{}}}'
+        When call _rci_worst_mem_util "$(printf '%s\t%s\n' 'j' "$nomem")"
+        The output should equal ''
+      End
+    End
+
+    Describe '_rci_fmt_delta()'
+      It 'shows an up arrow with a signed positive delta'
+        When call _rci_fmt_delta 95 80 pp
+        The output should equal '↑ +15pp'
+      End
+
+      It 'shows a down arrow with a signed negative delta'
+        When call _rci_fmt_delta 86 92 pp
+        The output should equal '↓ -6pp'
+      End
+
+      It 'shows a flat arrow within the epsilon'
+        When call _rci_fmt_delta 92 92 pp
+        The output should equal '→ ±0pp'
+      End
+
+      It 'is n/a when the baseline is empty'
+        When call _rci_fmt_delta 92 '' pp
+        The output should equal 'n/a'
+      End
+    End
+
+    Describe 'render_trend()'
+      It 'renders both deltas against a baseline'
+        # current: build cache hit (1/1=100), worst mem build 0.80.
+        cur=$(printf '%s\t%s\n' 'build' "$J_BUILD")
+        # baseline: a miss (0%) and lower mem util (0.60).
+        base_json='{"cache":[{"cache_hit":false}],"cgroup":{"memory":{"peak_utilization":0.60}}}'
+        base=$(printf '%s\t%s\n' 'build' "$base_json")
+        When call render_trend "$cur" "$base"
+        The output should include 'Trend vs master:'
+        The output should include 'cache hit 100% (↑ +100pp)'
+        The output should include 'peak mem build 80% (↑ +20pp)'
+      End
+
+      It 'says no baseline yet when the baseline is empty'
+        cur=$(printf '%s\t%s\n' 'build' "$J_BUILD")
+        When call render_trend "$cur" ''
+        The output should equal 'Trend vs master: no baseline yet'
+      End
+    End
+  End
+
+  Describe 'find_baseline_run()'
+    export REPO=o/r RUN_ID=100
+
+    It 'returns the newest completed default-branch run in PR context'
+      # In PR context the current run (id 100, on a PR ref) is not in the master list.
+      Mock gh
+        case "$*" in
+          *runs/100\ *|*runs/100) echo 7 ;;            # .workflow_id lookup
+          *workflows/7/runs*) printf '%s\n' 55 54 53 ;;
+          *) return 1 ;;
+        esac
+      End
+      When call find_baseline_run
+      The output should equal '55'
+    End
+
+    It 'skips the current run id on a default-branch push (previous master)'
+      Mock gh
+        case "$*" in
+          *runs/100\ *|*runs/100) echo 7 ;;
+          *workflows/7/runs*) printf '%s\n' 100 99 98 ;;  # current run is in the list
+          *) return 1 ;;
+        esac
+      End
+      When call find_baseline_run
+      The output should equal '99'
+    End
+
+    It 'is empty when there is no prior run'
+      Mock gh
+        case "$*" in
+          *runs/100\ *|*runs/100) echo 7 ;;
+          *workflows/7/runs*) : ;;
+          *) return 1 ;;
+        esac
+      End
+      When call find_baseline_run
+      The output should equal ''
+    End
+
+    It 'is empty (fail-open) when the workflow-id lookup fails'
+      Mock gh
+        false  # every gh call fails → find_baseline_run must fail-open to empty
+      End
+      When call find_baseline_run
+      The output should equal ''
+    End
+  End
+
   Describe 'render_table()'
     It 'renders one row per job inside a details/summary block'
       records=$(printf '%s\t%s\n' 'build' "$J_BUILD" 'test' "$J_TEST" 'lint' "$J_LINT")
@@ -421,6 +557,8 @@ body'
       render_headline()    { echo "HEADLINE"; return 0; }
       render_table()       { echo "TABLE"; return 0; }
       render_cache_fold()  { echo "CACHE"; return 0; }
+      render_trend()       { echo "TREND"; return 0; }
+      find_baseline_run()  { return 0; }
       upsert_comment()     { local body=$1; echo "UPSERT:$body"; return 0; }
       return 0
     }
@@ -461,6 +599,32 @@ body'
       The line 1 of output should equal 'UPSERT:<!-- ci-metrics-report -->'
       The output should include 'HEADLINE'
       The output should include 'TABLE'
+    End
+
+    It 'includes the trend line in the comment body when records are present'
+      export REPO=o/r RUN_ID=1 SELF_JOB=report-ci-metrics PR_NUMBER=7 EVENT_NAME=pull_request
+      # shellcheck disable=SC2329  # Invoked indirectly by main()
+      collect_job_metrics() { printf 'build\t{"job":"build"}\n'; return 0; }
+      stub_renderers
+      When call main
+      The status should be success
+      The output should include 'TREND'
+    End
+
+    It 'on a default-branch push writes the job summary and never upserts a comment'
+      export REPO=o/r RUN_ID=1 SELF_JOB=report-ci-metrics EVENT_NAME=push
+      unset PR_NUMBER
+      summary=$(mktemp)
+      export GITHUB_STEP_SUMMARY="$summary"
+      # shellcheck disable=SC2329  # Invoked indirectly by main()
+      collect_job_metrics() { printf 'build\t{"job":"build"}\n'; return 0; }
+      stub_renderers
+      When call main
+      The status should be success
+      The output should not include 'UPSERT:'
+      The contents of file "$summary" should include 'HEADLINE'
+      The contents of file "$summary" should include 'TREND'
+      rm -f "$summary"
     End
   End
 End

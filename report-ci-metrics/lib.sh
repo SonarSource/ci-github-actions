@@ -10,13 +10,16 @@ extract_metrics_json() {
     | sed -e 's/.*===CI_METRICS_JSON_BEGIN===//' -e 's/===CI_METRICS_JSON_END===.*//'
 }
 
-# List the run's jobs and emit "<name>\t<json>" for each completed sibling whose log
+# List a run's jobs and emit "<name>\t<json>" for each completed sibling whose log
 # carries a metrics block. Skips: non-completed jobs, the report job itself (exact or
 # matrix "id (val)" prefix match on SELF_JOB), log-download failures, and jobs with no
 # metrics block. Record format relies on job names having no tab/newline.
+# $1: run id to collect (defaults to the current $RUN_ID). The arg form is used to
+# collect a baseline run for trend comparison.
 collect_job_metrics() {
+  local run_id=${1:-$RUN_ID}
   local jobs id name status log metrics
-  jobs=$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs" --paginate -q '.jobs[] | "\(.id)\t\(.name)\t\(.status)"') || return 0
+  jobs=$(gh api "repos/$REPO/actions/runs/$run_id/jobs" --paginate -q '.jobs[] | "\(.id)\t\(.name)\t\(.status)"') || return 0
   while IFS=$'\t' read -r id name status; do
     [[ -z "$id" ]] && continue
     [[ "$status" == "completed" ]] || continue
@@ -74,6 +77,55 @@ _rci_sum() {
     total=$(awk -v a="$total" -v b="$v" 'BEGIN{printf "%.0f", a+b}')
   done <<< "$records"
   printf '%s' "$total"
+}
+
+# --- Trend metrics ---------------------------------------------------------------------
+# All three operate on the "<name>\t<json>" record stream so they're testable without gh.
+
+# _rci_cache_hit_rate <records> — integer hit-rate percent across every job's cache entries
+# (.cache[].cache_hit). Empty when there are no cache entries at all (nothing to rate).
+_rci_cache_hit_rate() {
+  local records=$1 total=0 hits=0 name json
+  while IFS=$'\t' read -r name json; do
+    [[ -z "$json" ]] && continue
+    local n h
+    n=$(jq -r '(.cache // []) | length' <<< "$json" 2>/dev/null); [[ "$n" =~ ^[0-9]+$ ]] || n=0
+    h=$(jq -r '[.cache[]? | select(.cache_hit == true)] | length' <<< "$json" 2>/dev/null); [[ "$h" =~ ^[0-9]+$ ]] || h=0
+    total=$((total + n)); hits=$((hits + h))
+  done <<< "$records"
+  (( total == 0 )) && return 0
+  awk -v h="$hits" -v t="$total" 'BEGIN{printf "%.0f", (h/t)*100}'
+}
+
+# _rci_worst_mem_util <records> — "<util_ratio>\t<job_name>" for the job with the highest
+# memory.peak_utilization (the OOM-risk job). Empty when no job reports peak_utilization.
+# Mirrors the worst-peak scan in render_headline but keys on utilisation, not raw bytes.
+_rci_worst_mem_util() {
+  local records=$1 name json worst="-1" worst_name=""
+  while IFS=$'\t' read -r name json; do
+    [[ -z "$json" ]] && continue
+    local u
+    u=$(jq -r '.cgroup.memory.peak_utilization // empty' <<< "$json" 2>/dev/null)
+    [[ -n "$u" ]] || continue
+    if awk -v a="$u" -v b="$worst" 'BEGIN{exit !(a+0>b+0)}'; then worst=$u; worst_name=$name; fi
+  done <<< "$records"
+  [[ -n "$worst_name" ]] || return 0
+  printf '%s\t%s' "$worst" "$worst_name"
+}
+
+# _rci_fmt_delta <current> <baseline> [unit] — neutral arrow + signed delta vs a baseline.
+# "→ ±0<unit>" within epsilon, "↑/↓ +N<unit>" otherwise, "n/a" when baseline is empty.
+# Direction is presented without good/bad coloring; the reader judges significance.
+_rci_fmt_delta() {
+  local cur=$1 base=$2 unit=${3:-}
+  [[ -n "$base" ]] || { printf 'n/a'; return; }
+  awk -v c="$cur" -v b="$base" -v u="$unit" 'BEGIN{
+    d = c - b
+    a = (d < 0) ? -d : d
+    if (a < 0.5) { printf "→ ±0%s", u }
+    else if (d > 0) { printf "↑ +%.0f%s", d, u }
+    else { printf "↓ %.0f%s", d, u }
+  }'
 }
 
 # render_headline <records> — a totals line, then a flags line if any job OOM'd/throttled.
@@ -141,6 +193,42 @@ render_headline() {
     fi
     printf '> ⚠️ %s\n' "$flags"
   fi
+}
+
+# render_trend <records> <baseline_records> — one "Trend vs master:" line comparing the two
+# PR-attributable signals against a baseline run: cache hit-rate and worst-job peak memory
+# utilisation. Emits "no baseline yet" when baseline_records is empty (first run / retention
+# gap). Metrics with no current data are omitted; the line is skipped entirely if neither
+# metric is present. Percentages: cache rate is already 0-100; mem util is a 0-1 ratio → ×100.
+render_trend() {
+  local records=$1 baseline=$2
+  if [[ -z "$baseline" ]]; then
+    printf 'Trend vs master: no baseline yet\n'
+    return 0
+  fi
+
+  local segs=""
+
+  local cur_hr base_hr
+  cur_hr=$(_rci_cache_hit_rate "$records")
+  base_hr=$(_rci_cache_hit_rate "$baseline")
+  if [[ -n "$cur_hr" ]]; then
+    segs="${segs:+$segs · }cache hit ${cur_hr}% ($(_rci_fmt_delta "$cur_hr" "$base_hr" pp))"
+  fi
+
+  local cur_mem base_mem cur_pct base_pct mem_job
+  cur_mem=$(_rci_worst_mem_util "$records")
+  base_mem=$(_rci_worst_mem_util "$baseline")
+  if [[ -n "$cur_mem" ]]; then
+    mem_job=${cur_mem#*$'\t'}
+    cur_pct=$(awk -v u="${cur_mem%%$'\t'*}" 'BEGIN{printf "%.0f", u*100}')
+    base_pct=""
+    [[ -n "$base_mem" ]] && base_pct=$(awk -v u="${base_mem%%$'\t'*}" 'BEGIN{printf "%.0f", u*100}')
+    segs="${segs:+$segs · }peak mem $(_rci_md_cell "$mem_job") ${cur_pct}% ($(_rci_fmt_delta "$cur_pct" "$base_pct" pp))"
+  fi
+
+  [[ -n "$segs" ]] && printf 'Trend vs master: %s\n' "$segs"
+  return 0
 }
 
 # render_table <records> — foldable per-job table. Columns with no data in any job are
@@ -252,6 +340,30 @@ render_cache_fold() {
   printf '\n</details>\n'
 }
 
+# find_baseline_run — echo the run id of the master run to compare against, or
+# empty when none exists (first run / log-retention gap). Resolves this run's workflow id from
+# the run object (no fragile workflow-name matching), then lists that workflow's completed runs
+# on the default branch. PR context → newest such run; default-branch push → newest run that is
+# not the current one (the previous master). Fail-open: any gh error echoes empty.
+find_baseline_run() {
+  local wf_id
+  wf_id=$(gh api "repos/$REPO/actions/runs/$RUN_ID" -q '.workflow_id' 2>/dev/null) || return 0
+  [[ -n "$wf_id" ]] || return 0
+  local ids
+  ids=$(gh api "repos/$REPO/actions/workflows/$wf_id/runs?branch=${DEFAULT_BRANCH}&status=completed&per_page=20" \
+        -q '.workflow_runs[].id' 2>/dev/null) || return 0
+  local id
+  while read -r id; do
+    [[ -n "$id" ]] || continue
+    # On a default-branch push the current run is itself in this list — skip it so we compare
+    # against the *previous* master. In PR context the current run is on a PR ref, not here.
+    [[ "$id" == "$RUN_ID" ]] && continue
+    printf '%s' "$id"
+    return 0
+  done <<< "$ids"
+  return 0
+}
+
 # Post or update the sticky comment, matched by the marker in <body>'s first line:
 # PATCH the first comment containing the marker, else POST a new one (idempotent on re-run).
 upsert_comment() {
@@ -264,21 +376,45 @@ upsert_comment() {
   fi
 }
 
-# Entry point: collect sibling metrics, render, upsert the sticky comment. Returns early
-# (no comment) when there's no PR context or no metrics. Marker must lead the body.
+# Entry point: collect this run's sibling metrics, fetch a master baseline for trend deltas,
+# render, and surface the report. On pull_request it upserts the sticky PR comment; on a
+# default-branch push it writes to the job summary (no PR to comment on). Returns early when
+# there's no usable context or no metrics. Marker must lead the comment body.
 main() {
-  [[ -n "${PR_NUMBER:-}" ]] || { echo "::notice::report-ci-metrics: no PR context, skipping"; return 0; }
+  local event=${EVENT_NAME:-pull_request}
+  if [[ "$event" == "pull_request" && -z "${PR_NUMBER:-}" ]]; then
+    echo "::notice::report-ci-metrics: no PR context, skipping"; return 0
+  fi
+
   local records
   records=$(collect_job_metrics)
-  [[ -n "$records" ]] || { echo "::notice::report-ci-metrics: no CI metrics found, skipping comment"; return 0; }
-  local marker='<!-- ci-metrics-report -->'
-  local body
-  body="$marker
+  [[ -n "$records" ]] || { echo "::notice::report-ci-metrics: no CI metrics found, skipping"; return 0; }
+
+  # Baseline for trends. Fail-open: a fetch/collect failure leaves baseline empty → "no baseline yet".
+  local baseline_run baseline=""
+  baseline_run=$(find_baseline_run)
+  [[ -n "$baseline_run" ]] && baseline=$(collect_job_metrics "$baseline_run")
+
+  if [[ "$event" == "pull_request" ]]; then
+    local marker='<!-- ci-metrics-report -->'
+    local body
+    body="$marker
 ## 📊 CI Metrics
 
 $(render_headline "$records")
 
+$(render_trend "$records" "$baseline")
+
 $(render_table "$records")
 $(render_cache_fold "$records")"
-  upsert_comment "$body"
+    upsert_comment "$body"
+  else
+    # Default-branch push: no PR comment — emit the headline + trend to the job summary.
+    {
+      printf '## 📊 CI Metrics\n\n'
+      render_headline "$records"
+      printf '\n'
+      render_trend "$records" "$baseline"
+    } >> "${GITHUB_STEP_SUMMARY:-/dev/null}" 2>/dev/null || true
+  fi
 }
