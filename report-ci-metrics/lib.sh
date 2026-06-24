@@ -79,6 +79,17 @@ _rci_sum() {
   printf '%s' "$total"
 }
 
+# True when at least one record has a non-null jq path. Used before _rci_sum when
+# an absent metric must stay distinguishable from a real zero.
+_rci_has_metric() {
+  local records=$1 path=$2 name json
+  while IFS=$'\t' read -r name json; do
+    [[ -z "$json" ]] && continue
+    jq -e "($path) != null" <<< "$json" >/dev/null 2>&1 && return 0
+  done <<< "$records"
+  return 1
+}
+
 # --- Trend metrics ---------------------------------------------------------------------
 # All three operate on the "<name>\t<json>" record stream so they're testable without gh.
 
@@ -241,7 +252,8 @@ render_trend() {
   # Display to 1dp to match the headline's CPU-s formatting.
   local cur_cpu base_cpu
   cur_cpu=$(_rci_sum "$records" '.cgroup.cpu.usage_seconds')
-  base_cpu=$(_rci_sum "$baseline" '.cgroup.cpu.usage_seconds')
+  base_cpu=""
+  _rci_has_metric "$baseline" '.cgroup.cpu.usage_seconds' && base_cpu=$(_rci_sum "$baseline" '.cgroup.cpu.usage_seconds')
   if awk -v c="$cur_cpu" 'BEGIN{exit !(c+0>0)}'; then
     local cur_cpu1; cur_cpu1=$(awk -v u="$cur_cpu" 'BEGIN{printf "%.1f", u}')
     segs="${segs:+$segs · }CPU ${cur_cpu1} CPU-s ($(_rci_fmt_delta "$cur_cpu" "$base_cpu" ''))"
@@ -353,7 +365,7 @@ render_cache_fold() {
     for (( i = 0; i < n; i++ )); do
       local key hit backend restored_b saved_flag end_b
       key=$(jq -r ".cache[$i].key // \"\"" <<< "$json")
-      hit=$(jq -r ".cache[$i].cache_hit // false | if . then \"yes\" else \"no\" end" <<< "$json")
+      hit=$(jq -r ".cache[$i] | if .cache_hit == true then \"yes\" elif ((.restore_key_hit // \"\") != \"\") then \"partial\" else \"no\" end" <<< "$json")
       backend=$(jq -r ".cache[$i].backend // \"\"" <<< "$json")
       restored_b=$(jq -r ".cache[$i].size_bytes_restored // empty" <<< "$json")
       saved_flag=$(jq -r ".cache[$i].saved // false | if . then \"yes\" else \"no\" end" <<< "$json")

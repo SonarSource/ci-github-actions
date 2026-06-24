@@ -344,6 +344,23 @@ Describe 'report-ci-metrics/lib.sh'
         The output should include 'peak mem build 80% (↑ +10pp)'
       End
 
+      It 'shows n/a for CPU delta when the baseline has no CPU metric'
+        cur=$(printf '%s\t%s\n' 'build' "$J_BUILD")
+        base_json='{"cache":[{"cache_hit":false,"restore_key_hit":null}],"cgroup":{"memory":{"peak_utilization":0.60}}}'
+        base=$(printf '%s\t%s\n' 'build' "$base_json")
+        When call render_trend "$cur" "$base"
+        The output should include 'CPU 40.0 CPU-s (n/a)'
+        The output should not include 'CPU 40.0 CPU-s (↑ +40)'
+      End
+
+      It 'keeps a real zero CPU baseline comparable'
+        cur=$(printf '%s\t%s\n' 'build' "$J_BUILD")
+        base_json='{"cache":[{"cache_hit":false,"restore_key_hit":null}],"cgroup":{"cpu":{"usage_seconds":0},"memory":{"peak_utilization":0.60}}}'
+        base=$(printf '%s\t%s\n' 'build' "$base_json")
+        When call render_trend "$cur" "$base"
+        The output should include 'CPU 40.0 CPU-s (↑ +40)'
+      End
+
       It 'says no baseline yet when the baseline is empty'
         cur=$(printf '%s\t%s\n' 'build' "$J_BUILD")
         When call render_trend "$cur" ''
@@ -529,6 +546,14 @@ Describe 'report-ci-metrics/lib.sh'
       The status should be success
       The output should include 'deps\|v2'
       The output should include '| deps\|v2 | yes | s3 |'
+    End
+
+    It 'shows prefix restore-key matches as partial hits'
+      partial='{"schema_version":3,"duration_seconds":62.0,"cgroup":{"cpu":{"usage_seconds":1.0,"throttled_seconds":0.0},"memory":{"peak_bytes":1024,"oom_kill":0}},"net":{"rx_bytes":0,"tx_bytes":0},"disk":{"total_bytes":null,"used_bytes":null},"cache":[{"key":"deps","cache_hit":false,"restore_key_hit":"deps-Linux-","backend":"s3","size_bytes_restored":1024,"saved":false,"size_bytes_at_end":null}]}'
+      records=$(printf '%s\t%s\n' 'build' "$partial")
+      When call render_cache_fold "$records"
+      The status should be success
+      The output should include '| deps | partial | s3 |'
     End
 
     It 'collapses newlines and neutralizes angle brackets in author-controlled cache cells'
