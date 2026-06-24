@@ -1,5 +1,7 @@
 name: Report CI Metrics
-description: Aggregate per-job CI metrics, post a sticky PR comment with trends vs master (or a job summary on default-branch pushes)
+description: >
+  Aggregate per-job CI metrics, post a sticky PR comment with trends vs the default branch
+  (or a job summary on default-branch pushes)
 runs:
   using: composite
   steps:

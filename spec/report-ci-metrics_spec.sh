@@ -238,9 +238,16 @@ Describe 'report-ci-metrics/lib.sh'
       End
 
       It 'is 0 when every cache entry is a miss'
-        miss='{"cache":[{"cache_hit":false},{"cache_hit":false}]}'
+        miss='{"cache":[{"cache_hit":false,"restore_key_hit":null},{"cache_hit":false,"restore_key_hit":null}]}'
         When call _rci_cache_hit_rate "$(printf '%s\t%s\n' 'm' "$miss")"
         The output should equal '0'
+      End
+
+      It 'counts a prefix restore-key match as a hit (cache_hit false but data restored)'
+        # cache_hit=false + restore_key_hit set = partial hit; must count as a hit, not a miss.
+        partial='{"cache":[{"cache_hit":false,"restore_key_hit":"maven-Linux-"},{"cache_hit":false,"restore_key_hit":null}]}'
+        When call _rci_cache_hit_rate "$(printf '%s\t%s\n' 'p' "$partial")"
+        The output should equal '50'
       End
 
       It 'is empty when no job has any cache entry (nothing to rate)'
@@ -261,6 +268,20 @@ Describe 'report-ci-metrics/lib.sh'
       It 'is empty when no job reports peak_utilization'
         nomem='{"cgroup":{"memory":{}}}'
         When call _rci_worst_mem_util "$(printf '%s\t%s\n' 'j' "$nomem")"
+        The output should equal ''
+      End
+    End
+
+    Describe '_rci_mem_util_for_job()'
+      It 'returns the named jobs peak_utilization'
+        records=$(printf '%s\t%s\n' 'build' "$J_BUILD" 'test' "$J_TEST")
+        When call _rci_mem_util_for_job "$records" 'build'
+        The output should equal '0.80'
+      End
+
+      It 'is empty when the named job is absent'
+        records=$(printf '%s\t%s\n' 'build' "$J_BUILD")
+        When call _rci_mem_util_for_job "$records" 'nonexistent'
         The output should equal ''
       End
     End
@@ -288,22 +309,54 @@ Describe 'report-ci-metrics/lib.sh'
     End
 
     Describe 'render_trend()'
-      It 'renders both deltas against a baseline'
-        # current: build cache hit (1/1=100), worst mem build 0.80.
+      It 'renders cache, CPU-seconds, and memory deltas against a baseline'
+        # current: build cache hit (1/1=100), 40 CPU-s, worst mem build 0.80.
         cur=$(printf '%s\t%s\n' 'build' "$J_BUILD")
-        # baseline: a miss (0%) and lower mem util (0.60).
-        base_json='{"cache":[{"cache_hit":false}],"cgroup":{"memory":{"peak_utilization":0.60}}}'
+        # baseline: a miss (0%), 30 CPU-s, lower mem util (0.60).
+        base_json='{"cache":[{"cache_hit":false,"restore_key_hit":null}],"cgroup":{"cpu":{"usage_seconds":30.0},"memory":{"peak_utilization":0.60}}}'
         base=$(printf '%s\t%s\n' 'build' "$base_json")
         When call render_trend "$cur" "$base"
         The output should include 'Trend vs master:'
         The output should include 'cache hit 100% (↑ +100pp)'
+        The output should include 'CPU 40.0 CPU-s (↑ +10)'
         The output should include 'peak mem build 80% (↑ +20pp)'
+      End
+
+      It 'compares peak memory like-for-like and shows n/a when the worst job is absent from the baseline'
+        # current worst-mem job is build (0.80). Baseline has only a DIFFERENT job (test, 0.60).
+        # The delta must NOT be build(0.80) vs test(0.60) — it must be n/a (build not in baseline).
+        cur=$(printf '%s\t%s\n' 'build' "$J_BUILD")
+        base_json='{"cgroup":{"memory":{"peak_utilization":0.60}}}'
+        base=$(printf '%s\t%s\n' 'test' "$base_json")
+        When call render_trend "$cur" "$base"
+        The output should include 'peak mem build 80% (n/a)'
+        The output should not include '+20pp'
+      End
+
+      It 'compares peak memory against the same job in the baseline'
+        # build is the worst in both runs: current 0.80 vs baseline 0.70 = +10pp, like-for-like.
+        cur=$(printf '%s\t%s\n' 'build' "$J_BUILD")
+        base=$(printf '%s\t%s\n' \
+          'build' '{"cgroup":{"memory":{"peak_utilization":0.70}}}' \
+          'test'  '{"cgroup":{"memory":{"peak_utilization":0.90}}}')
+        # Note: baseline's OWN worst job is test (0.90); the delta must still use build (0.70).
+        When call render_trend "$cur" "$base"
+        The output should include 'peak mem build 80% (↑ +10pp)'
       End
 
       It 'says no baseline yet when the baseline is empty'
         cur=$(printf '%s\t%s\n' 'build' "$J_BUILD")
         When call render_trend "$cur" ''
         The output should equal 'Trend vs master: no baseline yet'
+      End
+
+      It 'uses the provided default branch in the trend label'
+        cur=$(printf '%s\t%s\n' 'build' "$J_BUILD")
+        base_json='{"cache":[{"cache_hit":false,"restore_key_hit":null}],"cgroup":{"cpu":{"usage_seconds":30.0},"memory":{"peak_utilization":0.60}}}'
+        base=$(printf '%s\t%s\n' 'build' "$base_json")
+        When call render_trend "$cur" "$base" 'main'
+        The output should include 'Trend vs main:'
+        The output should not include 'Trend vs master:'
       End
     End
   End
@@ -324,7 +377,7 @@ Describe 'report-ci-metrics/lib.sh'
       The output should equal '55'
     End
 
-    It 'skips the current run id on a default-branch push (previous master)'
+    It 'skips the current run id on a default-branch push (previous default-branch run)'
       Mock gh
         case "$*" in
           *runs/100\ *|*runs/100) echo 7 ;;
@@ -557,7 +610,7 @@ body'
       render_headline()    { echo "HEADLINE"; return 0; }
       render_table()       { echo "TABLE"; return 0; }
       render_cache_fold()  { echo "CACHE"; return 0; }
-      render_trend()       { echo "TREND"; return 0; }
+      render_trend()       { echo "TREND:${3:-}"; return 0; }
       find_baseline_run()  { return 0; }
       upsert_comment()     { local body=$1; echo "UPSERT:$body"; return 0; }
       return 0
@@ -609,6 +662,16 @@ body'
       When call main
       The status should be success
       The output should include 'TREND'
+    End
+
+    It 'passes the default branch to the trend renderer'
+      export REPO=o/r RUN_ID=1 SELF_JOB=report-ci-metrics PR_NUMBER=7 EVENT_NAME=pull_request DEFAULT_BRANCH=main
+      # shellcheck disable=SC2329  # Invoked indirectly by main()
+      collect_job_metrics() { printf 'build\t{"job":"build"}\n'; return 0; }
+      stub_renderers
+      When call main
+      The status should be success
+      The output should include 'TREND:main'
     End
 
     It 'on a default-branch push writes the job summary and never upserts a comment'

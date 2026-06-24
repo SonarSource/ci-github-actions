@@ -82,15 +82,18 @@ _rci_sum() {
 # --- Trend metrics ---------------------------------------------------------------------
 # All three operate on the "<name>\t<json>" record stream so they're testable without gh.
 
-# _rci_cache_hit_rate <records> — integer hit-rate percent across every job's cache entries
-# (.cache[].cache_hit). Empty when there are no cache entries at all (nothing to rate).
+# _rci_cache_hit_rate <records> — integer hit-rate percent across every job's cache entries.
+# An entry counts as a hit when it restored data: either an exact-key hit (cache_hit == true) or
+# a prefix restore-key match (restore_key_hit != null) — the latter has cache_hit == false but
+# still restored a cache, so counting only cache_hit would undercount. Mirrors the three-state
+# logic in render_cache_fold. Empty when there are no cache entries at all (nothing to rate).
 _rci_cache_hit_rate() {
   local records=$1 total=0 hits=0 name json
   while IFS=$'\t' read -r name json; do
     [[ -z "$json" ]] && continue
     local n h
     n=$(jq -r '(.cache // []) | length' <<< "$json" 2>/dev/null); [[ "$n" =~ ^[0-9]+$ ]] || n=0
-    h=$(jq -r '[.cache[]? | select(.cache_hit == true)] | length' <<< "$json" 2>/dev/null); [[ "$h" =~ ^[0-9]+$ ]] || h=0
+    h=$(jq -r '[.cache[]? | select(.cache_hit == true or .restore_key_hit != null)] | length' <<< "$json" 2>/dev/null); [[ "$h" =~ ^[0-9]+$ ]] || h=0
     total=$((total + n)); hits=$((hits + h))
   done <<< "$records"
   (( total == 0 )) && return 0
@@ -111,6 +114,23 @@ _rci_worst_mem_util() {
   done <<< "$records"
   [[ -n "$worst_name" ]] || return 0
   printf '%s\t%s' "$worst" "$worst_name"
+}
+
+# _rci_mem_util_for_job <records> <job_name> — the peak_utilization of the named job, or empty
+# when that job is absent or has no peak_utilization. Used to compare the baseline against the
+# SAME job as the current worst-memory job, so the trend delta is like-for-like (not current
+# worst job vs a possibly-different baseline worst job).
+_rci_mem_util_for_job() {
+  local records=$1 target=$2 name json
+  while IFS=$'\t' read -r name json; do
+    [[ "$name" == "$target" ]] || continue
+    local u
+    u=$(jq -r '.cgroup.memory.peak_utilization // empty' <<< "$json" 2>/dev/null)
+    [[ -n "$u" ]] || return 0
+    printf '%s' "$u"
+    return 0
+  done <<< "$records"
+  return 0
 }
 
 # _rci_fmt_delta <current> <baseline> [unit] — neutral arrow + signed delta vs a baseline.
@@ -195,15 +215,16 @@ render_headline() {
   fi
 }
 
-# render_trend <records> <baseline_records> — one "Trend vs master:" line comparing the two
-# PR-attributable signals against a baseline run: cache hit-rate and worst-job peak memory
-# utilisation. Emits "no baseline yet" when baseline_records is empty (first run / retention
-# gap). Metrics with no current data are omitted; the line is skipped entirely if neither
-# metric is present. Percentages: cache rate is already 0-100; mem util is a 0-1 ratio → ×100.
+# render_trend <records> <baseline_records> [branch] — one "Trend vs <branch>:" line comparing the two
+# PR-attributable signals against a baseline run: cache hit-rate, total CPU-seconds, and
+# worst-job peak memory utilisation. Emits "no baseline yet" when baseline_records is empty
+# (first run / retention gap). Metrics with no current data are omitted; the line is skipped
+# entirely if none are present. Percentages: cache rate is already 0-100; mem util is 0-1 → ×100.
 render_trend() {
-  local records=$1 baseline=$2
+  local records=$1 baseline=$2 branch=${3:-${DEFAULT_BRANCH:-master}}
+  local label="Trend vs ${branch}:"
   if [[ -z "$baseline" ]]; then
-    printf 'Trend vs master: no baseline yet\n'
+    printf '%s no baseline yet\n' "$label"
     return 0
   fi
 
@@ -216,18 +237,31 @@ render_trend() {
     segs="${segs:+$segs · }cache hit ${cur_hr}% ($(_rci_fmt_delta "$cur_hr" "$base_hr" pp))"
   fi
 
-  local cur_mem base_mem cur_pct base_pct mem_job
+  # CPU-seconds: total work across the run. PR-attributable (more tests/compute → more CPU-s).
+  # Display to 1dp to match the headline's CPU-s formatting.
+  local cur_cpu base_cpu
+  cur_cpu=$(_rci_sum "$records" '.cgroup.cpu.usage_seconds')
+  base_cpu=$(_rci_sum "$baseline" '.cgroup.cpu.usage_seconds')
+  if awk -v c="$cur_cpu" 'BEGIN{exit !(c+0>0)}'; then
+    local cur_cpu1; cur_cpu1=$(awk -v u="$cur_cpu" 'BEGIN{printf "%.1f", u}')
+    segs="${segs:+$segs · }CPU ${cur_cpu1} CPU-s ($(_rci_fmt_delta "$cur_cpu" "$base_cpu" ''))"
+  fi
+
+  # Peak memory: the current run's worst-memory (OOM-risk) job. The baseline must be that SAME
+  # job's utilisation — not the baseline's own worst job, which could be a different job and would
+  # make the delta a cross-job comparison. Shows n/a when that job is absent from the baseline.
+  local cur_mem cur_pct base_util base_pct mem_job
   cur_mem=$(_rci_worst_mem_util "$records")
-  base_mem=$(_rci_worst_mem_util "$baseline")
   if [[ -n "$cur_mem" ]]; then
     mem_job=${cur_mem#*$'\t'}
     cur_pct=$(awk -v u="${cur_mem%%$'\t'*}" 'BEGIN{printf "%.0f", u*100}')
+    base_util=$(_rci_mem_util_for_job "$baseline" "$mem_job")
     base_pct=""
-    [[ -n "$base_mem" ]] && base_pct=$(awk -v u="${base_mem%%$'\t'*}" 'BEGIN{printf "%.0f", u*100}')
+    [[ -n "$base_util" ]] && base_pct=$(awk -v u="$base_util" 'BEGIN{printf "%.0f", u*100}')
     segs="${segs:+$segs · }peak mem $(_rci_md_cell "$mem_job") ${cur_pct}% ($(_rci_fmt_delta "$cur_pct" "$base_pct" pp))"
   fi
 
-  [[ -n "$segs" ]] && printf 'Trend vs master: %s\n' "$segs"
+  [[ -n "$segs" ]] && printf '%s %s\n' "$label" "$segs"
   return 0
 }
 
@@ -340,11 +374,11 @@ render_cache_fold() {
   printf '\n</details>\n'
 }
 
-# find_baseline_run — echo the run id of the master run to compare against, or
+# find_baseline_run — echo the default-branch run id to compare against, or
 # empty when none exists (first run / log-retention gap). Resolves this run's workflow id from
 # the run object (no fragile workflow-name matching), then lists that workflow's completed runs
 # on the default branch. PR context → newest such run; default-branch push → newest run that is
-# not the current one (the previous master). Fail-open: any gh error echoes empty.
+# not the current one (the previous default-branch run). Fail-open: any gh error echoes empty.
 find_baseline_run() {
   local wf_id
   wf_id=$(gh api "repos/$REPO/actions/runs/$RUN_ID" -q '.workflow_id' 2>/dev/null) || return 0
@@ -356,7 +390,7 @@ find_baseline_run() {
   while read -r id; do
     [[ -n "$id" ]] || continue
     # On a default-branch push the current run is itself in this list — skip it so we compare
-    # against the *previous* master. In PR context the current run is on a PR ref, not here.
+    # against the previous default-branch run. In PR context the current run is on a PR ref, not here.
     [[ "$id" == "$RUN_ID" ]] && continue
     printf '%s' "$id"
     return 0
@@ -403,7 +437,7 @@ main() {
 
 $(render_headline "$records")
 
-$(render_trend "$records" "$baseline")
+$(render_trend "$records" "$baseline" "${DEFAULT_BRANCH:-master}")
 
 $(render_table "$records")
 $(render_cache_fold "$records")"
@@ -414,7 +448,7 @@ $(render_cache_fold "$records")"
       printf '## 📊 CI Metrics\n\n'
       render_headline "$records"
       printf '\n'
-      render_trend "$records" "$baseline"
+      render_trend "$records" "$baseline" "${DEFAULT_BRANCH:-master}"
     } >> "${GITHUB_STEP_SUMMARY:-/dev/null}" 2>/dev/null || true
   fi
 }
