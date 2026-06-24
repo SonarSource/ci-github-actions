@@ -79,19 +79,8 @@ _rci_sum() {
   printf '%s' "$total"
 }
 
-# True when at least one record has a non-null jq path. Used before _rci_sum when
-# an absent metric must stay distinguishable from a real zero.
-_rci_has_metric() {
-  local records=$1 path=$2 name json
-  while IFS=$'\t' read -r name json; do
-    [[ -z "$json" ]] && continue
-    jq -e "($path) != null" <<< "$json" >/dev/null 2>&1 && return 0
-  done <<< "$records"
-  return 1
-}
-
 # --- Trend metrics ---------------------------------------------------------------------
-# All three operate on the "<name>\t<json>" record stream so they're testable without gh.
+# These operate on the "<name>\t<json>" record stream so they're testable without gh.
 
 # _rci_cache_hit_rate <records> — integer hit-rate percent across every job's cache entries.
 # An entry counts as a hit when it restored data: either an exact-key hit (cache_hit == true) or
@@ -109,6 +98,51 @@ _rci_cache_hit_rate() {
   done <<< "$records"
   (( total == 0 )) && return 0
   awk -v h="$hits" -v t="$total" 'BEGIN{printf "%.0f", (h/t)*100}'
+}
+
+# _rci_cpu_util <json> — the CPU utilisation ratio shown by _rci_cpu_cell, or empty when no
+# percentage denominator is available. Mirrors denominator preference: limit avg_utilization,
+# then request cores, then online cores.
+_rci_cpu_util() {
+  local json=$1
+  jq -r '.cgroup.cpu as $c | .duration_seconds as $d |
+    if ($c.usage_seconds != null and $d != null and $d > 0) then
+      (($c.usage_seconds / $d) * 100 | round / 100) as $cores |
+      if ($c.limit_cores != null and $c.avg_utilization != null) then $c.avg_utilization
+      elif ($c.request_cores != null and $c.request_cores > 0) then ($cores / $c.request_cores)
+      elif ($c.online_count != null and $c.online_count > 0) then ($cores / $c.online_count)
+      else empty end
+    else empty end' <<< "$json" 2>/dev/null
+}
+
+# _rci_worst_cpu_util <records> — "<util_ratio>\t<job_name>" for the job with the highest
+# CPU average utilisation, using the same percentage denominator as the per-job table.
+_rci_worst_cpu_util() {
+  local records=$1 name json worst="-1" worst_name=""
+  while IFS=$'\t' read -r name json; do
+    [[ -z "$json" ]] && continue
+    local u
+    u=$(_rci_cpu_util "$json")
+    [[ -n "$u" ]] || continue
+    if awk -v a="$u" -v b="$worst" 'BEGIN{exit !(a+0>b+0)}'; then worst=$u; worst_name=$name; fi
+  done <<< "$records"
+  [[ -n "$worst_name" ]] || return 0
+  printf '%s\t%s' "$worst" "$worst_name"
+}
+
+# _rci_cpu_util_for_job <records> <job_name> — CPU utilisation ratio of the named job, or empty
+# when that job is absent or has no percentage denominator.
+_rci_cpu_util_for_job() {
+  local records=$1 target=$2 name json
+  while IFS=$'\t' read -r name json; do
+    [[ "$name" == "$target" ]] || continue
+    local u
+    u=$(_rci_cpu_util "$json")
+    [[ -n "$u" ]] || return 0
+    printf '%s' "$u"
+    return 0
+  done <<< "$records"
+  return 0
 }
 
 # _rci_worst_mem_util <records> — "<util_ratio>\t<job_name>" for the job with the highest
@@ -226,11 +260,11 @@ render_headline() {
   fi
 }
 
-# render_trend <records> <baseline_records> [branch] — one "Trend vs <branch>:" line comparing the two
-# PR-attributable signals against a baseline run: cache hit-rate, total CPU-seconds, and
-# worst-job peak memory utilisation. Emits "no baseline yet" when baseline_records is empty
-# (first run / retention gap). Metrics with no current data are omitted; the line is skipped
-# entirely if none are present. Percentages: cache rate is already 0-100; mem util is 0-1 → ×100.
+# render_trend <records> <baseline_records> [branch] — one "Trend vs <branch>:" line comparing
+# PR-attributable signals against a baseline run: cache hit-rate, worst-job CPU average
+# utilisation, and worst-job peak memory utilisation. Emits "no baseline yet" when
+# baseline_records is empty (first run / retention gap). Metrics with no current data are
+# omitted; the line is skipped entirely if none are present.
 render_trend() {
   local records=$1 baseline=$2 branch=${3:-${DEFAULT_BRANCH:-master}}
   local label="Trend vs ${branch}:"
@@ -248,15 +282,17 @@ render_trend() {
     segs="${segs:+$segs · }cache hit ${cur_hr}% ($(_rci_fmt_delta "$cur_hr" "$base_hr" pp))"
   fi
 
-  # CPU-seconds: total work across the run. PR-attributable (more tests/compute → more CPU-s).
-  # Display to 1dp to match the headline's CPU-s formatting.
-  local cur_cpu base_cpu
-  cur_cpu=$(_rci_sum "$records" '.cgroup.cpu.usage_seconds')
-  base_cpu=""
-  _rci_has_metric "$baseline" '.cgroup.cpu.usage_seconds' && base_cpu=$(_rci_sum "$baseline" '.cgroup.cpu.usage_seconds')
-  if awk -v c="$cur_cpu" 'BEGIN{exit !(c+0>0)}'; then
-    local cur_cpu1; cur_cpu1=$(awk -v u="$cur_cpu" 'BEGIN{printf "%.1f", u}')
-    segs="${segs:+$segs · }CPU ${cur_cpu1} CPU-s ($(_rci_fmt_delta "$cur_cpu" "$base_cpu" ''))"
+  # CPU average: the current run's highest CPU-utilisation job, compared to that same job in
+  # the baseline. This matches the percentage shown in the per-job table.
+  local cur_cpu cpu_pct base_cpu_util base_cpu_pct cpu_job
+  cur_cpu=$(_rci_worst_cpu_util "$records")
+  if [[ -n "$cur_cpu" ]]; then
+    cpu_job=${cur_cpu#*$'\t'}
+    cpu_pct=$(awk -v u="${cur_cpu%%$'\t'*}" 'BEGIN{printf "%.0f", u*100}')
+    base_cpu_util=$(_rci_cpu_util_for_job "$baseline" "$cpu_job")
+    base_cpu_pct=""
+    [[ -n "$base_cpu_util" ]] && base_cpu_pct=$(awk -v u="$base_cpu_util" 'BEGIN{printf "%.0f", u*100}')
+    segs="${segs:+$segs · }CPU avg $(_rci_md_cell "$cpu_job") ${cpu_pct}% ($(_rci_fmt_delta "$cpu_pct" "$base_cpu_pct" pp))"
   fi
 
   # Peak memory: the current run's worst-memory (OOM-risk) job. The baseline must be that SAME

@@ -272,6 +272,40 @@ Describe 'report-ci-metrics/lib.sh'
       End
     End
 
+    Describe '_rci_worst_cpu_util()'
+      It 'returns the highest CPU utilisation with its job name'
+        records=$(printf '%s\t%s\n' 'build' "$J_BUILD" 'test' "$J_TEST" 'lint' "$J_LINT")
+        When call _rci_worst_cpu_util "$records"
+        The output should equal "$(printf '0.32\tbuild')"
+      End
+
+      It 'uses CPU request as the denominator when limit utilisation is absent'
+        req='{"duration_seconds":10,"cgroup":{"cpu":{"usage_seconds":5,"limit_cores":null,"avg_utilization":null,"request_cores":1,"online_count":8}}}'
+        When call _rci_worst_cpu_util "$(printf '%s\t%s\n' 'test' "$req")"
+        The output should equal "$(printf '0.5\ttest')"
+      End
+
+      It 'is empty when no job has a CPU percentage denominator'
+        bare='{"duration_seconds":10,"cgroup":{"cpu":{"usage_seconds":5,"limit_cores":null,"avg_utilization":null,"request_cores":null,"online_count":null}}}'
+        When call _rci_worst_cpu_util "$(printf '%s\t%s\n' 'bare' "$bare")"
+        The output should equal ''
+      End
+    End
+
+    Describe '_rci_cpu_util_for_job()'
+      It 'returns the named jobs CPU utilisation'
+        records=$(printf '%s\t%s\n' 'build' "$J_BUILD" 'test' "$J_TEST")
+        When call _rci_cpu_util_for_job "$records" 'build'
+        The output should equal '0.32'
+      End
+
+      It 'is empty when the named job is absent'
+        records=$(printf '%s\t%s\n' 'build' "$J_BUILD")
+        When call _rci_cpu_util_for_job "$records" 'nonexistent'
+        The output should equal ''
+      End
+    End
+
     Describe '_rci_mem_util_for_job()'
       It 'returns the named jobs peak_utilization'
         records=$(printf '%s\t%s\n' 'build' "$J_BUILD" 'test' "$J_TEST")
@@ -309,17 +343,35 @@ Describe 'report-ci-metrics/lib.sh'
     End
 
     Describe 'render_trend()'
-      It 'renders cache, CPU-seconds, and memory deltas against a baseline'
-        # current: build cache hit (1/1=100), 40 CPU-s, worst mem build 0.80.
+      It 'renders cache, CPU average, and memory deltas against a baseline'
+        # current: build cache hit (1/1=100), CPU avg build 32%, worst mem build 0.80.
         cur=$(printf '%s\t%s\n' 'build' "$J_BUILD")
-        # baseline: a miss (0%), 30 CPU-s, lower mem util (0.60).
-        base_json='{"cache":[{"cache_hit":false,"restore_key_hit":null}],"cgroup":{"cpu":{"usage_seconds":30.0},"memory":{"peak_utilization":0.60}}}'
+        # baseline: a miss (0%), lower CPU avg (20%), lower mem util (0.60).
+        base_json='{"duration_seconds":62.0,"cache":[{"cache_hit":false,"restore_key_hit":null}],"cgroup":{"cpu":{"usage_seconds":25.0,"limit_cores":2.0,"avg_utilization":0.20},"memory":{"peak_utilization":0.60}}}'
         base=$(printf '%s\t%s\n' 'build' "$base_json")
         When call render_trend "$cur" "$base"
         The output should include 'Trend vs master:'
         The output should include 'cache hit 100% (↑ +100pp)'
-        The output should include 'CPU 40.0 CPU-s (↑ +10)'
+        The output should include 'CPU avg build 32% (↑ +12pp)'
         The output should include 'peak mem build 80% (↑ +20pp)'
+      End
+
+      It 'compares CPU average like-for-like and shows n/a when the worst job is absent from the baseline'
+        cur=$(printf '%s\t%s\n' 'build' "$J_BUILD")
+        base_json='{"duration_seconds":62.0,"cgroup":{"cpu":{"usage_seconds":25.0,"limit_cores":2.0,"avg_utilization":0.20}}}'
+        base=$(printf '%s\t%s\n' 'test' "$base_json")
+        When call render_trend "$cur" "$base"
+        The output should include 'CPU avg build 32% (n/a)'
+        The output should not include '+12pp'
+      End
+
+      It 'compares CPU average against the same job in the baseline'
+        cur=$(printf '%s\t%s\n' 'build' "$J_BUILD")
+        base=$(printf '%s\t%s\n' \
+          'build' '{"duration_seconds":62.0,"cgroup":{"cpu":{"usage_seconds":25.0,"limit_cores":2.0,"avg_utilization":0.20}}}' \
+          'test'  '{"duration_seconds":62.0,"cgroup":{"cpu":{"usage_seconds":50.0,"limit_cores":2.0,"avg_utilization":0.70}}}')
+        When call render_trend "$cur" "$base"
+        The output should include 'CPU avg build 32% (↑ +12pp)'
       End
 
       It 'compares peak memory like-for-like and shows n/a when the worst job is absent from the baseline'
@@ -344,23 +396,6 @@ Describe 'report-ci-metrics/lib.sh'
         The output should include 'peak mem build 80% (↑ +10pp)'
       End
 
-      It 'shows n/a for CPU delta when the baseline has no CPU metric'
-        cur=$(printf '%s\t%s\n' 'build' "$J_BUILD")
-        base_json='{"cache":[{"cache_hit":false,"restore_key_hit":null}],"cgroup":{"memory":{"peak_utilization":0.60}}}'
-        base=$(printf '%s\t%s\n' 'build' "$base_json")
-        When call render_trend "$cur" "$base"
-        The output should include 'CPU 40.0 CPU-s (n/a)'
-        The output should not include 'CPU 40.0 CPU-s (↑ +40)'
-      End
-
-      It 'keeps a real zero CPU baseline comparable'
-        cur=$(printf '%s\t%s\n' 'build' "$J_BUILD")
-        base_json='{"cache":[{"cache_hit":false,"restore_key_hit":null}],"cgroup":{"cpu":{"usage_seconds":0},"memory":{"peak_utilization":0.60}}}'
-        base=$(printf '%s\t%s\n' 'build' "$base_json")
-        When call render_trend "$cur" "$base"
-        The output should include 'CPU 40.0 CPU-s (↑ +40)'
-      End
-
       It 'says no baseline yet when the baseline is empty'
         cur=$(printf '%s\t%s\n' 'build' "$J_BUILD")
         When call render_trend "$cur" ''
@@ -369,7 +404,7 @@ Describe 'report-ci-metrics/lib.sh'
 
       It 'uses the provided default branch in the trend label'
         cur=$(printf '%s\t%s\n' 'build' "$J_BUILD")
-        base_json='{"cache":[{"cache_hit":false,"restore_key_hit":null}],"cgroup":{"cpu":{"usage_seconds":30.0},"memory":{"peak_utilization":0.60}}}'
+        base_json='{"cache":[{"cache_hit":false,"restore_key_hit":null}],"cgroup":{"memory":{"peak_utilization":0.60}}}'
         base=$(printf '%s\t%s\n' 'build' "$base_json")
         When call render_trend "$cur" "$base" 'main'
         The output should include 'Trend vs main:'
