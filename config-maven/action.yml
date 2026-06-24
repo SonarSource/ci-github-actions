@@ -208,7 +208,7 @@ runs:
 
     - name: Update project version and set current-version and project-version variables
       id: set-version
-      if: steps.config-maven-completed.outputs.skip == 'true' || steps.check_pom_xml.outputs.exists == 'true'
+      if: steps.config-maven-completed.outputs.skip != 'true' && steps.check_pom_xml.outputs.exists == 'true'
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       env:
