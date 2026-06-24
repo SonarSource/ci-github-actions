@@ -344,9 +344,7 @@ Describe 'report-ci-metrics/lib.sh'
 
     Describe 'render_trend()'
       It 'renders cache, CPU average, and memory deltas against a baseline'
-        # current: build cache hit (1/1=100), CPU avg build 32%, worst mem build 0.80.
         cur=$(printf '%s\t%s\n' 'build' "$J_BUILD")
-        # baseline: a miss (0%), lower CPU avg (20%), lower mem util (0.60).
         base_json='{"duration_seconds":62.0,"cache":[{"cache_hit":false,"restore_key_hit":null}],"cgroup":{"cpu":{"usage_seconds":25.0,"limit_cores":2.0,"avg_utilization":0.20},"memory":{"peak_utilization":0.60}}}'
         base=$(printf '%s\t%s\n' 'build' "$base_json")
         When call render_trend "$cur" "$base"
@@ -375,8 +373,6 @@ Describe 'report-ci-metrics/lib.sh'
       End
 
       It 'compares peak memory like-for-like and shows n/a when the worst job is absent from the baseline'
-        # current worst-mem job is build (0.80). Baseline has only a DIFFERENT job (test, 0.60).
-        # The delta must NOT be build(0.80) vs test(0.60) — it must be n/a (build not in baseline).
         cur=$(printf '%s\t%s\n' 'build' "$J_BUILD")
         base_json='{"cgroup":{"memory":{"peak_utilization":0.60}}}'
         base=$(printf '%s\t%s\n' 'test' "$base_json")
@@ -386,12 +382,10 @@ Describe 'report-ci-metrics/lib.sh'
       End
 
       It 'compares peak memory against the same job in the baseline'
-        # build is the worst in both runs: current 0.80 vs baseline 0.70 = +10pp, like-for-like.
         cur=$(printf '%s\t%s\n' 'build' "$J_BUILD")
         base=$(printf '%s\t%s\n' \
           'build' '{"cgroup":{"memory":{"peak_utilization":0.70}}}' \
           'test'  '{"cgroup":{"memory":{"peak_utilization":0.90}}}')
-        # Note: baseline's OWN worst job is test (0.90); the delta must still use build (0.70).
         When call render_trend "$cur" "$base"
         The output should include 'peak mem build 80% (↑ +10pp)'
       End

@@ -10,12 +10,7 @@ extract_metrics_json() {
     | sed -e 's/.*===CI_METRICS_JSON_BEGIN===//' -e 's/===CI_METRICS_JSON_END===.*//'
 }
 
-# List a run's jobs and emit "<name>\t<json>" for each completed sibling whose log
-# carries a metrics block. Skips: non-completed jobs, the report job itself (exact or
-# matrix "id (val)" prefix match on SELF_JOB), log-download failures, and jobs with no
-# metrics block. Record format relies on job names having no tab/newline.
-# $1: run id to collect (defaults to the current $RUN_ID). The arg form is used to
-# collect a baseline run for trend comparison.
+# Emit "<name>\t<json>" for completed jobs with metrics. $1 defaults to RUN_ID.
 collect_job_metrics() {
   local run_id=${1:-$RUN_ID}
   local jobs id name status log metrics
@@ -33,9 +28,7 @@ collect_job_metrics() {
   done <<< "$jobs"
 }
 
-# Sanitize an author-influenced value for safe inclusion in a markdown table cell:
-# escape pipes (column injection), collapse CR/LF (row/line injection), and neutralize
-# angle brackets (HTML/details injection) since the comment is posted with write scope.
+# Sanitize author-influenced markdown table cells.
 _rci_md_cell() {
   local s=$1
   s=${s//|/\\|}
@@ -47,8 +40,7 @@ _rci_md_cell() {
   printf '%s' "$s"
 }
 
-# Bytes → human-readable, matching the producer hook's fmt_bytes (2dp, IEC units).
-# A blank/non-numeric arg renders as "n/a" so callers can pass jq nulls directly.
+# Bytes → human-readable IEC units. Blank/non-numeric renders as "n/a".
 _rci_fmt_bytes() {
   local b=${1:-}
   [[ "$b" =~ ^[0-9]+$ ]] || { printf 'n/a'; return; }
@@ -59,15 +51,13 @@ _rci_fmt_bytes() {
   fi
 }
 
-# CPU-avg display cell for one job's JSON, mirroring the hook's step-summary logic.
-# Denominator preference: limit_cores -> request_cores ("requested", ARC burstable) ->
-# online_count ("available", WarpBuild VM) -> bare cores -> "n/a".
+# CPU-avg display cell. Denominator: limit -> request -> online cores.
 _rci_cpu_cell() {
   local json=$1
   jq -r '.cgroup.cpu as $c | .duration_seconds as $d | if ($c.usage_seconds != null and $d != null and $d > 0) then (($c.usage_seconds / $d) * 100 | round / 100) as $cores | if ($c.limit_cores != null and $c.avg_utilization != null) then "\($cores) / \(($c.limit_cores*100|round)/100) cores (\(($c.avg_utilization*100)|round)%)" elif ($c.request_cores != null and $c.request_cores > 0) then "\($cores) / \(($c.request_cores*100|round)/100) cores requested (\((($cores/$c.request_cores)*100)|round)%)" elif ($c.online_count != null and $c.online_count > 0) then "\($cores) / \($c.online_count) cores available (\((($cores/$c.online_count)*100)|round)%)" else "\($cores) cores" end else "n/a" end' <<< "$json"
 }
 
-# Sum a numeric jq path across all record JSONs; nulls count as 0. Echoes an integer-ish sum.
+# Sum a numeric jq path across all record JSONs; nulls count as 0.
 _rci_sum() {
   local records=$1 path=$2 total=0 name json
   while IFS=$'\t' read -r name json; do
@@ -80,13 +70,8 @@ _rci_sum() {
 }
 
 # --- Trend metrics ---------------------------------------------------------------------
-# These operate on the "<name>\t<json>" record stream so they're testable without gh.
 
-# _rci_cache_hit_rate <records> — integer hit-rate percent across every job's cache entries.
-# An entry counts as a hit when it restored data: either an exact-key hit (cache_hit == true) or
-# a prefix restore-key match (restore_key_hit != null) — the latter has cache_hit == false but
-# still restored a cache, so counting only cache_hit would undercount. Mirrors the three-state
-# logic in render_cache_fold. Empty when there are no cache entries at all (nothing to rate).
+# Integer cache hit-rate percent. Restore-key matches count as hits.
 _rci_cache_hit_rate() {
   local records=$1 total=0 hits=0 name json
   while IFS=$'\t' read -r name json; do
@@ -100,9 +85,7 @@ _rci_cache_hit_rate() {
   awk -v h="$hits" -v t="$total" 'BEGIN{printf "%.0f", (h/t)*100}'
 }
 
-# _rci_cpu_util <json> — the CPU utilisation ratio shown by _rci_cpu_cell, or empty when no
-# percentage denominator is available. Mirrors denominator preference: limit avg_utilization,
-# then request cores, then online cores.
+# CPU utilisation ratio shown by _rci_cpu_cell, or empty without a percentage denominator.
 _rci_cpu_util() {
   local json=$1
   jq -r '.cgroup.cpu as $c | .duration_seconds as $d |
@@ -115,72 +98,55 @@ _rci_cpu_util() {
     else empty end' <<< "$json" 2>/dev/null
 }
 
-# _rci_worst_cpu_util <records> — "<util_ratio>\t<job_name>" for the job with the highest
-# CPU average utilisation, using the same percentage denominator as the per-job table.
+# Memory peak utilisation ratio, or empty when unavailable.
+_rci_mem_util() {
+  local json=$1
+  jq -r '.cgroup.memory.peak_utilization // empty' <<< "$json" 2>/dev/null
+}
+
+_rci_worst_by_metric() {
+  local records=$1 metric_fn=$2 name json worst="-1" worst_name=""
+  while IFS=$'\t' read -r name json; do
+    [[ -z "$json" ]] && continue
+    local u
+    u=$("$metric_fn" "$json")
+    [[ -n "$u" ]] || continue
+    if awk -v a="$u" -v b="$worst" 'BEGIN{exit !(a+0>b+0)}'; then worst=$u; worst_name=$name; fi
+  done <<< "$records"
+  [[ -n "$worst_name" ]] || return 0
+  printf '%s\t%s' "$worst" "$worst_name"
+}
+
+_rci_metric_for_job() {
+  local records=$1 target=$2 metric_fn=$3 name json
+  while IFS=$'\t' read -r name json; do
+    [[ "$name" == "$target" ]] || continue
+    local u
+    u=$("$metric_fn" "$json")
+    [[ -n "$u" ]] || return 0
+    printf '%s' "$u"
+    return 0
+  done <<< "$records"
+  return 0
+}
+
 _rci_worst_cpu_util() {
-  local records=$1 name json worst="-1" worst_name=""
-  while IFS=$'\t' read -r name json; do
-    [[ -z "$json" ]] && continue
-    local u
-    u=$(_rci_cpu_util "$json")
-    [[ -n "$u" ]] || continue
-    if awk -v a="$u" -v b="$worst" 'BEGIN{exit !(a+0>b+0)}'; then worst=$u; worst_name=$name; fi
-  done <<< "$records"
-  [[ -n "$worst_name" ]] || return 0
-  printf '%s\t%s' "$worst" "$worst_name"
+  _rci_worst_by_metric "$1" _rci_cpu_util
 }
 
-# _rci_cpu_util_for_job <records> <job_name> — CPU utilisation ratio of the named job, or empty
-# when that job is absent or has no percentage denominator.
 _rci_cpu_util_for_job() {
-  local records=$1 target=$2 name json
-  while IFS=$'\t' read -r name json; do
-    [[ "$name" == "$target" ]] || continue
-    local u
-    u=$(_rci_cpu_util "$json")
-    [[ -n "$u" ]] || return 0
-    printf '%s' "$u"
-    return 0
-  done <<< "$records"
-  return 0
+  _rci_metric_for_job "$1" "$2" _rci_cpu_util
 }
 
-# _rci_worst_mem_util <records> — "<util_ratio>\t<job_name>" for the job with the highest
-# memory.peak_utilization (the OOM-risk job). Empty when no job reports peak_utilization.
-# Mirrors the worst-peak scan in render_headline but keys on utilisation, not raw bytes.
 _rci_worst_mem_util() {
-  local records=$1 name json worst="-1" worst_name=""
-  while IFS=$'\t' read -r name json; do
-    [[ -z "$json" ]] && continue
-    local u
-    u=$(jq -r '.cgroup.memory.peak_utilization // empty' <<< "$json" 2>/dev/null)
-    [[ -n "$u" ]] || continue
-    if awk -v a="$u" -v b="$worst" 'BEGIN{exit !(a+0>b+0)}'; then worst=$u; worst_name=$name; fi
-  done <<< "$records"
-  [[ -n "$worst_name" ]] || return 0
-  printf '%s\t%s' "$worst" "$worst_name"
+  _rci_worst_by_metric "$1" _rci_mem_util
 }
 
-# _rci_mem_util_for_job <records> <job_name> — the peak_utilization of the named job, or empty
-# when that job is absent or has no peak_utilization. Used to compare the baseline against the
-# SAME job as the current worst-memory job, so the trend delta is like-for-like (not current
-# worst job vs a possibly-different baseline worst job).
 _rci_mem_util_for_job() {
-  local records=$1 target=$2 name json
-  while IFS=$'\t' read -r name json; do
-    [[ "$name" == "$target" ]] || continue
-    local u
-    u=$(jq -r '.cgroup.memory.peak_utilization // empty' <<< "$json" 2>/dev/null)
-    [[ -n "$u" ]] || return 0
-    printf '%s' "$u"
-    return 0
-  done <<< "$records"
-  return 0
+  _rci_metric_for_job "$1" "$2" _rci_mem_util
 }
 
-# _rci_fmt_delta <current> <baseline> [unit] — neutral arrow + signed delta vs a baseline.
-# "→ ±0<unit>" within epsilon, "↑/↓ +N<unit>" otherwise, "n/a" when baseline is empty.
-# Direction is presented without good/bad coloring; the reader judges significance.
+# Neutral signed delta; empty baseline renders as n/a.
 _rci_fmt_delta() {
   local cur=$1 base=$2 unit=${3:-}
   [[ -n "$base" ]] || { printf 'n/a'; return; }
@@ -260,11 +226,7 @@ render_headline() {
   fi
 }
 
-# render_trend <records> <baseline_records> [branch] — one "Trend vs <branch>:" line comparing
-# PR-attributable signals against a baseline run: cache hit-rate, worst-job CPU average
-# utilisation, and worst-job peak memory utilisation. Emits "no baseline yet" when
-# baseline_records is empty (first run / retention gap). Metrics with no current data are
-# omitted; the line is skipped entirely if none are present.
+# Render one default-branch trend line from cache, worst CPU avg, and worst memory utilisation.
 render_trend() {
   local records=$1 baseline=$2 branch=${3:-${DEFAULT_BRANCH:-master}}
   local label="Trend vs ${branch}:"
@@ -282,8 +244,6 @@ render_trend() {
     segs="${segs:+$segs · }cache hit ${cur_hr}% ($(_rci_fmt_delta "$cur_hr" "$base_hr" pp))"
   fi
 
-  # CPU average: the current run's highest CPU-utilisation job, compared to that same job in
-  # the baseline. This matches the percentage shown in the per-job table.
   local cur_cpu cpu_pct base_cpu_util base_cpu_pct cpu_job
   cur_cpu=$(_rci_worst_cpu_util "$records")
   if [[ -n "$cur_cpu" ]]; then
@@ -295,9 +255,6 @@ render_trend() {
     segs="${segs:+$segs · }CPU avg $(_rci_md_cell "$cpu_job") ${cpu_pct}% ($(_rci_fmt_delta "$cpu_pct" "$base_cpu_pct" pp))"
   fi
 
-  # Peak memory: the current run's worst-memory (OOM-risk) job. The baseline must be that SAME
-  # job's utilisation — not the baseline's own worst job, which could be a different job and would
-  # make the delta a cross-job comparison. Shows n/a when that job is absent from the baseline.
   local cur_mem cur_pct base_util base_pct mem_job
   cur_mem=$(_rci_worst_mem_util "$records")
   if [[ -n "$cur_mem" ]]; then
@@ -422,11 +379,7 @@ render_cache_fold() {
   printf '\n</details>\n'
 }
 
-# find_baseline_run — echo the default-branch run id to compare against, or
-# empty when none exists (first run / log-retention gap). Resolves this run's workflow id from
-# the run object (no fragile workflow-name matching), then lists that workflow's completed runs
-# on the default branch. PR context → newest such run; default-branch push → newest run that is
-# not the current one (the previous default-branch run). Fail-open: any gh error echoes empty.
+# Echo the default-branch baseline run id, or empty on first run/API failure.
 find_baseline_run() {
   local wf_id
   wf_id=$(gh api "repos/$REPO/actions/runs/$RUN_ID" -q '.workflow_id' 2>/dev/null) || return 0
@@ -437,8 +390,7 @@ find_baseline_run() {
   local id
   while read -r id; do
     [[ -n "$id" ]] || continue
-    # On a default-branch push the current run is itself in this list — skip it so we compare
-    # against the previous default-branch run. In PR context the current run is on a PR ref, not here.
+    # On default-branch pushes, skip the current run and use the previous one.
     [[ "$id" == "$RUN_ID" ]] && continue
     printf '%s' "$id"
     return 0
@@ -458,10 +410,7 @@ upsert_comment() {
   fi
 }
 
-# Entry point: collect this run's sibling metrics, fetch a master baseline for trend deltas,
-# render, and surface the report. On pull_request it upserts the sticky PR comment; on a
-# default-branch push it writes to the job summary (no PR to comment on). Returns early when
-# there's no usable context or no metrics. Marker must lead the comment body.
+# Entry point: collect metrics, compare to the default branch, then comment or summarize.
 main() {
   local event=${EVENT_NAME:-pull_request}
   if [[ "$event" == "pull_request" && -z "${PR_NUMBER:-}" ]]; then
