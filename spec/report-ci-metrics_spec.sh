@@ -221,6 +221,241 @@ Describe 'report-ci-metrics/lib.sh'
     End
   End
 
+  Describe 'trend metrics'
+    Describe '_rci_cache_hit_rate()'
+      It 'computes the integer hit-rate percent across all jobs cache entries'
+        # build hit + test hit = 2/2 = 100; add a synthetic miss to get a mixed rate.
+        miss='{"cache":[{"cache_hit":false}]}'
+        records=$(printf '%s\t%s\n' 'build' "$J_BUILD" 'test' "$J_TEST" 'm' "$miss")
+        When call _rci_cache_hit_rate "$records"
+        The output should equal '67'
+      End
+
+      It 'is 100 when every cache entry is a hit'
+        records=$(printf '%s\t%s\n' 'build' "$J_BUILD" 'test' "$J_TEST")
+        When call _rci_cache_hit_rate "$records"
+        The output should equal '100'
+      End
+
+      It 'is 0 when every cache entry is a miss'
+        miss='{"cache":[{"cache_hit":false,"restore_key_hit":null},{"cache_hit":false,"restore_key_hit":null}]}'
+        When call _rci_cache_hit_rate "$(printf '%s\t%s\n' 'm' "$miss")"
+        The output should equal '0'
+      End
+
+      It 'counts a prefix restore-key match as a hit (cache_hit false but data restored)'
+        # cache_hit=false + restore_key_hit set = partial hit; must count as a hit, not a miss.
+        partial='{"cache":[{"cache_hit":false,"restore_key_hit":"maven-Linux-"},{"cache_hit":false,"restore_key_hit":null}]}'
+        When call _rci_cache_hit_rate "$(printf '%s\t%s\n' 'p' "$partial")"
+        The output should equal '50'
+      End
+
+      It 'is empty when no job has any cache entry (nothing to rate)'
+        # lint has no cache array.
+        When call _rci_cache_hit_rate "$(printf '%s\t%s\n' 'lint' "$J_LINT")"
+        The output should equal ''
+      End
+    End
+
+    Describe '_rci_worst_mem_util()'
+      It 'returns the highest peak_utilization with its job name'
+        # build=0.80, test=0.02, lint=0.01 → build wins.
+        records=$(printf '%s\t%s\n' 'build' "$J_BUILD" 'test' "$J_TEST" 'lint' "$J_LINT")
+        When call _rci_worst_mem_util "$records"
+        The output should equal "$(printf '0.80\tbuild')"
+      End
+
+      It 'is empty when no job reports peak_utilization'
+        nomem='{"cgroup":{"memory":{}}}'
+        When call _rci_worst_mem_util "$(printf '%s\t%s\n' 'j' "$nomem")"
+        The output should equal ''
+      End
+    End
+
+    Describe '_rci_worst_cpu_util()'
+      It 'returns the highest CPU utilisation with its job name'
+        records=$(printf '%s\t%s\n' 'build' "$J_BUILD" 'test' "$J_TEST" 'lint' "$J_LINT")
+        When call _rci_worst_cpu_util "$records"
+        The output should equal "$(printf '0.32\tbuild')"
+      End
+
+      It 'uses CPU request as the denominator when limit utilisation is absent'
+        req='{"duration_seconds":10,"cgroup":{"cpu":{"usage_seconds":5,"limit_cores":null,"avg_utilization":null,"request_cores":1,"online_count":8}}}'
+        When call _rci_worst_cpu_util "$(printf '%s\t%s\n' 'test' "$req")"
+        The output should equal "$(printf '0.5\ttest')"
+      End
+
+      It 'is empty when no job has a CPU percentage denominator'
+        bare='{"duration_seconds":10,"cgroup":{"cpu":{"usage_seconds":5,"limit_cores":null,"avg_utilization":null,"request_cores":null,"online_count":null}}}'
+        When call _rci_worst_cpu_util "$(printf '%s\t%s\n' 'bare' "$bare")"
+        The output should equal ''
+      End
+    End
+
+    Describe '_rci_cpu_util_for_job()'
+      It 'returns the named jobs CPU utilisation'
+        records=$(printf '%s\t%s\n' 'build' "$J_BUILD" 'test' "$J_TEST")
+        When call _rci_cpu_util_for_job "$records" 'build'
+        The output should equal '0.32'
+      End
+
+      It 'is empty when the named job is absent'
+        records=$(printf '%s\t%s\n' 'build' "$J_BUILD")
+        When call _rci_cpu_util_for_job "$records" 'nonexistent'
+        The output should equal ''
+      End
+    End
+
+    Describe '_rci_mem_util_for_job()'
+      It 'returns the named jobs peak_utilization'
+        records=$(printf '%s\t%s\n' 'build' "$J_BUILD" 'test' "$J_TEST")
+        When call _rci_mem_util_for_job "$records" 'build'
+        The output should equal '0.80'
+      End
+
+      It 'is empty when the named job is absent'
+        records=$(printf '%s\t%s\n' 'build' "$J_BUILD")
+        When call _rci_mem_util_for_job "$records" 'nonexistent'
+        The output should equal ''
+      End
+    End
+
+    Describe '_rci_fmt_delta()'
+      It 'shows an up arrow with a signed positive delta'
+        When call _rci_fmt_delta 95 80 pp
+        The output should equal '↑ +15pp'
+      End
+
+      It 'shows a down arrow with a signed negative delta'
+        When call _rci_fmt_delta 86 92 pp
+        The output should equal '↓ -6pp'
+      End
+
+      It 'shows a flat arrow within the epsilon'
+        When call _rci_fmt_delta 92 92 pp
+        The output should equal '→ ±0pp'
+      End
+
+      It 'is n/a when the baseline is empty'
+        When call _rci_fmt_delta 92 '' pp
+        The output should equal 'n/a'
+      End
+    End
+
+    Describe 'render_trend()'
+      It 'renders cache, CPU average, and memory deltas against a baseline'
+        cur=$(printf '%s\t%s\n' 'build' "$J_BUILD")
+        base_json='{"duration_seconds":62.0,"cache":[{"cache_hit":false,"restore_key_hit":null}],"cgroup":{"cpu":{"usage_seconds":25.0,"limit_cores":2.0,"avg_utilization":0.20},"memory":{"peak_utilization":0.60}}}'
+        base=$(printf '%s\t%s\n' 'build' "$base_json")
+        When call render_trend "$cur" "$base"
+        The output should include 'Trend vs master:'
+        The output should include 'cache hit 100% (↑ +100pp)'
+        The output should include 'CPU avg build 32% (↑ +12pp)'
+        The output should include 'peak mem build 80% (↑ +20pp)'
+      End
+
+      It 'compares CPU average like-for-like and shows n/a when the worst job is absent from the baseline'
+        cur=$(printf '%s\t%s\n' 'build' "$J_BUILD")
+        base_json='{"duration_seconds":62.0,"cgroup":{"cpu":{"usage_seconds":25.0,"limit_cores":2.0,"avg_utilization":0.20}}}'
+        base=$(printf '%s\t%s\n' 'test' "$base_json")
+        When call render_trend "$cur" "$base"
+        The output should include 'CPU avg build 32% (n/a)'
+        The output should not include '+12pp'
+      End
+
+      It 'compares CPU average against the same job in the baseline'
+        cur=$(printf '%s\t%s\n' 'build' "$J_BUILD")
+        base=$(printf '%s\t%s\n' \
+          'build' '{"duration_seconds":62.0,"cgroup":{"cpu":{"usage_seconds":25.0,"limit_cores":2.0,"avg_utilization":0.20}}}' \
+          'test'  '{"duration_seconds":62.0,"cgroup":{"cpu":{"usage_seconds":50.0,"limit_cores":2.0,"avg_utilization":0.70}}}')
+        When call render_trend "$cur" "$base"
+        The output should include 'CPU avg build 32% (↑ +12pp)'
+      End
+
+      It 'compares peak memory like-for-like and shows n/a when the worst job is absent from the baseline'
+        cur=$(printf '%s\t%s\n' 'build' "$J_BUILD")
+        base_json='{"cgroup":{"memory":{"peak_utilization":0.60}}}'
+        base=$(printf '%s\t%s\n' 'test' "$base_json")
+        When call render_trend "$cur" "$base"
+        The output should include 'peak mem build 80% (n/a)'
+        The output should not include '+20pp'
+      End
+
+      It 'compares peak memory against the same job in the baseline'
+        cur=$(printf '%s\t%s\n' 'build' "$J_BUILD")
+        base=$(printf '%s\t%s\n' \
+          'build' '{"cgroup":{"memory":{"peak_utilization":0.70}}}' \
+          'test'  '{"cgroup":{"memory":{"peak_utilization":0.90}}}')
+        When call render_trend "$cur" "$base"
+        The output should include 'peak mem build 80% (↑ +10pp)'
+      End
+
+      It 'says no baseline yet when the baseline is empty'
+        cur=$(printf '%s\t%s\n' 'build' "$J_BUILD")
+        When call render_trend "$cur" ''
+        The output should equal 'Trend vs master: no baseline yet'
+      End
+
+      It 'uses the provided default branch in the trend label'
+        cur=$(printf '%s\t%s\n' 'build' "$J_BUILD")
+        base_json='{"cache":[{"cache_hit":false,"restore_key_hit":null}],"cgroup":{"memory":{"peak_utilization":0.60}}}'
+        base=$(printf '%s\t%s\n' 'build' "$base_json")
+        When call render_trend "$cur" "$base" 'main'
+        The output should include 'Trend vs main:'
+        The output should not include 'Trend vs master:'
+      End
+    End
+  End
+
+  Describe 'find_baseline_run()'
+    export REPO=o/r RUN_ID=100
+
+    It 'returns the newest completed default-branch run in PR context'
+      # In PR context the current run (id 100, on a PR ref) is not in the master list.
+      Mock gh
+        case "$*" in
+          *runs/100\ *|*runs/100) echo 7 ;;            # .workflow_id lookup
+          *workflows/7/runs*) printf '%s\n' 55 54 53 ;;
+          *) return 1 ;;
+        esac
+      End
+      When call find_baseline_run
+      The output should equal '55'
+    End
+
+    It 'skips the current run id on a default-branch push (previous default-branch run)'
+      Mock gh
+        case "$*" in
+          *runs/100\ *|*runs/100) echo 7 ;;
+          *workflows/7/runs*) printf '%s\n' 100 99 98 ;;  # current run is in the list
+          *) return 1 ;;
+        esac
+      End
+      When call find_baseline_run
+      The output should equal '99'
+    End
+
+    It 'is empty when there is no prior run'
+      Mock gh
+        case "$*" in
+          *runs/100\ *|*runs/100) echo 7 ;;
+          *workflows/7/runs*) : ;;
+          *) return 1 ;;
+        esac
+      End
+      When call find_baseline_run
+      The output should equal ''
+    End
+
+    It 'is empty (fail-open) when the workflow-id lookup fails'
+      Mock gh
+        false  # every gh call fails → find_baseline_run must fail-open to empty
+      End
+      When call find_baseline_run
+      The output should equal ''
+    End
+  End
+
   Describe 'render_table()'
     It 'renders one row per job inside a details/summary block'
       records=$(printf '%s\t%s\n' 'build' "$J_BUILD" 'test' "$J_TEST" 'lint' "$J_LINT")
@@ -342,6 +577,14 @@ Describe 'report-ci-metrics/lib.sh'
       The output should include '| deps\|v2 | yes | s3 |'
     End
 
+    It 'shows prefix restore-key matches as partial hits'
+      partial='{"schema_version":3,"duration_seconds":62.0,"cgroup":{"cpu":{"usage_seconds":1.0,"throttled_seconds":0.0},"memory":{"peak_bytes":1024,"oom_kill":0}},"net":{"rx_bytes":0,"tx_bytes":0},"disk":{"total_bytes":null,"used_bytes":null},"cache":[{"key":"deps","cache_hit":false,"restore_key_hit":"deps-Linux-","backend":"s3","size_bytes_restored":1024,"saved":false,"size_bytes_at_end":null}]}'
+      records=$(printf '%s\t%s\n' 'build' "$partial")
+      When call render_cache_fold "$records"
+      The status should be success
+      The output should include '| deps | partial | s3 |'
+    End
+
     It 'collapses newlines and neutralizes angle brackets in author-controlled cache cells'
       # jq -r turns JSON \n into a real newline; sanitizer must collapse it and escape <>.
       evilkey='{"schema_version":2,"duration_seconds":62.0,"cgroup":{"cpu":{"usage_seconds":1.0,"throttled_seconds":0.0},"memory":{"peak_bytes":1024,"oom_kill":0}},"net":{"rx_bytes":0,"tx_bytes":0},"disk":{"total_bytes":null,"used_bytes":null},"cache":[{"key":"deps\n</details>","cache_hit":true,"backend":"s3\nevil","size_bytes_restored":1024,"saved":false,"size_bytes_at_end":null}]}'
@@ -421,6 +664,8 @@ body'
       render_headline()    { echo "HEADLINE"; return 0; }
       render_table()       { echo "TABLE"; return 0; }
       render_cache_fold()  { echo "CACHE"; return 0; }
+      render_trend()       { echo "TREND:${3:-}"; return 0; }
+      find_baseline_run()  { return 0; }
       upsert_comment()     { local body=$1; echo "UPSERT:$body"; return 0; }
       return 0
     }
@@ -461,6 +706,42 @@ body'
       The line 1 of output should equal 'UPSERT:<!-- ci-metrics-report -->'
       The output should include 'HEADLINE'
       The output should include 'TABLE'
+    End
+
+    It 'includes the trend line in the comment body when records are present'
+      export REPO=o/r RUN_ID=1 SELF_JOB=report-ci-metrics PR_NUMBER=7 EVENT_NAME=pull_request
+      # shellcheck disable=SC2329  # Invoked indirectly by main()
+      collect_job_metrics() { printf 'build\t{"job":"build"}\n'; return 0; }
+      stub_renderers
+      When call main
+      The status should be success
+      The output should include 'TREND'
+    End
+
+    It 'passes the default branch to the trend renderer'
+      export REPO=o/r RUN_ID=1 SELF_JOB=report-ci-metrics PR_NUMBER=7 EVENT_NAME=pull_request DEFAULT_BRANCH=main
+      # shellcheck disable=SC2329  # Invoked indirectly by main()
+      collect_job_metrics() { printf 'build\t{"job":"build"}\n'; return 0; }
+      stub_renderers
+      When call main
+      The status should be success
+      The output should include 'TREND:main'
+    End
+
+    It 'on a default-branch push writes the job summary and never upserts a comment'
+      export REPO=o/r RUN_ID=1 SELF_JOB=report-ci-metrics EVENT_NAME=push
+      unset PR_NUMBER
+      summary=$(mktemp)
+      export GITHUB_STEP_SUMMARY="$summary"
+      # shellcheck disable=SC2329  # Invoked indirectly by main()
+      collect_job_metrics() { printf 'build\t{"job":"build"}\n'; return 0; }
+      stub_renderers
+      When call main
+      The status should be success
+      The output should not include 'UPSERT:'
+      The contents of file "$summary" should include 'HEADLINE'
+      The contents of file "$summary" should include 'TREND'
+      rm -f "$summary"
     End
   End
 End
