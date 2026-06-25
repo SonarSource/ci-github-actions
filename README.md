@@ -58,6 +58,7 @@ These badges show the status of workflows in dummy repositories that use (or sho
 - [`build-npm`](#build-npm)
 - [`build-yarn`](#build-yarn)
 - [`config-pip`](#config-pip)
+- [`config-uv`](#config-uv)
 - [`promote`](#promote)
 - [`pr_cleanup`](#pr_cleanup)
 - [`code-signing`](#code-signing)
@@ -1254,6 +1255,89 @@ If you're currently using `SonarSource/sonarqube-cloud-github-actions/configure-
 ```
 
 Both actions produce the same configuration and are functionally equivalent.
+
+---
+
+## `config-uv`
+
+Configure uv build environment with build number, JFrog CLI authentication, and caching.
+
+This action configures `jf config` for the Repox server.
+It also sets native `UV_INDEX_*` credentials so uv resolves dependencies from Artifactory instead of PyPI.
+
+There is no `jf uv-config` command. Configure indexes in `pyproject.toml` and run `jf uv` subcommands.
+
+See the [JFrog uv documentation](https://docs.jfrog.com/artifactory/docs/jf-uv).
+
+Repositories using uv should declare the Repox index in `pyproject.toml`:
+
+```toml
+[[tool.uv.index]]
+name = "repox"
+url = "https://repox.jfrog.io/artifactory/api/pypi/sonarsource-pypi/simple"
+default = true
+```
+
+> **Note:** This action automatically calls [`get-build-number`](#get-build-number) to manage the build number.
+
+### Requirements
+
+#### Required GitHub Permissions
+
+- `id-token: write`
+- `contents: read`
+
+#### Required Vault Permissions
+
+- `public-reader` or `private-reader`: Artifactory role for reading dependencies
+
+#### Other Dependencies
+
+The `uv` tool must be pre-installed. Use of `mise` is recommended.
+
+### Usage
+
+```yaml
+permissions:
+  id-token: write
+  contents: read
+steps:
+  - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+  - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+  - uses: SonarSource/ci-github-actions/config-uv@v1
+  - run: jf uv sync
+```
+
+For build-info collection, pass `--build-name` and `--build-number` to `jf uv` and publish with `jf rt build-publish`.
+
+### Inputs
+
+| Input                     | Description                                                                 | Default                                                              |
+|---------------------------|-----------------------------------------------------------------------------|----------------------------------------------------------------------|
+| `working-directory`       | Relative path under github.workspace to execute the build in                | `.`                                                                  |
+| `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault                             | `private-reader` for private repos, `public-reader` for public repos |
+| `uv-index-name`           | Name of the uv index in `pyproject.toml` to authenticate                    | `repox`                                                              |
+| `repox-url`               | URL for Repox                                                               | `https://repox.jfrog.io`                                             |
+| `uv-cache-dir`            | Path to the uv cache directory, relative to GitHub workspace                | `.cache/uv`                                                          |
+| `disable-caching`         | Whether to disable uv caching entirely                                      | `false`                                                              |
+
+### Outputs
+
+| Output         | Description                                                               |
+|----------------|---------------------------------------------------------------------------|
+| `BUILD_NUMBER` | The current build number. Also set as environment variable `BUILD_NUMBER` |
+
+### Output Environment Variables
+
+| Environment Variable            | Description              |
+|---------------------------------|--------------------------|
+| `BUILD_NUMBER`                  | The current build number |
+| `UV_INDEX_REPOX_USERNAME`       | Repox username for uv (`repox` index name) |
+| `UV_INDEX_REPOX_PASSWORD`       | Repox access token for uv |
+| `UV_KEYRING_PROVIDER`           | Set to `disabled` when index credentials are injected |
+| `UV_CACHE_DIR`                  | Path to the uv cache directory |
+
+See also [`get-build-number`](#get-build-number) output environment variables.
 
 ---
 
