@@ -78,7 +78,7 @@ and set it as an environment variable named `BUILD_NUMBER`, and as a GitHub Acti
 The build number is unique per workflow run ID. It is not incremented on workflow reruns.
 
 During execution the action temporarily writes `.build_number.txt` at the repository root (for
-`actions/cache`); the file is removed before the action completes. Do not track a file named
+S3 cache via `runs-on/cache`); the file is removed before the action completes. Do not track a file named
 `.build_number.txt` in your repository.
 
 ### Requirements
@@ -113,7 +113,9 @@ jobs:
 
 ### Inputs
 
-No inputs are required for this action.
+| Input               | Description                                      | Default |
+|---------------------|--------------------------------------------------|---------|
+| `host-actions-root` | Path to the actions folder on the host (used when called from another local action) | (empty) |
 
 ### Outputs
 

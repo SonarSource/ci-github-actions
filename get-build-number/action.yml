@@ -42,14 +42,28 @@ runs:
         echo "${BUILD_NUMBER}" > "$BUILD_NUMBER_FILE"
         echo "skip=true" >> $GITHUB_OUTPUT
 
+    - name: Setup S3 cache credentials
+      if: steps.from-env.outputs.skip != 'true'
+      id: aws-auth
+      uses: SonarSource/gh-action_cache/credential-setup@a7d13cdd1c9f097a5f8382ccec463be2831e3dbc # v1.6.0
+
     # Reuse current build number in case of rerun
     - name: Get cached build number
       if: steps.from-env.outputs.skip != 'true'
-      uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      uses: runs-on/cache/restore@88d90644011a3a9957fd141a106f5a94f9794203 # v5.0.7
       id: current-build-number
+      env:
+        RUNS_ON_S3_BUCKET_CACHE: sonarsource-s3-cache-prod-bucket
+        AWS_DEFAULT_REGION: eu-central-1
+        AWS_REGION: eu-central-1
+        AWS_ACCESS_KEY_ID: ${{ steps.aws-auth.outputs.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ steps.aws-auth.outputs.AWS_SECRET_ACCESS_KEY }}
+        AWS_SESSION_TOKEN: ${{ steps.aws-auth.outputs.AWS_SESSION_TOKEN }}
+        AWS_PROFILE: ''
+        AWS_DEFAULT_PROFILE: ''
       with:
         path: ${{ env.BUILD_NUMBER_FILE }}
-        key: build-number-${{ github.run_id }}
+        key: ${{ format('{0}/build-number-{1}', github.head_ref || github.ref, github.run_id) }}
         enableCrossOsArchive: true
 
     # Otherwise, increment the build number
@@ -76,11 +90,20 @@ runs:
         echo "BUILD_NUMBER=${BUILD_NUMBER}" >> "$GITHUB_OUTPUT"
 
     - name: Save build number to cache
-      uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      uses: runs-on/cache/save@88d90644011a3a9957fd141a106f5a94f9794203 # v5.0.7
       if: steps.from-env.outputs.skip != 'true' && steps.current-build-number.outputs.cache-hit != 'true'
+      env:
+        RUNS_ON_S3_BUCKET_CACHE: sonarsource-s3-cache-prod-bucket
+        AWS_DEFAULT_REGION: eu-central-1
+        AWS_REGION: eu-central-1
+        AWS_ACCESS_KEY_ID: ${{ steps.aws-auth.outputs.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ steps.aws-auth.outputs.AWS_SECRET_ACCESS_KEY }}
+        AWS_SESSION_TOKEN: ${{ steps.aws-auth.outputs.AWS_SESSION_TOKEN }}
+        AWS_PROFILE: ''
+        AWS_DEFAULT_PROFILE: ''
       with:
         path: ${{ env.BUILD_NUMBER_FILE }}
-        key: build-number-${{ github.run_id }}
+        key: ${{ format('{0}/build-number-{1}', github.head_ref || github.ref, github.run_id) }}
         enableCrossOsArchive: true
 
     - name: Remove build number file from workspace
