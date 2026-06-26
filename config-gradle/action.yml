@@ -172,7 +172,7 @@ runs:
         develocity-injection-enabled: ${{ inputs.use-develocity == 'true' }}
         cache-disabled: true
         develocity-plugin-version: '4.0'
-        develocity-access-key: ${{ inputs.use-develocity == 'true' &&
+        develocity-access-key: ${{ inputs.use-develocity == 'true' && steps.secrets.outputs.vault &&
           fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN || '' }}
 
     - name: Generate Gradle Cache Key
