@@ -71,12 +71,19 @@ allprojects {
         repositories {
             configureRepoxRepositories(providers)
         }
+        // Configure the buildscript classpath repositories too. This must happen in
+        // beforeEvaluate: the buildscript {} block is resolved while the build script
+        // is evaluated, so adding Repox here (before evaluation) puts it ahead of any
+        // repository the script declares itself, keeping plugin/buildscript classpath
+        // dependencies (and their transitives) off the rate-limited public repos.
+        buildscript.repositories.configureRepoxRepositories(providers)
     }
     afterEvaluate {
         logger.debug("Applying Repox configuration init script after project '${project.name}' evaluation")
         repositories {
             configureRepoxRepositories(providers)
         }
+        buildscript.repositories.configureRepoxRepositories(providers)
     }
 }
 
