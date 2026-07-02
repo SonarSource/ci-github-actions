@@ -57,7 +57,7 @@ runs:
 
     - name: Install AWS CLI
       if: inputs.dryRun != 'true'
-      uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
       with:
         version: 2026.5.9
         mise_toml: |
@@ -67,7 +67,7 @@ runs:
     - name: Fetch AWS credentials from Vault
       id: secrets
       if: inputs.dryRun != 'true'
-      uses: SonarSource/vault-action-wrapper@0a3114fe1230b784c35b53b099f9ab1f1e538cc7 # 3.5.0
+      uses: SonarSource/vault-action-wrapper@881045d830534a70ec3c7c275fa3714412c8ff6e # 3.6.1
       with:
         secrets: |
           development/aws/sts/downloads access_key | AWS_ACCESS_KEY_ID;

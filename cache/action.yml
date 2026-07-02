@@ -36,7 +36,7 @@ runs:
         echo "::warning:: This action is deprecated and will be removed in future releases." \
           "Please migrate to using the SonarSource/gh-action_cache action directly." >&2
 
-    - uses: SonarSource/gh-action_cache@0666e03d7b6480758214db522a3aac989d67b026 # v1.7.0
+    - uses: SonarSource/gh-action_cache@339d9d71cc5210bfa866a831dd8eba8e32c40491 # v1.7.1
       id: cache
       with:
         path: ${{ inputs.path }}
