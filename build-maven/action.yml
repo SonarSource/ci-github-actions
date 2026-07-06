@@ -147,7 +147,7 @@ runs:
         echo "SONARSOURCE_REPOSITORY_URL=${ARTIFACTORY_URL}/sonarsource" >> "$GITHUB_ENV"
       # yamllint enable rule:line-length
 
-    - uses: SonarSource/vault-action-wrapper@0a3114fe1230b784c35b53b099f9ab1f1e538cc7 # 3.5.0
+    - uses: SonarSource/vault-action-wrapper@881045d830534a70ec3c7c275fa3714412c8ff6e # 3.6.1
       if: inputs.deploy != 'false'
       id: artifactory
       with:
@@ -158,7 +158,7 @@ runs:
           ${{ inputs.deploy != 'false' && inputs.run-shadow-scans != 'true' && steps.params.outputs.ARTIFACTORY_DEPLOY_ACCESS_TOKEN_VAULT || '' }}
           ${{ inputs.deploy != 'false' && inputs.mixed-privacy == 'true' && steps.params.outputs.ARTIFACTORY_PRIVATE_DEPLOY_ACCESS_TOKEN_VAULT || '' }}
         # yamllint enable rule:line-length
-    - uses: SonarSource/vault-action-wrapper@0a3114fe1230b784c35b53b099f9ab1f1e538cc7 # 3.5.0
+    - uses: SonarSource/vault-action-wrapper@881045d830534a70ec3c7c275fa3714412c8ff6e # 3.6.1
       id: secrets
       with:
         # yamllint disable rule:line-length
@@ -236,7 +236,7 @@ runs:
       if: |
         inputs.provenance == 'true' && github.event_name != 'pull_request' && steps.build.outputs.deployed == 'true' &&
         (inputs.provenance-artifact-paths != '' || steps.build.outputs.artifact-paths != '')
-      uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+      uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
       with:
         subject-path: >-
           ${{ inputs.provenance-artifact-paths != '' && inputs.provenance-artifact-paths || steps.build.outputs.artifact-paths }}

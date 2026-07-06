@@ -45,7 +45,7 @@ runs:
     # Reuse current build number in case of rerun
     - name: Get cached build number
       if: steps.from-env.outputs.skip != 'true'
-      uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
       id: current-build-number
       with:
         path: ${{ env.BUILD_NUMBER_FILE }}
@@ -53,7 +53,7 @@ runs:
         enableCrossOsArchive: true
 
     # Otherwise, increment the build number
-    - uses: SonarSource/vault-action-wrapper@0a3114fe1230b784c35b53b099f9ab1f1e538cc7 # 3.5.0
+    - uses: SonarSource/vault-action-wrapper@881045d830534a70ec3c7c275fa3714412c8ff6e # 3.6.1
       id: secrets
       if: steps.from-env.outputs.skip != 'true' && steps.current-build-number.outputs.cache-hit != 'true'
       with:
@@ -76,7 +76,7 @@ runs:
         echo "BUILD_NUMBER=${BUILD_NUMBER}" >> "$GITHUB_OUTPUT"
 
     - name: Save build number to cache
-      uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
       if: steps.from-env.outputs.skip != 'true' && steps.current-build-number.outputs.cache-hit != 'true'
       with:
         path: ${{ env.BUILD_NUMBER_FILE }}
