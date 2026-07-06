@@ -89,7 +89,7 @@ runs:
         echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
 
     - name: Cache uv dependencies
-      uses: SonarSource/gh-action_cache@a7d13cdd1c9f097a5f8382ccec463be2831e3dbc # v1.6.0
+      uses: SonarSource/gh-action_cache@4e40632e780e11a8bbe9b721985ab22b42847cc4 # v1.7.2
       if: steps.config-uv-completed.outputs.skip != 'true' && inputs.disable-caching != 'true'
       with:
         path: ${{ github.workspace }}/${{ inputs.uv-cache-dir }}
@@ -97,12 +97,12 @@ runs:
           format('{0}/pyproject.toml', inputs.working-directory)) }}
         restore-keys: uv-${{ runner.os }}-
 
-    - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+    - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
       if: steps.config-uv-completed.outputs.skip != 'true'
       with:
         version: 2026.5.9
 
-    - uses: SonarSource/vault-action-wrapper@0a3114fe1230b784c35b53b099f9ab1f1e538cc7 # 3.5.0
+    - uses: SonarSource/vault-action-wrapper@881045d830534a70ec3c7c275fa3714412c8ff6e # 3.6.1
       if: steps.config-uv-completed.outputs.skip != 'true'
       id: secrets
       with:

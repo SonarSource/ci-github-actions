@@ -8,7 +8,7 @@ jobs:
   test-resources:
     runs-on: warp-custom-ubuntu-24-04
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       # Create test file and directory for cache
       - name: Create test file for cache
         run: |
@@ -16,7 +16,7 @@ jobs:
           echo "Test content for cache" > test-cache/test.txt
 
       - name: Save test cache
-        uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: ./test-cache
           key: test-cache-${{ github.event.pull_request.number }}
@@ -35,7 +35,7 @@ jobs:
       actions: write  # Required for cache/artifact operations
       contents: read  # Required for checkout
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: Run PR cleanup
         uses: ./pr_cleanup
 

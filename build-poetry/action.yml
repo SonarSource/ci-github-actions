@@ -104,7 +104,7 @@ runs:
         echo "ARTIFACTORY_DEPLOYER_ROLE=${ARTIFACTORY_DEPLOYER_ROLE}" >> "$GITHUB_ENV"
         cp "$ACTION_PATH_BUILD_POETRY/mise.local.toml" mise.local.toml
 
-    - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+    - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
       with:
         version: 2026.5.9
 
@@ -119,7 +119,7 @@ runs:
         poetry-virtualenvs-path: ${{ inputs.poetry-virtualenvs-path }}
         disable-caching: ${{ inputs.disable-caching }}
 
-    - uses: SonarSource/vault-action-wrapper@0a3114fe1230b784c35b53b099f9ab1f1e538cc7 # 3.5.0
+    - uses: SonarSource/vault-action-wrapper@881045d830534a70ec3c7c275fa3714412c8ff6e # 3.6.1
       if: inputs.deploy != 'false' && inputs.run-shadow-scans != 'true'
       id: artifactory
       with:
@@ -128,7 +128,7 @@ runs:
         secrets: |
           ${{ format('development/artifactory/token/{{REPO_OWNER_NAME_DASH}}-{0} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;', env.ARTIFACTORY_DEPLOYER_ROLE) }}
         # yamllint enable rule:line-length
-    - uses: SonarSource/vault-action-wrapper@0a3114fe1230b784c35b53b099f9ab1f1e538cc7 # 3.5.0
+    - uses: SonarSource/vault-action-wrapper@881045d830534a70ec3c7c275fa3714412c8ff6e # 3.6.1
       id: secrets
       # yamllint disable rule:line-length
       with:
@@ -183,7 +183,7 @@ runs:
             github.event_name != 'pull_request' &&
             steps.build.outputs.deployed == 'true' &&
             (inputs.provenance-artifact-paths != '' || steps.build.outputs.artifact-paths != '') }}
-      uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+      uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
       with:
         subject-path: >-
           ${{ inputs.provenance-artifact-paths != '' && inputs.provenance-artifact-paths || steps.build.outputs.artifact-paths }}
