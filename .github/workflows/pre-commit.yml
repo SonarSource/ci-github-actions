@@ -8,7 +8,7 @@ jobs:
   pre-commit:
     runs-on: warp-custom-ubuntu-24-04
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: ./config-npm
       - uses: SonarSource/gh-action_pre-commit@2ddc0c7fdabce0adfaaa4075a17690972ed9961a # 1.2.0
         with:
