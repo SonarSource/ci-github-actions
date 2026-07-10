@@ -220,6 +220,7 @@ Describe 'poetry_set_project_version main()'
   common_setup() {
     GITHUB_OUTPUT=$(mktemp)
     GITHUB_ENV=$(mktemp)
+    export GITHUB_OUTPUT GITHUB_ENV
     return 0
   }
   # shellcheck disable=SC2329,SC2317
