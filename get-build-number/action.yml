@@ -71,6 +71,10 @@ runs:
       shell: bash
       run: |
         BUILD_NUMBER=$(cat "$BUILD_NUMBER_FILE")
+        if ! [[ "$BUILD_NUMBER" =~ ^[0-9]+$ ]]; then
+          echo "::error title=Invalid build number::Build number '${BUILD_NUMBER}' (from ${BUILD_NUMBER_FILE}) is not a valid positive integer." >&2
+          exit 1
+        fi
         echo "BUILD_NUMBER: ${BUILD_NUMBER}"
         echo "BUILD_NUMBER=${BUILD_NUMBER}" >> "$GITHUB_ENV"
         echo "BUILD_NUMBER=${BUILD_NUMBER}" >> "$GITHUB_OUTPUT"
