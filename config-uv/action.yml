@@ -101,8 +101,8 @@ runs:
       if: steps.config-uv-completed.outputs.skip != 'true' && inputs.disable-caching != 'true'
       with:
         path: ${{ github.workspace }}/${{ inputs.uv-cache-dir }}
-        key: uv-${{ runner.os }}-${{ steps.sanitize_workflow.outputs.workflow_name }}-${{ hashFiles(format('{0}/uv.lock', inputs.working-directory),
-          format('{0}/pyproject.toml', inputs.working-directory)) }}
+        key: uv-${{ runner.os }}-${{ steps.sanitize_workflow.outputs.workflow_name }}-${{
+          hashFiles(format('{0}/uv.lock', inputs.working-directory), format('{0}/pyproject.toml', inputs.working-directory)) }}
         restore-keys: uv-${{ runner.os }}-${{ steps.sanitize_workflow.outputs.workflow_name }}-
 
     - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
