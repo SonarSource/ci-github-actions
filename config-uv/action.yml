@@ -121,13 +121,16 @@ runs:
         ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
         UV_INDEX_NAME: ${{ inputs.uv-index-name }}
         UV_CACHE_DIR: ${{ github.workspace }}/${{ inputs.uv-cache-dir }}
-      run: |
-        $ACTION_PATH_CONFIG_UV/uv_config.sh
+      run: $ACTION_PATH_CONFIG_UV/uv_config.sh
 
+    - name: Restore mise files
+      if: always() && steps.config-uv-completed.outputs.skip != 'true'
+      shell: bash
+      run: |
         echo "::group::Restore mise files"
-        rm mise.local.toml
+        rm -f mise.local.toml
         mv "${{ steps.set-path.outputs.MISE_BACKUP }}"/* "${{ steps.set-path.outputs.MISE_BACKUP }}"/.* ./ 2>/dev/null || true
-        rmdir "${{ steps.set-path.outputs.MISE_BACKUP }}"
+        rmdir "${{ steps.set-path.outputs.MISE_BACKUP }}" 2>/dev/null || true
         echo "::endgroup::"
 
     - name: Set Config uv completed
