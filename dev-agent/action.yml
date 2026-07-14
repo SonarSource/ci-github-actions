@@ -1,0 +1,107 @@
+---
+name: Dev Agent
+description: Turn an explicitly dispatched Jira ticket into a draft pull request.
+inputs:
+  jira-key:
+    description: Jira key to implement, for example BUILD-123.
+    required: true
+  instructions-file:
+    description: Optional checked-in repository instructions and validation commands.
+    required: false
+    default: ''
+  slack-channel:
+    description: Slack channel ID or name that receives the outcome notification.
+    required: true
+  openai-api-key:
+    description: OpenAI API key used only by openai/codex-action.
+    required: true
+  github-token:
+    description: GitHub token for pushing the generated branch and creating a draft pull request.
+    required: true
+outputs:
+  pull-request-url:
+    description: Draft pull request URL, when one exists.
+    value: ${{ steps.publish.outputs.pull-request-url }}
+  branch:
+    description: Generated branch name.
+    value: ${{ steps.prepare.outputs.branch }}
+  outcome:
+    description: >-
+      Final outcome: success, no_changes, or failed.
+    value: ${{ steps.publish.outputs.outcome || 'failed' }}
+runs:
+  using: composite
+  steps:
+    - uses: SonarSource/ci-github-actions/config-npm@master # dogfood
+
+    - id: secrets
+      uses: SonarSource/vault-action-wrapper@0a3114fe1230b784c35b53b099f9ab1f1e538cc7 # 3.5.0
+      with:
+        secrets: |
+          development/kv/data/jira user | JIRA_USER;
+          development/kv/data/jira token | JIRA_TOKEN;
+          development/kv/data/slack token | SLACK_TOKEN;
+
+    - id: prepare
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        INSTRUCTIONS_FILE: ${{ inputs.instructions-file }}
+        JIRA_KEY: ${{ inputs.jira-key }}
+        JIRA_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).JIRA_TOKEN }}
+        JIRA_USER: ${{ fromJSON(steps.secrets.outputs.vault).JIRA_USER }}
+      run: bash "${{ github.action_path }}/prepare.sh"
+
+    - if: steps.prepare.outcome == 'success'
+      shell: bash
+      env:
+        BRANCH: ${{ steps.prepare.outputs.branch }}
+        DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      run: |
+        git fetch origin "$DEFAULT_BRANCH"
+        if git fetch origin "refs/heads/$BRANCH:refs/remotes/origin/$BRANCH" 2>/dev/null; then
+          git checkout --force --track "origin/$BRANCH"
+        else
+          git checkout --force -B "$BRANCH" "origin/$DEFAULT_BRANCH"
+        fi
+
+    - id: codex
+      if: steps.prepare.outcome == 'success'
+      continue-on-error: true
+      uses: openai/codex-action@52fe01ec70a42f454c9d2ebd47598f9fd6893d56 # v1.11
+      with:
+        model: gpt-5.6-terra
+        openai-api-key: ${{ inputs.openai-api-key }}
+        prompt-file: ${{ steps.prepare.outputs.prompt-file }}
+        sandbox: danger-full-access
+
+    - id: publish
+      if: always() && steps.prepare.outcome == 'success' && steps.codex.outcome == 'success'
+      continue-on-error: true
+      shell: bash
+      env:
+        BRANCH: ${{ steps.prepare.outputs.branch }}
+        DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        JIRA_KEY: ${{ inputs.jira-key }}
+        TICKET_TITLE: ${{ steps.prepare.outputs.ticket-title }}
+      run: bash "${{ github.action_path }}/publish.sh"
+
+    - if: always()
+      shell: bash
+      env:
+        JIRA_KEY: ${{ inputs.jira-key }}
+        JIRA_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).JIRA_TOKEN }}
+        JIRA_USER: ${{ fromJSON(steps.secrets.outputs.vault).JIRA_USER }}
+        OUTCOME: ${{ steps.publish.outputs.outcome || 'failed' }}
+        PULL_REQUEST_URL: ${{ steps.publish.outputs.pull-request-url }}
+        SLACK_CHANNEL: ${{ inputs.slack-channel }}
+        SLACK_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SLACK_TOKEN }}
+        WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: bash "${{ github.action_path }}/report.sh"
+
+    - if: >-
+        always() && (steps.prepare.outcome != 'success' || steps.codex.outcome != 'success'
+        || steps.publish.outcome != 'success' || steps.publish.outputs.outcome != 'success')
+      shell: bash
+      run: exit 1
