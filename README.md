@@ -1280,14 +1280,6 @@ default = true
 
 > **Note:** This action automatically calls [`get-build-number`](#get-build-number) to manage the build number.
 
-The cache key is derived from `uv.lock` and `pyproject.toml` in `working-directory`.
-When the project is not at the repository root, always set `working-directory`
-to the directory that the job installs. The action disables caching with a
-warning instead of creating an empty, permanently stale cache key when neither
-dependency file exists there.
-For a job that intentionally installs several uv projects, set
-`cache-dependency-glob` to a glob that covers every lockfile it installs.
-
 ### Requirements
 
 #### Required GitHub Permissions
@@ -1316,25 +1308,6 @@ steps:
   - run: jf uv sync
 ```
 
-For a project in a monorepo:
-
-```yaml
-- uses: SonarSource/ci-github-actions/config-uv@v1
-  with:
-    working-directory: services/my-service
-- run: jf uv sync
-  working-directory: services/my-service
-```
-
-For a job that installs every uv project in a monorepo:
-
-```yaml
-- uses: SonarSource/ci-github-actions/config-uv@v1
-  with:
-    cache-dependency-glob: '**/uv.lock'
-- run: ./scripts/install-all-uv-projects.sh
-```
-
 For build-info collection, pass `--build-name` and `--build-number` to `jf uv` and publish with `jf rt build-publish`.
 
 ### Inputs
@@ -1346,7 +1319,6 @@ For build-info collection, pass `--build-name` and `--build-number` to `jf uv` a
 | `uv-index-name`           | Name of the uv index in `pyproject.toml` to authenticate                    | `repox`                                                              |
 | `repox-url`               | URL for Repox                                                               | `https://repox.jfrog.io`                                             |
 | `uv-cache-dir`            | Path to the uv cache directory, relative to GitHub workspace                | `.cache/uv`                                                          |
-| `cache-dependency-glob`   | Dependency-file glob for jobs that install multiple uv projects             | (optional)                                                           |
 | `disable-caching`         | Whether to disable uv caching entirely                                      | `false`                                                              |
 
 ### Outputs
