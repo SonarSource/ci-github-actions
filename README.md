@@ -81,6 +81,10 @@ During execution the action temporarily writes `.build_number.txt` at the reposi
 `actions/cache`); the file is removed before the action completes. Do not track a file named
 `.build_number.txt` in your repository.
 
+The action authenticates `gh` with a Vault-issued GitHub token. It sets both `GITHUB_TOKEN` and
+`GH_TOKEN` for that step so a workflow-exported `GH_TOKEN` cannot shadow the Vault credential
+(`gh` prefers `GH_TOKEN` over `GITHUB_TOKEN`).
+
 ### Requirements
 
 #### Required GitHub Permissions
@@ -420,21 +424,21 @@ steps:
 
 ### Outputs
 
-| Output         | Description                                                               |
-|----------------|---------------------------------------------------------------------------|
-| `BUILD_NUMBER` | The current build number. Also set as environment variable `BUILD_NUMBER` |
+| Output            | Description                                                                                                      |
+|-------------------|------------------------------------------------------------------------------------------------------------------|
+| `BUILD_NUMBER`    | The current build number. Also set as environment variable `BUILD_NUMBER`                                        |
 | `current-version` | The project version from pyproject.toml (before replacement). Also set as environment variable `CURRENT_VERSION` |
-| `project-version` | The project version with build number (after replacement). Also set as environment variable `PROJECT_VERSION` |
+| `project-version` | The project version with build number (after replacement). Also set as environment variable `PROJECT_VERSION`    |
 
 ### Output Environment Variables
 
-| Environment Variable               | Description              |
-|------------------------------------|--------------------------|
-| `BUILD_NUMBER`                     | The current build number |
+| Environment Variable               | Description                                                  |
+|------------------------------------|--------------------------------------------------------------|
+| `BUILD_NUMBER`                     | The current build number                                     |
 | `CURRENT_VERSION`                  | The project version from pyproject.toml (before replacement) |
-| `PROJECT_VERSION`                  | The project version with build number (after replacement) |
-| `POETRY_HTTP_BASIC_REPOX_USERNAME` | Repox username for Poetry |
-| `POETRY_HTTP_BASIC_REPOX_PASSWORD` | Repox access token for Poetry |
+| `PROJECT_VERSION`                  | The project version with build number (after replacement)    |
+| `POETRY_HTTP_BASIC_REPOX_USERNAME` | Repox username for Poetry                                    |
+| `POETRY_HTTP_BASIC_REPOX_PASSWORD` | Repox access token for Poetry                                |
 
 See also [`get-build-number`](#get-build-number) output environment variables.
 
@@ -735,27 +739,27 @@ See also [`config-gradle`](#config-gradle) input environment variables.
 
 ### Inputs
 
-| Input                       | Description                                                                                                                  | Default                                                                                     |
-|-----------------------------|------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
-| `artifactory-deploy-repo`   | Deployment repository                                                                                                        | `sonarsource-private-qa` for private repositories, `sonarsource-public-qa` for public repos |
-| `artifactory-reader-role`   | Suffix for the Artifactory reader role in Vault                                                                              | `private-reader` for private repos, `public-reader` for public repos                        |
-| `artifactory-deployer-role` | Suffix for the Artifactory deployer role in Vault                                                                            | `qa-deployer` for private repos, `public-deployer` for public repos                         |
-| `deploy`                    | Whether to deploy on master, maintenance, dogfood and long-lived branches                                                    | `true`                                                                                      |
-| `deploy-pull-request`       | Whether to also deploy for pull requests. If deploy is false, this has no effect.                                            | `false`                                                                                     |
-| `skip-tests`                | Whether to skip running tests                                                                                                | `false`                                                                                     |
-| `use-develocity`            | Whether to use Develocity for build tracking                                                                                 | `false`                                                                                     |
-| `gradle-args`               | Additional arguments to pass to Gradle                                                                                       | (optional)                                                                                  |
-| `develocity-url`            | URL for Develocity                                                                                                           | `https://develocity.sonar.build/`                                                           |
-| `repox-url`                 | URL for Repox                                                                                                                | `https://repox.jfrog.io`                                                                    |
-| `sonar-platform`            | SonarQube variant - 'next', 'sqc-eu', 'sqc-us', or 'none'. Use 'none' to skip sonar scans                                    | `next`                                                                                      |
-| `working-directory`         | Relative path under github.workspace to execute the build in                                                                 | `.`                                                                                         |
-| `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding)                                               | `false`                                                                                     |
-| `cache-paths`               | Custom cache paths (multiline).                                                                                              | `~/.gradle/caches`<br>`~/.gradle/wrapper`                                                   |
-| `disable-caching`           | Whether to disable Gradle caching entirely                                                                                   | `false`                                                                                     |
-| `provenance`                | Whether to generate provenance attestation for built artifacts                                                               | `false`                                                                                     |
-| `provenance-artifact-paths` | Relative paths of artifacts for provenance attestation (glob pattern). See [Provenance Attestation](#provenance-attestation) | (optional)                                                                                  |
-| `generate-summary`          | Whether to generate a workflow summary after the build                                                                       | `true`                                                                                      |
-| `job-identifier`            | Unique identifier for the problems-report artifact name. Set to a matrix dimension (e.g. `${{ matrix.module }}`) when using this action inside a reusable workflow invoked in a matrix. Auto-generated UUID when omitted. | (optional) |
+| Input                       | Description                                                                                                                                                                                                               | Default                                                                                     |
+|-----------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
+| `artifactory-deploy-repo`   | Deployment repository                                                                                                                                                                                                     | `sonarsource-private-qa` for private repositories, `sonarsource-public-qa` for public repos |
+| `artifactory-reader-role`   | Suffix for the Artifactory reader role in Vault                                                                                                                                                                           | `private-reader` for private repos, `public-reader` for public repos                        |
+| `artifactory-deployer-role` | Suffix for the Artifactory deployer role in Vault                                                                                                                                                                         | `qa-deployer` for private repos, `public-deployer` for public repos                         |
+| `deploy`                    | Whether to deploy on master, maintenance, dogfood and long-lived branches                                                                                                                                                 | `true`                                                                                      |
+| `deploy-pull-request`       | Whether to also deploy for pull requests. If deploy is false, this has no effect.                                                                                                                                         | `false`                                                                                     |
+| `skip-tests`                | Whether to skip running tests                                                                                                                                                                                             | `false`                                                                                     |
+| `use-develocity`            | Whether to use Develocity for build tracking                                                                                                                                                                              | `false`                                                                                     |
+| `gradle-args`               | Additional arguments to pass to Gradle                                                                                                                                                                                    | (optional)                                                                                  |
+| `develocity-url`            | URL for Develocity                                                                                                                                                                                                        | `https://develocity.sonar.build/`                                                           |
+| `repox-url`                 | URL for Repox                                                                                                                                                                                                             | `https://repox.jfrog.io`                                                                    |
+| `sonar-platform`            | SonarQube variant - 'next', 'sqc-eu', 'sqc-us', or 'none'. Use 'none' to skip sonar scans                                                                                                                                 | `next`                                                                                      |
+| `working-directory`         | Relative path under github.workspace to execute the build in                                                                                                                                                              | `.`                                                                                         |
+| `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding)                                                                                                                                            | `false`                                                                                     |
+| `cache-paths`               | Custom cache paths (multiline).                                                                                                                                                                                           | `~/.gradle/caches`<br>`~/.gradle/wrapper`                                                   |
+| `disable-caching`           | Whether to disable Gradle caching entirely                                                                                                                                                                                | `false`                                                                                     |
+| `provenance`                | Whether to generate provenance attestation for built artifacts                                                                                                                                                            | `false`                                                                                     |
+| `provenance-artifact-paths` | Relative paths of artifacts for provenance attestation (glob pattern). See [Provenance Attestation](#provenance-attestation)                                                                                              | (optional)                                                                                  |
+| `generate-summary`          | Whether to generate a workflow summary after the build                                                                                                                                                                    | `true`                                                                                      |
+| `job-identifier`            | Unique identifier for the problems-report artifact name. Set to a matrix dimension (e.g. `${{ matrix.module }}`) when using this action inside a reusable workflow invoked in a matrix. Auto-generated UUID when omitted. | (optional)                                                                                  |
 
 > [!TIP]
 > When using this action inside a reusable workflow that is itself called in a matrix, set
@@ -1027,25 +1031,25 @@ See also [`config-npm`](#config-npm) input environment variables.
 
 ### Inputs
 
-| Input                       | Description                                                                                                                  | Default                                                                                      |
-|-----------------------------|------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
-| `working-directory`         | Relative path under github.workspace to execute the build in                                                                 | `.`                                                                                          |
-| `artifactory-reader-role`   | Suffix for the Artifactory reader role in Vault                                                                              | `private-reader` for private repos, `public-reader` for public repos                         |
-| `artifactory-deployer-role` | Suffix for the Artifactory deployer role in Vault                                                                            | `qa-deployer` for private repos, `public-deployer` for public repos                          |
-| `artifactory-deploy-repo`   | Deployment repository                                                                                                        | `sonarsource-npm-private-qa` for private repos, `sonarsource-npm-public-qa` for public repos |
-| `deploy`                    | Whether to deploy on master, maintenance, dogfood and long-lived branches                                                    | `true`                                                                                       |
-| `deploy-pull-request`       | Whether to also deploy pull request artifacts. If `deploy` is `false`, this has no effect                                    | `false`                                                                                      |
-| `skip-tests`                | Whether to skip running tests                                                                                                | `false`                                                                                      |
-| `disable-caching`           | Whether to disable NPM caching entirely                                                                                      | `false`                                                                                      |
-| `cache-npm`                 | Deprecated. Use `disable-caching: 'true'` instead                                                                            | `true`                                                                                       |
-| `repox-url`                 | URL for Repox                                                                                                                | `https://repox.jfrog.io`                                                                     |
-| `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', or 'sqc-us'                                                                   | `next`                                                                                       |
-| `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding)                                               | `false`                                                                                      |
-| `build-name`                | Name of the JFrog build to publish.                                                                                          | `<Repository name>`                                                                          |
-| `provenance`                | Whether to generate provenance attestation for built artifacts                                                               | `false`                                                                                      |
-| `provenance-artifact-paths` | Relative paths of artifacts for provenance attestation (glob pattern). See [Provenance Attestation](#provenance-attestation) | (optional)                                                                                   |
-| `generate-summary`          | Whether to generate a workflow summary after the build                                                                       | `true`                                                                                       |
-| `job-identifier`            | Unique identifier for the npm-logs artifact name. Set to a matrix dimension (e.g. `${{ matrix.module }}`) when using this action inside a reusable workflow invoked in a matrix. Auto-generated UUID when omitted. | (optional) |
+| Input                       | Description                                                                                                                                                                                                        | Default                                                                                      |
+|-----------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
+| `working-directory`         | Relative path under github.workspace to execute the build in                                                                                                                                                       | `.`                                                                                          |
+| `artifactory-reader-role`   | Suffix for the Artifactory reader role in Vault                                                                                                                                                                    | `private-reader` for private repos, `public-reader` for public repos                         |
+| `artifactory-deployer-role` | Suffix for the Artifactory deployer role in Vault                                                                                                                                                                  | `qa-deployer` for private repos, `public-deployer` for public repos                          |
+| `artifactory-deploy-repo`   | Deployment repository                                                                                                                                                                                              | `sonarsource-npm-private-qa` for private repos, `sonarsource-npm-public-qa` for public repos |
+| `deploy`                    | Whether to deploy on master, maintenance, dogfood and long-lived branches                                                                                                                                          | `true`                                                                                       |
+| `deploy-pull-request`       | Whether to also deploy pull request artifacts. If `deploy` is `false`, this has no effect                                                                                                                          | `false`                                                                                      |
+| `skip-tests`                | Whether to skip running tests                                                                                                                                                                                      | `false`                                                                                      |
+| `disable-caching`           | Whether to disable NPM caching entirely                                                                                                                                                                            | `false`                                                                                      |
+| `cache-npm`                 | Deprecated. Use `disable-caching: 'true'` instead                                                                                                                                                                  | `true`                                                                                       |
+| `repox-url`                 | URL for Repox                                                                                                                                                                                                      | `https://repox.jfrog.io`                                                                     |
+| `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', or 'sqc-us'                                                                                                                                                         | `next`                                                                                       |
+| `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding)                                                                                                                                     | `false`                                                                                      |
+| `build-name`                | Name of the JFrog build to publish.                                                                                                                                                                                | `<Repository name>`                                                                          |
+| `provenance`                | Whether to generate provenance attestation for built artifacts                                                                                                                                                     | `false`                                                                                      |
+| `provenance-artifact-paths` | Relative paths of artifacts for provenance attestation (glob pattern). See [Provenance Attestation](#provenance-attestation)                                                                                       | (optional)                                                                                   |
+| `generate-summary`          | Whether to generate a workflow summary after the build                                                                                                                                                             | `true`                                                                                       |
+| `job-identifier`            | Unique identifier for the npm-logs artifact name. Set to a matrix dimension (e.g. `${{ matrix.module }}`) when using this action inside a reusable workflow invoked in a matrix. Auto-generated UUID when omitted. | (optional)                                                                                   |
 
 > [!TIP]
 > When using this action inside a reusable workflow that is itself called in a matrix, set
@@ -1329,13 +1333,13 @@ For build-info collection, pass `--build-name` and `--build-number` to `jf uv` a
 
 ### Output Environment Variables
 
-| Environment Variable            | Description              |
-|---------------------------------|--------------------------|
-| `BUILD_NUMBER`                  | The current build number |
-| `UV_INDEX_REPOX_USERNAME`       | Repox username for uv (`repox` index name) |
-| `UV_INDEX_REPOX_PASSWORD`       | Repox access token for uv |
-| `UV_KEYRING_PROVIDER`           | Set to `disabled` when index credentials are injected |
-| `UV_CACHE_DIR`                  | Path to the uv cache directory |
+| Environment Variable      | Description                                           |
+|---------------------------|-------------------------------------------------------|
+| `BUILD_NUMBER`            | The current build number                              |
+| `UV_INDEX_REPOX_USERNAME` | Repox username for uv (`repox` index name)            |
+| `UV_INDEX_REPOX_PASSWORD` | Repox access token for uv                             |
+| `UV_KEYRING_PROVIDER`     | Set to `disabled` when index credentials are injected |
+| `UV_CACHE_DIR`            | Path to the uv cache directory                        |
 
 See also [`get-build-number`](#get-build-number) output environment variables.
 
@@ -1591,11 +1595,11 @@ jobs:
 
 ### Outputs
 
-| Output         | Description                                                          |
-|----------------|----------------------------------------------------------------------|
-| `sca-verified` | Whether SCA was verified on at least one platform (`true` or `false`) |
+| Output         | Description                                                                                                         |
+|----------------|---------------------------------------------------------------------------------------------------------------------|
+| `sca-verified` | Whether SCA was verified on at least one platform (`true` or `false`)                                               |
 | `platform`     | The SonarQube platform where SCA was found (`next`, `sqc-us`, or `sqc-eu`). Only set when `sca-verified` is `true`. |
-| `project-key`  | The project key where SCA was verified. Only set when `sca-verified` is `true`.                               |
+| `project-key`  | The project key where SCA was verified. Only set when `sca-verified` is `true`.                                     |
 
 ---
 
@@ -1893,19 +1897,19 @@ improvements, fixes, documentation, and **breaking changes**).
     >
     > ---
     >
-    > ### ✨ What's New
+    > **✨ What's New**
     >
     > - _Curated highlights from release notes: new features, important new options_
     >
-    > ### ⚡ Improvements
+    > **⚡ Improvements**
     >
     > - _Curated highlights from release notes: improvement and upgrades_
     >
-    > ### 🐛 Bug Fixes
+    > **🐛 Bug Fixes**
     >
     > - _Curated highlights from release notes_
     >
-    > ### 📚 Documentation
+    > **📚 Documentation**
     >
     > - _Curated highlights from release notes_
     >
