@@ -62,7 +62,11 @@ runs:
       if: steps.from-env.outputs.skip != 'true' && steps.current-build-number.outputs.cache-hit != 'true'
       shell: bash
       env:
+        # gh prefers GH_TOKEN over GITHUB_TOKEN. Set both so a workflow-exported
+        # GH_TOKEN (e.g. a bot token) cannot shadow the Vault build-number token.
         GITHUB_TOKEN: ${{ steps.current-build-number.outputs.cache-hit != 'true' &&
+          steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).github_token || '' }}
+        GH_TOKEN: ${{ steps.current-build-number.outputs.cache-hit != 'true' &&
           steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).github_token || '' }}
       run: ${ACTION_PATH_GET_BUILD_NUMBER}/get_build_number.sh
 
