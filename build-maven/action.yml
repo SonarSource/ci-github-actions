@@ -208,20 +208,6 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       run: $ACTION_PATH_BUILD_MAVEN/build.sh
 
-    - name: Setup JFrog CLI for artifact upload
-      uses: jfrog/setup-jfrog-cli@1641575d87647fb969c0545f0b6a76873e328b7c # v5.0.0
-      if: |
-        inputs.mixed-privacy == 'true' && steps.build.outputs.deployed == 'true' &&
-        (github.event_name != 'pull_request' || inputs.deploy-pull-request == 'true')
-      with:
-        # This step only installs the jf binary for deploy-artifacts.sh; build-maven generates
-        # its own summary later via generate-jfrog-summary.sh, so disable this action's own
-        # post-job automation (which otherwise fails trying to summarize without a configured
-        # server URL, since auth happens later inside deploy-artifacts.sh).
-        disable-auto-build-publish: true
-        disable-auto-evidence-collection: true
-        disable-job-summary: true
-
     - name: Artifacts upload
       shell: bash
       if: |
