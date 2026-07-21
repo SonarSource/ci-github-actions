@@ -57,9 +57,9 @@ runs:
 
     - name: Install AWS CLI
       if: inputs.dryRun != 'true'
-      uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
+      uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea # v4.2.1
       with:
-        version: 2026.6.14
+        version: 2026.7.7
         mise_toml: |
           [tools]
           awscli = "2.34.55"
