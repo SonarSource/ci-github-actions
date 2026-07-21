@@ -172,6 +172,40 @@ Describe 'export_built_artifacts()'
     rm -rf target "$GITHUB_OUTPUT"
   End
 
+  It "normalizes Windows-style backslash paths from mvn Installing lines"
+    GITHUB_OUTPUT=$(mktemp)
+    export GITHUB_OUTPUT
+    echo "$DEPLOYED_OUTPUT_KEY=true" >> "$GITHUB_OUTPUT"
+
+    Mock mvn
+      case "$*" in
+        *"help:evaluate -Dexpression=maven.deploy.skip -q -DforceStdout"*) echo "false" ;;
+        *"help:evaluate -Dexpression=project.build.directory -q -DforceStdout"*) echo "target" ;;
+        *) echo "mvn $*" ;;
+      esac
+    End
+    mvn_output=$(mktemp)
+    {
+      printf '[INFO] Installing C:\\a\\work\\test-repo\\pom.xml to C:\\Users\\runneradmin\\.m2\\repository\\org\\sonarsource\\app\\1.0\\app-1.0.pom\n'
+      printf '[INFO] Installing C:\\a\\work\\test-repo\\target\\app-1.0.jar to C:\\Users\\runneradmin\\.m2\\repository\\org\\sonarsource\\app\\1.0\\app-1.0.jar\n'
+    } > "$mvn_output"
+    mkdir -p target
+    touch target/app-1.0.jar
+
+    When call export_built_artifacts
+    The status should be success
+    The lines of stdout should equal 5
+    The line 1 should equal "::group::Capturing built artifacts for attestation"
+    The line 2 should equal "Scanning for artifacts in: */target/*"
+    The line 3 should equal "Found artifacts for attestation:"
+    The line 4 should equal "./target/app-1.0.jar"
+    The line 5 should equal "::endgroup::"
+    The line 3 of contents of file "$GITHUB_OUTPUT" should equal "org/sonarsource/app/1.0/app-1.0.pom"
+    The line 4 of contents of file "$GITHUB_OUTPUT" should equal "org/sonarsource/app/1.0/app-1.0.jar"
+
+    rm -rf target "$GITHUB_OUTPUT"
+  End
+
   It 'reports no artifacts found when build directory is empty'
     GITHUB_OUTPUT=$(mktemp)
     export GITHUB_OUTPUT
