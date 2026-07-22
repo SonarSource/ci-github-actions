@@ -47,9 +47,6 @@ inputs:
   repox-url:
     description: URL for Repox
     default: https://repox.jfrog.io
-  repox-artifactory-url:
-    description: URL for Repox Artifactory API (overrides repox-url/artifactory if provided)
-    default: ''
   use-develocity:
     description: Whether to use Develocity for build tracking.
     default: 'false'
@@ -115,7 +112,6 @@ runs:
         working-directory: ${{ inputs.working-directory }}
         artifactory-reader-role: ${{ inputs.artifactory-reader-role }}
         repox-url: ${{ inputs.repox-url }}
-        repox-artifactory-url: ${{ inputs.repox-artifactory-url }}
         use-develocity: ${{ inputs.use-develocity }}
         develocity-url: ${{ inputs.develocity-url }}
         cache-paths: ${{ inputs.cache-paths }}
@@ -129,7 +125,17 @@ runs:
       run: |
         echo "ARTIFACTORY_DEPLOYER_ROLE=${ARTIFACTORY_DEPLOYER_ROLE}" >> "$GITHUB_ENV"
 
-    - uses: SonarSource/vault-action-wrapper@0a3114fe1230b784c35b53b099f9ab1f1e538cc7 # 3.5.0
+    - uses: SonarSource/vault-action-wrapper@881045d830534a70ec3c7c275fa3714412c8ff6e # 3.6.1
+      if: inputs.deploy != 'false' && inputs.run-shadow-scans != 'true'
+      id: artifactory
+      with:
+        url: ${{ contains(inputs.repox-url, 'dev.sonar.build') && 'https://vault.dev.sonar.build' || 'https://vault.sonar.build' }}
+        # yamllint disable rule:line-length
+        secrets: |
+          ${{ format('development/artifactory/token/{{REPO_OWNER_NAME_DASH}}-{0} username | ARTIFACTORY_DEPLOY_USERNAME;', env.ARTIFACTORY_DEPLOYER_ROLE) }}
+          ${{ format('development/artifactory/token/{{REPO_OWNER_NAME_DASH}}-{0} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;', env.ARTIFACTORY_DEPLOYER_ROLE) }}
+        # yamllint enable rule:line-length
+    - uses: SonarSource/vault-action-wrapper@881045d830534a70ec3c7c275fa3714412c8ff6e # 3.6.1
       id: secrets
       with:
         # yamllint disable rule:line-length
@@ -140,8 +146,6 @@ runs:
           ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/sonarqube-us token | SQC_US_TOKEN;' || '' }}
           ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/sonarcloud url | SQC_EU_URL;' || '' }}
           ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/sonarcloud token | SQC_EU_TOKEN;' || '' }}
-          ${{ inputs.deploy != 'false' && inputs.run-shadow-scans != 'true' && format('development/artifactory/token/{{REPO_OWNER_NAME_DASH}}-{0} username | ARTIFACTORY_DEPLOY_USERNAME;', env.ARTIFACTORY_DEPLOYER_ROLE) || '' }}
-          ${{ inputs.deploy != 'false' && inputs.run-shadow-scans != 'true' && format('development/artifactory/token/{{REPO_OWNER_NAME_DASH}}-{0} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;', env.ARTIFACTORY_DEPLOYER_ROLE) || '' }}
           development/kv/data/sign key | SIGN_KEY;
           development/kv/data/sign passphrase | PGP_PASSPHRASE;
           development/kv/data/sign key_id | SIGN_KEY_ID;
@@ -167,9 +171,11 @@ runs:
           github.event.repository.visibility == 'public' && 'sonarsource-public-qa' || 'sonarsource-private-qa' }}
 
         # Vault secrets
-        ARTIFACTORY_DEPLOY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_USERNAME }}
-        ARTIFACTORY_DEPLOY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN }}
-        ARTIFACTORY_DEPLOY_PASSWORD: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN }}  # deprecated
+        # yamllint disable rule:line-length
+        ARTIFACTORY_DEPLOY_USERNAME: ${{ steps.artifactory.outputs.vault && fromJSON(steps.artifactory.outputs.vault).ARTIFACTORY_DEPLOY_USERNAME || '' }}
+        ARTIFACTORY_DEPLOY_ACCESS_TOKEN: ${{ steps.artifactory.outputs.vault && fromJSON(steps.artifactory.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN || '' }}
+        ARTIFACTORY_DEPLOY_PASSWORD: ${{ steps.artifactory.outputs.vault && fromJSON(steps.artifactory.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN || '' }}  # deprecated
+        # yamllint enable rule:line-length
         NEXT_URL: ${{ fromJSON(steps.secrets.outputs.vault).NEXT_URL }}
         NEXT_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).NEXT_TOKEN }}
         SQC_EU_URL: ${{ fromJSON(steps.secrets.outputs.vault).SQC_EU_URL }}
@@ -202,7 +208,7 @@ runs:
             github.event_name != 'pull_request' &&
             steps.build.outputs.deployed == 'true' &&
             (inputs.provenance-artifact-paths != '' || steps.build.outputs.artifact-paths != '') }}
-      uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+      uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
       with:
         subject-path: >-
           ${{ inputs.provenance-artifact-paths != '' && inputs.provenance-artifact-paths || steps.build.outputs.artifact-paths }}

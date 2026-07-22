@@ -86,15 +86,20 @@ runs:
           (github.event.repository.visibility == 'public' && 'public-reader' || 'private-reader') }}
       run: |
         echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
-    - uses: SonarSource/vault-action-wrapper@0a3114fe1230b784c35b53b099f9ab1f1e538cc7 # 3.5.0
+    - uses: SonarSource/vault-action-wrapper@881045d830534a70ec3c7c275fa3714412c8ff6e # 3.6.1
       if: steps.config-maven-completed.outputs.skip != 'true'
-      id: secrets
+      id: artifactory
       with:
         url: https://vault.dev.sonar.build
         secrets: |
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
-          ${{ inputs.use-develocity == 'true' && 'development/kv/data/develocity token | DEVELOCITY_TOKEN;' || '' }}
+    - uses: SonarSource/vault-action-wrapper@881045d830534a70ec3c7c275fa3714412c8ff6e # 3.6.1
+      if: steps.config-maven-completed.outputs.skip != 'true' && inputs.use-develocity == 'true'
+      id: secrets
+      with:
+        secrets: |
+          development/kv/data/develocity token | DEVELOCITY_TOKEN;
 
     - name: Extract Develocity hostname
       id: develocity-hostname
@@ -174,7 +179,7 @@ runs:
       run: echo "workflow_name=${WORKFLOW_NAME// /-}" >> "$GITHUB_OUTPUT"
 
     - name: Cache local Maven repository
-      uses: SonarSource/gh-action_cache@a7d13cdd1c9f097a5f8382ccec463be2831e3dbc # v1.6.0
+      uses: SonarSource/gh-action_cache@4e40632e780e11a8bbe9b721985ab22b42847cc4 # v1.7.2
       if: steps.config-maven-completed.outputs.skip != 'true' && inputs.disable-caching == 'false'
       with:
         path: ${{ inputs.cache-paths }}
@@ -183,8 +188,22 @@ runs:
         # yamllint enable rule:line-length
         restore-keys: maven-${{ runner.os }}-${{ steps.sanitize_workflow.outputs.workflow_name }}-
 
+    - name: Check for pom.xml
+      id: check_pom_xml
+      if: steps.config-maven-completed.outputs.skip != 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        if [[ -f "pom.xml" ]]; then
+          echo "exists=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "No pom.xml file. Skipping project version update."
+          echo "exists=false" >> "$GITHUB_OUTPUT"
+        fi
+
     - name: Update project version and set current-version and project-version variables
       id: set-version
+      if: steps.config-maven-completed.outputs.skip != 'true' && steps.check_pom_xml.outputs.exists == 'true'
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       env:

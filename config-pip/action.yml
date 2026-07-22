@@ -13,9 +13,6 @@ inputs:
   repox-url:
     description: URL for Repox
     default: https://repox.jfrog.io
-  repox-artifactory-url:
-    description: URL for Repox Artifactory API (overrides repox-url/artifactory if provided)
-    default: ''
   cache-paths:
     description: Cache paths to use (multiline).
     default: ~/.cache/pip
@@ -73,9 +70,10 @@ runs:
       run: |
         echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
 
-    - uses: SonarSource/vault-action-wrapper@0a3114fe1230b784c35b53b099f9ab1f1e538cc7 # 3.5.0
+    - uses: SonarSource/vault-action-wrapper@881045d830534a70ec3c7c275fa3714412c8ff6e # 3.6.1
       id: secrets
       with:
+        url: ${{ contains(inputs.repox-url, 'dev.sonar.build') && 'https://vault.dev.sonar.build' || 'https://vault.sonar.build' }}
         secrets: |
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
@@ -84,9 +82,7 @@ runs:
       id: config
       shell: bash
       env:
-        # Use custom Artifactory URL if provided, otherwise construct from repox-url
-        ARTIFACTORY_URL: ${{ inputs.repox-artifactory-url != '' && inputs.repox-artifactory-url ||
-          format('{0}/artifactory', inputs.repox-url) }}
+        ARTIFACTORY_URL: ${{ format('{0}/artifactory', inputs.repox-url) }}
         ARTIFACTORY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME }}
         ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
       run: $ACTION_PATH_CONFIG_PIP/config.sh
@@ -100,7 +96,7 @@ runs:
       run: echo "workflow_name=${WORKFLOW_NAME// /-}" >> "$GITHUB_OUTPUT"
 
     - name: Cache pip dependencies
-      uses: SonarSource/gh-action_cache@a7d13cdd1c9f097a5f8382ccec463be2831e3dbc # v1.6.0
+      uses: SonarSource/gh-action_cache@4e40632e780e11a8bbe9b721985ab22b42847cc4 # v1.7.2
       if: inputs.disable-caching == 'false'
       with:
         path: ${{ inputs.cache-paths }}

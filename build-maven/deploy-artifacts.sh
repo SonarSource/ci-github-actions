@@ -46,7 +46,10 @@ echo "::endgroup::"
 
 echo "::group::Deploy private artifacts"
 echo "Deploying private artifacts..."
-jf config edit deploy --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_PRIVATE_DEPLOY_ACCESS_TOKEN"
+# jf config edit runs non-interactively in CI ($CI=true) and silently clears any field not
+# re-passed here (https://github.com/jfrog/jfrog-cli/issues/2478), so --url must be repeated.
+jf config edit deploy --url "${ARTIFACTORY_URL%/artifactory*}" --artifactory-url "$ARTIFACTORY_URL" \
+  --access-token "$ARTIFACTORY_PRIVATE_DEPLOY_ACCESS_TOKEN"
 for artifact in "${private_artifacts[@]}"; do
   jf rt u --build-name "$build_name" --build-number "$BUILD_NUMBER" "$artifact" "${ARTIFACTORY_PRIVATE_DEPLOY_REPO}"
 done

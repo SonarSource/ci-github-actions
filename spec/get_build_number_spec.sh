@@ -2,7 +2,8 @@
 eval "$(shellspec - -c) exit 1"
 
 export GITHUB_REPOSITORY="my org/my-repo"
-CACHE_FILE="build_number.txt"
+TEMP_DIR="${SHELLSPEC_TMPBASE:-/tmp}"
+export BUILD_NUMBER_FILE="${TEMP_DIR}/build_number.txt"
 
 Mock gh
     echo "gh $*"
@@ -26,8 +27,8 @@ Describe 'get_build_number.sh'
     The line 1 should include "Fetching build number"
     The line 2 should equal "Current build number from repo: 42"
     The line 3 should include "43"
-    The path "$CACHE_FILE" should be file
-    The contents of file "$CACHE_FILE" should equal "43"
+    The path "$BUILD_NUMBER_FILE" should be file
+    The contents of file "$BUILD_NUMBER_FILE" should equal "43"
 #    The variable BUILD_NUMBER should equal "43"
   End
 

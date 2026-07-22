@@ -35,9 +35,6 @@ inputs:
   repox-url:
     description: URL for Repox
     default: https://repox.jfrog.io
-  repox-artifactory-url:
-    description: URL for Repox Artifactory API (overrides repox-url/artifactory if provided)
-    default: ''
   sonar-platform:
     description: SonarQube primary platform (next, sqc-eu, sqc-us, or none). Use 'none' to skip sonar scans.
     default: next
@@ -121,9 +118,9 @@ runs:
             "Use \`disable-caching\` instead." >&2
         fi
 
-    - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+    - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
       with:
-        version: 2026.5.9
+        version: 2026.6.14
 
     - uses: ./.actions/config-npm
       id: config
@@ -131,11 +128,19 @@ runs:
         host-actions-root: ${{ steps.set-path.outputs.host_actions_root }}
         artifactory-reader-role: ${{ env.ARTIFACTORY_READER_ROLE }}
         repox-url: ${{ inputs.repox-url }}
-        repox-artifactory-url: ${{ inputs.repox-artifactory-url }}
         working-directory: ${{ inputs.working-directory }}
         disable-caching: ${{ inputs.cache-npm != 'true' && 'true' || inputs.disable-caching }}
 
-    - uses: SonarSource/vault-action-wrapper@0a3114fe1230b784c35b53b099f9ab1f1e538cc7 # 3.5.0
+    - uses: SonarSource/vault-action-wrapper@881045d830534a70ec3c7c275fa3714412c8ff6e # 3.6.1
+      if: inputs.deploy != 'false' && inputs.run-shadow-scans != 'true'
+      id: artifactory
+      with:
+        url: ${{ contains(inputs.repox-url, 'dev.sonar.build') && 'https://vault.dev.sonar.build' || 'https://vault.sonar.build' }}
+        # yamllint disable rule:line-length
+        secrets: |
+          ${{ format('development/artifactory/token/{{REPO_OWNER_NAME_DASH}}-{0} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;', env.ARTIFACTORY_DEPLOYER_ROLE) }}
+        # yamllint enable rule:line-length
+    - uses: SonarSource/vault-action-wrapper@881045d830534a70ec3c7c275fa3714412c8ff6e # 3.6.1
       id: secrets
       # yamllint disable rule:line-length
       with:
@@ -146,7 +151,6 @@ runs:
           ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/sonarqube-us token | SQC_US_TOKEN;' || '' }}
           ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/sonarcloud url | SQC_EU_URL;' || '' }}
           ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/sonarcloud token | SQC_EU_TOKEN;' || '' }}
-          ${{ inputs.deploy != 'false' && inputs.run-shadow-scans != 'true' && format('development/artifactory/token/{{REPO_OWNER_NAME_DASH}}-{0} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;', env.ARTIFACTORY_DEPLOYER_ROLE) || '' }}
       # yamllint enable rule:line-length
     - name: Build, test, analyze and deploy
       id: build
@@ -158,11 +162,12 @@ runs:
         DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         BUILD_NAME: ${{ inputs.build-name || github.event.repository.name }}
 
-        ARTIFACTORY_URL: ${{ inputs.repox-artifactory-url != '' && inputs.repox-artifactory-url ||
-          format('{0}/artifactory', inputs.repox-url) }}
+        ARTIFACTORY_URL: ${{ format('{0}/artifactory', inputs.repox-url) }}
         ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo != '' && inputs.artifactory-deploy-repo ||
           (github.event.repository.visibility == 'public' && 'sonarsource-npm-public-qa' || 'sonarsource-npm-private-qa') }}
-        ARTIFACTORY_DEPLOY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN }}
+        # yamllint disable rule:line-length
+        ARTIFACTORY_DEPLOY_ACCESS_TOKEN: ${{ steps.artifactory.outputs.vault && fromJSON(steps.artifactory.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN || '' }}
+        # yamllint enable rule:line-length
         DEPLOY: ${{ inputs.deploy }}
         DEPLOY_PULL_REQUEST: ${{ inputs.deploy-pull-request }}
         SKIP_TESTS: ${{ inputs.skip-tests }}
@@ -200,7 +205,7 @@ runs:
             github.event_name != 'pull_request' &&
             steps.build.outputs.deployed == 'true' &&
             (inputs.provenance-artifact-paths != '' || steps.build.outputs.artifact-paths != '') }}
-      uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+      uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
       with:
         subject-path: >-
           ${{ inputs.provenance-artifact-paths != '' && inputs.provenance-artifact-paths || steps.build.outputs.artifact-paths }}
@@ -210,8 +215,7 @@ runs:
       if: always() && inputs.generate-summary != 'false'
       shell: bash
       env:
-        ARTIFACTORY_URL: ${{ inputs.repox-artifactory-url != '' && inputs.repox-artifactory-url ||
-          format('{0}/artifactory', inputs.repox-url) }}
+        ARTIFACTORY_URL: ${{ format('{0}/artifactory', inputs.repox-url) }}
         JFROG_CLI_COMMAND_SUMMARY_OUTPUT_DIR: ${{ runner.temp }}/jfrog-summary
       run: |
         build_name="${GITHUB_REPOSITORY#*/}"
@@ -234,3 +238,10 @@ runs:
           echo "🐸 [Browse build \`${build_name}:${BUILD_NUMBER}\` in Artifactory](${ARTIFACTORY_BROWSE_URL})" >> $GITHUB_STEP_SUMMARY
           "$ACTION_PATH_BUILD_NPM/../shared/generate-jfrog-summary.sh" repox
         fi
+
+    - name: Clean up local action symlinks
+      if: always()
+      shell: bash
+      run: |
+        rm -f .actions/get-build-number .actions/config-npm .actions/shared
+        rmdir .actions 2>/dev/null || true

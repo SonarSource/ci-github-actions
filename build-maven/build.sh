@@ -206,7 +206,9 @@ build_maven() {
 export_built_artifacts() {
   local installed_artifacts deployed build_dir artifacts
 
-  installed_artifacts=$(grep Installing "$mvn_output" | sed 's,.*\.m2/repository/,,' || true)
+  # Strip the local repo prefix (Linux uses '/', Windows uses '\') and normalize
+  # remaining separators to '/' so downstream org/* vs com/* matching is consistent.
+  installed_artifacts=$(grep Installing "$mvn_output" | sed -e 's,.*\.m2[/\\]repository[/\\],,' -e 's,\\,/,g' || true)
   {
     echo "installed-artifacts<<EOF"
     echo "$installed_artifacts"

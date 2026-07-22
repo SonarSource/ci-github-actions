@@ -5,9 +5,7 @@
 # metrics table to $GITHUB_STEP_SUMMARY.
 # Fail-open: any error → exit 0 without breaking the job.
 #
-# Feature flag (presence-only file written by job-started.sh; may also be touched/removed by GitHub actions (i.e. gh-action_cache) to honour
-# a workflow-env override:
-#   ${CI_METRICS_DIR}/enabled  no-op early exit unless this file exists
+# Feature flag: CI_METRICS_ENABLED=true written to $GITHUB_ENV by job-started.sh; no-op early exit unless this env var is true.
 #
 # Env overrides (used by tests; do not set in production):
 #   CI_METRICS_CGROUP_ROOT     default /sys/fs/cgroup (mount root)
@@ -18,6 +16,8 @@
 #   CI_METRICS_BASELINE_FILE   default /var/lib/ci-metrics/baseline.json (WarpBuild)
 #   CI_METRICS_NOW_EPOCH       default $(date +%s) -- for golden tests
 #   CI_METRICS_DIR             output dir, default /tmp/ci-metrics
+#   CI_METRICS_DISK_PATH       filesystem to report disk usage for, default ${GITHUB_WORKSPACE:-/}
+#   CI_METRICS_NPROC           override CPU count (no-quota denominator), default $(nproc)
 #   GITHUB_STEP_SUMMARY        default /dev/null (skip table emission)
 
 set -u
@@ -33,14 +33,12 @@ log() {
 }
 
 # ---------- Feature flag ----------
-gate_file="${CI_METRICS_DIR:-/tmp/ci-metrics}/enabled"
-if [[ -e "$gate_file" ]]; then
-    log "collecting metrics (gate: ${gate_file} present)"
+if [[ "${CI_METRICS_ENABLED:-false}" == "true" ]]; then
+    log "collecting metrics (CI_METRICS_ENABLED=true)"
 else
-    log "skipped: ${gate_file} is absent"
+    log "skipped: CI_METRICS_ENABLED is not true (value: ${CI_METRICS_ENABLED:-<unset>})"
     exit 0
 fi
-unset gate_file
 
 # ---------- Paths ----------
 CGROUP_ROOT="${CI_METRICS_CGROUP_ROOT:-/sys/fs/cgroup}"
@@ -95,17 +93,6 @@ fmt_bytes() {
     fi
 }
 
-# Seconds → "Xm Ys" or "Xs".
-fmt_duration() {
-    local s=${1:-0}
-    local total_int=${s%.*}
-    if (( total_int >= 60 )); then
-        printf '%dm %ds' "$((total_int/60))" "$((total_int%60))"
-    else
-        printf '%.1fs' "$s"
-    fi
-}
-
 # Round a float to 2dp/3dp safely.
 # shellcheck disable=SC2317  # all helpers below are called via command substitution
 round2() { awk -v v="${1:-0}" 'BEGIN{printf "%.2f", v}'; }
@@ -156,6 +143,21 @@ else
     cpu_limit_cores=$(awk -v q="$cpu_quota" -v p="$cpu_period" \
         'BEGIN{ if (p+0>0) printf "%.3f", q/p; }')
 fi
+
+# CPU-avg denominator candidates, in preference order:
+#   1. cpu_limit_cores  — hard cgroup quota (above), when set.
+#   2. cpu_request_cores — the runner's CPU request from the Downward API env var
+#      CI_METRICS_CPU_REQUEST_MILLI (millicores). Exact; the right denominator for our
+#      burstable ARC runners (no quota, request set). Absent on WarpBuild.
+#   3. cpu_online_count — nproc. Only correct when the runner owns the host (WarpBuild
+#      dedicated VM); on ARC this is the whole node, so it's the last resort.
+if [[ "${CI_METRICS_CPU_REQUEST_MILLI:-}" =~ ^[0-9]+$ ]] && (( CI_METRICS_CPU_REQUEST_MILLI > 0 )); then
+    cpu_request_cores=$(awk -v m="$CI_METRICS_CPU_REQUEST_MILLI" 'BEGIN{printf "%.3f", m/1000}')
+else
+    cpu_request_cores=""
+fi
+cpu_online_count="${CI_METRICS_NPROC:-$(nproc 2>/dev/null || true)}"
+[[ "$cpu_online_count" =~ ^[0-9]+$ ]] || cpu_online_count=""
 
 # Derived CPU metrics.
 # usage_seconds / throttled_seconds depend only on the raw counter being present. Rate / utilization additionally need a non-zero duration.
@@ -216,6 +218,13 @@ else
     memory_peak_utilization=""
 fi
 
+# OOM accounting from memory.events. `oom` = times the cgroup hit its limit and
+# entered reclaim/OOM; `oom_kill` = processes actually killed. Either being >0 is
+# the explanation for a job that died with no other signal, so it is surfaced.
+memory_events_file="$CGROUP_LEAF/memory.events"
+memory_oom=$(cg_field "$memory_events_file" oom)
+memory_oom_kill=$(cg_field "$memory_events_file" oom_kill)
+
 # ---------- /proc/net/dev ----------
 declare -A net_rx net_tx
 net_rx_total=0
@@ -260,6 +269,36 @@ if [[ -r "$BASELINE_FILE" ]]; then
     fi
 fi
 
+# ---------- Disk ----------
+# Point-in-time filesystem usage at job end for the workspace mount. cgroup v2 has
+# no per-job disk-space counter, so this is the runner-wide fs that holds the
+# checkout/build artifacts — the thing that triggers "no space left on device".
+# `df -kP` gives portable 1K-block output: cols 2/3/4 = total/used/available KiB.
+disk_path="${CI_METRICS_DISK_PATH:-${GITHUB_WORKSPACE:-/}}"
+disk_total_bytes=""
+disk_used_bytes=""
+disk_avail_bytes=""
+disk_utilization=""
+if df_line=$(df -kP "$disk_path" 2>/dev/null | awk 'NR==2{print $2, $3, $4}'); then
+    read -r df_total_k df_used_k df_avail_k <<<"$df_line"
+    if [[ "$df_total_k" =~ ^[0-9]+$ && "$df_used_k" =~ ^[0-9]+$ && "$df_avail_k" =~ ^[0-9]+$ ]]; then
+        disk_total_bytes=$(( df_total_k * 1024 ))
+        disk_used_bytes=$(( df_used_k * 1024 ))
+        disk_avail_bytes=$(( df_avail_k * 1024 ))
+        if (( disk_used_bytes + disk_avail_bytes > 0 )); then
+            disk_utilization=$(awk -v u="$disk_used_bytes" -v a="$disk_avail_bytes" \
+                'BEGIN{ printf "%.4f", u/(u+a) }')
+        fi
+    fi
+fi
+# Only emit the path in JSON if it is a plain, JSON-safe string (no quotes/control
+# chars). Otherwise null it to avoid corrupting the document.
+if [[ ! "$disk_path" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+    disk_path_json="null"
+else
+    disk_path_json="\"$disk_path\""
+fi
+
 # ---------- JSON assembly ----------
 json_by_interface=""
 sep=""
@@ -269,7 +308,7 @@ for iface in "${!net_rx[@]}"; do
 done
 
 job_metrics_json=$(cat <<EOF
-{"schema_version":1,"captured_at":"$captured_at","duration_seconds":$(num "$duration_seconds"),"cgroup":{"version":2,"cpu":{"usage_seconds":$(num "$cpu_usage_seconds"),"throttled_seconds":$(num "$cpu_throttled_seconds"),"nr_throttled":$(num "$cpu_nr_throttled"),"limit_cores":$(num "$cpu_limit_cores"),"avg_utilization":$(num "$cpu_avg_utilization"),"throttle_rate":$(num "$cpu_throttle_rate"),"pressure_some_avg10":$(num "$pressure_some_avg10"),"pressure_some_avg60":$(num "$pressure_some_avg60"),"pressure_some_avg300":$(num "$pressure_some_avg300")},"memory":{"peak_bytes":$(num "$memory_peak_bytes"),"limit_bytes":$(num "$memory_limit_bytes"),"peak_utilization":$(num "$memory_peak_utilization")}},"net":{"rx_bytes":${net_rx_total},"tx_bytes":${net_tx_total},"by_interface":{${json_by_interface}}}}
+{"schema_version":3,"captured_at":"$captured_at","duration_seconds":$(num "$duration_seconds"),"cgroup":{"version":2,"cpu":{"usage_seconds":$(num "$cpu_usage_seconds"),"throttled_seconds":$(num "$cpu_throttled_seconds"),"nr_throttled":$(num "$cpu_nr_throttled"),"limit_cores":$(num "$cpu_limit_cores"),"request_cores":$(num "$cpu_request_cores"),"online_count":$(num "$cpu_online_count"),"avg_utilization":$(num "$cpu_avg_utilization"),"throttle_rate":$(num "$cpu_throttle_rate"),"pressure_some_avg10":$(num "$pressure_some_avg10"),"pressure_some_avg60":$(num "$pressure_some_avg60"),"pressure_some_avg300":$(num "$pressure_some_avg300")},"memory":{"peak_bytes":$(num "$memory_peak_bytes"),"limit_bytes":$(num "$memory_limit_bytes"),"peak_utilization":$(num "$memory_peak_utilization"),"oom":$(num "$memory_oom"),"oom_kill":$(num "$memory_oom_kill")}},"net":{"rx_bytes":${net_rx_total},"tx_bytes":${net_tx_total},"by_interface":{${json_by_interface}}},"disk":{"path":${disk_path_json},"total_bytes":$(num "$disk_total_bytes"),"used_bytes":$(num "$disk_used_bytes"),"available_bytes":$(num "$disk_avail_bytes"),"utilization":$(num "$disk_utilization")}}
 EOF
 )
 
@@ -312,51 +351,50 @@ if (( ${#readable_cache_files[@]} > 0 )) && command -v jq >/dev/null 2>&1; then
     fi
 fi
 
-# Persist + stdout-log.
+# Persist + stdout-log. The stdout copy is wrapped in sentinels so report-ci-insights
+# (BUILD-11310) can recover the metrics JSON from the job log via the Actions API.
 printf '%s\n' "$job_metrics_json" > "${CI_METRICS_DIR}/job-metrics.json" 2>/dev/null || true
-printf '%s\n' "$job_metrics_json"
+printf '===CI_METRICS_JSON_BEGIN===%s===CI_METRICS_JSON_END===\n' "$job_metrics_json"
 
 # ---------- Step summary ----------
 summary_target="${GITHUB_STEP_SUMMARY:-/dev/null}"
 
 # Pretty values
-v_duration=$(fmt_duration "$duration_seconds")
 
-if [[ -n "$cpu_usage_seconds" ]]; then
-    v_cpu_usage="${cpu_usage_seconds} CPU-s"
-else
-    v_cpu_usage="n/a"
-fi
-
-if [[ -n "$cpu_avg_utilization" && -n "$cpu_limit_cores" ]]; then
-    avg_cores=$(awk -v u="$cpu_avg_utilization" -v c="$cpu_limit_cores" \
-        'BEGIN{printf "%.2f", u*c}')
-    v_cpu_avg="${avg_cores} cores ($(pct0 "$cpu_avg_utilization")% of $(round2 "$cpu_limit_cores") allocated)"
-elif [[ -n "$cpu_usage_seconds" && -n "$duration_seconds" ]]; then
-    avg_cores=$(awk -v u="$cpu_usage_seconds" -v d="$duration_seconds" \
+# CPU avg: mean cores used over the job, shown against a denominator so the number is
+# actionable for right-sizing. Denominator preference:
+#   1. cgroup quota  -> "/ N cores (P%)"            (hard limit)
+#   2. CPU request   -> "/ N cores requested (P%)"  (ARC burstable; P can exceed 100% when bursting)
+#   3. nproc         -> "/ N cores available (P%)"  (WarpBuild dedicated VM)
+# Falls back to bare cores, then n/a.
+# This rendering mirrors _rci_cpu_cell in report-ci-metrics/lib.sh; the expected output per tier
+# is pinned by the "_rci_cpu_cell() denominator preference" spec — keep both in sync if changed.
+cpu_avg_cores=""
+cpu_avg_pct=""   # set when a denominator exists; drives both the table % and the digest line
+if [[ -n "$cpu_usage_seconds" && -n "$duration_seconds" ]]; then
+    cpu_avg_cores=$(awk -v u="$cpu_usage_seconds" -v d="$duration_seconds" \
         'BEGIN{ if (d>0) printf "%.2f", u/d }')
-    if [[ -n "$avg_cores" ]]; then
-        v_cpu_avg="${avg_cores} cores (no limit)"
-    else
-        v_cpu_avg="n/a"
-    fi
+fi
+if [[ -n "$cpu_avg_cores" && -n "$cpu_limit_cores" && -n "$cpu_avg_utilization" ]]; then
+    cpu_avg_pct=$(pct0 "$cpu_avg_utilization")
+    v_cpu_avg="${cpu_avg_cores} / $(round2 "$cpu_limit_cores") cores (${cpu_avg_pct}%)"
+elif [[ -n "$cpu_avg_cores" && -n "$cpu_request_cores" ]] \
+     && awk -v r="$cpu_request_cores" 'BEGIN{exit !(r+0>0)}'; then
+    cpu_avg_pct=$(awk -v c="$cpu_avg_cores" -v r="$cpu_request_cores" \
+        'BEGIN{ printf "%.0f", (c/r)*100 }')
+    v_cpu_avg="${cpu_avg_cores} / $(round2 "$cpu_request_cores") cores requested (${cpu_avg_pct}%)"
+elif [[ -n "$cpu_avg_cores" && -n "$cpu_online_count" ]] \
+     && (( cpu_online_count > 0 )); then
+    cpu_avg_pct=$(awk -v c="$cpu_avg_cores" -v n="$cpu_online_count" \
+        'BEGIN{ printf "%.0f", (c/n)*100 }')
+    v_cpu_avg="${cpu_avg_cores} / ${cpu_online_count} cores available (${cpu_avg_pct}%)"
+elif [[ -n "$cpu_avg_cores" ]]; then
+    v_cpu_avg="${cpu_avg_cores} cores"
 else
     v_cpu_avg="n/a"
 fi
 
-if [[ -n "$cpu_throttled_seconds" ]]; then
-    if [[ -n "$cpu_throttle_rate" ]]; then
-        v_cpu_throttled="${cpu_throttled_seconds}s ($(pct1 "$cpu_throttle_rate")%, ${cpu_nr_throttled:-0} events)"
-    else
-        v_cpu_throttled="${cpu_throttled_seconds}s (${cpu_nr_throttled:-0} events)"
-    fi
-else
-    v_cpu_throttled="n/a"
-fi
-
-v_pressure="${pressure_some_avg60:-n/a}"
-[[ "$v_pressure" != "n/a" ]] && v_pressure="${v_pressure}%"
-
+# Memory peak: high-water mark vs limit.
 if [[ -n "$memory_peak_bytes" ]]; then
     if [[ -n "$memory_limit_bytes" && -n "$memory_peak_utilization" ]]; then
         # Reuse the ratio already computed for JSON to keep the two outputs in sync.
@@ -368,96 +406,148 @@ else
     v_mem="n/a"
 fi
 
-v_net_rx=$(fmt_bytes "$net_rx_total")
-v_net_tx=$(fmt_bytes "$net_tx_total")
+# Disk: point-in-time fs usage at job end (used / total).
+if [[ -n "$disk_used_bytes" && -n "$disk_total_bytes" && -n "$disk_utilization" ]]; then
+    v_disk="$(fmt_bytes "$disk_used_bytes") / $(fmt_bytes "$disk_total_bytes") ($(pct0 "$disk_utilization")%)"
+else
+    v_disk="n/a"
+fi
 
-{
-    printf '## CI Metrics\n'
-    printf '| Metric | Value |\n'
-    printf '|---|---|\n'
-    printf '| Duration | %s |\n' "$v_duration"
-    printf '| CPU usage | %s |\n' "$v_cpu_usage"
-    printf '| CPU avg utilization | %s |\n' "$v_cpu_avg"
-    printf '| CPU throttled | %s |\n' "$v_cpu_throttled"
-    printf '| CPU pressure (some, 60s avg) | %s |\n' "$v_pressure"
-    printf '| Memory peak | %s |\n' "$v_mem"
-    printf '| Network rx | %s |\n' "$v_net_rx"
-    printf '| Network tx | %s |\n' "$v_net_tx"
-} >> "$summary_target" 2>/dev/null || true
+# Network total: cumulative bytes over the job, both directions on one row.
+v_net="$(fmt_bytes "$net_rx_total") ↓ / $(fmt_bytes "$net_tx_total") ↑"
 
-# ---------- Cache section ----------
-# Render one row per ${CI_METRICS_DIR}/cache-*.json entry that we previously parsed and folded into $cache_json.
-# Skipped silently when no rows.
-# The "Hit" column is three-state: yes (exact), partial (<restore-key>), no.
-# "Size Saved" is only meaningful when `saved == true` (cache action will persist the post-step size); otherwise the on-disk path size
-# doesn't correspond to anything saved, so show n/a.
+# CPU throttled (conditional): only meaningful when a CPU quota exists and throttling
+# actually occurred. On our no-limit runners this is always absent.
+show_throttled=0
+if [[ -n "$cpu_limit_cores" && -n "$cpu_throttled_seconds" ]] \
+   && awk -v t="$cpu_throttled_seconds" 'BEGIN{exit !(t+0>0)}'; then
+    show_throttled=1
+    if [[ -n "$cpu_throttle_rate" ]]; then
+        v_cpu_throttled="${cpu_throttled_seconds}s ($(pct1 "$cpu_throttle_rate")%, ${cpu_nr_throttled:-0} events)"
+    else
+        v_cpu_throttled="${cpu_throttled_seconds}s (${cpu_nr_throttled:-0} events)"
+    fi
+fi
+
+# OOM kills (conditional): only shown when the cgroup recorded a kill. This is the
+# explanation for an otherwise-silent job failure.
+show_oom=0
+if [[ "$memory_oom_kill" =~ ^[0-9]+$ ]] && (( memory_oom_kill > 0 )); then
+    show_oom=1
+fi
+
+# ---------- Step summary: one collapsible CI Metrics block per job ----------
+
+# Parse the cache entries first: one ${CI_METRICS_DIR}/cache-*.json each, sorted by step. A job can
+# have several (e.g. maven + npm), so we derive both a headline cache token and the per-entry fold
+# detail from the same parse. Fields joined by ASCII Unit Separator ( / $'\x1f'); escaped so the
+# file stays YAML-safe when runner.yaml.gotmpl embeds it verbatim. Booleans as strings so jq `//`
+# keeps `false`. Numeric sizes are digits or "" (null/missing). Fail-open on jq error.
+cache_rows=""
 if [[ "$cache_json" != "[]" ]] && command -v jq >/dev/null 2>&1; then
-    # Fields joined by ASCII Unit Separator (US, 0x1f).
-    # Both sides reference the byte via escapes (jq accepts the \uXXXX form, bash uses $'\xNN') so this file stays YAML-safe when
-    # runner.yaml.gotmpl reads it verbatim into an init-container body.
-    # Booleans emit as "true"/"false" strings so jq's `//` doesn't swallow `false`.
-    # Numeric sizes emit as digits or "" (null/missing); the bash side maps "" → "n/a".
-    # Fail-open on jq error.
     cache_rows=$(jq -r --argjson c "$cache_json" -n '
         $c
         | sort_by(.step // "")
         | .[]
         | [
             (.key // ""),
-            (if ."cache-hit" == true then "true" else "false" end),
-            (."restore-key-hit" // ""),
+            (if .cache_hit == true then "true" else "false" end),
+            (.restore_key_hit // ""),
             (.backend // "unknown"),
-            (if (."size-bytes-restored"|type) == "number" then (."size-bytes-restored"|tostring) else "" end),
+            (if (.size_bytes_restored|type) == "number" then (.size_bytes_restored|tostring) else "" end),
             (if .saved == true then "true" elif .saved == false then "false" else "" end),
-            (if (."size-bytes-at-end"|type) == "number" then (."size-bytes-at-end"|tostring) else "" end)
+            (if (.size_bytes_at_end|type) == "number" then (.size_bytes_at_end|tostring) else "" end)
           ]
         | join("\u001f")
     ' 2>/dev/null) || cache_rows=""
+fi
 
-    if [[ -n "$cache_rows" ]]; then
-        {
-            printf '\n### Cache\n'
-            printf '| Key | Hit | Backend | Size Restored | Saved | Size Saved |\n'
-            printf '|---|---|---|---|---|---|\n'
-            # `|| [[ -n "$c_key" ]]` is the canonical idiom for a final line lacking a trailing newline. `jq -r` always emits `\n` today,
-            # but the guard keeps us safe if that ever changes.
-            while IFS=$'\x1f' read -r c_key c_hit c_rkey c_backend c_size_r c_saved c_size_e || [[ -n "$c_key" ]]; do
-                # Hit column: three-state.
-                if [[ "$c_hit" == "true" ]]; then
-                    v_hit="yes"
-                elif [[ -n "$c_rkey" ]]; then
-                    v_hit="partial (${c_rkey})"
-                else
-                    v_hit="no"
-                fi
-                # Sizes: only format if numeric.
-                if [[ "$c_size_r" =~ ^[0-9]+$ ]]; then
-                    v_size_r=$(fmt_bytes "$c_size_r")
-                else
-                    v_size_r="n/a"
-                fi
-                # Size Saved is only meaningful when `saved == true`. Otherwise size-bytes-at-end reflects on-disk size at job end, not what
-                # got persisted, so we render "n/a". The Saved column stays three-state: "yes" / "no" / "n/a" (missing/null), so a rendered
-                # row distinguishes "cache action skipped save" from "we don't know whether it saved" — don't collapse them.
-                if [[ "$c_saved" == "true" ]]; then
-                    v_saved="yes"
-                    if [[ "$c_size_e" =~ ^[0-9]+$ ]]; then
-                        v_size_e=$(fmt_bytes "$c_size_e")
-                    else
-                        v_size_e="n/a"
-                    fi
-                elif [[ "$c_saved" == "false" ]]; then
-                    v_saved="no"
-                    v_size_e="n/a"
-                else
-                    v_saved="n/a"
-                    v_size_e="n/a"
-                fi
-                printf '| %s | %s | %s | %s | %s | %s |\n' \
-                    "$c_key" "$v_hit" "$c_backend" "$v_size_r" "$v_saved" "$v_size_e"
-            done <<< "$cache_rows"
-        } >> "$summary_target" 2>/dev/null || true
+# Single pass over the parsed rows: count hit/miss for the headline, remember the lone entry's short
+# status for the 1-entry case, and build the labeled fold detail lines.
+cache_n=0 cache_hits=0 cache_misses=0 cache_one_short="" cache_detail=""
+if [[ -n "$cache_rows" ]]; then
+    # `|| [[ -n "$c_key" ]]` guards a final line without a trailing newline.
+    while IFS=$'\x1f' read -r c_key c_hit c_rkey c_backend c_size_r c_saved c_size_e || [[ -n "$c_key" ]]; do
+        cache_n=$((cache_n + 1))
+        # status: hit (partial restore-key counts as a hit) / miss. Detail keeps the restored size.
+        if [[ "$c_hit" == "true" ]]; then
+            cache_hits=$((cache_hits + 1))
+            short="hit"; [[ "$c_size_r" =~ ^[0-9]+$ ]] && short="hit ($(fmt_bytes "$c_size_r"))"
+            v_status="hit"; [[ "$c_size_r" =~ ^[0-9]+$ ]] && v_status="hit (restored $(fmt_bytes "$c_size_r"))"
+        elif [[ -n "$c_rkey" ]]; then
+            cache_hits=$((cache_hits + 1))
+            short="partial"; v_status="partial (${c_rkey})"
+        else
+            cache_misses=$((cache_misses + 1))
+            short="miss"; v_status="miss"
+        fi
+        cache_one_short="$short"
+        # "saved <size>" only when the action persisted it; size-at-end is otherwise just the
+        # job-end on-disk size, which corresponds to nothing saved.
+        v_saved=""
+        if [[ "$c_saved" == "true" ]]; then
+            v_saved=", saved"; [[ "$c_size_e" =~ ^[0-9]+$ ]] && v_saved=", saved $(fmt_bytes "$c_size_e")"
+        fi
+        # shellcheck disable=SC2016  # backticks are literal Markdown code-span, not command substitution
+        cache_detail+=$(printf -- '- `%s` — %s, backend %s%s' "$c_key" "$v_status" "$c_backend" "$v_saved")$'\n'
+    done <<< "$cache_rows"
+fi
+
+# Headline cache token: lone entry shows its status (+restored size on a hit); multiple entries show
+# hit/miss counts. Glanceable while collapsed; the fold carries key/backend/saved detail.
+cache_token=""
+if (( cache_n == 1 )); then
+    cache_token="cache ${cache_one_short}"
+elif (( cache_n > 1 )); then
+    cache_token="cache ${cache_hits} hit, ${cache_misses} miss"
+fi
+
+# Digest: middot-joined token per available metric; n/a metrics are dropped. Anomaly tokens (OOM /
+# throttling) lead and trigger a "[!]" prefix so they show while collapsed. Net is always present.
+digest_parts=()
+(( show_oom )) && digest_parts+=("OOM kill ×${memory_oom_kill}")
+if (( show_throttled )); then
+    if [[ -n "$cpu_throttle_rate" ]]; then
+        digest_parts+=("throttled $(pct0 "$cpu_throttle_rate")%")
+    else
+        digest_parts+=("throttled ${cpu_throttled_seconds}s")
     fi
 fi
+if [[ -n "$cpu_avg_pct" ]]; then
+    digest_parts+=("CPU ${cpu_avg_pct}%")
+elif [[ -n "$cpu_avg_cores" ]]; then
+    digest_parts+=("CPU ${cpu_avg_cores} cores")
+fi
+if [[ -n "$memory_peak_utilization" ]]; then
+    digest_parts+=("Mem $(pct0 "$memory_peak_utilization")%")
+elif [[ -n "$memory_peak_bytes" ]]; then
+    digest_parts+=("Mem $(fmt_bytes "$memory_peak_bytes")")
+fi
+[[ -n "$disk_utilization" ]] && digest_parts+=("Disk $(pct0 "$disk_utilization")%")
+digest_parts+=("Net $(fmt_bytes "$net_rx_total")↓ $(fmt_bytes "$net_tx_total")↑")
+[[ -n "$cache_token" ]] && digest_parts+=("$cache_token")
+
+digest=""
+for part in "${digest_parts[@]}"; do
+    digest+="${digest:+ · }${part}"
+done
+summary_line="CI Metrics — ${digest}"
+(( show_oom || show_throttled )) && summary_line="[!] ${summary_line}"
+
+# Open the fold and emit the metric table, then the per-entry cache detail. A blank line after
+# </summary> is required for the Markdown table inside <details> to render on GitHub.
+{
+    printf '<details><summary>%s</summary>\n\n' "$summary_line"
+    printf '| Metric | Value |\n'
+    printf '|---|---|\n'
+    printf '| CPU avg | %s |\n' "$v_cpu_avg"
+    printf '| Memory peak | %s |\n' "$v_mem"
+    printf '| Disk | %s |\n' "$v_disk"
+    printf '| Network total | %s |\n' "$v_net"
+    (( show_throttled )) && printf '| CPU throttled | %s |\n' "$v_cpu_throttled"
+    (( show_oom ))       && printf '| OOM kills | %s |\n' "$memory_oom_kill"
+    [[ -n "$cache_detail" ]] && printf '\n**Cache**\n%s' "$cache_detail"
+    printf '\n</details>\n'
+} >> "$summary_target" 2>/dev/null || true
 
 exit 0

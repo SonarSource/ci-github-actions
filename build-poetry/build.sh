@@ -5,8 +5,6 @@
 # Required inputs (must be explicitly provided):
 # - BUILD_NUMBER: Build number for versioning
 # - ARTIFACTORY_URL: URL to Artifactory repository
-# - ARTIFACTORY_PYPI_REPO: Repository to install dependencies from
-# - ARTIFACTORY_ACCESS_TOKEN: Access token to read Repox repositories
 # - ARTIFACTORY_DEPLOY_REPO: Deployment repository name
 # - ARTIFACTORY_DEPLOY_ACCESS_TOKEN: Access token to deploy to the repository
 # - DEFAULT_BRANCH: Default branch name (e.g. main)
@@ -45,7 +43,7 @@ set -euo pipefail
 # shellcheck source=../shared/common-functions.sh
 source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 
-: "${ARTIFACTORY_URL:?}" "${ARTIFACTORY_PYPI_REPO:?}" "${ARTIFACTORY_ACCESS_TOKEN:?}" "${ARTIFACTORY_USERNAME:?}" "${RUN_SHADOW_SCANS:?}"
+: "${ARTIFACTORY_URL:?}" "${RUN_SHADOW_SCANS:?}"
 : "${ARTIFACTORY_DEPLOY_REPO:?}" "${DEPLOY_PULL_REQUEST:=false}"
 : "${GITHUB_REF_NAME:?}" "${BUILD_NUMBER:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_EVENT_NAME:?}" "${GITHUB_EVENT_PATH:?}"
 : "${PULL_REQUEST?}" "${DEFAULT_BRANCH:?}" "${GITHUB_ENV:?}" "${GITHUB_OUTPUT:?}" "${GITHUB_SHA:?}" "${GITHUB_RUN_ID:?}"
@@ -163,36 +161,6 @@ set_build_env() {
   git_fetch_unshallow
 }
 
-set_project_version() {
-  local current_version release_version digit_count
-
-  if ! current_version=$(poetry version -s); then
-    echo "::error title=Invalid project version::Could not get version from Poetry project ('poetry version -s')" >&2
-    echo "$current_version" >&2
-    return 1
-  fi
-  export CURRENT_VERSION=$current_version
-
-  release_version=${current_version%".dev"*}
-  # In case of 2 digits, we need to add a '0' as the 3rd digit.
-  digit_count=$(echo "${release_version//./ }" | wc -w)
-  if [[ "$digit_count" -lt 3 ]]; then
-    release_version="$release_version.0"
-  fi
-  if [[ "$digit_count" -gt 3 && $release_version =~ [0-9]+\.[0-9]+\.[0-9]+ ]]; then
-    release_version="${BASH_REMATCH[0]}"
-    echo "::warning title=Version truncated::Version was truncated to $release_version because it had more than 3 digits" >&2
-  fi
-  release_version="$release_version.${BUILD_NUMBER}"
-
-  echo "Replacing version $current_version with $release_version"
-  poetry version "$release_version"
-  echo "project-version=$release_version" >> "$GITHUB_OUTPUT"
-  echo "PROJECT_VERSION=$release_version" >> "$GITHUB_ENV"
-  echo "PROJECT_VERSION=$release_version"
-  export PROJECT_VERSION=$release_version
-}
-
 # Determine build configuration based on branch type
 get_build_config() {
   local enable_sonar enable_deploy
@@ -262,16 +230,6 @@ get_build_config() {
   export BUILD_SONAR_ARGS="${sonar_args[*]:-}"
 }
 
-jfrog_poetry_install() {
-  jf config remove repox > /dev/null 2>&1 || true # Ignore inexistent configuration
-  jf config add repox --url "${ARTIFACTORY_URL%/artifactory*}" --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_ACCESS_TOKEN"
-  jf config use repox
-  jf poetry-config --server-id-resolve repox --repo-resolve "$ARTIFACTORY_PYPI_REPO"
-  export POETRY_HTTP_BASIC_REPOX_USERNAME="$ARTIFACTORY_USERNAME"
-  export POETRY_HTTP_BASIC_REPOX_PASSWORD="$ARTIFACTORY_ACCESS_TOKEN"
-  poetry install
-}
-
 jfrog_poetry_publish() {
   jf config remove repox > /dev/null 2>&1 || true # Ignore inexistent configuration
   jf config add repox --url "${ARTIFACTORY_URL%/artifactory*}" --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_DEPLOY_ACCESS_TOKEN"
@@ -294,15 +252,11 @@ build_poetry() {
   echo "Pull Request: ${PULL_REQUEST}"
   echo "Deploy Pull Request: ${DEPLOY_PULL_REQUEST}"
 
-  echo "::group::Set project version"
-  set_project_version
-  echo "::endgroup::"
-
   get_build_config
 
   echo "::group::Install dependencies"
   echo "Installing dependencies..."
-  jfrog_poetry_install
+  poetry install
   echo "::endgroup::"
 
   echo "::group::Build project"

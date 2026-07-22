@@ -1,7 +1,7 @@
 ---
 name: Update release channel
 description: |
-  Update a release channel pointer (e.g. `Distribution/<product>/latest.json`) on
+  Update release channel files (e.g. `Distribution/<product>/latest.json` and `Distribution/<product>/latest.version`) on
   `binaries.sonarsource.com` so consumers can discover the currently published version.
 inputs:
   version:
@@ -23,7 +23,7 @@ inputs:
     default: 'false'
 outputs:
   bucket:
-    description: S3 bucket the channel pointer was (or would be) written to.
+    description: S3 bucket the channel files were (or would be) written to.
     value: ${{ steps.update.outputs.bucket }}
   key:
     description: S3 key of the channel pointer (e.g. `Distribution/<product>/<channel>.json`).
@@ -36,6 +36,15 @@ outputs:
       The JSON body written (or that would be written) to S3. Always set.
       Useful for schema validation and debugging in dry-run mode.
     value: ${{ steps.update.outputs.body }}
+  version-key:
+    description: S3 key of the sibling plain-text version file (e.g. `Distribution/<product>/<channel>.version`).
+    value: ${{ steps.update.outputs.version-key }}
+  version-url:
+    description: Public URL of the sibling plain-text version file.
+    value: ${{ steps.update.outputs.version-url }}
+  version:
+    description: Version string written to the sibling plain-text version file. Always set.
+    value: ${{ steps.update.outputs.version }}
 
 runs:
   using: composite
@@ -48,9 +57,9 @@ runs:
 
     - name: Install AWS CLI
       if: inputs.dryRun != 'true'
-      uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
       with:
-        version: 2026.5.9
+        version: 2026.6.14
         mise_toml: |
           [tools]
           awscli = "2.34.55"
@@ -58,7 +67,7 @@ runs:
     - name: Fetch AWS credentials from Vault
       id: secrets
       if: inputs.dryRun != 'true'
-      uses: SonarSource/vault-action-wrapper@0a3114fe1230b784c35b53b099f9ab1f1e538cc7 # 3.5.0
+      uses: SonarSource/vault-action-wrapper@881045d830534a70ec3c7c275fa3714412c8ff6e # 3.6.1
       with:
         secrets: |
           development/aws/sts/downloads access_key | AWS_ACCESS_KEY_ID;

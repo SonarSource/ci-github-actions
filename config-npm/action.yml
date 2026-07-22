@@ -18,9 +18,6 @@ inputs:
   repox-url:
     description: URL for Repox
     default: https://repox.jfrog.io
-  repox-artifactory-url:
-    description: URL for Repox Artifactory API (overrides repox-url/artifactory if provided)
-    default: ''
   host-actions-root:
     description: Path to the actions folder on the host (used when called from another local action)
     default: ''
@@ -87,15 +84,16 @@ runs:
             "Use \`disable-caching\` instead." >&2
         fi
 
-    - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+    - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
       if: steps.config-npm-completed.outputs.skip != 'true'
       with:
         version: 2026.3.7
 
-    - uses: SonarSource/vault-action-wrapper@0a3114fe1230b784c35b53b099f9ab1f1e538cc7 # 3.5.0
+    - uses: SonarSource/vault-action-wrapper@881045d830534a70ec3c7c275fa3714412c8ff6e # 3.6.1
       if: steps.config-npm-completed.outputs.skip != 'true'
       id: secrets
       with:
+        url: ${{ contains(inputs.repox-url, 'dev.sonar.build') && 'https://vault.dev.sonar.build' || 'https://vault.sonar.build' }}
         secrets: |
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
@@ -104,8 +102,7 @@ runs:
       if: steps.config-npm-completed.outputs.skip != 'true'
       shell: bash
       env:
-        ARTIFACTORY_URL: ${{ inputs.repox-artifactory-url != '' && inputs.repox-artifactory-url ||
-          format('{0}/artifactory', inputs.repox-url) }}
+        ARTIFACTORY_URL: ${{ format('{0}/artifactory', inputs.repox-url) }}
         ARTIFACTORY_ACCESS_TOKEN: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN || '' }}
       run: |
         $ACTION_PATH_CONFIG_NPM/npm_config.sh
@@ -125,7 +122,7 @@ runs:
       run: echo "workflow_name=${WORKFLOW_NAME// /-}" >> "$GITHUB_OUTPUT"
 
     - name: Cache NPM dependencies
-      uses: SonarSource/gh-action_cache@a7d13cdd1c9f097a5f8382ccec463be2831e3dbc # v1.6.0
+      uses: SonarSource/gh-action_cache@4e40632e780e11a8bbe9b721985ab22b42847cc4 # v1.7.2
       if: steps.config-npm-completed.outputs.skip != 'true' && inputs.disable-caching != 'true' && inputs.cache-npm == 'true'
       with:
         path: ~/.npm
@@ -164,3 +161,10 @@ runs:
       if: steps.config-npm-completed.outputs.skip != 'true'
       shell: bash
       run: echo "CONFIG_NPM_COMPLETED=$GITHUB_ACTION" >> "$GITHUB_ENV"
+
+    - name: Clean up local action symlinks
+      if: always() && steps.config-npm-completed.outputs.skip != 'true'
+      shell: bash
+      run: |
+        rm -f .actions/get-build-number .actions/shared
+        rmdir .actions 2>/dev/null || true

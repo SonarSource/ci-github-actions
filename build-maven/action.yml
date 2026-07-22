@@ -208,9 +208,11 @@ runs:
         (github.event_name != 'pull_request' || inputs.deploy-pull-request == 'true')
       env:
         ARTIFACTORY_DEPLOY_REPO: ${{ steps.params.outputs.ARTIFACTORY_DEPLOY_REPO }}
-        ARTIFACTORY_DEPLOY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN }}
+        # yamllint disable rule:line-length
+        ARTIFACTORY_DEPLOY_ACCESS_TOKEN: ${{ steps.artifactory.outputs.vault && fromJSON(steps.artifactory.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN || '' }}
         ARTIFACTORY_PRIVATE_DEPLOY_REPO: ${{ steps.params.outputs.ARTIFACTORY_PRIVATE_DEPLOY_REPO }}
-        ARTIFACTORY_PRIVATE_DEPLOY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_PRIVATE_DEPLOY_ACCESS_TOKEN }}
+        ARTIFACTORY_PRIVATE_DEPLOY_ACCESS_TOKEN: ${{ steps.artifactory.outputs.vault && fromJSON(steps.artifactory.outputs.vault).ARTIFACTORY_PRIVATE_DEPLOY_ACCESS_TOKEN || '' }}
+        # yamllint enable rule:line-length
         INSTALLED_ARTIFACTS: ${{ steps.build.outputs.installed-artifacts }}
         JFROG_CLI_COMMAND_SUMMARY_OUTPUT_DIR: ${{ runner.temp }}/jfrog-summary
       run: $ACTION_PATH_BUILD_MAVEN/deploy-artifacts.sh
@@ -227,7 +229,7 @@ runs:
       if: |
         inputs.provenance == 'true' && github.event_name != 'pull_request' && steps.build.outputs.deployed == 'true' &&
         (inputs.provenance-artifact-paths != '' || steps.build.outputs.artifact-paths != '')
-      uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+      uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
       with:
         subject-path: >-
           ${{ inputs.provenance-artifact-paths != '' && inputs.provenance-artifact-paths || steps.build.outputs.artifact-paths }}

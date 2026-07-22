@@ -1,0 +1,146 @@
+---
+name: Config uv
+description: GitHub Action to configure uv build environment with build number, Artifactory authentication, and caching
+inputs:
+  working-directory:
+    description: Relative path under github.workspace to execute the build in
+    default: .
+  artifactory-reader-role:
+    description: Suffix for the Artifactory reader role in Vault. Defaults to `private-reader` for private repositories, and `public-reader`
+      for public repositories.
+    default: ''
+  uv-index-name:
+    description: Name of the uv index in pyproject.toml to authenticate (e.g. repox for `[[tool.uv.index]]` with `name = "repox"`)
+    default: repox
+  repox-url:
+    description: URL for Repox
+    default: https://repox.jfrog.io
+  uv-cache-dir:
+    description: Path to the uv cache directory, relative to GitHub workspace
+    default: .cache/uv
+  disable-caching:
+    description: Whether to disable uv caching entirely
+    default: 'false'
+  host-actions-root:
+    description: Path to the actions folder on the host (used when called from another local action)
+    default: ''
+
+outputs:
+  BUILD_NUMBER:
+    description: The current build number. Also set as environment variable BUILD_NUMBER
+    value: ${{ steps.get-build-number.outputs.BUILD_NUMBER }}
+
+runs:
+  using: composite
+  steps:
+    - id: config-uv-completed
+      if: env.CONFIG_UV_COMPLETED != ''
+      shell: bash
+      run: |
+        echo "Action already called by $CONFIG_UV_COMPLETED, execution skipped."
+        echo "skip=true" >> "$GITHUB_OUTPUT"
+
+    - name: Set local action paths
+      id: set-path
+      if: steps.config-uv-completed.outputs.skip != 'true'
+      shell: bash
+      run: |
+        echo "::group::Fix for using local actions"
+        echo "GITHUB_ACTION_PATH=$GITHUB_ACTION_PATH"
+        echo "github.action_path=${{ github.action_path }}"
+        ACTION_PATH_CONFIG_UV="${{ github.action_path }}"
+        host_actions_root="${{ inputs.host-actions-root }}"
+        if [[ -z "$host_actions_root" ]]; then
+          host_actions_root="$(dirname "$ACTION_PATH_CONFIG_UV")"
+        else
+          ACTION_PATH_CONFIG_UV="$host_actions_root/config-uv"
+        fi
+        echo "ACTION_PATH_CONFIG_UV=$ACTION_PATH_CONFIG_UV"
+        echo "ACTION_PATH_CONFIG_UV=$ACTION_PATH_CONFIG_UV" >> "$GITHUB_ENV"
+        echo "host_actions_root=$host_actions_root" >> "$GITHUB_OUTPUT"
+
+        mkdir -p ".actions"
+        ln -sf "$host_actions_root/get-build-number" .actions/get-build-number
+        ln -sf "$host_actions_root/shared" .actions/shared
+        ls -la .actions/*
+        echo "::endgroup::"
+
+        echo "::group::Backup mise files to configure uv without interference"
+        mise_backup=$(mktemp -d)
+        echo "MISE_BACKUP=$mise_backup" >> "$GITHUB_OUTPUT"
+        mv mise.* .mise.* mise/ .mise/ .tool-versions "$mise_backup/" 2>/dev/null || true
+        cp "$ACTION_PATH_CONFIG_UV/mise.local.toml" mise.local.toml
+        echo "::endgroup::"
+
+    - uses: ./.actions/get-build-number
+      id: get-build-number
+      if: steps.config-uv-completed.outputs.skip != 'true'
+      with:
+        host-actions-root: ${{ steps.set-path.outputs.host_actions_root }}
+
+    - name: Set Artifactory reader role
+      if: steps.config-uv-completed.outputs.skip != 'true'
+      shell: bash
+      env:
+        ARTIFACTORY_READER_ROLE:
+          ${{ inputs.artifactory-reader-role != '' && inputs.artifactory-reader-role ||
+          (github.event.repository.visibility == 'public' && 'public-reader' || 'private-reader') }}
+      run: |
+        echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
+
+    - name: Cache uv dependencies
+      uses: SonarSource/gh-action_cache@4e40632e780e11a8bbe9b721985ab22b42847cc4 # v1.7.2
+      if: steps.config-uv-completed.outputs.skip != 'true' && inputs.disable-caching != 'true'
+      with:
+        path: ${{ github.workspace }}/${{ inputs.uv-cache-dir }}
+        key: uv-${{ runner.os }}-${{ hashFiles(format('{0}/uv.lock', inputs.working-directory),
+          format('{0}/pyproject.toml', inputs.working-directory)) }}
+        restore-keys: uv-${{ runner.os }}-
+
+    - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
+      if: steps.config-uv-completed.outputs.skip != 'true'
+      with:
+        version: 2026.5.9
+
+    - uses: SonarSource/vault-action-wrapper@881045d830534a70ec3c7c275fa3714412c8ff6e # 3.6.1
+      if: steps.config-uv-completed.outputs.skip != 'true'
+      id: secrets
+      with:
+        url: ${{ contains(inputs.repox-url, 'dev.sonar.build') && 'https://vault.dev.sonar.build' || 'https://vault.sonar.build' }}
+        secrets: |
+          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
+          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
+
+    - name: Configure uv authentication
+      if: steps.config-uv-completed.outputs.skip != 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        ARTIFACTORY_URL: ${{ format('{0}/artifactory', inputs.repox-url) }}
+        ARTIFACTORY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME }}
+        ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
+        UV_INDEX_NAME: ${{ inputs.uv-index-name }}
+        UV_CACHE_DIR: ${{ github.workspace }}/${{ inputs.uv-cache-dir }}
+      run: $ACTION_PATH_CONFIG_UV/uv_config.sh
+
+    - name: Restore mise files
+      if: always() && steps.config-uv-completed.outputs.skip != 'true'
+      shell: bash
+      run: |
+        echo "::group::Restore mise files"
+        rm -f mise.local.toml
+        mv "${{ steps.set-path.outputs.MISE_BACKUP }}"/* "${{ steps.set-path.outputs.MISE_BACKUP }}"/.* ./ 2>/dev/null || true
+        rmdir "${{ steps.set-path.outputs.MISE_BACKUP }}" 2>/dev/null || true
+        echo "::endgroup::"
+
+    - name: Set Config uv completed
+      if: steps.config-uv-completed.outputs.skip != 'true'
+      shell: bash
+      run: echo "CONFIG_UV_COMPLETED=$GITHUB_ACTION" >> "$GITHUB_ENV"
+
+    - name: Clean up local action symlinks
+      if: always() && steps.config-uv-completed.outputs.skip != 'true'
+      shell: bash
+      run: |
+        rm -f .actions/get-build-number .actions/shared
+        rmdir .actions 2>/dev/null || true

@@ -12,9 +12,9 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - name: Run IRIS Analysis
-        uses: SonarSource/unified-dogfooding-actions/run-iris@54cee68ff08f10645c757675c59d232063e0b947 # 1.0.0
+        uses: SonarSource/unified-dogfooding-actions/run-iris@03e023516511b1c9da325ad104c2290e3b91688c # 1.1.0
         with:
           primary_project_key: SonarSource_ci-github-actions
           primary_platform: SQC-EU

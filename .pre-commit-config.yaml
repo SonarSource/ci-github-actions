@@ -7,13 +7,13 @@ repos:
       - id: check-hooks-apply
       - id: check-useless-excludes
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: 2c9f875913ee60ca25ce70243dc24d5b6415598c  # v4.6.0
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c  # frozen: v6.0.0
     hooks:
       - id: trailing-whitespace
       - id: check-added-large-files
       - id: end-of-file-fixer
   - repo: https://github.com/adrienverge/yamllint/
-    rev: 81e9f98ffd059efe8aa9c1b1a42e5cce61b640c6  # frozen: v1.35.1
+    rev: cba56bcde1fdd01c1deb3f945e69764c291a6530  # frozen: v1.38.0
     hooks:
       - id: yamllint
         args: [--strict, --config-file=.yamllint.yaml]
@@ -22,18 +22,24 @@ repos:
     hooks:
       - id: shellcheck
   - repo: https://github.com/python-jsonschema/check-jsonschema
-    rev: 96ee1570b119e6337aafcc2f299bb0d902b68328  # 0.28.6
+    rev: 1a4bb160cab6417b3045e1b37b6b72449243e658  # frozen: 0.37.4
     hooks:
       - id: check-github-workflows
+        # TEMP: bundled schema predates `environment.deployment` (GA 2026-03)
+        exclude: ^\.github/workflows/check-sca\.yml$
   - repo: https://github.com/igorshubovych/markdownlint-cli
-    rev: f295829140d25717bc79368d3f966fc1f67a824f  # v0.41.0
+    rev: a4d5d37e66ebcd6b3705204a1d6dbb56dea66338  # frozen: v0.49.0
     hooks:
       - id: markdownlint
   - repo: https://github.com/renovatebot/pre-commit-hooks
-    rev: 99eaa5b893df4f917fe21b5705cc42f28cb3d842  # 43.76.3
+    rev: be94b15d8c130a600a448c27d01220754b67a023  # frozen: 43.252.5
     hooks:
       - id: renovate-config-validator
   - repo: https://github.com/rhysd/actionlint
-    rev: 62dc61a45fc95efe8c800af7a557ab0b9165d63b  # v1.7.1
+    rev: 914e7df21a07ef503a81201c76d2b11c789d3fca  # frozen: v1.7.12
     hooks:
       - id: actionlint
+        # TEMP: actionlint v1.7.1 schema predates `environment.deployment`
+        args:
+          - -ignore
+          - unexpected key "deployment" for "environment" section
