@@ -1,5 +1,5 @@
 [tools]
-jfrog-cli = "2.96.0"
+jfrog-cli = "2.115.0"
 
 [env]
 JFROG_CLI_AVOID_NEW_VERSION_WARNING = "true"
