@@ -108,7 +108,7 @@ runs:
       if: steps.config-maven-completed.outputs.skip != 'true'
       shell: bash
       env:
-        ARTIFACTORY_URL: https://repox.dev.sonar.build/artifactory
+        ARTIFACTORY_URL: https://repox-internal.dev.sonar.build/artifactory
         ARTIFACTORY_USERNAME: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME || '' }}
         ARTIFACTORY_ACCESS_TOKEN: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN || '' }}
         DEVELOCITY_TOKEN: ${{ inputs.use-develocity == 'true' && steps.secrets.outputs.vault &&
