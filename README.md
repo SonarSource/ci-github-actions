@@ -177,7 +177,7 @@ By default, Maven caches `~/.m2/repository`. You can customize this behavior:
 
 The Maven tool must be pre-installed. Use of `mise` is recommended.
 
-Dependencies are resolved from the self-hosted Artifactory instance at `https://repox.dev.sonar.build/artifactory` (not configurable).
+Dependencies are resolved from the self-hosted Artifactory instance at `https://repox-internal.dev.sonar.build/artifactory` (not configurable).
 
 ### Usage
 
@@ -229,13 +229,13 @@ steps:
 | `ARTIFACTORY_ACCESS_USERNAME` | Deprecated alias for `ARTIFACTORY_USERNAME`                                                                                                                                                                                               |
 | `ARTIFACTORY_USERNAME`        | Username for Artifactory authentication                                                                                                                                                                                                   |
 | `ARTIFACTORY_PASSWORD`        | Deprecated alias for `ARTIFACTORY_ACCESS_TOKEN`                                                                                                                                                                                           |
-| `ARTIFACTORY_URL`             | Artifactory API base URL. E.g. `https://repox.dev.sonar.build/artifactory`                                                                                                                                                            |
+| `ARTIFACTORY_URL`             | Artifactory API base URL. E.g. `https://repox-internal.dev.sonar.build/artifactory`                                                                                                                                                            |
 | `BASH_ENV`                    | Path to the bash profile with mvn function for adding common flags to Maven calls                                                                                                                                                         |
 | `CURRENT_VERSION`             | The original project version from pom.xml                                                                                                                                                                                                 |
 | `DEVELOCITY_ACCESS_KEY`       | The Develocity access key when `use-develocity` is true                                                                                                                                                                                   |
 | `MAVEN_OPTS`                  | JVM options for Maven execution.                                                                                                                                                                                                          |
 | `PROJECT_VERSION`             | The project version with build number (after replacement)                                                                                                                                                                                 |
-| `SONARSOURCE_REPOSITORY_URL`  | URL for SonarSource Artifactory root virtual repository (i.e.: [`sonarsource`](https://repox.dev.sonar.build/artifactory/sonarsource) for release builds or [`sonarsource-qa`](https://repox.dev.sonar.build/artifactory/sonarsource-qa) for QA builds) |
+| `SONARSOURCE_REPOSITORY_URL`  | URL for SonarSource Artifactory root virtual repository (i.e.: [`sonarsource`](https://repox-internal.dev.sonar.build/artifactory/sonarsource) for release builds or [`sonarsource-qa`](https://repox-internal.dev.sonar.build/artifactory/sonarsource-qa) for QA builds) |
 | `CONFIG_MAVEN_COMPLETED`      | For internal use. If set, the action is skipped                                                                                                                                                                                           |
 | `MAVEN_CONFIG`                | Path to m2 root `$HOME/.m2`                                                                                                                                                                                                               |
 
