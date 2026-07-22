@@ -143,17 +143,18 @@ runs:
         echo "SONARSOURCE_REPOSITORY_URL=${ARTIFACTORY_URL}/sonarsource" >> "$GITHUB_ENV"
       # yamllint enable rule:line-length
 
-    - uses: SonarSource/vault-action-wrapper@0a3114fe1230b784c35b53b099f9ab1f1e538cc7 # 3.5.0
+    - uses: SonarSource/vault-action-wrapper@881045d830534a70ec3c7c275fa3714412c8ff6e # 3.6.1
+      if: inputs.deploy != 'false'
       id: artifactory
       with:
-        url: https://vault.dev.sonar.build
+        url: ${{ contains(env.ARTIFACTORY_URL, 'dev.sonar.build') && 'https://vault.dev.sonar.build' || 'https://vault.sonar.build' }}
         # yamllint disable rule:line-length
         secrets: |
           ${{ inputs.deploy != 'false' && inputs.run-shadow-scans != 'true' && steps.params.outputs.ARTIFACTORY_DEPLOY_USERNAME_VAULT || '' }}
           ${{ inputs.deploy != 'false' && inputs.run-shadow-scans != 'true' && steps.params.outputs.ARTIFACTORY_DEPLOY_ACCESS_TOKEN_VAULT || '' }}
           ${{ inputs.deploy != 'false' && inputs.mixed-privacy == 'true' && steps.params.outputs.ARTIFACTORY_PRIVATE_DEPLOY_ACCESS_TOKEN_VAULT || '' }}
 
-    - uses: SonarSource/vault-action-wrapper@0a3114fe1230b784c35b53b099f9ab1f1e538cc7 # 3.5.0
+    - uses: SonarSource/vault-action-wrapper@881045d830534a70ec3c7c275fa3714412c8ff6e # 3.6.1
       id: secrets
       with:
         # yamllint disable rule:line-length
