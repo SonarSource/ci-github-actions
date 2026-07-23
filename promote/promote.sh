@@ -136,16 +136,22 @@ promote_multi() {
   local response
   response=$(jf rt curl "$promoteUrl")
   echo "$response"
-  if ! jq -e 'type == "object"' <<< "$response" > /dev/null 2>&1; then
-    # ::error:: is a single-line workflow command: flatten the response in case it contains newlines (e.g. an HTML error page).
-    echo "::error title=Multi-repo promotion failed::Unexpected non-JSON response from the multiRepoPromote plugin: $(tr '\n' ' ' <<< "$response")" >&2
-    return 1
+  if jq -e 'type == "object"' <<< "$response" > /dev/null 2>&1; then
+    if jq -e '(.errors // []) | length > 0' <<< "$response" > /dev/null 2>&1; then
+      # -c (compact) keeps the ::error:: workflow command on a single line.
+      echo "::error title=Multi-repo promotion failed::$(jq -c '.errors' <<< "$response")" >&2
+      return 1
+    fi
+    return 0
   fi
-  if jq -e '(.errors // []) | length > 0' <<< "$response" > /dev/null 2>&1; then
-    # -c (compact) keeps the ::error:: workflow command on a single line.
-    echo "::error title=Multi-repo promotion failed::$(jq -c '.errors' <<< "$response")" >&2
-    return 1
+  # multiRepoPromote.groovy returns plain text on HTTP 200 success, e.g.
+  # "Promoted <build> <number> from … to … with status …"
+  if [[ "$response" == Promoted\ * ]]; then
+    return 0
   fi
+  # ::error:: is a single-line workflow command: flatten the response in case it contains newlines (e.g. an HTML error page).
+  echo "::error title=Multi-repo promotion failed::Unexpected non-JSON response from the multiRepoPromote plugin: $(tr '\n' ' ' <<< "$response")" >&2
+  return 1
 }
 
 promote_mono() {

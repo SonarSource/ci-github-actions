@@ -17,7 +17,8 @@ EOF
     # Echo the invocation to stderr (not captured by the caller's `response=$(...)`)
     # so tests can still verify the exact URL that was requested.
     echo "jf $*" >&2
-    echo '{"status":"success"}'
+    # Matches multiRepoPromote.groovy success body (plain text, not JSON).
+    echo "Promoted dummy-project 42 from sonarsource-private-qa and sonarsource-public-qa to sonarsource-private-builds and sonarsource-public-builds with status it-passed"
   else
     echo "jf $*"
   fi
@@ -254,8 +255,21 @@ Describe 'promote_multi()'
     The status should be success
     The line 1 should equal "Promoting build dummy-project/$BUILD_NUMBER (version: 1.2.3.42)"
     The line 2 should equal "Target repositories: sonarsource-private-builds and sonarsource-public-builds"
-    The line 3 should equal '{"status":"success"}'
+    The line 3 should equal "Promoted dummy-project 42 from sonarsource-private-qa and sonarsource-public-qa to sonarsource-private-builds and sonarsource-public-builds with status it-passed"
     The error should match pattern "jf rt curl */multiRepoPromote?*;src1=*;target1=*;src2=*;target2=*"
+  End
+
+  It 'succeeds when the multiRepoPromote plugin returns a plain-text Promoted response'
+    Mock jf
+      echo "Promoted dummy-project 42 from sonarsource-private-qa and sonarsource-public-qa to sonarsource-private-dev and sonarsource-public-dev with status it-passed-pr"
+    End
+    export GITHUB_REF_NAME="main"
+    status='it-passed'
+    export PROJECT_VERSION="1.2.3.42"
+    get_target_repos
+    When call promote_multi
+    The status should be success
+    The line 3 should equal "Promoted dummy-project 42 from sonarsource-private-qa and sonarsource-public-qa to sonarsource-private-dev and sonarsource-public-dev with status it-passed-pr"
   End
 
   It 'fails when the multiRepoPromote plugin returns a non-JSON response'
@@ -402,7 +416,7 @@ Describe 'jfrog_promote()'
     The variable PROJECT_VERSION should equal "1.2.3.42"
     The line 1 should equal "Promoting build dummy-project/$BUILD_NUMBER (version: 1.2.3.42)"
     The line 2 should equal "Target repositories: sonarsource-private-builds and sonarsource-public-builds"
-    The line 3 should equal '{"status":"success"}'
+    The line 3 should equal "Promoted dummy-project 42 from sonarsource-private-qa and sonarsource-public-qa to sonarsource-private-builds and sonarsource-public-builds with status it-passed"
     The error should match pattern "jf rt curl */multiRepoPromote?*;src1=*;target1=*;src2=*;target2=*"
   End
 
