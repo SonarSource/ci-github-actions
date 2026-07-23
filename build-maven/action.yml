@@ -49,7 +49,10 @@ inputs:
     description: Maven flags for all subsequent mvn calls
     default: --batch-mode --no-transfer-progress --errors --fail-at-end --show-version -Dmaven.test.redirectTestOutputToFile=false
   repox-url:
-    description: URL for Repox
+    description: URL for Repox used for dependency resolution (Maven mirror)
+    default: https://repox.jfrog.io
+  repox-deploy-url:
+    description: URL for Repox used for artifact deployment. Defaults to SaaS Repox so deploy does not depend on edge Access Federation.
     default: https://repox.jfrog.io
   use-develocity:
     description: Whether to use Develocity for build tracking.
@@ -125,6 +128,8 @@ runs:
       env:
         MIXED_PRIVACY: ${{ inputs.mixed-privacy }}
         USER_MAVEN_ARGS: ${{ inputs.maven-args }}
+        ARTIFACTORY_RESOLVE_URL: ${{ format('{0}/artifactory', inputs.repox-url) }}
+        ARTIFACTORY_DEPLOY_URL: ${{ format('{0}/artifactory', inputs.repox-deploy-url) }}
         ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo != '' && inputs.artifactory-deploy-repo ||
           (github.event.repository.visibility == 'public' || inputs.mixed-privacy == 'true') && 'sonarsource-public-qa' ||
           'sonarsource-private-qa' }}
@@ -141,10 +146,15 @@ runs:
           fi
           echo "USER_MAVEN_ARGS=${USER_MAVEN_ARGS}"
           echo "ARTIFACTORY_DEPLOY_REPO=${ARTIFACTORY_DEPLOY_REPO}"
+          echo "ARTIFACTORY_DEPLOY_URL=${ARTIFACTORY_DEPLOY_URL}"
           echo "ARTIFACTORY_DEPLOY_USERNAME_VAULT=development/artifactory/token/{REPO_OWNER_NAME_DASH}-${ARTIFACTORY_DEPLOYER_ROLE} username | ARTIFACTORY_DEPLOY_USERNAME;"
           echo "ARTIFACTORY_DEPLOY_ACCESS_TOKEN_VAULT=development/artifactory/token/{REPO_OWNER_NAME_DASH}-${ARTIFACTORY_DEPLOYER_ROLE} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;"
         } >> "$GITHUB_OUTPUT"
-        echo "SONARSOURCE_REPOSITORY_URL=${ARTIFACTORY_URL}/sonarsource" >> "$GITHUB_ENV"
+        # Downloads (Maven settings mirror) always use repox-url; uploads use ARTIFACTORY_DEPLOY_URL / repox-deploy-url.
+        echo "ARTIFACTORY_URL=${ARTIFACTORY_RESOLVE_URL}" >> "$GITHUB_ENV"
+        echo "SONARSOURCE_REPOSITORY_URL=${ARTIFACTORY_RESOLVE_URL}/sonarsource" >> "$GITHUB_ENV"
+        echo "Artifactory resolve (download): ${ARTIFACTORY_RESOLVE_URL}"
+        echo "Artifactory deploy (upload): ${ARTIFACTORY_DEPLOY_URL}"
       # yamllint enable rule:line-length
 
     - uses: SonarSource/vault-action-wrapper@881045d830534a70ec3c7c275fa3714412c8ff6e # 3.6.1
@@ -189,6 +199,8 @@ runs:
         SONAR_PLATFORM: ${{ inputs.sonar-platform }}
         RUN_SHADOW_SCANS: ${{ inputs.run-shadow-scans }}
         ARTIFACTORY_DEPLOY_REPO: ${{ steps.params.outputs.ARTIFACTORY_DEPLOY_REPO }}
+        # Upload target for the Artifactory Maven plugin / parent POM (downloads still use SONARSOURCE_REPOSITORY_URL).
+        ARTIFACTORY_URL: ${{ steps.params.outputs.ARTIFACTORY_DEPLOY_URL }}
 
         # Vault secrets
         # yamllint disable rule:line-length
@@ -213,6 +225,7 @@ runs:
         inputs.mixed-privacy == 'true' && steps.build.outputs.deployed == 'true' &&
         (github.event_name != 'pull_request' || inputs.deploy-pull-request == 'true')
       env:
+        ARTIFACTORY_URL: ${{ steps.params.outputs.ARTIFACTORY_DEPLOY_URL }}
         ARTIFACTORY_DEPLOY_REPO: ${{ steps.params.outputs.ARTIFACTORY_DEPLOY_REPO }}
         # yamllint disable rule:line-length
         ARTIFACTORY_DEPLOY_ACCESS_TOKEN: ${{ steps.artifactory.outputs.vault && fromJSON(steps.artifactory.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN || '' }}
@@ -245,6 +258,7 @@ runs:
       if: always() && inputs.generate-summary != 'false'
       shell: bash
       env:
+        ARTIFACTORY_URL: ${{ steps.params.outputs.ARTIFACTORY_DEPLOY_URL }}
         JFROG_CLI_COMMAND_SUMMARY_OUTPUT_DIR: ${{ runner.temp }}/jfrog-summary
       run: |
         build_name="${GITHUB_REPOSITORY#*/}"
