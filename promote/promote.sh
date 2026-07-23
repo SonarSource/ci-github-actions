@@ -136,8 +136,14 @@ promote_multi() {
   local response
   response=$(jf rt curl "$promoteUrl")
   echo "$response"
-  if jq -e '.errors' <<< "$response" > /dev/null 2>&1; then
-    echo "::error title=Multi-repo promotion failed::$(jq -r '.errors' <<< "$response")" >&2
+  if ! jq -e 'type == "object"' <<< "$response" > /dev/null 2>&1; then
+    # ::error:: is a single-line workflow command: flatten the response in case it contains newlines (e.g. an HTML error page).
+    echo "::error title=Multi-repo promotion failed::Unexpected non-JSON response from the multiRepoPromote plugin: $(tr '\n' ' ' <<< "$response")" >&2
+    return 1
+  fi
+  if jq -e '(.errors // []) | length > 0' <<< "$response" > /dev/null 2>&1; then
+    # -c (compact) keeps the ::error:: workflow command on a single line.
+    echo "::error title=Multi-repo promotion failed::$(jq -c '.errors' <<< "$response")" >&2
     return 1
   fi
 }
