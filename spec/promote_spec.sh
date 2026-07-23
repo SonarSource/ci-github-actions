@@ -13,6 +13,11 @@ Mock jf
     }
 }
 EOF
+  elif [[ "$*" == rt\ curl\ api/plugins/execute/multiRepoPromote* ]]; then
+    # Echo the invocation to stderr (not captured by the caller's `response=$(...)`)
+    # so tests can still verify the exact URL that was requested.
+    echo "jf $*" >&2
+    echo '{"status":"success"}'
   else
     echo "jf $*"
   fi
@@ -31,6 +36,20 @@ Mock jq
     echo "1.2.3.42"
   elif [[ "$*" == *"buildInfo.env.NON_EXISTING_PROPERTY"* ]]; then
     echo "null"
+  elif [[ "$*" == '-e type == "object"' ]]; then
+    input=$(tr -d '[:space:]')
+    [[ "$input" == '{'*'}' ]]
+  elif [[ "$*" == "-e (.errors // []) | length > 0" ]]; then
+    input=$(cat)
+    if [[ "$input" != *'"errors"'* ]]; then
+      false
+    elif [[ "$input" =~ \"errors\"[[:space:]]*:[[:space:]]*\[[[:space:]]*\] ]]; then
+      false
+    else
+      true
+    fi
+  elif [[ "$*" == "-c .errors" ]]; then
+    tr -d '\n'
   else
     echo "jq $*"
   fi
@@ -228,13 +247,69 @@ End
 Describe 'promote_multi()'
   It 'calls the multiRepoPromote plugin with version display'
     export GITHUB_REF_NAME="main"
-    export status='it-passed'
+    status='it-passed'
     export PROJECT_VERSION="1.2.3.42"
     get_target_repos
     When call promote_multi
+    The status should be success
     The line 1 should equal "Promoting build dummy-project/$BUILD_NUMBER (version: 1.2.3.42)"
     The line 2 should equal "Target repositories: sonarsource-private-builds and sonarsource-public-builds"
-    The line 3 should match pattern "jf rt curl */multiRepoPromote?*;src1=*;target1=*;src2=*;target2=*"
+    The line 3 should equal '{"status":"success"}'
+    The error should match pattern "jf rt curl */multiRepoPromote?*;src1=*;target1=*;src2=*;target2=*"
+  End
+
+  It 'fails when the multiRepoPromote plugin returns a non-JSON response'
+    Mock jf
+      echo "Bad Gateway"
+    End
+    export GITHUB_REF_NAME="main"
+    status='it-passed'
+    export PROJECT_VERSION="1.2.3.42"
+    get_target_repos
+    When call promote_multi
+    The status should be failure
+    The line 3 should equal "Bad Gateway"
+    The error should include "::error title=Multi-repo promotion failed::Unexpected non-JSON response from the multiRepoPromote plugin: Bad Gateway"
+  End
+
+  It 'succeeds when the multiRepoPromote plugin returns an empty errors array'
+    Mock jf
+      echo '{"errors": []}'
+    End
+    export GITHUB_REF_NAME="main"
+    status='it-passed'
+    export PROJECT_VERSION="1.2.3.42"
+    get_target_repos
+    When call promote_multi
+    The status should be success
+    The line 3 should equal '{"errors": []}'
+  End
+
+  It 'fails when the multiRepoPromote plugin returns an error response'
+    Mock jf
+      cat <<'EOF'
+{
+  "errors" : [ {
+    "status" : 404,
+    "message" : "The execution name 'multiRepoPromote' could not be found."
+  } ]
+}
+EOF
+    End
+    export GITHUB_REF_NAME="main"
+    # shellcheck disable=SC2034 # read as $status by promote_multi(), sourced via `Include promote/promote.sh`
+    status='it-passed'
+    export PROJECT_VERSION="1.2.3.42"
+    get_target_repos
+    When call promote_multi
+    The status should be failure
+    The line 1 should equal "Promoting build dummy-project/$BUILD_NUMBER (version: 1.2.3.42)"
+    The line 2 should equal "Target repositories: sonarsource-private-builds and sonarsource-public-builds"
+    The output should include "The execution name 'multiRepoPromote' could not be found."
+    The error should include "::error title=Multi-repo promotion failed::"
+    The error should include "The execution name 'multiRepoPromote' could not be found."
+    # The multi-line JSON response must not break the single-line ::error:: workflow command.
+    The lines of stderr should equal 1
   End
 End
 
@@ -327,7 +402,8 @@ Describe 'jfrog_promote()'
     The variable PROJECT_VERSION should equal "1.2.3.42"
     The line 1 should equal "Promoting build dummy-project/$BUILD_NUMBER (version: 1.2.3.42)"
     The line 2 should equal "Target repositories: sonarsource-private-builds and sonarsource-public-builds"
-    The line 3 should match pattern "jf rt curl */multiRepoPromote?*;src1=*;target1=*;src2=*;target2=*"
+    The line 3 should equal '{"status":"success"}'
+    The error should match pattern "jf rt curl */multiRepoPromote?*;src1=*;target1=*;src2=*;target2=*"
   End
 
   It 'uses PROJECT_VERSION from environment when set instead of fetching from JFrog'
