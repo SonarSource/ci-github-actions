@@ -18,6 +18,9 @@ inputs:
   uv-cache-dir:
     description: Path to the uv cache directory, relative to GitHub workspace
     default: .cache/uv
+  cache-dependency-glob:
+    description: Glob of dependency files for jobs that install more than one uv project
+    default: ''
   disable-caching:
     description: Whether to disable uv caching entirely
     default: 'false'
@@ -88,13 +91,41 @@ runs:
       run: |
         echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
 
+    - name: Resolve uv cache key
+      id: uv-cache-key
+      if: steps.config-uv-completed.outputs.skip != 'true' && inputs.disable-caching != 'true'
+      shell: bash
+      env:
+        CACHE_DEPENDENCY_GLOB: ${{ inputs.cache-dependency-glob }}
+        DIRECTORY_DEPENDENCY_HASH:
+          ${{ hashFiles(format('{0}/uv.lock', inputs.working-directory),
+          format('{0}/pyproject.toml', inputs.working-directory)) }}
+        GLOB_DEPENDENCY_HASH: ${{ hashFiles(inputs.cache-dependency-glob) }}
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+      run: |
+        dependency_hash="$DIRECTORY_DEPENDENCY_HASH"
+        dependency_source="working-directory '${WORKING_DIRECTORY}'"
+        if [[ -n "$CACHE_DEPENDENCY_GLOB" ]]; then
+          dependency_hash="$GLOB_DEPENDENCY_HASH"
+          dependency_source="cache-dependency-glob '${CACHE_DEPENDENCY_GLOB}'"
+        fi
+        if [[ -z "$dependency_hash" ]]; then
+          message="No dependency files matched ${dependency_source}. "
+          message+="Point config-uv at the uv project or dependency files that the job installs."
+          echo "::warning title=uv caching disabled::$message"
+          echo "cache_enabled=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        echo "cache_enabled=true" >> "$GITHUB_OUTPUT"
+        echo "dependency_hash=$dependency_hash" >> "$GITHUB_OUTPUT"
+
     - name: Cache uv dependencies
       uses: SonarSource/gh-action_cache@4e40632e780e11a8bbe9b721985ab22b42847cc4 # v1.7.2
-      if: steps.config-uv-completed.outputs.skip != 'true' && inputs.disable-caching != 'true'
+      if: steps.config-uv-completed.outputs.skip != 'true' && inputs.disable-caching != 'true' &&
+        steps.uv-cache-key.outputs.cache_enabled == 'true'
       with:
         path: ${{ github.workspace }}/${{ inputs.uv-cache-dir }}
-        key: uv-${{ runner.os }}-${{ hashFiles(format('{0}/uv.lock', inputs.working-directory),
-          format('{0}/pyproject.toml', inputs.working-directory)) }}
+        key: uv-${{ runner.os }}-${{ steps.uv-cache-key.outputs.dependency_hash }}
         restore-keys: uv-${{ runner.os }}-
 
     - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
