@@ -139,41 +139,6 @@ runs:
           echo "DEVELOCITY_ACCESS_KEY=${{ steps.develocity-hostname.outputs.hostname }}=$DEVELOCITY_TOKEN" >> "$GITHUB_ENV"
         fi
 
-    # Temporary: Access Federation can lag when SaaS-minted tokens are used on an edge node.
-    - name: Wait for Artifactory token to sync
-      if: steps.config-maven-completed.outputs.skip != 'true'
-      shell: bash
-      env:
-        REPOX_URL: ${{ inputs.repox-url }}
-      run: |
-        if [[ "$REPOX_URL" == *jfrog.io* ]]; then
-          echo "Skipping token sync wait for SaaS Repox ($REPOX_URL)"
-          exit 0
-        fi
-        if [[ -z "${ARTIFACTORY_USERNAME:-}" || -z "${ARTIFACTORY_ACCESS_TOKEN:-}" ]]; then
-          echo "::error title=Missing Artifactory credentials::Cannot wait for token sync without credentials"
-          exit 1
-        fi
-
-        # /api/system/ping is anonymous; use a protected API that validates the token.
-        check_url="${ARTIFACTORY_URL}/api/storage/sonarsource-qa"
-        max_attempts=60
-        sleep_seconds=5
-        echo "Waiting for Artifactory token federation sync at $check_url (up to $((max_attempts * sleep_seconds))s)"
-        for attempt in $(seq 1 "$max_attempts"); do
-          http_code="$(curl -sS -o /dev/null -w '%{http_code}' \
-            -u "${ARTIFACTORY_USERNAME}:${ARTIFACTORY_ACCESS_TOKEN}" \
-            "$check_url" || echo "000")"
-          if [[ "$http_code" == "200" ]]; then
-            echo "Artifactory accepted credentials after ${attempt} attempt(s) (HTTP 200)"
-            exit 0
-          fi
-          echo "Attempt ${attempt}/${max_attempts}: HTTP ${http_code}, retrying in ${sleep_seconds}s..."
-          sleep "$sleep_seconds"
-        done
-        echo "::error title=Artifactory token sync timeout::Credentials were not accepted by $check_url within $((max_attempts * sleep_seconds))s"
-        exit 1
-
     - name: Configure Maven settings and set repository URL
       if: steps.config-maven-completed.outputs.skip != 'true'
       shell: bash
