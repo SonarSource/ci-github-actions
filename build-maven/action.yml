@@ -151,7 +151,6 @@ runs:
       if: inputs.deploy != 'false'
       id: artifactory
       with:
-        url: ${{ contains(inputs.repox-url, 'dev.sonar.build') && 'https://vault.dev.sonar.build' || 'https://vault.sonar.build' }}
         # yamllint disable rule:line-length
         secrets: |
           ${{ inputs.deploy != 'false' && inputs.run-shadow-scans != 'true' && steps.params.outputs.ARTIFACTORY_DEPLOY_USERNAME_VAULT || '' }}
