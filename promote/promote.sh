@@ -133,7 +133,13 @@ promote_multi() {
   promoteUrl+="params=buildName=$BUILD_NAME;buildNumber=$BUILD_NUMBER;status=$status"
   promoteUrl+=";src1=$MULTI_REPO_SRC_PRIVATE;target1=$targetRepo1"
   promoteUrl+=";src2=$MULTI_REPO_SRC_PUBLIC;target2=$targetRepo2"
-  jf rt curl "$promoteUrl"
+  local response
+  response=$(jf rt curl "$promoteUrl")
+  echo "$response"
+  if jq -e '.errors' <<< "$response" > /dev/null 2>&1; then
+    echo "::error title=Multi-repo promotion failed::$(jq -r '.errors' <<< "$response")" >&2
+    return 1
+  fi
 }
 
 promote_mono() {

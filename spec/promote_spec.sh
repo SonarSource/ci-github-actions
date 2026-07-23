@@ -31,6 +31,10 @@ Mock jq
     echo "1.2.3.42"
   elif [[ "$*" == *"buildInfo.env.NON_EXISTING_PROPERTY"* ]]; then
     echo "null"
+  elif [[ "$*" == "-e .errors" ]]; then
+    grep -q '"errors"'
+  elif [[ "$*" == "-r .errors" ]]; then
+    cat
   else
     echo "jq $*"
   fi
@@ -232,9 +236,34 @@ Describe 'promote_multi()'
     export PROJECT_VERSION="1.2.3.42"
     get_target_repos
     When call promote_multi
+    The status should be success
     The line 1 should equal "Promoting build dummy-project/$BUILD_NUMBER (version: 1.2.3.42)"
     The line 2 should equal "Target repositories: sonarsource-private-builds and sonarsource-public-builds"
     The line 3 should match pattern "jf rt curl */multiRepoPromote?*;src1=*;target1=*;src2=*;target2=*"
+  End
+
+  It 'fails when the multiRepoPromote plugin returns an error response'
+    Mock jf
+      cat <<'EOF'
+{
+  "errors" : [ {
+    "status" : 404,
+    "message" : "The execution name 'multiRepoPromote' could not be found."
+  } ]
+}
+EOF
+    End
+    export GITHUB_REF_NAME="main"
+    export status='it-passed'
+    export PROJECT_VERSION="1.2.3.42"
+    get_target_repos
+    When call promote_multi
+    The status should be failure
+    The line 1 should equal "Promoting build dummy-project/$BUILD_NUMBER (version: 1.2.3.42)"
+    The line 2 should equal "Target repositories: sonarsource-private-builds and sonarsource-public-builds"
+    The output should include "The execution name 'multiRepoPromote' could not be found."
+    The error should include "::error title=Multi-repo promotion failed::"
+    The error should include "The execution name 'multiRepoPromote' could not be found."
   End
 End
 
