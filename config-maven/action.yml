@@ -115,8 +115,10 @@ runs:
       shell: bash
       env:
         ARTIFACTORY_URL: https://repox-internal.dev.sonar.build/artifactory
-        ARTIFACTORY_USERNAME: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME || '' }}
-        ARTIFACTORY_ACCESS_TOKEN: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN || '' }}
+        # yamllint disable rule:line-length
+        ARTIFACTORY_USERNAME: ${{ steps.artifactory.outputs.vault && fromJSON(steps.artifactory.outputs.vault).ARTIFACTORY_USERNAME || '' }}
+        ARTIFACTORY_ACCESS_TOKEN: ${{ steps.artifactory.outputs.vault && fromJSON(steps.artifactory.outputs.vault).ARTIFACTORY_ACCESS_TOKEN || '' }}
+        # yamllint enable rule:line-length
         DEVELOCITY_TOKEN: ${{ inputs.use-develocity == 'true' && steps.secrets.outputs.vault &&
           fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN || '' }}
       run: |
