@@ -129,6 +129,11 @@ runs:
             "The Develocity token is configured by config-maven. Please remove external configuration of DEVELOCITY_ACCESS_KEY."
         fi
 
+        # Vault may return mixed-case usernames (e.g. vault-SonarSource-...), but JFrog Access
+        # token subjects are lowercase. Basic auth is case-sensitive on a federated edge node
+        # (DENIED LOGIN for vault-SonarSource-... while Bearer works as vault-sonarsource-...).
+        ARTIFACTORY_USERNAME="${ARTIFACTORY_USERNAME,,}"
+
         echo "ARTIFACTORY_URL=$ARTIFACTORY_URL" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_USERNAME=$ARTIFACTORY_USERNAME" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_ACCESS_USERNAME=$ARTIFACTORY_USERNAME" >> "$GITHUB_ENV"  # deprecated, backward compliance
