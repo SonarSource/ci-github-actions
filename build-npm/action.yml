@@ -33,7 +33,10 @@ inputs:
     description: Deprecated. Use `disable-caching` instead. Whether to cache NPM dependencies.
     default: 'true'
   repox-url:
-    description: URL for Repox
+    description: URL for Repox used for dependency resolution (npm registry)
+    default: https://repox.jfrog.io
+  repox-deploy-url:
+    description: URL for Repox used for artifact deployment. Defaults to SaaS Repox so deploy does not depend on edge Access Federation.
     default: https://repox.jfrog.io
   sonar-platform:
     description: SonarQube primary platform (next, sqc-eu, sqc-us, or none). Use 'none' to skip sonar scans.
@@ -135,7 +138,6 @@ runs:
       if: inputs.deploy != 'false' && inputs.run-shadow-scans != 'true'
       id: artifactory
       with:
-        url: ${{ contains(inputs.repox-url, 'dev.sonar.build') && 'https://vault.dev.sonar.build' || 'https://vault.sonar.build' }}
         # yamllint disable rule:line-length
         secrets: |
           ${{ format('development/artifactory/token/{{REPO_OWNER_NAME_DASH}}-{0} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;', env.ARTIFACTORY_DEPLOYER_ROLE) }}
@@ -162,7 +164,8 @@ runs:
         DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         BUILD_NAME: ${{ inputs.build-name || github.event.repository.name }}
 
-        ARTIFACTORY_URL: ${{ format('{0}/artifactory', inputs.repox-url) }}
+        # Upload target for jf npm publish (downloads still use ~/.npmrc from config-npm / repox-url).
+        ARTIFACTORY_URL: ${{ format('{0}/artifactory', inputs.repox-deploy-url) }}
         ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo != '' && inputs.artifactory-deploy-repo ||
           (github.event.repository.visibility == 'public' && 'sonarsource-npm-public-qa' || 'sonarsource-npm-private-qa') }}
         # yamllint disable rule:line-length
@@ -215,7 +218,7 @@ runs:
       if: always() && inputs.generate-summary != 'false'
       shell: bash
       env:
-        ARTIFACTORY_URL: ${{ format('{0}/artifactory', inputs.repox-url) }}
+        ARTIFACTORY_URL: ${{ format('{0}/artifactory', inputs.repox-deploy-url) }}
         JFROG_CLI_COMMAND_SUMMARY_OUTPUT_DIR: ${{ runner.temp }}/jfrog-summary
       run: |
         build_name="${GITHUB_REPOSITORY#*/}"
