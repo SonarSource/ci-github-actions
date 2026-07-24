@@ -109,10 +109,10 @@ runs:
         key: poetry-${{ runner.os }}-${{ steps.sanitize_workflow.outputs.workflow_name }}-${{ hashFiles('poetry.lock') }}
         restore-keys: poetry-${{ runner.os }}-${{ steps.sanitize_workflow.outputs.workflow_name }}-
 
-    - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
+    - uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea # v4.2.1
       if: steps.config-poetry-completed.outputs.skip != 'true'
       with:
-        version: 2026.5.9
+        version: 2026.7.7
 
     - uses: SonarSource/vault-action-wrapper@881045d830534a70ec3c7c275fa3714412c8ff6e # 3.6.1
       if: steps.config-poetry-completed.outputs.skip != 'true'
