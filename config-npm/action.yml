@@ -103,13 +103,10 @@ runs:
       shell: bash
       env:
         REPOX_URL: ${{ inputs.repox-url }}
-      run: |
-        if [[ "$REPOX_URL" == *jfrog.io* ]]; then
-          echo "Skipping token sync wait for SaaS Repox ($REPOX_URL)"
-          exit 0
-        fi
-        echo "Waiting 10s for Artifactory token federation sync to the edge node"
-        sleep 10
+        ARTIFACTORY_URL: ${{ format('{0}/artifactory', inputs.repox-url) }}
+        ARTIFACTORY_USERNAME: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME || '' }}
+        ARTIFACTORY_ACCESS_TOKEN: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN || '' }}
+      run: "$(dirname "$ACTION_PATH_CONFIG_NPM")/shared/wait_artifactory_token_sync.sh"
 
     - name: Configure NPM authentication
       if: steps.config-npm-completed.outputs.skip != 'true'
