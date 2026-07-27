@@ -101,9 +101,11 @@ Describe 'wait_for_artifactory_token_sync()'
       CURL_ATTEMPT_FILE=$(mktemp)
       echo 0 > "$CURL_ATTEMPT_FILE"
       export CURL_ATTEMPT_FILE
+      return 0
     }
     cleanup_retry() {
       rm -f "$CURL_ATTEMPT_FILE"
+      return 0
     }
     Before 'setup_retry'
     After 'cleanup_retry'
