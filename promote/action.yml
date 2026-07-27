@@ -3,7 +3,7 @@ name: Promote
 description: GitHub Action to promote a project
 inputs:
   repox-url:
-    description: URL for Repox
+    description: URL for Repox used for promotion (typically SaaS where artifacts were deployed)
     default: https://repox.jfrog.io
   promote-pull-request:
     description: Whether to promote pull request artifacts. Requires `deploy-pull-request` input to be set to `true` in the build action.
@@ -51,7 +51,6 @@ runs:
     - uses: SonarSource/vault-action-wrapper@881045d830534a70ec3c7c275fa3714412c8ff6e # 3.6.1
       id: artifactory
       with:
-        url: ${{ contains(inputs.repox-url, 'dev.sonar.build') && 'https://vault.dev.sonar.build' || 'https://vault.sonar.build' }}
         secrets: |
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-promoter access_token | ARTIFACTORY_PROMOTE_ACCESS_TOKEN;
     - uses: SonarSource/vault-action-wrapper@881045d830534a70ec3c7c275fa3714412c8ff6e # 3.6.1

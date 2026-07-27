@@ -10,7 +10,7 @@ inputs:
       and `public-reader` for public repositories.
     default: ''
   repox-url:
-    description: URL for Repox
+    description: URL for Repox used for dependency resolution
     default: https://repox.jfrog.io
   use-develocity:
     description: Whether to use Develocity for build tracking.
@@ -92,7 +92,6 @@ runs:
       if: steps.config-gradle-completed.outputs.skip != 'true'
       id: artifactory
       with:
-        url: ${{ contains(inputs.repox-url, 'dev.sonar.build') && 'https://vault.dev.sonar.build' || 'https://vault.sonar.build' }}
         secrets: |
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
@@ -131,6 +130,8 @@ runs:
         fi
 
         echo "ARTIFACTORY_URL=$ARTIFACTORY_URL" >> "$GITHUB_ENV"
+        # Resolve URL kept separately so build steps can override ARTIFACTORY_URL for deploy.
+        echo "ARTIFACTORY_RESOLVE_URL=$ARTIFACTORY_URL" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_USERNAME=$ARTIFACTORY_USERNAME" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_ACCESS_USERNAME=$ARTIFACTORY_USERNAME" >> "$GITHUB_ENV"  # deprecated, backward compliance
         echo "ARTIFACTORY_ACCESS_TOKEN=$ARTIFACTORY_ACCESS_TOKEN" >> "$GITHUB_ENV"
@@ -138,6 +139,14 @@ runs:
         if [[ -n "${DEVELOCITY_TOKEN:-}" ]]; then
           echo "DEVELOCITY_ACCESS_KEY=${{ steps.develocity-hostname.outputs.hostname }}=$DEVELOCITY_TOKEN" >> "$GITHUB_ENV"
         fi
+
+    # Temporary: Access Federation can lag when SaaS-minted tokens are used on an edge node.
+    - name: Wait for Artifactory token to sync
+      if: steps.config-gradle-completed.outputs.skip != 'true'
+      shell: bash
+      env:
+        REPOX_URL: ${{ inputs.repox-url }}
+      run: "$(dirname "$ACTION_PATH_CONFIG_GRADLE")/shared/wait_artifactory_token_sync.sh"
 
     - name: Configure Gradle wrapper download resilience
       if: steps.config-gradle-completed.outputs.skip != 'true'

@@ -171,9 +171,10 @@ sonar_scanner_implementation() {
 }
 
 jfrog_yarn_publish() {
-  echo "::debug::Configuring JFrog and NPM repositories..."
+  local deploy_url="${ARTIFACTORY_DEPLOY_URL:-$ARTIFACTORY_URL}"
+  echo "::debug::Configuring JFrog and NPM repositories for deploy ($deploy_url)..."
   jf config remove repox > /dev/null 2>&1 || true # Ignore inexistent configuration
-  jf config add repox --url "${ARTIFACTORY_URL%/artifactory*}" --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_DEPLOY_ACCESS_TOKEN"
+  jf config add repox --url "${deploy_url%/artifactory*}" --artifactory-url "$deploy_url" --access-token "$ARTIFACTORY_DEPLOY_ACCESS_TOKEN"
   jf config use repox
   jf npm-config --global --repo-resolve "npm" --repo-deploy "$ARTIFACTORY_DEPLOY_REPO"
 
