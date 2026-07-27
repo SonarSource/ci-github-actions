@@ -146,7 +146,7 @@ runs:
       shell: bash
       env:
         REPOX_URL: ${{ inputs.repox-url }}
-      run: "$(dirname "$ACTION_PATH_CONFIG_GRADLE")/shared/wait_artifactory_token_sync.sh"
+      run: $ACTION_PATH_CONFIG_GRADLE/../shared/wait_artifactory_token_sync.sh
 
     - name: Configure Gradle wrapper download resilience
       if: steps.config-gradle-completed.outputs.skip != 'true'

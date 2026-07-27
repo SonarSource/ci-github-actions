@@ -106,7 +106,7 @@ runs:
         ARTIFACTORY_URL: ${{ format('{0}/artifactory', inputs.repox-url) }}
         ARTIFACTORY_USERNAME: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME || '' }}
         ARTIFACTORY_ACCESS_TOKEN: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN || '' }}
-      run: "$(dirname "$ACTION_PATH_CONFIG_NPM")/shared/wait_artifactory_token_sync.sh"
+      run: $ACTION_PATH_CONFIG_NPM/../shared/wait_artifactory_token_sync.sh
 
     - name: Configure NPM authentication
       if: steps.config-npm-completed.outputs.skip != 'true'

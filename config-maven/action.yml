@@ -145,7 +145,7 @@ runs:
       shell: bash
       env:
         REPOX_URL: ${{ inputs.repox-url }}
-      run: "$(dirname "$ACTION_PATH_CONFIG_MAVEN")/shared/wait_artifactory_token_sync.sh"
+      run: $ACTION_PATH_CONFIG_MAVEN/../shared/wait_artifactory_token_sync.sh
 
     - name: Configure Maven settings and set repository URL
       if: steps.config-maven-completed.outputs.skip != 'true'

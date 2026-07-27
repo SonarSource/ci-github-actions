@@ -131,7 +131,7 @@ runs:
         ARTIFACTORY_URL: ${{ format('{0}/artifactory', inputs.repox-url) }}
         ARTIFACTORY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME }}
         ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
-      run: "$(dirname "$ACTION_PATH_CONFIG_POETRY")/shared/wait_artifactory_token_sync.sh"
+      run: $ACTION_PATH_CONFIG_POETRY/../shared/wait_artifactory_token_sync.sh
 
     - name: Configure Poetry authentication
       if: steps.config-poetry-completed.outputs.skip != 'true'

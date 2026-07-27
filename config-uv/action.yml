@@ -119,7 +119,7 @@ runs:
         ARTIFACTORY_URL: ${{ format('{0}/artifactory', inputs.repox-url) }}
         ARTIFACTORY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME }}
         ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
-      run: "$(dirname "$ACTION_PATH_CONFIG_UV")/shared/wait_artifactory_token_sync.sh"
+      run: $ACTION_PATH_CONFIG_UV/../shared/wait_artifactory_token_sync.sh
 
     - name: Configure uv authentication
       if: steps.config-uv-completed.outputs.skip != 'true'

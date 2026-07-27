@@ -33,9 +33,12 @@ echo "Waiting for Artifactory token federation sync at $check_url (up to $((max_
 
 while true; do
   attempt=$((attempt + 1))
+  # Do not append a fallback via || echo: curl -w still emits http_code (often 000) on failure.
   http_code="$(curl -sS -o /dev/null -w '%{http_code}' \
+    --connect-timeout 10 --max-time 30 \
     -u "${ARTIFACTORY_USERNAME}:${ARTIFACTORY_ACCESS_TOKEN}" \
-    "$check_url" || echo "000")"
+    "$check_url" || true)"
+  http_code="${http_code:-000}"
 
   if [[ "$http_code" == "200" ]]; then
     echo "Artifactory accepted credentials after ${attempt} attempt(s) (HTTP 200)"
