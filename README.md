@@ -101,7 +101,7 @@ The action authenticates `gh` with a Vault-issued GitHub token. It sets both `GI
 ```yaml
 jobs:
   get-build-number:
-    runs-on: sonar-xs  # Private repos default; use github-ubuntu-latest-s for public repos
+    runs-on: sonar-xs
     permissions:
       id-token: write
       contents: read
@@ -485,7 +485,7 @@ concurrency:
 
 jobs:
   build:
-    runs-on: sonar-xs  # Private repos default; use github-ubuntu-latest-s for public repos
+    runs-on: sonar-xs
     name: Build
     permissions:
       id-token: write
@@ -719,7 +719,7 @@ concurrency:
 
 jobs:
   build:
-    runs-on: sonar-xs  # Private repos default; use github-ubuntu-latest-s for public repos
+    runs-on: sonar-xs
     name: Build
     permissions:
       id-token: write
@@ -922,7 +922,7 @@ The Node.js and NPM tools must be pre-installed. Use of `mise` is recommended.
 
 ```yaml
 config:
-  runs-on: sonar-xs  # Private repos default; use github-ubuntu-latest-s for public repos
+  runs-on: sonar-xs
   name: Build
   permissions:
     id-token: write
@@ -1011,7 +1011,7 @@ concurrency:
 
 jobs:
   build:
-    runs-on: sonar-xs  # Private repos default; use github-ubuntu-latest-s for public repos
+    runs-on: sonar-xs
     name: Build
     permissions:
       id-token: write
@@ -1121,7 +1121,7 @@ concurrency:
 
 jobs:
   build:
-    runs-on: sonar-xs  # Private repos default; use github-ubuntu-latest-s for public repos
+    runs-on: sonar-xs
     name: Build
     permissions:
       id-token: write
@@ -1379,7 +1379,7 @@ Required properties in the build info:
 promote:
   needs:
     - build
-  runs-on: sonar-xs  # Private repos default; use github-ubuntu-latest-s for public repos
+  runs-on: sonar-xs
   name: Promote
   permissions:
     id-token: write
@@ -1394,7 +1394,7 @@ promote:
 promote:
   needs:
     - build
-  runs-on: sonar-xs  # Private repos default; use github-ubuntu-latest-s for public repos
+  runs-on: sonar-xs
   name: Promote
   permissions:
     id-token: write
@@ -1449,7 +1449,7 @@ on:
 
 jobs:
   cleanup:
-    runs-on: sonar-xs  # Private repos default; use github-ubuntu-latest-s for public repos
+    runs-on: sonar-xs
     permissions:
       actions: write
     steps:
