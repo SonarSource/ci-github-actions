@@ -78,13 +78,20 @@ runs:
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
 
-    - name: Run pip configuration script
-      id: config
+    - name: Set environment variables for Artifactory authentication
       shell: bash
       env:
         ARTIFACTORY_URL: ${{ format('{0}/artifactory', inputs.repox-url) }}
-        ARTIFACTORY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME }}
-        ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
+        ARTIFACTORY_USERNAME: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME || '' }}
+        ARTIFACTORY_ACCESS_TOKEN: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN || '' }}
+      run: |
+        echo "ARTIFACTORY_URL=$ARTIFACTORY_URL" >> "$GITHUB_ENV"
+        echo "ARTIFACTORY_USERNAME=$ARTIFACTORY_USERNAME" >> "$GITHUB_ENV"
+        echo "ARTIFACTORY_ACCESS_TOKEN=$ARTIFACTORY_ACCESS_TOKEN" >> "$GITHUB_ENV"
+
+    - name: Run pip configuration script
+      id: config
+      shell: bash
       run: $ACTION_PATH_CONFIG_PIP/config.sh
 
     - name: Sanitize workflow name for cache key
