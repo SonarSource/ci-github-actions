@@ -1240,9 +1240,12 @@ steps:
 
 ### Output Environment Variables
 
-| Environment Variable | Description              |
-|----------------------|--------------------------|
-| `BUILD_NUMBER`       | The current build number |
+| Environment Variable          | Description                                                         |
+|-------------------------------|---------------------------------------------------------------------|
+| `BUILD_NUMBER`                | The current build number                                            |
+| `ARTIFACTORY_ACCESS_TOKEN`    | Access token for Artifactory authentication                         |
+| `ARTIFACTORY_USERNAME`        | Username for Artifactory authentication                             |
+| `ARTIFACTORY_URL`             | Artifactory (Repox) URL. E.x.: `https://repox.jfrog.io/artifactory` |
 
 See also [`get-build-number`](#get-build-number) output environment variables.
 
