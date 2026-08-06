@@ -70,31 +70,25 @@ These badges show the status of workflows in dummy repositories that use (or sho
 
 ## `get-build-number`
 
-Manage the build number in GitHub Actions.
+Get a unique, strictly increasing build number for a repository, reusing one already claimed by the current workflow run when applicable.
+It sets `BUILD_NUMBER` as both an environment variable and a GitHub Actions output. Safe to call from multiple jobs in the same workflow
+run, and from concurrent workflow runs (e.g. several GitHub Stacked PRs opened at once) - no two calls will ever return the same number.
 
-The build number is stored in the GitHub repository property named `build_number`. This action will reuse or increment the build number,
-and set it as an environment variable named `BUILD_NUMBER`, and as a GitHub Actions output variable also named `BUILD_NUMBER`.
-
-The build number is unique per workflow run ID. It is not incremented on workflow reruns.
-
-During execution the action temporarily writes `.build_number.txt` at the repository root (for
-`actions/cache`); the file is removed before the action completes. Do not track a file named
-`.build_number.txt` in your repository.
-
-The action authenticates `gh` with a Vault-issued GitHub token. It sets both `GITHUB_TOKEN` and
-`GH_TOKEN` for that step so a workflow-exported `GH_TOKEN` cannot shadow the Vault credential
-(`gh` prefers `GH_TOKEN` over `GITHUB_TOKEN`).
+During execution the action temporarily writes `.build_number.txt` at the repository root; the file is removed before the action
+completes. Do not track a file named `.build_number.txt` in your repository.
 
 ### Requirements
 
 #### Required GitHub Permissions
 
 - `id-token: write`
-- `contents: read`
+- `contents: write`
 
 #### Required Vault Permissions
 
-- `build-number`: GitHub preset to read and write the build number property. This is built-in to the Vault `auth.github` permission.
+- `build-number`: GitHub preset used to read the legacy `build_number` repository property, needed only for repositories that predate this
+  action's current design. Built-in to the Vault `auth.github` permission. This dependency will be dropped once no repository needs it
+  anymore.
 
 ### Usage
 
@@ -104,7 +98,7 @@ jobs:
     runs-on: sonar-xs
     permissions:
       id-token: write
-      contents: read
+      contents: write
     steps:
       - uses: SonarSource/ci-github-actions/get-build-number@v1
 ```
