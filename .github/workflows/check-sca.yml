@@ -3,6 +3,7 @@ name: SCA Check
 on:
   pull_request:
   merge_group:
+  workflow_call:
 
 permissions:
   id-token: write
@@ -10,7 +11,7 @@ permissions:
 
 jobs:
   verify-sca:
-    runs-on: warp-custom-ubuntu-24-04
+    runs-on: sonar-xs
     # `id-token: write` (above) makes GitHub mint an OIDC token, which the
     # check-sca composite action exchanges with Vault for SonarQube
     # credentials. Per the SonarSource OIDC standard, the `environment`
