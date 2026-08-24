@@ -72,7 +72,9 @@ These badges show the status of workflows in dummy repositories that use (or sho
 
 Get a unique, strictly increasing build number for a repository, reusing one already claimed by the current workflow run when applicable.
 It sets `BUILD_NUMBER` as both an environment variable and a GitHub Actions output. Safe to call from multiple jobs in the same workflow
-run, and from concurrent workflow runs (e.g. several GitHub Stacked PRs opened at once) - no two calls will ever return the same number.
+run - only one of them claims a number, the others wait for it and reuse it - and from concurrent workflow runs (e.g. several GitHub
+Stacked PRs opened at once), where no two runs will ever get the same number. A job waiting for another job's claim fails after a bounded
+timeout (a few minutes) if that claim never completes, rather than claiming an independent number.
 
 During execution the action temporarily writes `.build_number.txt` at the repository root; the file is removed before the action
 completes. Do not track a file named `.build_number.txt` in your repository.

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Get the build number for a GitHub repository and save the incremented value to .build_number.txt
-# See check_existing_claim.sh for the read-only check for an existing claim by this workflow run.
+# Only runs after acquire_run_lock.sh has confirmed this is the sole claimer for this workflow run.
 
 set -euo pipefail
 
@@ -14,7 +14,8 @@ PROPERTIES_API_URL="repos/${GITHUB_REPOSITORY}/properties/values"
 LOCKS_NS="build-locks"
 RUNS_NS="build-runs/${GITHUB_RUN_ID}"
 # refs/build-locks/<N> is the only source of truth for uniqueness (atomic create, never deleted).
-# refs/build-runs/<run_id>/<N> is a best-effort marker so a rerun can reuse its number; it is not authoritative.
+# refs/build-runs/<run_id>/<N> lets other jobs/reruns of this run reuse this number instead of waiting out their lock timeout; other
+# waiters may be blocked on it (acquire_run_lock.sh), so it must be recorded, not merely best-effort.
 # All ref reads/writes use the ambient GITHUB_TOKEN (contents: write). LEGACY_PROPERTY_TOKEN (Vault) is only used to read the legacy
 # build_number property during migration - see README.
 MAX_ATTEMPTS="${MAX_ATTEMPTS:-100}" # retries when a concurrent claim beats us to the next number
@@ -76,9 +77,11 @@ while true; do
   attempt=$((attempt + 1))
 done
 
-claim_ref "${RUNS_NS}/${CANDIDATE}" >/dev/null ||
-  echo "::warning title=Build number run-marker not recorded::Failed to record refs/${RUNS_NS}/${CANDIDATE}; a rerun of this workflow" \
-    "run may claim a new build number instead of reusing this one."
+if ! claim_ref "${RUNS_NS}/${CANDIDATE}" >/dev/null; then
+  echo "::error title=Build number run-marker not recorded::Failed to record refs/${RUNS_NS}/${CANDIDATE}; other jobs/reruns of this" \
+    "workflow run waiting on refs/build-run-locks/${GITHUB_RUN_ID} would otherwise time out instead of reusing it." >&2
+  exit 1
+fi
 echo "::endgroup::"
 
 echo "${CANDIDATE}" >"$BUILD_NUMBER_FILE"
