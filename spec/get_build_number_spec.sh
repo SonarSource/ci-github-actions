@@ -71,6 +71,7 @@ Describe 'get_build_number.sh'
     End
     When run script get-build-number/get_build_number.sh
     The status should be failure
+    The output should include "::group::Claim build number"
     The stderr should include "::error title=Invalid build number::Legacy build_number property 'notANumber'"
   End
 
@@ -138,11 +139,13 @@ Describe 'get_build_number.sh'
     End
     When run script get-build-number/get_build_number.sh
     The status should be failure
+    The output should include "Seeding from legacy build_number property: 42"
     The stderr should include "::error title=Build number claim failed::"
     The stderr should include "Internal Server Error"
   End
 
-  It 'should still succeed even if recording the run marker fails'
+  It 'should fail if recording the run marker fails, since other jobs/reruns may be waiting on it'
+    rm -f "$BUILD_NUMBER_FILE"
     Mock gh
       if [[ "$*" == *"matching-refs/build-locks/"* ]]; then
         echo ''
@@ -157,9 +160,9 @@ Describe 'get_build_number.sh'
       fi
     End
     When run script get-build-number/get_build_number.sh
-    The status should be success
+    The status should be failure
     The output should include "Claimed build number 1043"
-    The output should include "Build number run-marker not recorded"
-    The contents of file "$BUILD_NUMBER_FILE" should equal "1043"
+    The stderr should include "::error title=Build number run-marker not recorded::"
+    The path "$BUILD_NUMBER_FILE" should not be file
   End
 End
