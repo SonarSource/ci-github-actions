@@ -3,7 +3,7 @@ name: Get build number
 description: GitHub Action to get the build number for a repository
 outputs:
   BUILD_NUMBER:
-    description: The build number, incremented or reused if already cached
+    description: The build number, newly claimed or reused if this workflow run already claimed one
     value: ${{ steps.export.outputs.BUILD_NUMBER }}
 inputs:
   host-actions-root:
@@ -38,36 +38,36 @@ runs:
       if: env.BUILD_NUMBER != ''
       shell: bash
       run: |
-        echo "BUILD_NUMBER ${BUILD_NUMBER} provided from environment, skipping both increment and save to cache."
+        echo "BUILD_NUMBER ${BUILD_NUMBER} provided from environment, skipping increment."
         echo "${BUILD_NUMBER}" > "$BUILD_NUMBER_FILE"
         echo "skip=true" >> $GITHUB_OUTPUT
 
-    # Reuse current build number in case of rerun
-    - name: Get cached build number
+    # Reuse the build number already claimed by this workflow run (e.g. a rerun, or an earlier job in the same run) via
+    # refs/build-runs/<run_id>/* read-only call.
+    - name: Check for existing build number from this workflow run
+      id: existing-claim
       if: steps.from-env.outputs.skip != 'true'
-      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      id: current-build-number
-      with:
-        path: ${{ env.BUILD_NUMBER_FILE }}
-        key: build-number-${{ github.run_id }}
-        enableCrossOsArchive: true
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+        GH_TOKEN: ${{ github.token }}
+      run: ${ACTION_PATH_GET_BUILD_NUMBER}/check_existing_claim.sh
 
-    # Otherwise, increment the build number
+    # Otherwise, claim a new build number using the ambient token (contents: write, required of every caller). Vault is only needed to
+    # read the legacy build_number property during the migration - see README. It's fetched unconditionally here because we can't tell,
+    # before scanning refs/build-locks/*, whether this repo still needs that migration read.
     - uses: SonarSource/vault-action-wrapper@881045d830534a70ec3c7c275fa3714412c8ff6e # 3.6.1
       id: secrets
-      if: steps.from-env.outputs.skip != 'true' && steps.current-build-number.outputs.cache-hit != 'true'
+      if: steps.from-env.outputs.skip != 'true' && steps.existing-claim.outputs.skip != 'true'
       with:
         secrets: development/github/token/{REPO_OWNER_NAME_DASH}-build-number token | github_token;
     - name: Get new build number
-      if: steps.from-env.outputs.skip != 'true' && steps.current-build-number.outputs.cache-hit != 'true'
+      if: steps.from-env.outputs.skip != 'true' && steps.existing-claim.outputs.skip != 'true'
       shell: bash
       env:
-        # gh prefers GH_TOKEN over GITHUB_TOKEN. Set both so a workflow-exported
-        # GH_TOKEN (e.g. a bot token) cannot shadow the Vault build-number token.
-        GITHUB_TOKEN: ${{ steps.current-build-number.outputs.cache-hit != 'true' &&
-          steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).github_token || '' }}
-        GH_TOKEN: ${{ steps.current-build-number.outputs.cache-hit != 'true' &&
-          steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).github_token || '' }}
+        GITHUB_TOKEN: ${{ github.token }}
+        GH_TOKEN: ${{ github.token }}
+        LEGACY_PROPERTY_TOKEN: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).github_token || '' }}
       run: ${ACTION_PATH_GET_BUILD_NUMBER}/get_build_number.sh
 
     - name: Export build number
@@ -82,14 +82,6 @@ runs:
         echo "BUILD_NUMBER: ${BUILD_NUMBER}"
         echo "BUILD_NUMBER=${BUILD_NUMBER}" >> "$GITHUB_ENV"
         echo "BUILD_NUMBER=${BUILD_NUMBER}" >> "$GITHUB_OUTPUT"
-
-    - name: Save build number to cache
-      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      if: steps.from-env.outputs.skip != 'true' && steps.current-build-number.outputs.cache-hit != 'true'
-      with:
-        path: ${{ env.BUILD_NUMBER_FILE }}
-        key: build-number-${{ github.run_id }}
-        enableCrossOsArchive: true
 
     - name: Remove build number file from workspace
       if: always()
