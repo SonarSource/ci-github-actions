@@ -94,6 +94,24 @@ runs:
       shell: bash
       run: $ACTION_PATH_CONFIG_PIP/config.sh
 
+    - name: Export pip index for tools that ignore pip.conf
+      shell: bash
+      run: |
+        index_url="$(python3 -c 'import configparser, pathlib; c = configparser.ConfigParser(); c.read(pathlib.Path.home() / ".pip" / "pip.conf"); print(c["global"]["index-url"])')"
+        host="$(python3 -c 'import configparser, pathlib, urllib.parse; c = configparser.ConfigParser(); c.read(pathlib.Path.home() / ".pip" / "pip.conf"); print(urllib.parse.urlparse(c["global"]["index-url"]).hostname or "")')"
+        echo "::add-mask::${index_url}"
+        {
+          echo "PIP_INDEX_URL<<PIP_EOF"
+          echo "${index_url}"
+          echo "PIP_EOF"
+          echo "VIRTUALENV_INDEX_URL<<PIP_EOF"
+          echo "${index_url}"
+          echo "PIP_EOF"
+        } >> "$GITHUB_ENV"
+        if [[ -n "${host}" ]]; then
+          echo "PIP_TRUSTED_HOST=${host}" >> "$GITHUB_ENV"
+        fi
+
     - name: Sanitize workflow name for cache key
       id: sanitize_workflow
       if: inputs.disable-caching == 'false'
