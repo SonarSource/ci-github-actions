@@ -72,7 +72,10 @@ These badges show the status of workflows in dummy repositories that use (or sho
 
 Get a unique, strictly increasing build number for a repository, reusing one already claimed by the current workflow run when applicable.
 It sets `BUILD_NUMBER` as both an environment variable and a GitHub Actions output. Safe to call from multiple jobs in the same workflow
-run, and from concurrent workflow runs (e.g. several GitHub Stacked PRs opened at once) - no two calls will ever return the same number.
+run - only one of them claims a number, the others wait for it and reuse it - and from concurrent workflow runs (e.g. several GitHub
+Stacked PRs opened at once), where no two runs will ever get the same number. A job waiting for another job's claim fails after a bounded
+timeout (a few minutes) if that claim never completes, rather than claiming an independent number - see [Git References](#git-references)
+below for how this is coordinated.
 
 During execution the action temporarily writes `.build_number.txt` at the repository root; the file is removed before the action
 completes. Do not track a file named `.build_number.txt` in your repository.
@@ -83,6 +86,13 @@ completes. Do not track a file named `.build_number.txt` in your repository.
 
 - `id-token: write`
 - `contents: write`
+- `actions: read` when `prune-markers: 'true'` is set, to prune obsolete markers (see [Pruning obsolete markers](#pruning-obsolete-markers)
+  below).
+
+> **Breaking change:** this action used to require only `contents: read`. Claiming now needs `contents: write` to create the
+> [Git references](#git-references) below - `contents: read` alone will fail with a 403 on every claim except the narrow case where this
+> exact workflow run already has a marker to reuse (e.g. certain reruns), since that path is read-only. There is no working
+> read-only/rerun-only mode: any run that needs a genuinely new number will fail until the caller's `permissions:` block is updated.
 
 #### Required Vault Permissions
 
@@ -111,7 +121,9 @@ jobs:
 
 ### Inputs
 
-No inputs are required for this action.
+| Input           | Description                                                                                                                          | Default   |
+|-----------------|--------------------------------------------------------------------------------------------------------------------------------------|-----------|
+| `prune-markers` | If `'true'`, run in maintenance mode instead of claiming a number - see [Pruning obsolete markers](#pruning-obsolete-markers) below. | `'false'` |
 
 ### Outputs
 
@@ -124,6 +136,69 @@ No inputs are required for this action.
 | Environment Variable | Description              |
 |----------------------|--------------------------|
 | `BUILD_NUMBER`       | The current build number |
+
+### Git References
+
+This action coordinates purely through Git references on the repository - no external state, cache, or database. Each reference is created
+pointing at `$GITHUB_SHA` (the commit that triggered the claim); that target is never read back - only the reference's existence matters
+(for `build-number` and `build-run-locks`), or its name, which encodes the claimed number (for `build-runs`).
+
+| Reference                           | Lifetime                                                                                   | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+|-------------------------------------|--------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `refs/build-number/<number>`        | Permanent, never deleted                                                                   | The atomic claim itself and the sole source of truth for uniqueness. Creating it fails if it already exists, which is what makes a claim a genuine compare-and-swap. There is no safe way to delete these: unlike `build-runs` below, nothing external can ever confirm "no in-flight claim is still targeting this number" - a stalled claim for an older number could resurrect it after deletion, reopening a number already published elsewhere. A time-based margin (e.g. "not superseded for the last N minutes") would only lower the odds, not eliminate them, which isn't an acceptable trade for a bug class this action exists to remove. The unbounded growth this causes is a real but separate concern - see [Known limitations](#known-limitations) below. |
+| `refs/build-runs/<run_id>/<number>` | Until pruned - see [Pruning obsolete markers](#pruning-obsolete-markers) below             | Marker recording which number a workflow run claimed. Checked first, so a rerun or another job in the same run reuses it instead of claiming a new one. A completed run can still be re-run much later, so "the run finished" does not make its marker safe to delete - only the run's own record being gone from GitHub (confirmed via a 404, never inferred from age) does, since that's what makes re-running it impossible.                                                                                                                                                                                                                                                                                                                                           |
+| `refs/build-run-locks/<run_id>`     | Seconds: created, used, and deleted again within a single claim, not a persistent artifact | Exclusive lock ensuring only one job per workflow run claims and publishes a number at a time; every other job waits for the marker above instead of racing to claim its own.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+
+### Pruning obsolete markers
+
+Set `prune-markers: 'true'` to run this action in maintenance mode instead of claiming a number: it deletes `refs/build-runs/<run_id>/<number>`
+markers whose workflow run no longer exists on GitHub (confirmed via a 404 on the Actions API - see the table above for why that is the only
+safe condition). These markers live in the calling repository, not in this one, so pruning must be triggered by that repository itself, in
+one of two ways:
+
+- As a step at the end of your own build workflow, on the build's own critical path.
+- As a separately scheduled workflow, off the build's critical path, optionally with a higher `PRUNE_MAX_CHECKS` to work through a backlog
+  faster than the per-build default allows.
+
+This does add to the step's duration, and it does not stay flat as markers accumulate - the check is one Actions API call per distinct
+run_id, so a large, never-before-pruned backlog would otherwise make one call per historical run. It's capped at `PRUNE_MAX_CHECKS`
+(default 20) API calls per invocation, oldest run first (run_ids only increase over time, so the oldest markers are the likeliest to
+already be gone), so a large backlog is worked off gradually across invocations rather than in one slow pass.
+
+As a build workflow step:
+
+```yaml
+    - uses: SonarSource/ci-github-actions/get-build-number@v1
+      with:
+        prune-markers: 'true'
+```
+
+As a separately scheduled workflow:
+
+```yaml
+name: Cleanup obsolete workflow artifacts
+on:
+  schedule:
+    - cron: '0 3 * * 0' # weekly
+  workflow_dispatch:
+jobs:
+  prune-build-number-markers:
+    runs-on: sonar-xs
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: SonarSource/ci-github-actions/get-build-number@v1
+        with:
+          prune-markers: 'true'
+        env:
+          PRUNE_MAX_CHECKS: '200' # catch up a large backlog faster than the per-build default of 20
+```
+
+### Known limitations
+
+- `refs/build-number/<number>` is never deleted (see the table above), so the scan that finds the next candidate grows with the
+  repository's total historical claim count. Not expected to matter in practice for a long time; no bound is implemented today.
 
 ---
 
