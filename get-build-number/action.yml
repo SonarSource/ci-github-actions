@@ -42,33 +42,50 @@ runs:
         echo "${BUILD_NUMBER}" > "$BUILD_NUMBER_FILE"
         echo "skip=true" >> $GITHUB_OUTPUT
 
-    # Reuse the build number already claimed by this workflow run (e.g. a rerun, or an earlier job in the same run) via
-    # refs/build-runs/<run_id>/* read-only call.
-    - name: Check for existing build number from this workflow run
-      id: existing-claim
+    # At most one caller per workflow run proceeds past this step: it's a real lock (refs/build-run-locks/<run_id>), not just a
+    # read-only check. Losers (lock already held, by a concurrent job or a rerun) wait here for the winner's marker and reuse its
+    # number instead of claiming an independent one - see acquire_run_lock.sh.
+    - name: Acquire build-number lock for this workflow run
+      id: run-lock
       if: steps.from-env.outputs.skip != 'true'
       shell: bash
       env:
         GITHUB_TOKEN: ${{ github.token }}
         GH_TOKEN: ${{ github.token }}
-      run: ${ACTION_PATH_GET_BUILD_NUMBER}/check_existing_claim.sh
+      run: ${ACTION_PATH_GET_BUILD_NUMBER}/acquire_run_lock.sh
 
     # Otherwise, claim a new build number using the ambient token (contents: write, required of every caller). Vault is only needed to
     # read the legacy build_number property during the migration - see README. It's fetched unconditionally here because we can't tell,
     # before scanning refs/build-locks/*, whether this repo still needs that migration read.
     - uses: SonarSource/vault-action-wrapper@881045d830534a70ec3c7c275fa3714412c8ff6e # 3.6.1
       id: secrets
-      if: steps.from-env.outputs.skip != 'true' && steps.existing-claim.outputs.skip != 'true'
+      if: steps.from-env.outputs.skip != 'true' && steps.run-lock.outputs.skip != 'true'
       with:
         secrets: development/github/token/{REPO_OWNER_NAME_DASH}-build-number token | github_token;
     - name: Get new build number
-      if: steps.from-env.outputs.skip != 'true' && steps.existing-claim.outputs.skip != 'true'
+      id: claim
+      if: steps.from-env.outputs.skip != 'true' && steps.run-lock.outputs.skip != 'true'
       shell: bash
       env:
         GITHUB_TOKEN: ${{ github.token }}
         GH_TOKEN: ${{ github.token }}
         LEGACY_PROPERTY_TOKEN: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).github_token || '' }}
       run: ${ACTION_PATH_GET_BUILD_NUMBER}/get_build_number.sh
+
+    # A failed claim (fatal API error, exhausted retries, or a marker-write failure) would otherwise leave
+    # refs/build-run-locks/<run_id> held forever with no marker - deadlocking every waiter and any rerun of this same run.
+    # always() so this still runs on cancellation, not just on a normal step failure.
+    - name: Release build-number lock after a failed claim
+      if: always() && steps.claim.outcome == 'failure'
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        gh api --method DELETE -H "X-GitHub-Api-Version: 2022-11-28" \
+          "repos/${GITHUB_REPOSITORY}/git/refs/build-run-locks/${GITHUB_RUN_ID}" \
+          || echo "::warning title=Build number lock not released::Failed to delete refs/build-run-locks/${GITHUB_RUN_ID};" \
+            "a rerun of this workflow run will have to wait out its lock timeout before claiming a new number."
 
     - name: Export build number
       id: export

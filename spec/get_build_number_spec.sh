@@ -4,6 +4,7 @@ eval "$(shellspec - -c) exit 1"
 export GITHUB_REPOSITORY="my org/my-repo"
 export GITHUB_SHA="deadbeefcafef00dfeed"
 export GITHUB_RUN_ID="123456789"
+export LEGACY_PROPERTY_TOKEN="vault-issued-token-placeholder"
 TEMP_DIR="${SHELLSPEC_TMPBASE:-/tmp}"
 export BUILD_NUMBER_FILE="${TEMP_DIR}/build_number.txt"
 
@@ -25,6 +26,24 @@ Describe 'get_build_number.sh'
     When run script get-build-number/get_build_number.sh
     The output should include "Claimed build number 1"
     The path "$BUILD_NUMBER_FILE" should be file
+    The contents of file "$BUILD_NUMBER_FILE" should equal "1"
+  End
+
+  It 'should skip the legacy property read entirely when no migration token is available, rather than fail'
+    LEGACY_PROPERTY_TOKEN=""
+    Mock gh
+      if [[ "$*" == *"matching-refs/build-locks/"* ]]; then
+        echo ''
+      elif [[ "$*" == *"properties/values"* ]]; then
+        echo '42'
+      else
+        echo "gh $*"
+      fi
+    End
+    When run script get-build-number/get_build_number.sh
+    The status should be success
+    The output should not include "checking the legacy build_number property"
+    The output should include "Claimed build number 1"
     The contents of file "$BUILD_NUMBER_FILE" should equal "1"
   End
 
@@ -71,6 +90,7 @@ Describe 'get_build_number.sh'
     End
     When run script get-build-number/get_build_number.sh
     The status should be failure
+    The output should include "::group::Claim build number"
     The stderr should include "::error title=Invalid build number::Legacy build_number property 'notANumber'"
   End
 
@@ -138,11 +158,13 @@ Describe 'get_build_number.sh'
     End
     When run script get-build-number/get_build_number.sh
     The status should be failure
+    The output should include "Seeding from legacy build_number property: 42"
     The stderr should include "::error title=Build number claim failed::"
     The stderr should include "Internal Server Error"
   End
 
-  It 'should still succeed even if recording the run marker fails'
+  It 'should fail if recording the run marker fails, since other jobs/reruns may be waiting on it'
+    rm -f "$BUILD_NUMBER_FILE"
     Mock gh
       if [[ "$*" == *"matching-refs/build-locks/"* ]]; then
         echo ''
@@ -157,9 +179,9 @@ Describe 'get_build_number.sh'
       fi
     End
     When run script get-build-number/get_build_number.sh
-    The status should be success
+    The status should be failure
     The output should include "Claimed build number 1043"
-    The output should include "Build number run-marker not recorded"
-    The contents of file "$BUILD_NUMBER_FILE" should equal "1043"
+    The stderr should include "::error title=Build number run-marker not recorded::"
+    The path "$BUILD_NUMBER_FILE" should not be file
   End
 End
