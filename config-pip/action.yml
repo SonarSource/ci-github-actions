@@ -97,14 +97,11 @@ runs:
     - name: Export pip index for tools that ignore pip.conf
       shell: bash
       run: |
-        index_url="$(python3 -c "import configparser, pathlib
-c = configparser.ConfigParser()
-c.read(pathlib.Path.home() / '.pip' / 'pip.conf')
-print(c['global']['index-url'])")"
-        host="$(python3 -c "import configparser, pathlib, urllib.parse as u
-c = configparser.ConfigParser()
-c.read(pathlib.Path.home() / '.pip' / 'pip.conf')
-print(u.urlparse(c['global']['index-url']).hostname or '')")"
+        index_url="$(awk -F ' = ' '/^index-url/ {print $2}' "${HOME}/.pip/pip.conf")"
+        rest="${index_url#https://}"
+        rest="${rest#http://}"
+        rest="${rest##*@}"
+        host="${rest%%/*}"
         echo "::add-mask::${index_url}"
         {
           echo "PIP_INDEX_URL<<PIP_EOF"
