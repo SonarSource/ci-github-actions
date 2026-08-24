@@ -31,7 +31,7 @@ jobs:
           [[ "${{ steps.urc.outputs.version-key }}" == "Distribution/test-fixture/stable.version" ]]
           [[ "${{ steps.urc.outputs.version-url }}" == "https://binaries.sonarsource.com/Distribution/test-fixture/stable.version" ]]
           [[ "${{ steps.urc.outputs.version }}" == "0.0.0-test" ]]
-      - uses: ./config-pip
+      - uses: ./config-uv
       - uses: ./config-npm
       - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
         with:

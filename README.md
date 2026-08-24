@@ -1310,8 +1310,8 @@ permissions:
   contents: read
 steps:
   - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-  - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
   - uses: SonarSource/ci-github-actions/config-uv@v1
+  - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
   - run: jf uv sync
 ```
 
@@ -1339,6 +1339,7 @@ For build-info collection, pass `--build-name` and `--build-number` to `jf uv` a
 | Environment Variable      | Description                                           |
 |---------------------------|-------------------------------------------------------|
 | `BUILD_NUMBER`            | The current build number                              |
+| `UV_DEFAULT_INDEX`        | Repox as uv's default package index                   |
 | `UV_INDEX_REPOX_USERNAME` | Repox username for uv (`repox` index name)            |
 | `UV_INDEX_REPOX_PASSWORD` | Repox access token for uv                             |
 | `UV_KEYRING_PROVIDER`     | Set to `disabled` when index credentials are injected |

@@ -43,6 +43,7 @@ configure_uv_repox() {
   # Native uv variables for named indexes. Also set explicitly so plain `uv` works;
   # `jf uv` injects the same variables when they are unset.
   {
+    echo "UV_DEFAULT_INDEX=${UV_INDEX_NAME}=${ARTIFACTORY_URL}/api/pypi/sonarsource-pypi/simple"
     echo "UV_INDEX_${index_name_upper}_USERNAME=$ARTIFACTORY_USERNAME"
     echo "UV_INDEX_${index_name_upper}_PASSWORD=$ARTIFACTORY_ACCESS_TOKEN"
     echo "UV_KEYRING_PROVIDER=disabled"

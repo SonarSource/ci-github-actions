@@ -34,6 +34,8 @@ Describe 'configure_uv_repox()'
     The line 1 should equal "$MESSAGE_CONFIGURING_UV"
     The line 2 should include "jf config add repox"
     The line 3 should include "jf config use repox"
+    The contents of file "$GITHUB_ENV" should include \
+      "UV_DEFAULT_INDEX=repox=https://repox.jfrog.io/artifactory/api/pypi/sonarsource-pypi/simple"
     The contents of file "$GITHUB_ENV" should include "UV_INDEX_REPOX_USERNAME=test-user"
     The contents of file "$GITHUB_ENV" should include "UV_INDEX_REPOX_PASSWORD=test-token"
     The contents of file "$GITHUB_ENV" should include "UV_KEYRING_PROVIDER=disabled"
@@ -73,6 +75,8 @@ Describe 'main()'
     The line 3 should include "jf config add repox"
     The line 4 should include "jf config use repox"
     The line 5 should equal "::endgroup::"
+    The contents of file "$GITHUB_ENV" should include \
+      "UV_DEFAULT_INDEX=repox=https://repox.jfrog.io/artifactory/api/pypi/sonarsource-pypi/simple"
     The contents of file "$GITHUB_ENV" should include "UV_INDEX_REPOX_USERNAME=test-user"
     The contents of file "$GITHUB_ENV" should include "UV_INDEX_REPOX_PASSWORD=test-token"
     The contents of file "$GITHUB_ENV" should include "UV_KEYRING_PROVIDER=disabled"
