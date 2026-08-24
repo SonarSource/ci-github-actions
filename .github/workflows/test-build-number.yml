@@ -61,14 +61,8 @@ jobs:
         run: |
           echo "BUILD_NUMBER: ${BUILD_NUMBER}"
           if [[ "${BUILD_NUMBER}" != "${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}" ]]; then
-            echo -e "::error title=test-build-number-reuse::Build number '${BUILD_NUMBER}' does not match the previous job build number" \
-              "'${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}' despite it is the same workflow run.\n" \
-              "Prefer using the output from SonarSource/ci-github-actions/get-build-number instead of calling it from distinct jobs."
-            # Enforced (PREQ-7781): reuse is now backed by strongly-consistent refs/build-runs/<run_id>/*
-            # instead of eventually-consistent actions/cache, which is why this was flaky before. This
-            # doesn't guarantee two jobs racing truly concurrently will converge (pre-existing, unchanged
-            # limitation - see get-build-number/check_existing_claim.sh) but a sequential same-run reuse
-            # like this one should now be reliable.
+            echo "::error title=test-build-number-reuse::Build number '${BUILD_NUMBER}' does not match the previous job build number" \
+              "'${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}' despite it is the same workflow run."
             exit 1
           fi
 
@@ -88,10 +82,8 @@ jobs:
         run: |
           echo "BUILD_NUMBER: ${BUILD_NUMBER}"
           if [[ "${BUILD_NUMBER}" != "${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}" ]]; then
-            echo -e "::error title=test-build-number-reuse-from-cache-windows::Build number '${BUILD_NUMBER}' does not match the previous" \
-              "job build number '${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}' despite it is the same workflow run.\n" \
-              "Prefer using the output from SonarSource/ci-github-actions/get-build-number instead of calling it from distinct jobs."
-            # Enforced (PREQ-7781): see test-build-number-reuse-same-run above.
+            echo "::error title=test-build-number-reuse-same-run-windows::Build number '${BUILD_NUMBER}' does not match the previous" \
+              "job build number '${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}' despite it is the same workflow run."
             exit 1
           fi
 

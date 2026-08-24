@@ -72,7 +72,10 @@ These badges show the status of workflows in dummy repositories that use (or sho
 
 Get a unique, strictly increasing build number for a repository, reusing one already claimed by the current workflow run when applicable.
 It sets `BUILD_NUMBER` as both an environment variable and a GitHub Actions output. Safe to call from multiple jobs in the same workflow
-run, and from concurrent workflow runs (e.g. several GitHub Stacked PRs opened at once) - no two calls will ever return the same number.
+run - only one of them claims a number, the others wait for it and reuse it - and from concurrent workflow runs (e.g. several GitHub
+Stacked PRs opened at once), where no two runs will ever get the same number. A job waiting for another job's claim fails after a bounded
+timeout (a few minutes) if that claim never completes, rather than claiming an independent number - see [Git References](#git-references)
+below for how this is coordinated.
 
 During execution the action temporarily writes `.build_number.txt` at the repository root; the file is removed before the action
 completes. Do not track a file named `.build_number.txt` in your repository.
@@ -124,6 +127,18 @@ No inputs are required for this action.
 | Environment Variable | Description              |
 |----------------------|--------------------------|
 | `BUILD_NUMBER`       | The current build number |
+
+### Git References
+
+This action coordinates purely through Git references on the repository - no external state, cache, or database. Each reference is created
+pointing at `$GITHUB_SHA` (the commit that triggered the claim); that target is never read back - only the reference's existence matters
+(for `build-number` and `build-run-locks`), or its name, which encodes the claimed number (for `build-runs`).
+
+| Reference                           | Lifetime                                                                                                                  | Purpose                                                                                                                                                                                     |
+|-------------------------------------|---------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `refs/build-number/<number>`        | Only the single highest-numbered one is kept; the previous one is deleted after a new claim's marker (below) is confirmed | The atomic claim itself. Creating it fails if it already exists, which is what makes a claim a genuine compare-and-swap and the sole guarantee of uniqueness - not keeping old ones around. |
+| `refs/build-runs/<run_id>/<number>` | Until pruned (safe at any time - not implemented yet)                                                                     | Marker recording which number a workflow run claimed. Checked first, so a rerun or another job in the same run reuses it instead of claiming a new one.                                     |
+| `refs/build-run-locks/<run_id>`     | Seconds: created, used, and deleted again within a single claim, not a persistent artifact                                | Exclusive lock ensuring only one job per workflow run claims and publishes a number at a time; every other job waits for the marker above instead of racing to claim its own.               |
 
 ---
 
