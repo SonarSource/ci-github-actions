@@ -137,18 +137,39 @@ No inputs are required for this action.
 
 This action coordinates purely through Git references on the repository - no external state, cache, or database. Each reference is created
 pointing at `$GITHUB_SHA` (the commit that triggered the claim); that target is never read back - only the reference's existence matters
-(for `build-number` and `build-run-locks`), or its name, which encodes the claimed number (for `build-runs`).
+(for `build-number` and `build-number-lock`), or its name, which encodes the claimed number (for `build-runs`).
 
-| Reference                           | Lifetime                                                                                   | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-|-------------------------------------|--------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `refs/build-number/<number>`        | Permanent, never deleted                                                                   | The atomic claim itself and the sole source of truth for uniqueness. Creating it fails if it already exists, which is what makes a claim a genuine compare-and-swap. There is no safe way to delete these: unlike `build-runs` below, nothing external can ever confirm "no in-flight claim is still targeting this number" - a stalled claim for an older number could resurrect it after deletion, reopening a number already published elsewhere. A time-based margin (e.g. "not superseded for the last N minutes") would only lower the odds, not eliminate them, which isn't an acceptable trade for a bug class this action exists to remove. The unbounded growth this causes is a real but separate concern - see [Known limitations](#known-limitations) below. |
-| `refs/build-runs/<run_id>/<number>` | Not automatically deleted                                                                  | Marker recording which number a workflow run claimed. Checked first, so a rerun or another job in the same run reuses it instead of claiming a new one. A completed run can still be re-run much later, so "the run finished" does not make its marker safe to delete - only the run's own record being gone from GitHub (confirmed via a 404, never inferred from age) does, since that's what makes re-running it impossible.                                                                                                                                                                                                                                                                                                                                           |
-| `refs/build-run-locks/<run_id>`     | Seconds: created, used, and deleted again within a single claim, not a persistent artifact | Exclusive lock ensuring only one job per workflow run claims and publishes a number at a time; every other job waits for the marker above instead of racing to claim its own.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Reference                             | Lifetime                                                                                     | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ------------------------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `refs/build-number/<number>`          | Deleted once superseded by the next claim                                                    | The atomic claim itself and the sole source of truth for uniqueness. Deleting the superseded ref is only safe because it happens while holding the exclusive `build-number-lock` below - without that, a claim stalled in flight for an older number could resurrect it after deletion, republishing a number already used elsewhere (a real bug found in review before this lock existed). At most one ref (rarely a couple, if a past deletion failed and self-heals on the next claim) exists at a time.     |
+| `refs/build-runs/<run_id>/<number>`   | Not automatically deleted - see [Inspecting current refs](#inspecting-current-refs) below    | Marker recording which number a workflow run claimed. Checked first, and lock-free, so a rerun or another job in the same run reuses it without ever touching `build-number-lock`. A completed run can still be re-run much later, so "the run finished" does not make its marker safe to delete - only the run's own record being gone from GitHub (confirmed via a 404, never inferred from age) does, since that's what makes re-running it impossible.                                                      |
+| `refs/build-number-lock/global`       | Seconds: created, used, and deleted again within a single claim, not a persistent artifact   | Exclusive, repository-wide lock serializing every new claim (not just those within one run) - what makes deleting a superseded `build-number` ref above safe. Assumes claims are infrequent and each is fast enough that the resulting wait queue stays short; every other claimant waits for either this lock or the marker above instead of racing independently.                                                                                                                                             |
 
 ### Known limitations
 
-- `refs/build-number/<number>` is never deleted (see the table above), so the scan that finds the next candidate grows with the
-  repository's total historical claim count. Not expected to matter in practice for a long time; no bound is implemented today.
+- `refs/build-runs/<run_id>/<number>` markers are never automatically deleted, so they accumulate for the lifetime of the
+  repository - see [Inspecting current refs](#inspecting-current-refs) below to check what currently exists. Not expected to
+  matter in practice for a long time; no automated cleanup is implemented today.
+
+### Inspecting current refs
+
+These refs aren't pulled by a normal `git fetch`/`git clone` (they live outside the default `refs/heads/*`/`refs/tags/*`
+namespaces), but can be listed directly with `git ls-remote` or the GitHub API.
+
+Current build number - only one `refs/build-number/*` ref exists at a time, since each new claim deletes the one it supersedes:
+
+```shell
+$ git ls-remote origin 'refs/build-number/*'
+7345fe785a3fc8705e3d8204a28ca4f909628e7e    refs/build-number/12106
+```
+
+History - mapping a workflow run to the build number it claimed or reused, one `refs/build-runs/<run_id>/<number>` ref per run:
+
+```shell
+$ git ls-remote origin 'refs/build-runs/*'
+3cfd2386fdd965247c0e465ff4774239036894ec    refs/build-runs/32867023550/12093
+002e0fb9a88da75c89316635b1f0a62a6ad9aff4    refs/build-runs/32868621162/12095
+```
 
 ---
 
@@ -196,7 +217,7 @@ By default, Maven caches `~/.m2/repository`. You can customize this behavior:
 #### Required GitHub Permissions
 
 - `id-token: write`
-- `contents: read`
+- `contents: write`
 
 #### Required Vault Permissions
 
@@ -1201,7 +1222,7 @@ This action configures pip to pull packages from the internal JFrog Artifactory 
 #### Required GitHub Permissions
 
 - `id-token: write`
-- `contents: read`
+- `contents: write`
 
 #### Required Vault Permissions
 
@@ -1212,7 +1233,7 @@ This action configures pip to pull packages from the internal JFrog Artifactory 
 ```yaml
 permissions:
   id-token: write
-  contents: read
+  contents: write
 steps:
   - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
   - uses: SonarSource/ci-github-actions/config-pip@v1
@@ -1311,7 +1332,7 @@ default = true
 #### Required GitHub Permissions
 
 - `id-token: write`
-- `contents: read`
+- `contents: write`
 
 #### Required Vault Permissions
 
@@ -1326,7 +1347,7 @@ The `uv` tool must be pre-installed. Use of `mise` is recommended.
 ```yaml
 permissions:
   id-token: write
-  contents: read
+  contents: write
 steps:
   - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
   - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
