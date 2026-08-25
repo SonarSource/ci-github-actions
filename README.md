@@ -70,31 +70,28 @@ These badges show the status of workflows in dummy repositories that use (or sho
 
 ## `get-build-number`
 
-Manage the build number in GitHub Actions.
+Get a unique, strictly increasing build number for a repository, reusing one already claimed by the current workflow run when applicable.
+It sets `BUILD_NUMBER` as both an environment variable and a GitHub Actions output. Safe to call from multiple jobs in the same workflow
+run - only one of them claims a number, the others wait for it and reuse it - and from concurrent workflow runs (e.g. several GitHub
+Stacked PRs opened at once), where no two runs will ever get the same number. A job waiting for another job's claim fails after a bounded
+timeout (a few minutes) if that claim never completes, rather than claiming an independent number - see [Git References](#git-references)
+below for how this is coordinated.
 
-The build number is stored in the GitHub repository property named `build_number`. This action will reuse or increment the build number,
-and set it as an environment variable named `BUILD_NUMBER`, and as a GitHub Actions output variable also named `BUILD_NUMBER`.
-
-The build number is unique per workflow run ID. It is not incremented on workflow reruns.
-
-During execution the action temporarily writes `.build_number.txt` at the repository root (for
-`actions/cache`); the file is removed before the action completes. Do not track a file named
-`.build_number.txt` in your repository.
-
-The action authenticates `gh` with a Vault-issued GitHub token. It sets both `GITHUB_TOKEN` and
-`GH_TOKEN` for that step so a workflow-exported `GH_TOKEN` cannot shadow the Vault credential
-(`gh` prefers `GH_TOKEN` over `GITHUB_TOKEN`).
+During execution the action temporarily writes `.build_number.txt` at the repository root; the file is removed before the action
+completes. Do not track a file named `.build_number.txt` in your repository.
 
 ### Requirements
 
 #### Required GitHub Permissions
 
 - `id-token: write`
-- `contents: read`
+- `contents: write`
 
 #### Required Vault Permissions
 
-- `build-number`: GitHub preset to read and write the build number property. This is built-in to the Vault `auth.github` permission.
+- `build-number`: GitHub preset used to read the legacy `build_number` repository property, needed only for repositories that predate this
+  action's current design. Built-in to the Vault `auth.github` permission. This dependency will be dropped once no repository needs it
+  anymore.
 
 ### Usage
 
@@ -104,7 +101,7 @@ jobs:
     runs-on: sonar-xs
     permissions:
       id-token: write
-      contents: read
+      contents: write
     steps:
       - uses: SonarSource/ci-github-actions/get-build-number@v1
 ```
@@ -130,6 +127,21 @@ No inputs are required for this action.
 | Environment Variable | Description              |
 |----------------------|--------------------------|
 | `BUILD_NUMBER`       | The current build number |
+
+### Git References
+
+This action coordinates purely through Git references on the repository - no external state, cache, or database. Each reference is
+created pointing at `$GITHUB_SHA` (the commit that triggered the claim); that target is never read back - only the reference's
+existence matters (for `build-number` and `build-run-locks`), or its name, which encodes the claimed number (for `build-runs`).
+
+| Reference                            | Lifetime | Purpose |
+|---------------------------------------|----------|---------|
+| `refs/build-number/<number>`          | Only the single highest-numbered one is kept; the previous one is deleted right after a new claim's marker (below) is confirmed | The atomic claim itself. Creating it fails if it already exists, which is what makes a claim a genuine compare-and-swap and the sole guarantee of uniqueness - not keeping old ones around. |
+| `refs/build-runs/<run_id>/<number>`   | Until pruned (safe at any time - not implemented yet) | Marker recording which number a workflow run claimed. Checked first, so a rerun or another job in the same run reuses it instead of claiming a new one. |
+| `refs/build-run-locks/<run_id>`       | Seconds: created, used, and deleted again within a single claim, not a persistent artifact | Exclusive lock ensuring only one job per workflow run claims and publishes a number at a time; every other job waits for the marker above instead of racing to claim its own. |
+
+Deleting the previous `build-number` reference only *after* the new one's marker is confirmed (rather than immediately after the new
+claim itself) avoids a window where neither the old nor the new claim is fully recorded if something fails in between.
 
 ---
 
