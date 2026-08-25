@@ -67,7 +67,7 @@ runs:
         secrets: development/github/token/{REPO_OWNER_NAME_DASH}-build-number token | github_token;
 
     # Reuses this run's own claim if one already exists (a rerun, or another job in the same run); otherwise claims a new one under
-    # an exclusive per-run lock, released as soon as it's no longer needed - see get_build_number.sh.
+    # an exclusive, repository-wide lock, released as soon as it's no longer needed - see get_build_number.sh.
     - name: Get build number
       if: inputs.prune-markers != 'true' && steps.from-env.outputs.skip != 'true'
       shell: bash
