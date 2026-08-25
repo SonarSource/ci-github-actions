@@ -26,7 +26,7 @@ Describe 'get_build_number.sh'
     Mock gh
       if [[ "$*" == *"matching-refs/build-runs/"* ]]; then
         echo "refs/build-runs/${GITHUB_RUN_ID}/5"
-      elif [[ "$*" == *"build-run-locks/"* ]]; then
+      elif [[ "$*" == *"build-number-lock"* ]]; then
         echo "1" >>"$GH_LOCK_CALLS_FILE"
         echo "gh $*"
       else
@@ -97,7 +97,7 @@ Describe 'get_build_number.sh'
     The stderr should include "::error title=Invalid build number::Legacy build_number property 'notANumber'"
   End
 
-  It 'should claim the next number after the highest existing build-number ref, ignoring gaps, and never delete any of them'
+  It 'should claim the next number after the highest existing build-number ref, ignoring gaps, and delete the superseded ones'
     export GH_DELETE_CALLS_FILE="${TEMP_DIR}/gh_delete_calls_number.txt"
     rm -f "$GH_DELETE_CALLS_FILE"
     Mock gh
@@ -116,46 +116,38 @@ Describe 'get_build_number.sh'
     The status should be success
     The output should include "Claimed build number 6"
     The contents of file "$BUILD_NUMBER_FILE" should equal "6"
-    The path "$GH_DELETE_CALLS_FILE" should not be file
+    The contents of file "$GH_DELETE_CALLS_FILE" should include "build-number/1"
+    The contents of file "$GH_DELETE_CALLS_FILE" should include "build-number/2"
+    The contents of file "$GH_DELETE_CALLS_FILE" should include "build-number/3"
+    The contents of file "$GH_DELETE_CALLS_FILE" should include "build-number/5"
   End
 
-  It 'should retry when a concurrent run claims the same candidate first, then succeed'
-    export GH_REFS_CALLS_FILE="${TEMP_DIR}/gh_refs_calls_retry.txt"
-    rm -f "$GH_REFS_CALLS_FILE"
+  It 'should warn but still succeed when a superseded build-number ref fails to delete'
     Mock gh
       if [[ "$*" == *"matching-refs/build-runs/"* ]]; then
         echo ''
       elif [[ "$*" == *"matching-refs/build-number/"* ]]; then
-        echo ''
-      elif [[ "$*" == *"ref=refs/build-number/"* ]]; then
-        count=$(($(cat "$GH_REFS_CALLS_FILE" 2>/dev/null || echo 0) + 1))
-        echo "$count" >"$GH_REFS_CALLS_FILE"
-        if [[ "$count" -eq 1 ]]; then
-          echo '{"message":"Reference already exists"}' >&2
-          exit 1
-        else
-          echo "gh $*"
-        fi
+        echo 'refs/build-number/5'
+      elif [[ "$*" == *"--method DELETE"* && "$*" == *"build-number/5"* ]]; then
+        exit 1
       else
         echo "gh $*"
       fi
     End
     When run script get-build-number/get_build_number.sh
     The status should be success
-    The output should include "Build number 1 already claimed; trying 2"
-    The output should include "Claimed build number 2"
-    The stderr should include "::warning title=Legacy build number not checked::"
-    The contents of file "$BUILD_NUMBER_FILE" should equal "2"
+    The output should include "Claimed build number 6"
+    The stderr should include "::warning title=Stale build number ref not deleted::Failed to delete refs/build-number/5"
+    The contents of file "$BUILD_NUMBER_FILE" should equal "6"
   End
 
-  It 'should fail after exhausting retries under permanent contention on the build-number namespace'
-    export MAX_ATTEMPTS=3
+  It 'should fail immediately if the candidate build-number ref unexpectedly already exists while holding the lock'
     Mock gh
       if [[ "$*" == *"matching-refs/build-runs/"* ]]; then
         echo ''
       elif [[ "$*" == *"matching-refs/build-number/"* ]]; then
         echo ''
-      elif [[ "$*" == *"ref=refs/build-number/"* ]]; then
+      elif [[ "$*" == *"ref=refs/build-number/1"* ]]; then
         echo '{"message":"Reference already exists"}' >&2
         exit 1
       else
@@ -164,8 +156,8 @@ Describe 'get_build_number.sh'
     End
     When run script get-build-number/get_build_number.sh
     The status should be failure
-    The output should include "already claimed"
-    The stderr should include "::error title=Build number race::Could not claim a build number after 3 attempts"
+    The output should include "::group::Get build number"
+    The stderr should include "refs/build-number/1 already exists, which should be impossible while holding refs/build-number-lock"
   End
 
   It 'should fail immediately on an unexpected API error while claiming, not treat it as a collision'
@@ -240,7 +232,7 @@ Describe 'get_build_number.sh'
       elif [[ "$*" == *"ref=refs/build-number/"* ]]; then
         echo '{"message":"Internal Server Error"}' >&2
         exit 1
-      elif [[ "$*" == *"--method DELETE"* && "$*" == *"build-run-locks/"* ]]; then
+      elif [[ "$*" == *"--method DELETE"* && "$*" == *"build-number-lock"* ]]; then
         echo "1" >>"$GH_UNLOCK_CALLS_FILE"
         echo "gh $*"
       else
@@ -266,7 +258,7 @@ Describe 'get_build_number.sh'
         else
           echo "refs/build-runs/${GITHUB_RUN_ID}/9"
         fi
-      elif [[ "$*" == *"ref=refs/build-run-locks/"* ]]; then
+      elif [[ "$*" == *"ref=refs/build-number-lock"* ]]; then
         echo '{"message":"Reference already exists"}' >&2
         exit 1
       else
@@ -294,7 +286,7 @@ Describe 'get_build_number.sh'
         else
           echo "refs/build-runs/${GITHUB_RUN_ID}/11"
         fi
-      elif [[ "$*" == *"ref=refs/build-run-locks/"* ]]; then
+      elif [[ "$*" == *"ref=refs/build-number-lock"* ]]; then
         echo '{"message":"Reference already exists"}' >&2
         exit 1
       else
@@ -313,7 +305,7 @@ Describe 'get_build_number.sh'
     Mock gh
       if [[ "$*" == *"matching-refs/build-runs/"* ]]; then
         echo ''
-      elif [[ "$*" == *"ref=refs/build-run-locks/"* ]]; then
+      elif [[ "$*" == *"ref=refs/build-number-lock"* ]]; then
         echo '{"message":"Reference already exists"}' >&2
         exit 1
       else
@@ -330,7 +322,7 @@ Describe 'get_build_number.sh'
     Mock gh
       if [[ "$*" == *"matching-refs/build-runs/"* ]]; then
         echo ''
-      elif [[ "$*" == *"ref=refs/build-run-locks/"* ]]; then
+      elif [[ "$*" == *"ref=refs/build-number-lock"* ]]; then
         echo '{"message":"Internal Server Error"}' >&2
         exit 1
       else

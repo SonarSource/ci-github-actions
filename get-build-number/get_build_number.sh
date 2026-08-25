@@ -1,14 +1,12 @@
 #!/bin/bash
 # Get the build number for a GitHub repository and save it to .build_number.txt, reusing one already claimed by this workflow run.
 #
-# refs/build-number/<N>: the atomic claim itself, the sole source of truth for uniqueness. Never deleted: a claim in flight for
-# candidate N can stall arbitrarily long before its POST executes, and if some other, older N had since been deleted, that stale
-# POST would succeed against the now-free slot - reopening an already-published number. Pruning (out-of-band, not here) may only
-# ever remove refs so far below the current claim that no in-flight run could plausibly still be targeting them.
-# refs/build-runs/<run_id>/<N>: marker recording which number this workflow run claimed. Checked first, so reruns and other jobs in
-# the same run reuse it instead of racing to claim their own.
-# refs/build-run-locks/<run_id>: exclusive, transient lock serializing "check the marker, then claim and publish one" for this run.
-# Released immediately after use (success or failure) via the trap below, not held for the run's lifetime.
+# refs/build-number/<N>: the atomic claim itself and the sole source of truth for uniqueness. Claiming a number and deleting the
+# one it superseded both happen while holding build-number-lock below.
+# refs/build-runs/<run_id>/<N>: marker recording which number this workflow run claimed. Checked first, and lock-free, so reruns
+# and other jobs in the same run reuse it without ever touching build-number-lock.
+# refs/build-number-lock: exclusive, transient, repository-wide lock serializing every new claim, not just those within one run.
+# Released immediately after use (success or failure) via the trap below, not held for a run's lifetime.
 #
 # Every ref points at $GITHUB_SHA purely because creation requires some valid target; that target is never read back.
 # All ref reads/writes use the ambient GITHUB_TOKEN. LEGACY_PROPERTY_TOKEN (from Vault) is only used to read the legacy
@@ -26,10 +24,9 @@ PROPERTIES_API_URL="repos/${GITHUB_REPOSITORY}/properties/values"
 PROPS_JQ='.[] | select(.property_name == "build_number") | .value'
 NUMBER_NS="build-number"
 RUN_NS="build-runs/${GITHUB_RUN_ID}"
-RUN_LOCK_REF="build-run-locks/${GITHUB_RUN_ID}"
+NUMBER_LOCK_REF="build-number-lock/global" # git/refs requires at least 3 slash-separated components; a bare name is rejected
 LOCK_POLL_INTERVAL_SECONDS="${LOCK_POLL_INTERVAL_SECONDS:-3}"
 LOCK_WAIT_MAX_ATTEMPTS="${LOCK_WAIT_MAX_ATTEMPTS:-40}" # ~2 minutes at the default interval
-MAX_ATTEMPTS="${MAX_ATTEMPTS:-100}" # retries when a concurrent run beats us to the next number
 
 create_ref() {
   local ref="$1"
@@ -82,8 +79,8 @@ try_reuse_existing_claim() {
 HELD_LOCK=""
 release_lock() {
   [[ -n "$HELD_LOCK" ]] || return 0
-  delete_ref "$RUN_LOCK_REF" || echo "::warning title=Build number lock not released::Failed to delete refs/${RUN_LOCK_REF}; a" \
-    "later attempt for this workflow run may have to wait out its timeout before claiming a number." >&2
+  delete_ref "$NUMBER_LOCK_REF" || echo "::warning title=Build number lock not released::Failed to delete refs/${NUMBER_LOCK_REF};" \
+    "a later claim may have to wait out its timeout before proceeding." >&2
 }
 trap release_lock EXIT
 
@@ -93,7 +90,7 @@ attempt=1
 while true; do
   try_reuse_existing_claim && { echo "::endgroup::" && exit 0; }
 
-  RESPONSE=$(create_ref "$RUN_LOCK_REF") && LOCK_STATUS=0 || LOCK_STATUS=$?
+  RESPONSE=$(create_ref "$NUMBER_LOCK_REF") && LOCK_STATUS=0 || LOCK_STATUS=$?
   if [[ "$LOCK_STATUS" -eq 0 ]]; then
     HELD_LOCK=1
     break
@@ -103,29 +100,27 @@ while true; do
   fi
 
   if ((attempt >= LOCK_WAIT_MAX_ATTEMPTS)); then
-    echo "::error title=Build number claim timed out::Waited ${LOCK_WAIT_MAX_ATTEMPTS} attempts for refs/${RUN_NS}/* to appear; the" \
-      "job holding refs/${RUN_LOCK_REF} may have failed before publishing its claim." >&2
+    echo "::error title=Build number claim timed out::Waited ${LOCK_WAIT_MAX_ATTEMPTS} attempts for refs/${NUMBER_LOCK_REF} to" \
+      "be released; the job holding it may have failed before completing its claim." >&2
     exit 1
   fi
-  echo "::debug::refs/${RUN_LOCK_REF} already held; waiting for its marker (attempt $((attempt + 1))/${LOCK_WAIT_MAX_ATTEMPTS})"
+  echo "::debug::refs/${NUMBER_LOCK_REF} already held; waiting (attempt $((attempt + 1))/${LOCK_WAIT_MAX_ATTEMPTS})"
   sleep "$LOCK_POLL_INTERVAL_SECONDS"
   attempt=$((attempt + 1))
 done
 
-# We now hold the lock, but someone else may have finished between our last check above and acquiring it.
+# We now hold the lock, but this run's own marker may have appeared while we were waiting (another job in the same run).
 try_reuse_existing_claim && { echo "::endgroup::" && exit 0; }
 
-# O(total historical claims), not O(1) - see README's Known limitations. A cheaper alternative (e.g. binary search over
-# individual ref lookups) needs claimed numbers to have no permanent gaps, which the migration seed below can violate: two
-# different runs seeding from the legacy property concurrently can each claim a distinct, non-adjacent number (see the
-# "ignoring gaps" test) - so a gap can't be assumed away, and this scan can't be replaced without addressing that first.
 echo "::debug::Scanning refs/${NUMBER_NS}/* for the highest claimed build number"
 NUMBER_REFS=$(gh api --paginate -H "$GH_API_VERSION_HEADER" "${MATCHING_REFS_API_URL}/${NUMBER_NS}/" --jq '.[].ref')
 MAX_CLAIMED=0
+STALE_REFS=()
 if [[ -n "$NUMBER_REFS" ]]; then
   while IFS= read -r ref; do
     [[ "$ref" =~ ^refs/${NUMBER_NS}/([0-9]+)$ ]] || continue
     n="${BASH_REMATCH[1]}"
+    STALE_REFS+=("${NUMBER_NS}/${n}")
     ((n > MAX_CLAIMED)) && MAX_CLAIMED=$n
   done <<<"$NUMBER_REFS"
 fi
@@ -150,33 +145,27 @@ if [[ "$MAX_CLAIMED" -eq 0 ]]; then
 fi
 echo "::debug::Highest known build number: ${MAX_CLAIMED}"
 
-attempt=1
 CANDIDATE=$((MAX_CLAIMED + 1))
-while true; do
-  RESPONSE=$(create_ref "${NUMBER_NS}/${CANDIDATE}") && CLAIM_STATUS=0 || CLAIM_STATUS=$?
-
-  if [[ "$CLAIM_STATUS" -eq 0 ]]; then
-    echo "Claimed build number ${CANDIDATE} (refs/${NUMBER_NS}/${CANDIDATE})"
-    break
-  fi
-
-  if [[ "$RESPONSE" != *"Reference already exists"* ]]; then
-    fail_claim "$RESPONSE"
-  fi
-
-  if ((attempt >= MAX_ATTEMPTS)); then
-    echo "::error title=Build number race::Could not claim a build number after ${MAX_ATTEMPTS} attempts (concurrent claims)." >&2
+RESPONSE=$(create_ref "${NUMBER_NS}/${CANDIDATE}") && CLAIM_STATUS=0 || CLAIM_STATUS=$?
+if [[ "$CLAIM_STATUS" -ne 0 ]]; then
+  if [[ "$RESPONSE" == *"Reference already exists"* ]]; then
+    echo "::error title=Build number claim failed::refs/${NUMBER_NS}/${CANDIDATE} already exists, which should be impossible" \
+      "while holding refs/${NUMBER_LOCK_REF}. Check for another caller writing build-number refs without this lock (e.g. an" \
+      "older, un-migrated version of this action) or a manual/external ref creation." >&2
     exit 1
   fi
+  fail_claim "$RESPONSE"
+fi
+echo "Claimed build number ${CANDIDATE} (refs/${NUMBER_NS}/${CANDIDATE})"
 
-  echo "::debug::Build number ${CANDIDATE} already claimed; trying $((CANDIDATE + 1)) (attempt $((attempt + 1))/${MAX_ATTEMPTS})"
-  CANDIDATE=$((CANDIDATE + 1))
-  attempt=$((attempt + 1))
+for ref in "${STALE_REFS[@]}"; do
+  delete_ref "$ref" || echo "::warning title=Stale build number ref not deleted::Failed to delete refs/${ref}; harmless, just" \
+    "clutter - a future claim will retry." >&2
 done
 
 if ! create_ref "${RUN_NS}/${CANDIDATE}" >/dev/null; then
   echo "::error title=Build number claim failed::Failed to record refs/${RUN_NS}/${CANDIDATE}; other jobs/reruns of this workflow" \
-    "run waiting on refs/${RUN_LOCK_REF} would otherwise time out instead of reusing it." >&2
+    "run waiting on refs/${NUMBER_LOCK_REF} would otherwise time out instead of reusing it." >&2
   exit 1
 fi
 
