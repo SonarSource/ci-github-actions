@@ -4,6 +4,22 @@ eval "$(shellspec - -c) exit 1"
 export GITHUB_REPOSITORY="my org/my-repo"
 
 Describe 'prune_build_run_markers.sh'
+  It 'should tolerate a transient failure listing markers, warn, and exit successfully'
+    Mock gh
+      if [[ "$*" == *"matching-refs/build-runs/"* ]]; then
+        echo '{"message":"Internal Server Error"}' >&2
+        exit 1
+      else
+        echo "gh $*"
+      fi
+    End
+    When run script get-build-number/prune_build_run_markers.sh
+    The status should be success
+    The output should include "::group::Prune obsolete build-runs markers"
+    The output should include "::endgroup::"
+    The stderr should include "::warning title=Marker pruning skipped::Could not list refs/build-runs/*"
+  End
+
   It 'should report nothing pruned when there are no build-runs markers'
     Mock gh
       echo ''
@@ -117,8 +133,9 @@ Describe 'prune_build_run_markers.sh'
     End
     When run script get-build-number/prune_build_run_markers.sh
     The status should be success
-    The output should include "checked 1 distinct run(s), capped at 1 per invocation"
-    The stderr should include "::debug::More markers than the 1-per-invocation cap remain"
+    The output should include "kept 1 whose run still exists on GitHub; skipped 1 not checked this invocation"
+    The output should include "checked 1 distinct run(s), capped at 1"
+    The stderr should include "::notice title=Marker pruning incomplete::1 marker(s) exceeded the 1-per-invocation cap"
     unset PRUNE_MAX_CHECKS
   End
 
