@@ -2,6 +2,9 @@
 eval "$(shellspec - -c) exit 1"
 
 export GITHUB_REPOSITORY="my org/my-repo"
+export GITHUB_SHA="deadbeefcafef00dfeed"
+export GITHUB_RUN_ID="123456789"
+export LEGACY_PROPERTY_TOKEN="vault-issued-token-placeholder"
 TEMP_DIR="${SHELLSPEC_TMPBASE:-/tmp}"
 export BUILD_NUMBER_FILE="${TEMP_DIR}/build_number.txt"
 
@@ -10,46 +13,175 @@ Mock gh
 End
 
 Describe 'get_build_number.sh'
-  It 'should increment and return the build number'
+  It 'should claim build number 1 when there are no locks and no legacy build_number property'
     Mock gh
-      if [[ "$*" =~ "api --method PATCH" ]]; then
+      if [[ "$*" == *"matching-refs/build-locks/"* ]]; then
+        echo ''
+      elif [[ "$*" == *"properties/values"* ]]; then
+        echo ''
+      else
         echo "gh $*"
-      elif [[ "$*" =~ "properties/values" ]]; then
+      fi
+    End
+    When run script get-build-number/get_build_number.sh
+    The output should include "Claimed build number 1"
+    The path "$BUILD_NUMBER_FILE" should be file
+    The contents of file "$BUILD_NUMBER_FILE" should equal "1"
+  End
+
+  It 'should skip the legacy property read entirely when no migration token is available, rather than fail'
+    LEGACY_PROPERTY_TOKEN=""
+    Mock gh
+      if [[ "$*" == *"matching-refs/build-locks/"* ]]; then
+        echo ''
+      elif [[ "$*" == *"properties/values"* ]]; then
         echo '42'
       else
         echo "gh $*"
       fi
     End
-    # shellcheck disable=SC2317
-#    preserve() { %preserve BUILD_NUMBER; }
-#    AfterRun preserve
     When run script get-build-number/get_build_number.sh
-    The line 1 should include "Fetching build number"
-    The line 2 should equal "Current build number from repo: 42"
-    The line 3 should include "43"
-    The path "$BUILD_NUMBER_FILE" should be file
-    The contents of file "$BUILD_NUMBER_FILE" should equal "43"
-#    The variable BUILD_NUMBER should equal "43"
+    The status should be success
+    The output should not include "checking the legacy build_number property"
+    The output should include "Claimed build number 1"
+    The contents of file "$BUILD_NUMBER_FILE" should equal "1"
   End
 
-  It 'should return an error if BUILD_NUMBER is invalid'
+  It 'should seed the starting candidate (with a safety gap) from the legacy property when no locks exist yet'
     Mock gh
+      if [[ "$*" == *"matching-refs/build-locks/"* ]]; then
+        echo ''
+      elif [[ "$*" == *"properties/values"* ]]; then
+        echo '42'
+      else
+        echo "gh $*"
+      fi
+    End
+    When run script get-build-number/get_build_number.sh
+    The output should include "Seeding from legacy build_number property: 42"
+    The output should include "Claimed build number 1043"
+    The contents of file "$BUILD_NUMBER_FILE" should equal "1043"
+  End
+
+  It 'should claim the next number after the highest existing lock, ignoring gaps, without consulting the legacy property'
+    Mock gh
+      if [[ "$*" == *"matching-refs/build-locks/"* ]]; then
+        printf 'refs/build-locks/1\nrefs/build-locks/2\nrefs/build-locks/3\nrefs/build-locks/5\n'
+      elif [[ "$*" == *"properties/values"* ]]; then
+        echo '999'
+      else
+        echo "gh $*"
+      fi
+    End
+    When run script get-build-number/get_build_number.sh
+    The output should include "Claimed build number 6"
+    The contents of file "$BUILD_NUMBER_FILE" should equal "6"
+  End
+
+  It 'should return an error if the legacy build number property is invalid'
+    Mock gh
+      if [[ "$*" == *"matching-refs/build-locks/"* ]]; then
+        echo ''
+      elif [[ "$*" == *"properties/values"* ]]; then
         echo 'notANumber'
+      else
+        echo "gh $*"
+      fi
     End
     When run script get-build-number/get_build_number.sh
     The status should be failure
-    The line 2 should equal "Current build number from repo: notANumber"
-    The stderr should include "::error title=Invalid build number::Build number 'notANumber'"
+    The output should include "::group::Claim build number"
+    The stderr should include "::error title=Invalid build number::Legacy build_number property 'notANumber'"
   End
 
-  It 'should handle empty build number'
+  It 'should retry when a concurrent run already claimed the next number, then succeed'
+    export GH_REFS_CALLS_FILE="${TEMP_DIR}/gh_refs_calls_retry.txt"
+    rm -f "$GH_REFS_CALLS_FILE"
     Mock gh
+      if [[ "$*" == *"matching-refs/build-locks/"* ]]; then
         echo ''
+      elif [[ "$*" == *"properties/values"* ]]; then
+        echo '42'
+      elif [[ "$*" == *"ref=refs/build-locks/"* ]]; then
+        count=$(($(cat "$GH_REFS_CALLS_FILE" 2>/dev/null || echo 0) + 1))
+        echo "$count" > "$GH_REFS_CALLS_FILE"
+        if [[ "$count" -eq 1 ]]; then
+          echo '{"message":"Reference already exists"}' >&2
+          exit 1
+        else
+          echo "gh $*"
+        fi
+      else
+        echo "gh $*"
+      fi
     End
     When run script get-build-number/get_build_number.sh
     The status should be success
-    The line 2 should equal "Current build number from repo: 0"
-    # Ignore empty line from second call to gh
-    The line 4 should include "1"
+    The output should include "Build number 1043 already claimed; trying 1044"
+    The output should include "Claimed build number 1044"
+    The path "$BUILD_NUMBER_FILE" should be file
+    The contents of file "$BUILD_NUMBER_FILE" should equal "1044"
+  End
+
+  It 'should fail after exhausting retries under permanent contention'
+    export MAX_ATTEMPTS=3
+    Mock gh
+      if [[ "$*" == *"matching-refs/build-locks/"* ]]; then
+        echo ''
+      elif [[ "$*" == *"properties/values"* ]]; then
+        echo '42'
+      elif [[ "$*" == *"ref=refs/build-locks/"* ]]; then
+        echo '{"message":"Reference already exists"}' >&2
+        exit 1
+      else
+        echo "gh $*"
+      fi
+    End
+    When run script get-build-number/get_build_number.sh
+    The status should be failure
+    The output should include "already claimed"
+    The stderr should include "::error title=Build number race::Could not claim a build number after 3 attempts"
+  End
+
+  It 'should fail immediately on an unexpected API error, not treat it as a collision'
+    Mock gh
+      if [[ "$*" == *"matching-refs/build-locks/"* ]]; then
+        echo ''
+      elif [[ "$*" == *"properties/values"* ]]; then
+        echo '42'
+      elif [[ "$*" == *"ref=refs/build-locks/"* ]]; then
+        echo '{"message":"Internal Server Error"}' >&2
+        exit 1
+      else
+        echo "gh $*"
+      fi
+    End
+    When run script get-build-number/get_build_number.sh
+    The status should be failure
+    The output should include "Seeding from legacy build_number property: 42"
+    The stderr should include "::error title=Build number claim failed::"
+    The stderr should include "Internal Server Error"
+  End
+
+  It 'should fail if recording the run marker fails, since other jobs/reruns may be waiting on it'
+    rm -f "$BUILD_NUMBER_FILE"
+    Mock gh
+      if [[ "$*" == *"matching-refs/build-locks/"* ]]; then
+        echo ''
+      elif [[ "$*" == *"properties/values"* ]]; then
+        echo '42'
+      elif [[ "$*" == *"ref=refs/build-runs/"* ]]; then
+        exit 1
+      elif [[ "$*" == *"ref=refs/build-locks/"* ]]; then
+        echo "gh $*"
+      else
+        echo "gh $*"
+      fi
+    End
+    When run script get-build-number/get_build_number.sh
+    The status should be failure
+    The output should include "Claimed build number 1043"
+    The stderr should include "::error title=Build number run-marker not recorded::"
+    The path "$BUILD_NUMBER_FILE" should not be file
   End
 End
