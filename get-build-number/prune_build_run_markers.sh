@@ -34,12 +34,16 @@ check_run_status() {
 }
 
 echo "::group::Prune obsolete build-runs markers"
-MARKERS=$(gh api --paginate -H "$GH_API_VERSION_HEADER" "${MATCHING_REFS_API_URL}/${RUN_NS}/" --jq '.[].ref')
+if ! MARKERS=$(gh api --paginate -H "$GH_API_VERSION_HEADER" "${MATCHING_REFS_API_URL}/${RUN_NS}/" --jq '.[].ref' 2>&1); then
+  echo "::warning title=Marker pruning skipped::Could not list refs/${RUN_NS}/* (${MARKERS}); nothing pruned this invocation." >&2
+  echo "::endgroup::"
+  exit 0
+fi
 
 deleted=0
 kept=0
 checked_run_ids=0
-more_pending=0
+skipped=0
 declare -A RUN_STATUS_CACHE
 if [[ -n "$MARKERS" ]]; then
   SORTED_MARKERS=$(grep -E "^refs/${RUN_NS}/[0-9]+/[0-9]+\$" <<<"$MARKERS" | sort -t/ -k3 -n) || true
@@ -50,7 +54,7 @@ if [[ -n "$MARKERS" ]]; then
 
     if [[ -z "${RUN_STATUS_CACHE[$run_id]:-}" ]]; then
       if ((checked_run_ids >= PRUNE_MAX_CHECKS)); then
-        more_pending=1
+        skipped=$((skipped + 1))
         continue
       fi
       check_run_status "$run_id" && run_status=0 || run_status=$?
@@ -73,10 +77,10 @@ if [[ -n "$MARKERS" ]]; then
   done <<<"$SORTED_MARKERS"
 fi
 
-echo "Pruned ${deleted} obsolete build-runs marker(s); kept ${kept} whose run still exists on GitHub (checked ${checked_run_ids}" \
-  "distinct run(s), capped at ${PRUNE_MAX_CHECKS} per invocation)."
-if ((more_pending)); then
-  echo "::debug::More markers than the ${PRUNE_MAX_CHECKS}-per-invocation cap remain; they'll be picked up on a future run of" \
-    "this step." >&2
+echo "Pruned ${deleted} obsolete build-runs marker(s); kept ${kept} whose run still exists on GitHub; skipped ${skipped} not" \
+  "checked this invocation (checked ${checked_run_ids} distinct run(s), capped at ${PRUNE_MAX_CHECKS})."
+if ((skipped)); then
+  echo "::notice title=Marker pruning incomplete::${skipped} marker(s) exceeded the ${PRUNE_MAX_CHECKS}-per-invocation cap; they" \
+    "will be picked up on a future invocation, or raise PRUNE_MAX_CHECKS." >&2
 fi
 echo "::endgroup::"

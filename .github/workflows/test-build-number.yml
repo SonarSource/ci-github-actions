@@ -113,6 +113,21 @@ jobs:
             exit 1
           fi
 
+  test-build-number-prune-markers:
+    needs: test-build-number-generation
+    runs-on: warp-custom-ubuntu-24-04
+    permissions:
+      id-token: write
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          sparse-checkout: get-build-number
+      - uses: ./get-build-number
+        with:
+          prune-markers: 'true'
+
   test-build-number-reuse:
     if: always()
     needs:
@@ -120,6 +135,7 @@ jobs:
       - test-build-number-reuse-same-run
       - test-build-number-reuse-same-run-windows
       - test-build-number-reuse-from-env
+      - test-build-number-prune-markers
     runs-on: warp-custom-ubuntu-24-04
     permissions:
       id-token: write
