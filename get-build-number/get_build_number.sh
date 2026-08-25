@@ -1,14 +1,12 @@
 #!/bin/bash
 # Get the build number for a GitHub repository and save it to .build_number.txt, reusing one already claimed by this workflow run.
 #
-# refs/build-number/<N>: the atomic claim itself, the sole source of truth for uniqueness. Never deleted: a claim in flight for
-# candidate N can stall arbitrarily long before its POST executes, and if some other, older N had since been deleted, that stale
-# POST would succeed against the now-free slot - reopening an already-published number. Pruning (out-of-band, not here) may only
-# ever remove refs so far below the current claim that no in-flight run could plausibly still be targeting them.
-# refs/build-runs/<run_id>/<N>: marker recording which number this workflow run claimed. Checked first, so reruns and other jobs in
-# the same run reuse it instead of racing to claim their own.
-# refs/build-run-locks/<run_id>: exclusive, transient lock serializing "check the marker, then claim and publish one" for this run.
-# Released immediately after use (success or failure) via the trap below, not held for the run's lifetime.
+# refs/build-number/<N>: the atomic claim itself and the sole source of truth for uniqueness. Claiming a number and deleting the
+# one it superseded both happen while holding build-number-lock below.
+# refs/build-runs/<run_id>/<N>: marker recording which number this workflow run claimed. Checked first, and lock-free, so reruns
+# and other jobs in the same run reuse it without ever touching build-number-lock.
+# refs/build-number-lock: exclusive, transient, repository-wide lock serializing every new claim, not just those within one run.
+# Released immediately after use (success or failure) via the trap below, not held for a run's lifetime.
 #
 # Every ref points at $GITHUB_SHA purely because creation requires some valid target; that target is never read back.
 # All ref reads/writes use the ambient GITHUB_TOKEN. LEGACY_PROPERTY_TOKEN (from Vault) is only used to read the legacy
@@ -26,10 +24,10 @@ PROPERTIES_API_URL="repos/${GITHUB_REPOSITORY}/properties/values"
 PROPS_JQ='.[] | select(.property_name == "build_number") | .value'
 NUMBER_NS="build-number"
 RUN_NS="build-runs/${GITHUB_RUN_ID}"
-RUN_LOCK_REF="build-run-locks/${GITHUB_RUN_ID}"
+NUMBER_LOCK_REF="build-number-lock/global" # git/refs requires at least 3 slash-separated components; a bare name is rejected
 LOCK_POLL_INTERVAL_SECONDS="${LOCK_POLL_INTERVAL_SECONDS:-3}"
 LOCK_WAIT_MAX_ATTEMPTS="${LOCK_WAIT_MAX_ATTEMPTS:-40}" # ~2 minutes at the default interval
-MAX_ATTEMPTS="${MAX_ATTEMPTS:-100}" # retries when a concurrent run beats us to the next number
+RETRY_INTERVAL_SECONDS="${RETRY_INTERVAL_SECONDS:-1}" # between internal retries of a single marker check or marker write
 
 create_ref() {
   local ref="$1"
@@ -54,15 +52,20 @@ fail_claim() {
   exit 1
 }
 
+# A false "no marker" here would make this run claim a second, unnecessary number instead of reusing an existing one, so a
+# single transient failure isn't enough to conclude that - retried once before falling back to "not yet published".
 find_run_marker() {
-  local output
-  # Tolerate a transient/network failure of this specific call: treat it the same as "no marker yet" and retry on the next poll,
-  # but log it so a *permanent* failure (e.g. an auth error) is visible instead of only ever surfacing as a wait timeout.
-  if ! output=$(gh api -H "$GH_API_VERSION_HEADER" "${MATCHING_REFS_API_URL}/${RUN_NS}/" --jq '.[0].ref // empty' 2>&1); then
-    echo "::debug::Marker check failed, treating as not-yet-published and retrying: ${output}" >&2
-    return 0
-  fi
-  echo "$output"
+  local output check_attempt
+  for check_attempt in 1 2; do
+    if output=$(gh api -H "$GH_API_VERSION_HEADER" "${MATCHING_REFS_API_URL}/${RUN_NS}/" --jq '.[0].ref // empty' 2>&1); then
+      echo "$output"
+      return 0
+    fi
+    ((check_attempt < 2)) && sleep "$RETRY_INTERVAL_SECONDS"
+  done
+  echo "::warning title=Marker check inconclusive::Could not confirm whether refs/${RUN_NS}/* exists after 2 attempts (${output});" \
+    "proceeding as if not yet published." >&2
+  return 0
 }
 
 # Exits 0 (and tells the caller to stop) if this run already has a claim; exits 1 on a malformed marker.
@@ -82,8 +85,8 @@ try_reuse_existing_claim() {
 HELD_LOCK=""
 release_lock() {
   [[ -n "$HELD_LOCK" ]] || return 0
-  delete_ref "$RUN_LOCK_REF" || echo "::warning title=Build number lock not released::Failed to delete refs/${RUN_LOCK_REF}; a" \
-    "later attempt for this workflow run may have to wait out its timeout before claiming a number." >&2
+  delete_ref "$NUMBER_LOCK_REF" || echo "::warning title=Build number lock not released::Failed to delete refs/${NUMBER_LOCK_REF};" \
+    "a later claim may have to wait out its timeout before proceeding." >&2
 }
 trap release_lock EXIT
 
@@ -93,7 +96,7 @@ attempt=1
 while true; do
   try_reuse_existing_claim && { echo "::endgroup::" && exit 0; }
 
-  RESPONSE=$(create_ref "$RUN_LOCK_REF") && LOCK_STATUS=0 || LOCK_STATUS=$?
+  RESPONSE=$(create_ref "$NUMBER_LOCK_REF") && LOCK_STATUS=0 || LOCK_STATUS=$?
   if [[ "$LOCK_STATUS" -eq 0 ]]; then
     HELD_LOCK=1
     break
@@ -103,30 +106,31 @@ while true; do
   fi
 
   if ((attempt >= LOCK_WAIT_MAX_ATTEMPTS)); then
-    echo "::error title=Build number claim timed out::Waited ${LOCK_WAIT_MAX_ATTEMPTS} attempts for refs/${RUN_NS}/* to appear; the" \
-      "job holding refs/${RUN_LOCK_REF} may have failed before publishing its claim." >&2
+    echo "::error title=Build number claim timed out::Waited ${LOCK_WAIT_MAX_ATTEMPTS} attempts for refs/${NUMBER_LOCK_REF} to" \
+      "be released; the job holding it may have failed before completing its claim. If no claim is genuinely in progress, the" \
+      "lock leaked (e.g. a runner killed without running its cleanup) and blocks every claim in this repository until removed:" \
+      "gh api --method DELETE ${REFS_API_URL}/${NUMBER_LOCK_REF}" >&2
     exit 1
   fi
-  echo "::debug::refs/${RUN_LOCK_REF} already held; waiting for its marker (attempt $((attempt + 1))/${LOCK_WAIT_MAX_ATTEMPTS})"
+  echo "::debug::refs/${NUMBER_LOCK_REF} already held; waiting (attempt $((attempt + 1))/${LOCK_WAIT_MAX_ATTEMPTS})"
   sleep "$LOCK_POLL_INTERVAL_SECONDS"
   attempt=$((attempt + 1))
 done
 
-# We now hold the lock, but someone else may have finished between our last check above and acquiring it.
+# We now hold the lock, but this run's own marker may have appeared while we were waiting (another job in the same run).
 try_reuse_existing_claim && { echo "::endgroup::" && exit 0; }
 
-# O(total historical claims), not O(1) - see README's Known limitations. A cheaper alternative (e.g. binary search over
-# individual ref lookups) needs claimed numbers to have no permanent gaps, which the migration seed below can violate: two
-# different runs seeding from the legacy property concurrently can each claim a distinct, non-adjacent number (see the
-# "ignoring gaps" test) - so a gap can't be assumed away, and this scan can't be replaced without addressing that first.
 echo "::debug::Scanning refs/${NUMBER_NS}/* for the highest claimed build number"
 NUMBER_REFS=$(gh api --paginate -H "$GH_API_VERSION_HEADER" "${MATCHING_REFS_API_URL}/${NUMBER_NS}/" --jq '.[].ref')
 MAX_CLAIMED=0
+STALE_REFS=()
 if [[ -n "$NUMBER_REFS" ]]; then
   while IFS= read -r ref; do
     [[ "$ref" =~ ^refs/${NUMBER_NS}/([0-9]+)$ ]] || continue
     n="${BASH_REMATCH[1]}"
-    ((n > MAX_CLAIMED)) && MAX_CLAIMED=$n
+    STALE_REFS+=("${NUMBER_NS}/${n}")
+    # Force base-10: a leading-zero ref name like build-number/08 would otherwise be parsed as an (invalid) octal literal.
+    ((10#$n > MAX_CLAIMED)) && MAX_CLAIMED=$((10#$n))
   done <<<"$NUMBER_REFS"
 fi
 
@@ -144,39 +148,43 @@ if [[ "$MAX_CLAIMED" -eq 0 ]]; then
         exit 1
       fi
       echo "Seeding from legacy build_number property: ${LEGACY_BUILD_NUMBER}"
-      MAX_CLAIMED=$((LEGACY_BUILD_NUMBER + 1000)) # buffer against the legacy property still advancing elsewhere during migration
+      # 10# forces base-10: a leading-zero property value would otherwise be parsed as an (invalid) octal literal.
+      MAX_CLAIMED=$((10#$LEGACY_BUILD_NUMBER + 1000)) # buffer against the legacy property still advancing elsewhere during migration
     fi
   fi
 fi
 echo "::debug::Highest known build number: ${MAX_CLAIMED}"
 
-attempt=1
 CANDIDATE=$((MAX_CLAIMED + 1))
-while true; do
-  RESPONSE=$(create_ref "${NUMBER_NS}/${CANDIDATE}") && CLAIM_STATUS=0 || CLAIM_STATUS=$?
-
-  if [[ "$CLAIM_STATUS" -eq 0 ]]; then
-    echo "Claimed build number ${CANDIDATE} (refs/${NUMBER_NS}/${CANDIDATE})"
-    break
-  fi
-
-  if [[ "$RESPONSE" != *"Reference already exists"* ]]; then
-    fail_claim "$RESPONSE"
-  fi
-
-  if ((attempt >= MAX_ATTEMPTS)); then
-    echo "::error title=Build number race::Could not claim a build number after ${MAX_ATTEMPTS} attempts (concurrent claims)." >&2
+RESPONSE=$(create_ref "${NUMBER_NS}/${CANDIDATE}") && CLAIM_STATUS=0 || CLAIM_STATUS=$?
+if [[ "$CLAIM_STATUS" -ne 0 ]]; then
+  if [[ "$RESPONSE" == *"Reference already exists"* ]]; then
+    echo "::error title=Build number claim failed::refs/${NUMBER_NS}/${CANDIDATE} already exists, which should be impossible" \
+      "while holding refs/${NUMBER_LOCK_REF}. Check for another caller writing build-number refs without this lock (e.g. an" \
+      "older, un-migrated version of this action) or a manual/external ref creation." >&2
     exit 1
   fi
+  fail_claim "$RESPONSE"
+fi
+echo "Claimed build number ${CANDIDATE} (refs/${NUMBER_NS}/${CANDIDATE})"
 
-  echo "::debug::Build number ${CANDIDATE} already claimed; trying $((CANDIDATE + 1)) (attempt $((attempt + 1))/${MAX_ATTEMPTS})"
-  CANDIDATE=$((CANDIDATE + 1))
-  attempt=$((attempt + 1))
+if ((${#STALE_REFS[@]} > 0)); then
+  for ref in "${STALE_REFS[@]}"; do
+    delete_ref "$ref" || echo "::warning title=Stale build number ref not deleted::Failed to delete refs/${ref}; harmless, just" \
+      "clutter - a future claim will retry." >&2
+  done
+fi
+
+# Retried rather than a single attempt: a same-run job waiting on the lock reuses this marker as soon as it appears, so a
+# transient failure here - left unretried - would make it claim its own, second number for this run instead of waiting further.
+MARKER_WRITTEN=""
+for marker_attempt in 1 2 3; do
+  create_ref "${RUN_NS}/${CANDIDATE}" >/dev/null && { MARKER_WRITTEN=1; break; }
+  ((marker_attempt < 3)) && sleep "$RETRY_INTERVAL_SECONDS"
 done
-
-if ! create_ref "${RUN_NS}/${CANDIDATE}" >/dev/null; then
-  echo "::error title=Build number claim failed::Failed to record refs/${RUN_NS}/${CANDIDATE}; other jobs/reruns of this workflow" \
-    "run waiting on refs/${RUN_LOCK_REF} would otherwise time out instead of reusing it." >&2
+if [[ -z "$MARKER_WRITTEN" ]]; then
+  echo "::error title=Build number claim failed::Failed to record refs/${RUN_NS}/${CANDIDATE} after 3 attempts; other jobs/reruns" \
+    "of this workflow run waiting on refs/${NUMBER_LOCK_REF} would otherwise time out instead of reusing it." >&2
   exit 1
 fi
 
