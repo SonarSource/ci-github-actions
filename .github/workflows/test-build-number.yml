@@ -14,7 +14,7 @@ jobs:
     runs-on: warp-custom-ubuntu-24-04
     permissions:
       id-token: write
-      contents: read
+      contents: write
     outputs:
       BUILD_NUMBER: ${{ steps.get_build_number.outputs.BUILD_NUMBER }}
     steps:
@@ -46,12 +46,12 @@ jobs:
               exit 1
           fi
 
-  test-build-number-reuse-from-cache:
+  test-build-number-reuse-same-run:
     needs: test-build-number-generation
     runs-on: warp-custom-ubuntu-24-04
     permissions:
       id-token: write
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -61,18 +61,17 @@ jobs:
         run: |
           echo "BUILD_NUMBER: ${BUILD_NUMBER}"
           if [[ "${BUILD_NUMBER}" != "${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}" ]]; then
-            echo -e "::error title=test-build-number-reuse::Build number '${BUILD_NUMBER}' does not match the previous job build number" \
-              "'${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}' despite it is the same workflow run.\n" \
-              "Prefer using the output from SonarSource/ci-github-actions/get-build-number instead of calling it from distinct jobs."
-            # exit 1 # flaky test
+            echo "::error title=test-build-number-reuse::Build number '${BUILD_NUMBER}' does not match the previous job build number" \
+              "'${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}' despite it is the same workflow run."
+            exit 1
           fi
 
-  test-build-number-reuse-from-cache-windows:
+  test-build-number-reuse-same-run-windows:
     needs: test-build-number-generation
     runs-on: github-windows-latest-s
     permissions:
       id-token: write
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -83,10 +82,9 @@ jobs:
         run: |
           echo "BUILD_NUMBER: ${BUILD_NUMBER}"
           if [[ "${BUILD_NUMBER}" != "${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}" ]]; then
-            echo -e "::error title=test-build-number-reuse-from-cache-windows::Build number '${BUILD_NUMBER}' does not match the previous" \
-              "job build number '${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}' despite it is the same workflow run.\n" \
-              "Prefer using the output from SonarSource/ci-github-actions/get-build-number instead of calling it from distinct jobs."
-            # exit 1 # flaky test
+            echo "::error title=test-build-number-reuse-same-run-windows::Build number '${BUILD_NUMBER}' does not match the previous" \
+              "job build number '${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}' despite it is the same workflow run."
+            exit 1
           fi
 
   test-build-number-reuse-from-env:
@@ -94,7 +92,7 @@ jobs:
     runs-on: warp-custom-ubuntu-24-04
     permissions:
       id-token: write
-      contents: read
+      contents: write
     env:
       BUILD_NUMBER: ${{ needs.test-build-number-generation.outputs.BUILD_NUMBER }}
     steps:
@@ -119,13 +117,13 @@ jobs:
     if: always()
     needs:
       - test-build-number-generation
-      - test-build-number-reuse-from-cache
-      - test-build-number-reuse-from-cache-windows
+      - test-build-number-reuse-same-run
+      - test-build-number-reuse-same-run-windows
       - test-build-number-reuse-from-env
     runs-on: warp-custom-ubuntu-24-04
     permissions:
       id-token: write
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: ./config-npm
