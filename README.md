@@ -1213,7 +1213,9 @@ jobs:
 Configure pip build environment with build number, authentication, and default settings.
 
 This action configures pip to pull packages from the internal JFrog Artifactory registry instead of the default PyPI.
+It writes `~/.pip/pip.conf` and exports environment variables so pip, uv, pipx, and mise also resolve Python packages from Repox.
 
+> **Note:** Run `config-pip` **before** `setup-python`, `mise`, `pipx`, or `uv` in the same job. Those tools read `PIP_INDEX_URL`, `UV_DEFAULT_INDEX`, and `MISE_PIPX_REGISTRY_URL` at install time; `pip.conf` alone is not enough for them.
 > **Note:** This action automatically calls [`get-build-number`](#get-build-number) to manage the build number.
 > **Note:** This action replaces the deprecated `configure-pipx-repox` action from `sonarqube-cloud-github-actions` repository.
 
@@ -1286,6 +1288,10 @@ steps:
 | `ARTIFACTORY_ACCESS_TOKEN`    | Access token for Artifactory authentication                         |
 | `ARTIFACTORY_USERNAME`        | Username for Artifactory authentication                             |
 | `ARTIFACTORY_URL`             | Artifactory (Repox) URL. E.x.: `https://repox.jfrog.io/artifactory` |
+| `PIP_INDEX_URL`               | Authenticated Repox simple index for pip and setup-python bootstrap |
+| `UV_DEFAULT_INDEX`            | Authenticated Repox simple index for uv                             |
+| `MISE_PIPX_REGISTRY_URL`      | Authenticated Repox index template for mise pipx backends           |
+| `PIP_CONFIG_FILE`             | Path to the generated `pip.conf`                                    |
 
 See also [`get-build-number`](#get-build-number) output environment variables.
 
