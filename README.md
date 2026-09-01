@@ -235,6 +235,8 @@ permissions:
   contents: write
 steps:
   - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+    with:
+      persist-credentials: false
   - uses: SonarSource/ci-github-actions/config-maven@v1
   - run: mvn verify
 ```
@@ -337,6 +339,8 @@ permissions:
   contents: write
 steps:
   - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+    with:
+      persist-credentials: false
   - uses: SonarSource/ci-github-actions/config-maven@v1
   - uses: SonarSource/ci-github-actions/build-maven@v1
 ```
@@ -446,6 +450,8 @@ permissions:
   contents: write
 steps:
   - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+    with:
+      persist-credentials: false
   - uses: SonarSource/ci-github-actions/config-poetry@v1
   - run: poetry install
 ```
@@ -532,6 +538,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
       - uses: SonarSource/ci-github-actions/build-poetry@v1
 ```
 
@@ -641,6 +649,8 @@ permissions:
   contents: write
 steps:
   - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+    with:
+      persist-credentials: false
   - uses: SonarSource/ci-github-actions/config-gradle@v1
   - run: ./gradlew build
 ```
@@ -766,6 +776,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
       - uses: SonarSource/ci-github-actions/build-gradle@v1
 ```
 
@@ -969,6 +981,8 @@ config:
     contents: write
   steps:
     - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      with:
+        persist-credentials: false
     - uses: SonarSource/ci-github-actions/config-npm@v1
 ```
 
@@ -1058,6 +1072,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
       - uses: SonarSource/ci-github-actions/build-npm@v1
 ```
 
@@ -1168,6 +1184,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
       - uses: SonarSource/ci-github-actions/build-yarn@v1
 ```
 
@@ -1236,6 +1254,8 @@ permissions:
   contents: write
 steps:
   - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+    with:
+      persist-credentials: false
   - uses: SonarSource/ci-github-actions/config-pip@v1
   - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
     with:
@@ -1350,6 +1370,8 @@ permissions:
   contents: write
 steps:
   - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+    with:
+      persist-credentials: false
   - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
   - uses: SonarSource/ci-github-actions/config-uv@v1
   - run: jf uv sync
