@@ -100,6 +100,8 @@ runs:
         host_actions_root="$(dirname "$ACTION_PATH_BUILD_MAVEN")"
         echo "host_actions_root=$host_actions_root" >> "$GITHUB_OUTPUT"
 
+        # Windows Git-Bash's ln -sf can't re-link over an existing symlink-to-directory; clear it first.
+        rm -rf .actions/config-maven .actions/shared
         mkdir -p ".actions"
         ln -sf "$host_actions_root/config-maven" .actions/config-maven
         ln -sf "$host_actions_root/shared" .actions/shared
