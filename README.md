@@ -450,6 +450,12 @@ steps:
   - run: poetry install
 ```
 
+### Input Environment Variables
+
+| Environment Variable | Description                                                                          |
+|----------------------|--------------------------------------------------------------------------------------|
+| `BUILD_NUMBER`       | If present, it will be reused by the [`get-build-number`](#get-build-number) action. |
+
 ### Inputs
 
 | Input                     | Description                                                                 | Default                                                              |
@@ -542,6 +548,10 @@ jobs:
   with:
     disable-caching: 'true'
 ```
+
+### Input Environment Variables
+
+See also [`config-poetry`](#config-poetry) input environment variables.
 
 ### Inputs
 
@@ -1126,6 +1136,8 @@ See also [`config-npm`](#config-npm) output environment variables.
 
 Build, test, analyze, and deploy a Yarn project with SonarQube integration and Artifactory deployment.
 
+> **Note:** This action automatically calls [`get-build-number`](#get-build-number) to manage the build number.
+
 ### Requirements
 
 #### Required GitHub Permissions
@@ -1173,9 +1185,10 @@ jobs:
 
 ### Input Environment Variables
 
-| Environment Variable | Description                | Default |
-|----------------------|----------------------------|---------|
-| `SQ_SCANNER_VERSION` | SonarQube scanner version. | '4.3.0' |
+| Environment Variable | Description                                                                          | Default |
+|----------------------|--------------------------------------------------------------------------------------|---------|
+| `BUILD_NUMBER`       | If present, it will be reused by the [`get-build-number`](#get-build-number) action. |         |
+| `SQ_SCANNER_VERSION` | SonarQube scanner version.                                                           | '4.3.0' |
 
 ### Inputs
 
@@ -1261,6 +1274,12 @@ steps:
       working-directory: ./python-project
       disable-caching: false
 ```
+
+### Input Environment Variables
+
+| Environment Variable | Description                                                                          |
+|----------------------|--------------------------------------------------------------------------------------|
+| `BUILD_NUMBER`       | If present, it will be reused by the [`get-build-number`](#get-build-number) action. |
 
 ### Inputs
 
@@ -1357,6 +1376,12 @@ steps:
 
 For build-info collection, pass `--build-name` and `--build-number` to `jf uv` and publish with `jf rt build-publish`.
 
+### Input Environment Variables
+
+| Environment Variable | Description                                                                          |
+|----------------------|--------------------------------------------------------------------------------------|
+| `BUILD_NUMBER`       | If present, it will be reused by the [`get-build-number`](#get-build-number) action. |
+
 ### Inputs
 
 | Input                     | Description                                                                 | Default                                                              |
@@ -1394,6 +1419,10 @@ This action promotes a build in JFrog Artifactory and updates the GitHub status 
 
 The GitHub status check is named `repox-${GITHUB_REF_NAME}`.
 
+> **Note:** This action automatically calls [`get-build-number`](#get-build-number) to manage the build number. When `promote` runs in
+> the same workflow run as the job that built and deployed the artifacts (the common case, e.g. `needs: [build]`), it automatically
+> reuses that job's build number - no manual wiring through job outputs/`env:` is needed, see [Git References](#git-references).
+
 ### Requirements
 
 #### Required GitHub Permissions
@@ -1428,6 +1457,7 @@ promote:
     id-token: write
     contents: write
   steps:
+    # BUILD_NUMBER is automatically reused from the `build` job's run - no manual wiring needed.
     - uses: SonarSource/ci-github-actions/promote@v1
 ```
 
@@ -1450,9 +1480,10 @@ promote:
 
 ### Input Environment Variables
 
-| Environment Variable | Description                                                                                              |
-|----------------------|----------------------------------------------------------------------------------------------------------|
-| `PROJECT_VERSION`    | Version of the project (e.g. 1.2.3). If set, it takes precedence over the version from JFrog build info. |
+| Environment Variable | Description                                                                                                                                                                                            |
+|----------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `BUILD_NUMBER`       | If present, it will be reused by the [`get-build-number`](#get-build-number) action. Not needed when `promote` runs in the same workflow run as the job that built the artifacts - see the note above. |
+| `PROJECT_VERSION`    | Version of the project (e.g. 1.2.3). If set, it takes precedence over the version from JFrog build info.                                                                                               |
 
 ### Inputs
 
