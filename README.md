@@ -1422,12 +1422,10 @@ This action promotes a build in JFrog Artifactory and updates the GitHub status 
 
 The GitHub status check is named `repox-${GITHUB_REF_NAME}`.
 
-> **Note:** This action automatically calls [`get-build-number`](#get-build-number) to manage the build number. When `promote` runs in
-> the same workflow run as the job that built and deployed the artifacts (the common case, e.g. `needs: [build]`), it automatically
-> reuses that job's build number - no manual wiring through job outputs/`env:` is needed. Since v2 this reuse is coordinated through
-> [Git References](#git-references). When `promote` runs in a **different** workflow run (e.g. a separate, manually-triggered promote
-> workflow), `BUILD_NUMBER` must be set explicitly: otherwise a new build number is claimed and the promotion fails because no build
-> info exists yet for that number.
+> **Note:** This action automatically calls [`get-build-number`](#get-build-number) to manage the build number. `promote` is intended
+> to run as a job in the same workflow run as the job that built and deployed the artifacts (e.g. `needs: [build]`) - it then
+> automatically reuses that job's build number, no manual wiring through job outputs/`env:` is needed. Since v2 this reuse is
+> coordinated through [Git References](#git-references).
 
 ### Requirements
 
