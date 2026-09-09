@@ -452,9 +452,12 @@ steps:
 
 ### Input Environment Variables
 
-| Environment Variable | Description                                                                          |
-|----------------------|--------------------------------------------------------------------------------------|
-| `BUILD_NUMBER`       | If present, it will be reused by the [`get-build-number`](#get-build-number) action. |
+| Environment Variable                    | Description                                                                          |
+|-----------------------------------------|--------------------------------------------------------------------------------------|
+| `BUILD_NUMBER`                          | If present, it will be reused by the [`get-build-number`](#get-build-number) action. |
+| `CURRENT_VERSION` and `PROJECT_VERSION` | If both are set, they will be used as-is and no version update will be performed.    |
+
+See also [`get-build-number`](#get-build-number) input environment variables.
 
 ### Inputs
 
@@ -1421,7 +1424,10 @@ The GitHub status check is named `repox-${GITHUB_REF_NAME}`.
 
 > **Note:** This action automatically calls [`get-build-number`](#get-build-number) to manage the build number. When `promote` runs in
 > the same workflow run as the job that built and deployed the artifacts (the common case, e.g. `needs: [build]`), it automatically
-> reuses that job's build number - no manual wiring through job outputs/`env:` is needed, see [Git References](#git-references).
+> reuses that job's build number - no manual wiring through job outputs/`env:` is needed. Since v2 this reuse is coordinated through
+> [Git References](#git-references). When `promote` runs in a **different** workflow run (e.g. a separate, manually-triggered promote
+> workflow), `BUILD_NUMBER` must be set explicitly: otherwise a new build number is claimed and the promotion fails because no build
+> info exists yet for that number.
 
 ### Requirements
 
