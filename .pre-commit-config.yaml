@@ -17,10 +17,14 @@ repos:
     hooks:
       - id: yamllint
         args: [--strict, --config-file=.yamllint.yaml]
-  - repo: https://github.com/koalaman/shellcheck-precommit
-    rev: 99470f5e12208ff0fb17ab81c3c494f7620a1d8d  # v0.11.0
+  - repo: local
     hooks:
       - id: shellcheck
+        name: shellcheck
+        description: Static analysis of shell scripts (mise installed shellcheck)
+        entry: shellcheck
+        language: system
+        types: [shell]
   - repo: https://github.com/python-jsonschema/check-jsonschema
     rev: 1a4bb160cab6417b3045e1b37b6b72449243e658  # frozen: 0.37.4
     hooks:
