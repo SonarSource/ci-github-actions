@@ -108,12 +108,12 @@ runs:
         POLL_INTERVAL: ${{ inputs.poll-interval }}
         WORKING_DIRECTORY: ${{ inputs.working-directory }}
         PULL_REQUEST: ${{ github.event.pull_request.number || '' }}
-        NEXT_URL: ${{ fromJSON(steps.secrets.outputs.vault).NEXT_URL }}
-        NEXT_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).NEXT_TOKEN }}
-        SQC_US_URL: ${{ fromJSON(steps.secrets.outputs.vault).SQC_US_URL }}
-        SQC_US_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SQC_US_TOKEN }}
-        SQC_EU_URL: ${{ fromJSON(steps.secrets.outputs.vault).SQC_EU_URL }}
-        SQC_EU_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SQC_EU_TOKEN }}
+        NEXT_URL: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).NEXT_URL || '' }}
+        NEXT_TOKEN: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).NEXT_TOKEN || '' }}
+        SQC_US_URL: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).SQC_US_URL || '' }}
+        SQC_US_TOKEN: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).SQC_US_TOKEN || '' }}
+        SQC_EU_URL: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).SQC_EU_URL || '' }}
+        SQC_EU_TOKEN: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).SQC_EU_TOKEN || '' }}
       run: ${ACTION_PATH_CHECK_SCA}/check-sca.sh
 
     - name: Generate workflow summary

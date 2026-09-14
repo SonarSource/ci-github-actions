@@ -82,14 +82,16 @@ runs:
 
     - name: Setup certificate and environment variables
       shell: bash
+      # yamllint disable rule:line-length
       run: |
         rm -f Certificate_pkcs12.p12
-        echo '${{ fromJSON(steps.secrets.outputs.vault).SM_CLIENT_CERT_FILE_B64 }}' | base64 --decode > Certificate_pkcs12.p12
-        echo "SM_HOST=${{ fromJSON(steps.secrets.outputs.vault).SM_HOST }}" >> "$GITHUB_ENV"
-        echo "SM_API_KEY=${{ fromJSON(steps.secrets.outputs.vault).SM_API_KEY }}" >> "$GITHUB_ENV"
+        echo '${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).SM_CLIENT_CERT_FILE_B64 || '' }}' | base64 --decode > Certificate_pkcs12.p12
+        echo "SM_HOST=${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).SM_HOST || '' }}" >> "$GITHUB_ENV"
+        echo "SM_API_KEY=${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).SM_API_KEY || '' }}" >> "$GITHUB_ENV"
         echo "SM_CLIENT_CERT_FILE=${PWD}/Certificate_pkcs12.p12" >> "$GITHUB_ENV"
-        echo "SM_CLIENT_CERT_PASSWORD=${{ fromJSON(steps.secrets.outputs.vault).SM_CLIENT_CERT_PASSWORD }}" >> "$GITHUB_ENV"
-        echo "SM_CODE_SIGNING_CERT_SHA1_HASH=${{ fromJSON(steps.secrets.outputs.vault).SM_CODE_SIGNING_CERT_SHA1_HASH }}" >> "$GITHUB_ENV"
+        echo "SM_CLIENT_CERT_PASSWORD=${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).SM_CLIENT_CERT_PASSWORD || '' }}" >> "$GITHUB_ENV"
+        echo "SM_CODE_SIGNING_CERT_SHA1_HASH=${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).SM_CODE_SIGNING_CERT_SHA1_HASH || '' }}" >> "$GITHUB_ENV"
+      # yamllint enable rule:line-length
 
 
     - name: Verify tool installations
