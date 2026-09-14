@@ -175,7 +175,7 @@ runs:
         cache-disabled: true
         develocity-plugin-version: '4.0'
         develocity-access-key: ${{ inputs.use-develocity == 'true' &&
-          fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN || '' }}
+          steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN || '' }}
         # Resolve Develocity plugin via Repox — plugins.gradle.org is blocked during registry brownouts.
         gradle-plugin-repository-url: ${{ inputs.use-develocity == 'true' &&
           format('{0}/artifactory/plugins.gradle.org/', inputs.repox-url) || '' }}

@@ -84,7 +84,10 @@ runs:
         PRODUCT: ${{ inputs.product }}
         DRY_RUN: ${{ inputs.dryRun }}
         AWS_DEFAULT_REGION: eu-central-1
-        AWS_ACCESS_KEY_ID: ${{ inputs.dryRun != 'true' && fromJSON(steps.secrets.outputs.vault).AWS_ACCESS_KEY_ID || '' }}
-        AWS_SECRET_ACCESS_KEY: ${{ inputs.dryRun != 'true' && fromJSON(steps.secrets.outputs.vault).AWS_SECRET_ACCESS_KEY || '' }}
-        AWS_SESSION_TOKEN: ${{ inputs.dryRun != 'true' && fromJSON(steps.secrets.outputs.vault).AWS_SESSION_TOKEN || '' }}
+        AWS_ACCESS_KEY_ID: ${{ inputs.dryRun != 'true' && steps.secrets.outputs.vault &&
+          fromJSON(steps.secrets.outputs.vault).AWS_ACCESS_KEY_ID || '' }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.dryRun != 'true' && steps.secrets.outputs.vault &&
+          fromJSON(steps.secrets.outputs.vault).AWS_SECRET_ACCESS_KEY || '' }}
+        AWS_SESSION_TOKEN: ${{ inputs.dryRun != 'true' && steps.secrets.outputs.vault &&
+          fromJSON(steps.secrets.outputs.vault).AWS_SESSION_TOKEN || '' }}
       run: ${ACTION_PATH_URC}/update-release-channel.sh
