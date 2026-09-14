@@ -69,7 +69,7 @@ runs:
       env:
         ARTIFACTORY_URL: ${{ format('{0}/artifactory', inputs.repox-url) }}
         ARTIFACTORY_PROMOTE_ACCESS_TOKEN: ${{ fromJSON(steps.artifactory.outputs.vault).ARTIFACTORY_PROMOTE_ACCESS_TOKEN }}
-        GITHUB_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).GITHUB_TOKEN || '' }}
         DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         MULTI_REPO_PROMOTE: ${{ inputs.multi-repo }}
         ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo }}

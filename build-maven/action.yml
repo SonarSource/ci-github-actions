@@ -199,14 +199,14 @@ runs:
         ARTIFACTORY_DEPLOY_ACCESS_TOKEN: ${{ steps.artifactory.outputs.vault && fromJSON(steps.artifactory.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN || '' }}
         ARTIFACTORY_DEPLOY_PASSWORD: ${{ steps.artifactory.outputs.vault && fromJSON(steps.artifactory.outputs.vault).ARTIFACTORY_DEPLOY_ACCESS_TOKEN || '' }} # used in parent POM
         # yamllint enable rule:line-length
-        NEXT_URL: ${{ fromJSON(steps.secrets.outputs.vault).NEXT_URL }}
-        NEXT_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).NEXT_TOKEN }}
-        SQC_EU_URL: ${{ fromJSON(steps.secrets.outputs.vault).SQC_EU_URL }}
-        SQC_EU_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SQC_EU_TOKEN }}
-        SQC_US_URL: ${{ fromJSON(steps.secrets.outputs.vault).SQC_US_URL }}
-        SQC_US_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).SQC_US_TOKEN }}
-        SIGN_KEY: ${{ fromJSON(steps.secrets.outputs.vault).SIGN_KEY }}
-        PGP_PASSPHRASE: ${{ fromJSON(steps.secrets.outputs.vault).PGP_PASSPHRASE }}
+        NEXT_URL: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).NEXT_URL || '' }}
+        NEXT_TOKEN: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).NEXT_TOKEN || '' }}
+        SQC_EU_URL: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).SQC_EU_URL || '' }}
+        SQC_EU_TOKEN: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).SQC_EU_TOKEN || '' }}
+        SQC_US_URL: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).SQC_US_URL || '' }}
+        SQC_US_TOKEN: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).SQC_US_TOKEN || '' }}
+        SIGN_KEY: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).SIGN_KEY || '' }}
+        PGP_PASSPHRASE: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).PGP_PASSPHRASE || '' }}
       working-directory: ${{ inputs.working-directory }}
       run: $ACTION_PATH_BUILD_MAVEN/build.sh
 
