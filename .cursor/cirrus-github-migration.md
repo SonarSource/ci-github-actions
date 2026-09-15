@@ -424,7 +424,7 @@ jobs:
 **Variable Transformation Rules:**
 
 | Cirrus CI | GitHub Actions | Notes |
-|-----------|----------------|-------|
+| ----------- | ---------------- | ------- |
 | `${CIRRUS_REPO_OWNER}` | `{REPO_OWNER_NAME_DASH}` | Automatically replaced by vault-action-wrapper |
 | `${CIRRUS_REPO_NAME}` | *(removed)* | Now included in `{REPO_OWNER_NAME_DASH}` |
 | `VAULT[path field]` | `path field \| OUTPUT_NAME;` | New syntax with pipe separator |
@@ -440,7 +440,7 @@ jobs:
 **Common Vault Paths Used by SonarSource Actions:**
 
 | Secret Type | Vault Path | Usage |
-|-------------|------------|-------|
+| ------------- | ------------ | ------- |
 | **Artifactory Reader** | `development/artifactory/token/{REPO_OWNER_NAME_DASH}-private-reader` | Reading dependencies |
 | **Artifactory Deployer** | `development/artifactory/token/{REPO_OWNER_NAME_DASH}-qa-deployer` | Deploying artifacts |
 | **Artifactory Promoter** | `development/artifactory/token/{REPO_OWNER_NAME_DASH}-promoter` | Promoting builds |
@@ -540,10 +540,10 @@ common when the repository content is public but the project needs access to pri
 **🎯 Decision Matrix**:
 
 | Repository Type | Reader Pattern Found | Deployer Pattern Found | Action Required |
-|----------------|---------------------|------------------------|-----------------|
-| **Public**     | ✅ `private-reader`  | ✅ `qa-deployer`       | **Override both roles** |
-| **Public**     | ❌ No pattern       | ❌ No pattern          | **Use defaults** |
-| **Private**    | Any pattern         | Any pattern            | **Use defaults** |
+| --------------- | -------------------- | ---------------------- | --------------- |
+| **Public** | ✅ `private-reader` | ✅ `qa-deployer` | **Override both roles** |
+| **Public** | ❌ No pattern | ❌ No pattern | **Use defaults** |
+| **Private** | Any pattern | Any pattern | **Use defaults** |
 
 **🛠️ Implementation Examples**:
 
@@ -766,11 +766,11 @@ The SonarQube platform used for analysis is based on the `SONAR_HOST_URL` in you
 
 **🎯 Decision Matrix**:
 
-| Vault Path in .cirrus.yml                    | SONAR_HOST_URL Contains | Action Required                    |
-|----------------------------------------------|-------------------------|-----------------------------------|
-| `development/kv/data/next`                   | `next`                  | **No override needed** (default)  |
-| `development/kv/data/sonarcloud`             | `sonarcloud`            | **Set `sonar-platform: sqc-eu`**  |
-| `development/kv/data/sonarqube-us`           | `sonarqube-us`          | **Set `sonar-platform: sqc-us`**  |
+| Vault Path in .cirrus.yml | SONAR_HOST_URL Contains | Action Required |
+| ------------------------- | ----------------------- | --------------- |
+| `development/kv/data/next` | `next` | **No override needed** (default) |
+| `development/kv/data/sonarcloud` | `sonarcloud` | **Set `sonar-platform: sqc-eu`** |
+| `development/kv/data/sonarqube-us` | `sonarqube-us` | **Set `sonar-platform: sqc-us`** |
 
 **🛠️ Implementation Examples**:
 
@@ -908,11 +908,11 @@ You don't need to specify any of these environment variables or vault secrets ma
 
 ### Container Definitions
 
-| Cirrus CI            | GitHub Actions           |
-|----------------------|--------------------------|
-| `eks_container`      | `runs-on: sonar-xs` (private) / `github-ubuntu-latest-s` (public) |
+| Cirrus CI | GitHub Actions |
+| --------- | -------------- |
+| `eks_container` | `runs-on: sonar-xs` (private) / `github-ubuntu-latest-s` (public) |
 | `cpu: 2, memory: 2G` | Runner handles resources |
-| Custom images        | Use mise for tools       |
+| Custom images | Use mise for tools |
 
 #### Resource Requirements
 
