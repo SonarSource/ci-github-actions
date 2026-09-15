@@ -348,26 +348,26 @@ End
 Describe 'check_build_output_restored()'
   It 'succeeds when a target/classes directory exists'
     temp_dir=$(mktemp -d)
-    pushd "$temp_dir" > /dev/null
+    pushd "$temp_dir" > /dev/null || exit
     mkdir -p some-module/target/classes
 
     When call check_build_output_restored
     The status should be success
     The output should be blank
 
-    popd > /dev/null
+    popd > /dev/null || exit
     rm -rf "$temp_dir"
   End
 
   It 'fails when no target/classes directory exists'
     temp_dir=$(mktemp -d)
-    pushd "$temp_dir" > /dev/null
+    pushd "$temp_dir" > /dev/null || exit
 
     When run check_build_output_restored
     The status should be failure
     The stderr should include "Missing build output::skip-build is enabled but no target/classes directories were found"
 
-    popd > /dev/null
+    popd > /dev/null || exit
     rm -rf "$temp_dir"
   End
 End
