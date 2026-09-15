@@ -224,23 +224,3 @@ runs:
     - shell: bash
       run: $ACTION_PATH_CONFIG_XYZ/config.sh
 ```
-
-## Documentation for AI tools
-
-This repository includes a comprehensive migration guide at [cirrus-github-migration.md](.cursor/cirrus-github-migration.md) that
-documents the process of migrating Cirrus CI pipelines to GitHub Actions. This guide is accessible to everyone in the company
-using Cursor through the `@Doc` command. The purpose of the document is to provide a context to Cursor and similar AI tools
-to aid with migration
-
-### Development Workflow with AI
-
-When working on this repository or migrating eng-xp repositories, follow these best practices to use AI and keep the doc up-to-date.
-
-1. **Multi-repository setup**: If working on a different repository, add the `ci-github-actions` repository to your workspace
-   via `File → Add Folder to Workspace` in Cursor to access the documentation directly.
-
-2. **Reference documentation**: Directly attach the migration guide to your AI chat conversations rather than using the `@Doc` syntax.
-
-3. **Keep documentation current**: After completing your work, ask the AI to review and update the migration guide based on
-   any new patterns, edge cases, or improvements discovered during development. Include these documentation updates in your
-   pull request to maintain accuracy for future migrations.

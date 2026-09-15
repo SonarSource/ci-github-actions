@@ -1998,29 +1998,3 @@ improvements, fixes, documentation, and **breaking changes**).
     Communicate major updates, changes and migrations that require action from users following as indicated in
     the [Updates, Changes and Migrations for Squads - Platform](https://xtranet-sonarsource.atlassian.net/wiki/spaces/Platform/pages/4385374219/Updates+Changes+and+Migrations+for+Squads+-+Platform#Usage-of-Communication-Channels)
     xtranet page.
-
----
-
-## Using AI for Cirrus CI to GitHub Actions Migration
-
-It is recommended to use AI tools like Cursor or Claude code to assist with Cirrus CI to GitHub actions migration.
-
-This repository contains a comprehensive guide to be passed as a context to
-AI: [.cursor/cirrus-github-migration.md](.cursor/cirrus-github-migration.md). Here are some example prompts:
-
-```md
-Refer @https://github.com/SonarSource/ci-github-actions/blob/master/.cursor/cirrus-github-migration.md
-Migrate @.cirrus.yml to GitHub Actions
-```
-
-Or, in the [re-terraform-aws-vault](https://github.com/SonarSource/re-terraform-aws-vault) repository, you can use it to check for missing
-vault secrets before migration:
-
-```md
-Refer @https://github.com/SonarSource/ci-github-actions/blob/master/.cursor/cirrus-github-migration.md
-Give me a report of the missing vault secrets for the repository `sonar-dummy`
-```
-
-See
-the ["Migration From Cirrus CI - GitHub" xtranet documentation](https://xtranet-sonarsource.atlassian.net/wiki/spaces/Platform/pages/4232970266/Migration+From+Cirrus+CI+-+GitHub)
-for more details.
