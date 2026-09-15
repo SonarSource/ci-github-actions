@@ -58,6 +58,11 @@ if [[ "${SONAR_PLATFORM:?}" != "none" || "$RUN_SHADOW_SCANS" == "true" ]]; then
 fi
 : "${USER_MAVEN_ARGS:=}"
 : "${SKIP_BUILD:=false}"
+if [[ "$SKIP_BUILD" == "true" && "$DEPLOY" != "false" ]]; then
+  echo "::error title=Invalid configuration::skip-build requires deploy: false - skip-build never deploys, but deploy" \
+    "defaults to true and was not disabled." >&2
+  exit 1
+fi
 export DEPLOY DEPLOY_PULL_REQUEST USER_MAVEN_ARGS SKIP_BUILD
 readonly DEPLOYED_OUTPUT_KEY="deployed"
 
@@ -137,6 +142,61 @@ should_scan() {
   return $?
 }
 
+build_and_deploy() {
+  local maven_command_args mvn_output
+  if should_deploy; then
+    maven_command_args=("deploy" "-Pdeploy-sonarsource")
+  else
+    maven_command_args=("install")
+  fi
+
+  if should_scan; then
+    maven_command_args+=("-Pcoverage")
+  fi
+
+  echo "::group::Maven build"
+  if is_default_branch || is_maintenance_branch; then
+    echo "======= Build and analyze $GITHUB_REF_NAME ======="
+    if should_deploy; then
+      maven_command_args+=("-Prelease,sign")
+    fi
+  elif is_pull_request; then
+    echo "======= Build and analyze pull request $PULL_REQUEST ($GITHUB_HEAD_REF) ======="
+  elif is_dogfood_branch; then
+    echo "======= Build dogfood branch $GITHUB_REF_NAME ======="
+    if should_deploy; then
+      maven_command_args+=("-Prelease")
+    fi
+  elif is_long_lived_feature_branch; then
+    echo "======= Build and analyze long lived feature branch $GITHUB_REF_NAME ======="
+  else
+    echo "======= Build, no analysis, no deploy $GITHUB_REF_NAME ======="
+    maven_command_args=("verify")
+  fi
+
+  # Execute the main Maven build
+  mvn_output=$(mktemp)
+  echo "Maven command: mvn ${maven_command_args[*]} $*"
+  mvn "${maven_command_args[@]}" "$@" | tee "$mvn_output"
+  echo "::endgroup::"
+
+  if should_deploy; then
+    echo "$DEPLOYED_OUTPUT_KEY=true" >> "$GITHUB_OUTPUT"
+    export_built_artifacts
+  fi
+}
+
+# Sanity check for skip-build: the caller is responsible for restoring a prior build's target/
+# output before this runs; if none is present, fail loudly instead of letting the Sonar scanner
+# silently produce a degraded analysis (e.g. missing bytecode-based issues/coverage).
+check_build_output_restored() {
+  if ! find . -mindepth 1 -maxdepth 4 -type d -path '*/target/classes' 2>/dev/null | grep -q .; then
+    echo "::error title=Missing build output::skip-build is enabled but no target/classes directories were found under" \
+      "$(pwd) - was the prior build job's output actually restored before this step ran?" >&2
+    exit 1
+  fi
+}
+
 build_maven() {
   echo "::group::Check tools"
   check_tool mvn --version
@@ -152,53 +212,16 @@ build_maven() {
   fi
 
   if [[ "$SKIP_BUILD" != "true" ]]; then
-    local maven_command_args mvn_output
-    if should_deploy; then
-      maven_command_args=("deploy" "-Pdeploy-sonarsource")
-    else
-      maven_command_args=("install")
-    fi
-
-    if should_scan; then
-      maven_command_args+=("-Pcoverage")
-    fi
-
-    echo "::group::Maven build"
-    if is_default_branch || is_maintenance_branch; then
-      echo "======= Build and analyze $GITHUB_REF_NAME ======="
-      if should_deploy; then
-        maven_command_args+=("-Prelease,sign")
-      fi
-    elif is_pull_request; then
-      echo "======= Build and analyze pull request $PULL_REQUEST ($GITHUB_HEAD_REF) ======="
-    elif is_dogfood_branch; then
-      echo "======= Build dogfood branch $GITHUB_REF_NAME ======="
-      if should_deploy; then
-        maven_command_args+=("-Prelease")
-      fi
-    elif is_long_lived_feature_branch; then
-      echo "======= Build and analyze long lived feature branch $GITHUB_REF_NAME ======="
-    else
-      echo "======= Build, no analysis, no deploy $GITHUB_REF_NAME ======="
-      maven_command_args=("verify")
-    fi
-
-    # Execute the main Maven build
-    mvn_output=$(mktemp)
-    echo "Maven command: mvn ${maven_command_args[*]} $*"
-    mvn "${maven_command_args[@]}" "$@" | tee "$mvn_output"
-    echo "::endgroup::"
-
-    if should_deploy; then
-      echo "$DEPLOYED_OUTPUT_KEY=true" >> "$GITHUB_OUTPUT"
-      export_built_artifacts
-    fi
+    build_and_deploy "$@"
   else
     echo "Skipping Maven compile/test/deploy (skip-build enabled) - analyzing previously built output restored on disk."
   fi
 
   # Execute SonarQube analysis if enabled
   if should_scan; then
+    if [[ "$SKIP_BUILD" == "true" ]]; then
+      check_build_output_restored
+    fi
     local sonar_args=()
     if is_pull_request; then
       sonar_args+=("-Dsonar.pullrequest.key=$PULL_REQUEST")
