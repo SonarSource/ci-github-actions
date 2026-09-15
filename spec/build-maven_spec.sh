@@ -73,6 +73,12 @@ Describe 'build-maven/build.sh'
     The output should include "Maven command: mvn"
     rm -f "$GITHUB_OUTPUT"
   End
+  It 'fails when skip-build is true and deploy is not false'
+    export SKIP_BUILD="true"
+    When run script build-maven/build.sh
+    The status should be failure
+    The stderr should include "skip-build requires deploy: false"
+  End
 End
 
 Include build-maven/build.sh
@@ -339,6 +345,33 @@ Describe 'check_settings_xml()'
   End
 End
 
+Describe 'check_build_output_restored()'
+  It 'succeeds when a target/classes directory exists'
+    temp_dir=$(mktemp -d)
+    pushd "$temp_dir" > /dev/null || exit
+    mkdir -p some-module/target/classes
+
+    When call check_build_output_restored
+    The status should be success
+    The output should be blank
+
+    popd > /dev/null || exit
+    rm -rf "$temp_dir"
+  End
+
+  It 'fails when no target/classes directory exists'
+    temp_dir=$(mktemp -d)
+    pushd "$temp_dir" > /dev/null || exit
+
+    When run check_build_output_restored
+    The status should be failure
+    The stderr should include "Missing build output::skip-build is enabled but no target/classes directories were found"
+
+    popd > /dev/null || exit
+    rm -rf "$temp_dir"
+  End
+End
+
 Describe 'git_fetch_unshallow()'
   It 'fetches unshallow repository'
     When call git_fetch_unshallow
@@ -423,6 +456,36 @@ Describe 'build_maven()'
       The output should include "Maven command: mvn install -Pcoverage"
       The output should not include "release"
       The output should not include "sign"
+    End
+
+    Describe 'skip-build'
+      Mock check_build_output_restored
+        true
+      End
+
+      It 'skips compile/test/deploy but still analyzes'
+        export SKIP_BUILD="true"
+        export DEPLOY="false"
+
+        When call build_maven
+        The status should be success
+        The output should include "Skipping Maven compile/test/deploy (skip-build enabled)"
+        The output should not include "Maven command: mvn install"
+        The output should not include "Maven command: mvn deploy"
+        The output should include "orchestrate_sonar_platforms"
+      End
+
+      It 'skips the build output check when analysis is disabled'
+        export SKIP_BUILD="true"
+        export DEPLOY="false"
+        export SONAR_PLATFORM="none"
+        export RUN_SHADOW_SCANS="false"
+
+        When call build_maven
+        The status should be success
+        The output should include "Skipping Maven compile/test/deploy (skip-build enabled)"
+        The output should not include "orchestrate_sonar_platforms"
+      End
     End
   End
 
