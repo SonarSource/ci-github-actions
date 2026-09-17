@@ -75,8 +75,8 @@ Describe 'get_build_number.sh'
     When run script get-build-number/get_build_number.sh
     The status should be success
     The output should include "Seeding from legacy build_number property: 42"
-    The output should include "Claimed build number 1043"
-    The contents of file "$BUILD_NUMBER_FILE" should equal "1043"
+    The output should include "Claimed build number 10043"
+    The contents of file "$BUILD_NUMBER_FILE" should equal "10043"
   End
 
   It 'should return an error if the legacy build number property is invalid'
