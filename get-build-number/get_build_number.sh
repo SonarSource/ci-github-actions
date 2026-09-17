@@ -149,7 +149,7 @@ if [[ "$MAX_CLAIMED" -eq 0 ]]; then
       fi
       echo "Seeding from legacy build_number property: ${LEGACY_BUILD_NUMBER}"
       # 10# forces base-10: a leading-zero property value would otherwise be parsed as an (invalid) octal literal.
-      MAX_CLAIMED=$((10#$LEGACY_BUILD_NUMBER + 1000)) # buffer against the legacy property still advancing elsewhere during migration
+      MAX_CLAIMED=$((10#$LEGACY_BUILD_NUMBER + 10000)) # buffer against the legacy property still advancing elsewhere during migration
     fi
   fi
 fi
