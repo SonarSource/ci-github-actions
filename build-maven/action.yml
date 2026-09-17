@@ -51,6 +51,9 @@ inputs:
   repox-url:
     description: URL for Repox
     default: https://repox.jfrog.io
+  vault-url:
+    description: Vault address used to mint Artifactory tokens. Independent of `repox-url`.
+    default: https://vault.sonar.build
   use-develocity:
     description: Whether to use Develocity for build tracking.
     default: 'false'
@@ -116,6 +119,7 @@ runs:
         artifactory-reader-role: ${{ inputs.artifactory-reader-role }}
         common-mvn-flags: ${{ inputs.common-mvn-flags }}
         repox-url: ${{ inputs.repox-url }}
+        vault-url: ${{ inputs.vault-url }}
         use-develocity: ${{ inputs.use-develocity }}
         develocity-url: ${{ inputs.develocity-url }}
         cache-paths: ${{ inputs.cache-paths }}
@@ -153,7 +157,7 @@ runs:
       if: inputs.deploy != 'false'
       id: artifactory
       with:
-        url: ${{ contains(inputs.repox-url, 'dev.sonar.build') && 'https://vault.dev.sonar.build' || 'https://vault.sonar.build' }}
+        url: ${{ inputs.vault-url }}
         # yamllint disable rule:line-length
         secrets: |
           ${{ inputs.deploy != 'false' && inputs.run-shadow-scans != 'true' && steps.params.outputs.ARTIFACTORY_DEPLOY_USERNAME_VAULT || '' }}

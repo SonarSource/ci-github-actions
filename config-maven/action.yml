@@ -15,6 +15,9 @@ inputs:
   repox-url:
     description: URL for Repox
     default: https://repox.jfrog.io
+  vault-url:
+    description: Vault address used to mint Artifactory tokens. Independent of `repox-url`.
+    default: https://vault.sonar.build
   use-develocity:
     description: Whether to use Develocity for build tracking.
     default: 'false'
@@ -95,7 +98,7 @@ runs:
       if: steps.config-maven-completed.outputs.skip != 'true'
       id: artifactory
       with:
-        url: ${{ contains(inputs.repox-url, 'dev.sonar.build') && 'https://vault.dev.sonar.build' || 'https://vault.sonar.build' }}
+        url: ${{ inputs.vault-url }}
         secrets: |
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
