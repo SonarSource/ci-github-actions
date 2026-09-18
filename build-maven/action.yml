@@ -16,6 +16,13 @@ inputs:
   deploy-pull-request:
     description: Whether to also deploy pull request artifacts. If deploy is `false`, this has no effect.
     default: 'false'
+  skip-build:
+    description: >-
+      If `true`, skip compiling/testing/deploying and only run Sonar analysis against target/ output
+      already restored on disk (e.g. downloaded from a prior build job's uploaded artifact). Lets a
+      scanner-only job retry independently without repeating an expensive build. Combine with
+      `deploy: false`.
+    default: 'false'
   maven-args:
     description: Additional Maven arguments to pass to the build script.
     default: ''
@@ -187,6 +194,7 @@ runs:
         # Action inputs
         DEPLOY: ${{ inputs.deploy }}
         DEPLOY_PULL_REQUEST: ${{ inputs.deploy-pull-request }}
+        SKIP_BUILD: ${{ inputs.skip-build }}
         USER_MAVEN_ARGS: ${{ steps.params.outputs.USER_MAVEN_ARGS }}
         SONAR_SCANNER_JAVA_OPTS: ${{ inputs.scanner-java-opts }}
         SONAR_PLATFORM: ${{ inputs.sonar-platform }}
