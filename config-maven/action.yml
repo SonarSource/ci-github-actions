@@ -15,6 +15,9 @@ inputs:
   repox-url:
     description: URL for Repox
     default: https://repox.jfrog.io
+  vault-url:
+    description: Vault address used to mint Artifactory tokens. Independent of `repox-url`.
+    default: https://vault.sonar.build
   use-develocity:
     description: Whether to use Develocity for build tracking.
     default: 'false'
@@ -95,7 +98,7 @@ runs:
       if: steps.config-maven-completed.outputs.skip != 'true'
       id: artifactory
       with:
-        url: ${{ contains(inputs.repox-url, 'dev.sonar.build') && 'https://vault.dev.sonar.build' || 'https://vault.sonar.build' }}
+        url: ${{ inputs.vault-url }}
         secrets: |
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
@@ -141,6 +144,15 @@ runs:
         if [[ -n "${DEVELOCITY_TOKEN:-}" ]]; then
           echo "DEVELOCITY_ACCESS_KEY=${{ steps.develocity-hostname.outputs.hostname }}=$DEVELOCITY_TOKEN" >> "$GITHUB_ENV"
         fi
+
+    # Edge OIDC federation is eventually consistent. Skip SaaS (the default repox-url);
+    # Vault-minted tokens are usable there immediately.
+    - name: Wait for Artifactory token federation
+      if: steps.config-maven-completed.outputs.skip != 'true' && inputs.repox-url != 'https://repox.jfrog.io'
+      uses: SonarSource/sonarsource-infra-artifactory/.github/actions/wait-for-artifactory-token-federation@979fc5f122d4f67f0d7e0ea880e0f1c3b8019941
+      with:
+        artifactory-url: ${{ format('{0}/artifactory', inputs.repox-url) }}
+        probe-path: 'api/search/versions?g=com.sonarsource.parent&a=parent&remote=1&repos=sonarsource-qa&v=*'
 
     - name: Configure Maven settings and set repository URL
       if: steps.config-maven-completed.outputs.skip != 'true'
