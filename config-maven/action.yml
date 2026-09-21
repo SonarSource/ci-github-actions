@@ -145,6 +145,15 @@ runs:
           echo "DEVELOCITY_ACCESS_KEY=${{ steps.develocity-hostname.outputs.hostname }}=$DEVELOCITY_TOKEN" >> "$GITHUB_ENV"
         fi
 
+    # Edge OIDC federation is eventually consistent. Skip SaaS (the default repox-url);
+    # Vault-minted tokens are usable there immediately.
+    - name: Wait for Artifactory token federation
+      if: steps.config-maven-completed.outputs.skip != 'true' && inputs.repox-url != 'https://repox.jfrog.io'
+      uses: SonarSource/sonarsource-infra-artifactory/.github/actions/wait-for-artifactory-token-federation@979fc5f122d4f67f0d7e0ea880e0f1c3b8019941
+      with:
+        artifactory-url: ${{ format('{0}/artifactory', inputs.repox-url) }}
+        probe-path: 'api/search/versions?g=com.sonarsource.parent&a=parent&remote=1&repos=sonarsource-qa&v=*'
+
     - name: Configure Maven settings and set repository URL
       if: steps.config-maven-completed.outputs.skip != 'true'
       shell: bash
