@@ -48,16 +48,20 @@ runs:
       shell: bash
       # yamllint disable rule:line-length
       run: |
-        # Port self-service deep link with this repo prefilled. actionInputs uses
-        # Port's JSURL encoding; ignore_secrets=true pre-selects the auth-only fix
-        # (adds auth.github, no kv_paths); current_week mirrors the action's
+        # Port self-service deep link with this repo prefilled via the
+        # github_organization/github_repository fields. actionInputs uses Port's
+        # JSURL encoding; ignore_secrets=true pre-selects the auth-only fix (adds
+        # auth.github, no kv_paths); current_week mirrors the action's
         # default_jq_query (now | strftime("%Y_%V")).
         NAME="${GITHUB_REPOSITORY##*/}"
+        ORG="${GITHUB_REPOSITORY_OWNER}"
+        REPO_ENTITY="${ORG}/${NAME}"
         WEEK="$(date -u +%Y_%V)"
         # jsurl-escape '_' -> '*_'; prefix '*' to force string for digit-led values
-        NAME_J="${NAME//_/*_}"; case "$NAME" in [0-9]*) NAME_J="*${NAME_J}" ;; esac
+        ORG_J="${ORG//_/*_}"; case "$ORG" in [0-9]*) ORG_J="*${ORG_J}" ;; esac
+        REPO_ENTITY_J="${REPO_ENTITY//_/*_}"; case "$REPO_ENTITY" in [0-9]*) REPO_ENTITY_J="*${REPO_ENTITY_J}" ;; esac
         WEEK_J="*${WEEK//_/*_}"
-        INPUTS="(*StargetEntity~${NAME_J}~ignore*_secrets~_T~current*_week~${WEEK_J}~ref~master~use*_sandbox~_F)~"
+        INPUTS="(github*_organization~${ORG_J}~github*_repository~${REPO_ENTITY_J}~ignore*_secrets~_T~current*_week~${WEEK_J}~ref~master~use*_sandbox~_F)~"
         INPUTS="${INPUTS//(/%28}"; INPUTS="${INPUTS//)/%29}"; INPUTS="${INPUTS//\~/%7E}"
         echo "url=https://app.getport.io/org_FnpuoXpSHY1JC3yg/self-serve?action=manage_vault_policy&actionInputs=${INPUTS}" >> "$GITHUB_OUTPUT"
       # yamllint enable rule:line-length
