@@ -16,8 +16,8 @@ inputs:
     description: Deprecated. Use `disable-caching` instead. Whether to cache NPM dependencies.
     default: 'true'
   repox-url:
-    description: URL for Repox
-    default: https://repox.jfrog.io
+    description: URL for Repox used for dependency resolution
+    default: https://repox-internal.dev.sonar.build
   host-actions-root:
     description: Path to the actions folder on the host (used when called from another local action)
     default: ''
@@ -68,6 +68,7 @@ runs:
         mkdir -p ".actions"
         ln -sf "$host_actions_root/get-build-number" .actions/get-build-number
         ln -sf "$host_actions_root/shared" .actions/shared
+        ln -sf "$host_actions_root/token" .actions/token
         ls -la .actions/*
         echo "::endgroup::"
 
@@ -93,10 +94,16 @@ runs:
       if: steps.config-npm-completed.outputs.skip != 'true'
       id: secrets
       with:
-        url: ${{ contains(inputs.repox-url, 'dev.sonar.build') && 'https://vault.dev.sonar.build' || 'https://vault.sonar.build' }}
         secrets: |
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
+
+    - name: Wait for Artifactory token federation
+      if: steps.config-npm-completed.outputs.skip != 'true'
+      uses: ./.actions/token
+      with:
+        artifactory-url: ${{ format('{0}/artifactory', inputs.repox-url) }}
+        access-token: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN || '' }}
 
     - name: Configure NPM authentication
       if: steps.config-npm-completed.outputs.skip != 'true'

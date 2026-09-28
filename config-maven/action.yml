@@ -13,8 +13,8 @@ inputs:
     description: Maven flags for all subsequent mvn calls
     default: --batch-mode --no-transfer-progress --errors --fail-at-end --show-version -Dmaven.test.redirectTestOutputToFile=false
   repox-url:
-    description: URL for Repox
-    default: https://repox.jfrog.io
+    description: URL for Repox used for dependency resolution (Maven mirror)
+    default: https://repox-internal.dev.sonar.build
   use-develocity:
     description: Whether to use Develocity for build tracking.
     default: 'false'
@@ -64,10 +64,11 @@ runs:
         echo "host_actions_root=$host_actions_root" >> "$GITHUB_OUTPUT"
 
         # Windows Git-Bash's ln -sf can't re-link over an existing symlink-to-directory; clear it first.
-        rm -rf .actions/get-build-number .actions/shared
+        rm -rf .actions/get-build-number .actions/shared .actions/token
         mkdir -p ".actions"
         ln -sf "$host_actions_root/get-build-number" .actions/get-build-number
         ln -sf "$host_actions_root/shared" .actions/shared
+        ln -sf "$host_actions_root/token" .actions/token
         ls -la .actions/*
         echo "::endgroup::"
 
@@ -95,7 +96,6 @@ runs:
       if: steps.config-maven-completed.outputs.skip != 'true'
       id: artifactory
       with:
-        url: ${{ contains(inputs.repox-url, 'dev.sonar.build') && 'https://vault.dev.sonar.build' || 'https://vault.sonar.build' }}
         secrets: |
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
@@ -141,6 +141,13 @@ runs:
         if [[ -n "${DEVELOCITY_TOKEN:-}" ]]; then
           echo "DEVELOCITY_ACCESS_KEY=${{ steps.develocity-hostname.outputs.hostname }}=$DEVELOCITY_TOKEN" >> "$GITHUB_ENV"
         fi
+
+    - name: Wait for Artifactory token federation
+      if: steps.config-maven-completed.outputs.skip != 'true'
+      uses: ./.actions/token
+      with:
+        artifactory-url: ${{ format('{0}/artifactory', inputs.repox-url) }}
+        access-token: ${{ env.ARTIFACTORY_ACCESS_TOKEN }}
 
     - name: Configure Maven settings and set repository URL
       if: steps.config-maven-completed.outputs.skip != 'true'
