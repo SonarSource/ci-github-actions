@@ -142,6 +142,13 @@ runs:
           echo "DEVELOCITY_ACCESS_KEY=${{ steps.develocity-hostname.outputs.hostname }}=$DEVELOCITY_TOKEN" >> "$GITHUB_ENV"
         fi
 
+    - name: Wait for Artifactory token federation
+      if: steps.config-gradle-completed.outputs.skip != 'true'
+      shell: bash
+      env:
+        ARTIFACTORY_URL: ${{ format('{0}/artifactory', inputs.repox-url) }}
+      run: $ACTION_PATH_CONFIG_GRADLE/../shared/wait-for-artifactory-token.sh
+
     - name: Configure Gradle wrapper download resilience
       if: steps.config-gradle-completed.outputs.skip != 'true'
       shell: bash
