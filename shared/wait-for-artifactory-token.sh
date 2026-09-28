@@ -51,7 +51,7 @@ for ((attempt = 1; attempt <= max_attempts; attempt++)); do
     exit 0
   fi
   if [[ "$status" != "401" && "$status" != "000" ]]; then
-    echo "::error title=Artifactory token federation::Unexpected response from $probe_url: HTTP $status"
+    echo "::error title=Artifactory token federation::Unexpected response from $probe_url: HTTP $status" >&2
     exit 1
   fi
   if ((attempt == max_attempts || SECONDS + interval >= deadline)); then
@@ -62,5 +62,5 @@ for ((attempt = 1; attempt <= max_attempts; attempt++)); do
 done
 
 echo "::error title=Artifactory token federation::Artifactory token was not accepted by $probe_url" \
-  "within ${timeout}s (last: HTTP $status)"
+  "within ${timeout}s (last: HTTP $status)" >&2
 exit 1

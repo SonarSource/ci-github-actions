@@ -90,7 +90,8 @@ sleep 10"
     export CURL_STATUSES='403'
     When run script shared/wait-for-artifactory-token.sh
     The status should be failure
-    The line 2 of output should equal '::error title=Artifactory token federation::Unexpected response from https://repox-internal.dev.sonar.build/artifactory/api/system/version: HTTP 403'
+    The output should equal 'Waiting for Artifactory token federation at https://repox-internal.dev.sonar.build/artifactory/api/system/version (up to 30s, probing every 10s)'
+    The error should equal '::error title=Artifactory token federation::Unexpected response from https://repox-internal.dev.sonar.build/artifactory/api/system/version: HTTP 403'
     The lines of contents of file "$CURL_CALLS" should equal 1
   End
 
@@ -98,7 +99,9 @@ sleep 10"
     export CURL_STATUSES='401'
     When run script shared/wait-for-artifactory-token.sh
     The status should be failure
-    The output should include '::error title=Artifactory token federation::Artifactory token was not accepted by https://repox-internal.dev.sonar.build/artifactory/api/system/version within 30s (last: HTTP 401)'
+    The line 1 of output should equal 'Waiting for Artifactory token federation at https://repox-internal.dev.sonar.build/artifactory/api/system/version (up to 30s, probing every 10s)'
+    The line 3 of output should equal 'Attempt 2: HTTP 401, retrying in 10s'
+    The error should include '::error title=Artifactory token federation::Artifactory token was not accepted by https://repox-internal.dev.sonar.build/artifactory/api/system/version within 30s (last: HTTP 401)'
     The lines of contents of file "$CURL_CALLS" should equal 3
     The lines of contents of file "$SLEEP_CALLS" should equal 2
   End
