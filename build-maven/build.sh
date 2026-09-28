@@ -190,7 +190,7 @@ build_and_deploy() {
 # output before this runs; if none is present, fail loudly instead of letting the Sonar scanner
 # silently produce a degraded analysis (e.g. missing bytecode-based issues/coverage).
 check_build_output_restored() {
-  if ! find . -mindepth 1 -maxdepth 4 -type d -path '*/target/classes' 2>/dev/null | grep -q .; then
+  if [[ -z "$(/usr/bin/find . -type d -path '*/target/classes' -print -quit 2>/dev/null)" ]]; then
     echo "::error title=Missing build output::skip-build is enabled but no target/classes directories were found under" \
       "$(pwd) - was the prior build job's output actually restored before this step ran?" >&2
     exit 1
@@ -214,6 +214,11 @@ build_maven() {
   if [[ "$SKIP_BUILD" != "true" ]]; then
     build_and_deploy "$@"
   else
+    if ! should_scan; then
+      echo "::error title=Nothing to do::skip-build is enabled, but Sonar analysis is disabled for $GITHUB_REF_NAME;" \
+        "no build or scan would run." >&2
+      return 1
+    fi
     echo "Skipping Maven compile/test/deploy (skip-build enabled) - analyzing previously built output restored on disk."
   fi
 
