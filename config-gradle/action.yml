@@ -10,8 +10,8 @@ inputs:
       and `public-reader` for public repositories.
     default: ''
   repox-url:
-    description: URL for Repox
-    default: https://repox.jfrog.io
+    description: URL for Repox used for dependency resolution
+    default: https://repox-internal.dev.sonar.build
   use-develocity:
     description: Whether to use Develocity for build tracking.
     default: 'false'
@@ -94,7 +94,6 @@ runs:
       if: steps.config-gradle-completed.outputs.skip != 'true'
       id: artifactory
       with:
-        url: ${{ contains(inputs.repox-url, 'dev.sonar.build') && 'https://vault.dev.sonar.build' || 'https://vault.sonar.build' }}
         secrets: |
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
@@ -133,6 +132,8 @@ runs:
         fi
 
         echo "ARTIFACTORY_URL=$ARTIFACTORY_URL" >> "$GITHUB_ENV"
+        # Resolve URL kept separately so build steps can override ARTIFACTORY_URL for deploy.
+        echo "ARTIFACTORY_RESOLVE_URL=$ARTIFACTORY_URL" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_USERNAME=$ARTIFACTORY_USERNAME" >> "$GITHUB_ENV"
         echo "ARTIFACTORY_ACCESS_USERNAME=$ARTIFACTORY_USERNAME" >> "$GITHUB_ENV"  # deprecated, backward compliance
         echo "ARTIFACTORY_ACCESS_TOKEN=$ARTIFACTORY_ACCESS_TOKEN" >> "$GITHUB_ENV"

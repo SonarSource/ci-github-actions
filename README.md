@@ -66,6 +66,26 @@ These badges show the status of workflows in dummy repositories that use (or sho
 - [`update-release-channel`](#update-release-channel)
 - [`report-ci-metrics`](#report-ci-metrics)
 
+## Repox resolve and deploy
+
+The actions resolve dependencies through the JFrog Edge and deploy, publish and promote on SaaS Repox:
+
+| Operation                                                          | Input              | Default                                  |
+|--------------------------------------------------------------------|--------------------|------------------------------------------|
+| Dependency resolution (Maven mirror, Gradle, npm, pip, uv, Poetry) | `repox-url`        | `https://repox-internal.dev.sonar.build` |
+| Deployment, publication and build info (`build-*` actions)         | `repox-deploy-url` | `https://repox.jfrog.io`                 |
+| Promotion (`promote`)                                              | `repox-url`        | `https://repox.jfrog.io`                 |
+
+- The Edge is read-only. Never point `repox-deploy-url` or `promote`'s `repox-url` at it.
+- Artifactory tokens always come from `https://vault.sonar.build`, whatever the Repox URLs. SaaS issues them and Access
+  Federation propagates them to the Edge.
+- `repox-internal.dev.sonar.build` is only reachable from runners inside the SonarSource network. Jobs on GitHub-hosted
+  runners must set `repox-url: https://repox.jfrog.io`.
+- `config-*` exports `ARTIFACTORY_URL` (resolve), `ARTIFACTORY_RESOLVE_URL` (Gradle) and `SONARSOURCE_REPOSITORY_URL`.
+  The `build-*` actions set `ARTIFACTORY_URL` to `repox-deploy-url` only for their deploy and summary steps.
+
+To resolve from SaaS instead, set `repox-url: https://repox.jfrog.io`.
+
 ---
 
 ## `get-build-number`
@@ -251,16 +271,16 @@ steps:
 
 ### Inputs
 
-| Input                     | Description                                                                 | Default                                                                                                                 |
-|---------------------------|-----------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------|
-| `working-directory`       | Relative path under github.workspace to execute the build in                | `.`                                                                                                                     |
-| `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault                             | `private-reader` for private repos, `public-reader` for public repos                                                    |
-| `common-mvn-flags`        | Maven flags for all subsequent mvn calls                                    | `--batch-mode --no-transfer-progress --errors --fail-at-end --show-version -Dmaven.test.redirectTestOutputToFile=false` |
-| `repox-url`               | URL for Repox                                                               | `https://repox.jfrog.io`                                                                                                |
-| `use-develocity`          | Whether to use Develocity for build tracking                                | `false`                                                                                                                 |
-| `develocity-url`          | URL for Develocity                                                          | `https://develocity.sonar.build/`                                                                                       |
-| `cache-paths`             | Custom cache paths (multiline).                                             | (optional)                                                                                                              |
-| `disable-caching`         | Whether to disable Maven caching entirely                                   | `false`                                                                                                                 |
+| Input                     | Description                                                                                                                     | Default                                                                                                                 |
+|---------------------------|---------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------|
+| `working-directory`       | Relative path under github.workspace to execute the build in                                                                    | `.`                                                                                                                     |
+| `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault                                                                                 | `private-reader` for private repos, `public-reader` for public repos                                                    |
+| `common-mvn-flags`        | Maven flags for all subsequent mvn calls                                                                                        | `--batch-mode --no-transfer-progress --errors --fail-at-end --show-version -Dmaven.test.redirectTestOutputToFile=false` |
+| `repox-url`               | URL for Repox used for dependency resolution (JFrog Edge by default). See [Repox resolve and deploy](#repox-resolve-and-deploy) | `https://repox-internal.dev.sonar.build`                                                                                |
+| `use-develocity`          | Whether to use Develocity for build tracking                                                                                    | `false`                                                                                                                 |
+| `develocity-url`          | URL for Develocity                                                                                                              | `https://develocity.sonar.build/`                                                                                       |
+| `cache-paths`             | Custom cache paths (multiline).                                                                                                 | (optional)                                                                                                              |
+| `disable-caching`         | Whether to disable Maven caching entirely                                                                                       | `false`                                                                                                                 |
 
 ### Outputs
 
@@ -352,28 +372,29 @@ See also [`config-maven`](#config-maven) input environment variables.
 
 ### Inputs
 
-| Input                       | Description                                                                                                                  | Default                                                                                     |
-|-----------------------------|------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
-| `artifactory-deploy-repo`   | Deployment repository                                                                                                        | `sonarsource-private-qa` for private repositories, `sonarsource-public-qa` for public repos |
-| `artifactory-reader-role`   | Suffix for the Artifactory reader role in Vault                                                                              | `private-reader` for private repos, `public-reader` for public repos                        |
-| `artifactory-deployer-role` | Suffix for the Artifactory deployer role in Vault                                                                            | `qa-deployer` for private repos, `public-deployer` for public repos                         |
-| `deploy`                    | Whether to deploy on master, maintenance, dogfood and long-lived branches                                                    | `true`                                                                                      |
-| `deploy-pull-request`       | Whether to also deploy for pull requests. If deploy is false, this has no effect.                                            | `false`                                                                                     |
-| `maven-args`                | Additional arguments to pass to Maven                                                                                        | (optional)                                                                                  |
-| `scanner-java-opts`         | Additional Java options for the Sonar scanner (`SONAR_SCANNER_JAVA_OPTS`)                                                    | `-Xmx512m`                                                                                  |
-| `repox-url`                 | URL for Repox                                                                                                                | `https://repox.jfrog.io`                                                                    |
-| `use-develocity`            | Whether to use Develocity for build tracking                                                                                 | `false`                                                                                     |
-| `develocity-url`            | URL for Develocity                                                                                                           | `https://develocity.sonar.build/`                                                           |
-| `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', 'sqc-us', or 'none'. Use 'none' to skip sonar scans                           | `next`                                                                                      |
-| `working-directory`         | Relative path under github.workspace to execute the build in                                                                 | `.`                                                                                         |
-| `run-shadow-scans`          | If true, run SonarQube analysis on all 3 platforms (next, sqc-eu, sqc-us); if false, only on the selected `sonar-platform`   | `false`                                                                                     |
-| `cache-paths`               | Custom cache paths (multiline). Overrides default `~/.m2/repository`.                                                        | (optional)                                                                                  |
-| `cache-cleanup`             | Whether to clean up the cache before saving it.                                                                              | `true`                                                                                      |
-| `disable-caching`           | Whether to disable Maven caching entirely                                                                                    | `false`                                                                                     |
-| `provenance`                | Whether to generate provenance attestation for built artifacts                                                               | `false`                                                                                     |
-| `provenance-artifact-paths` | Relative paths of artifacts for provenance attestation (glob pattern). See [Provenance Attestation](#provenance-attestation) | (optional)                                                                                  |
-| `mixed-privacy`             | Whether the repository contains both public and private code                                                                 | `false`                                                                                     |
-| `generate-summary`          | Whether to generate a workflow summary after the build                                                                       | `true`                                                                                      |
+| Input                       | Description                                                                                                                     | Default                                                                                     |
+|-----------------------------|---------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
+| `artifactory-deploy-repo`   | Deployment repository                                                                                                           | `sonarsource-private-qa` for private repositories, `sonarsource-public-qa` for public repos |
+| `artifactory-reader-role`   | Suffix for the Artifactory reader role in Vault                                                                                 | `private-reader` for private repos, `public-reader` for public repos                        |
+| `artifactory-deployer-role` | Suffix for the Artifactory deployer role in Vault                                                                               | `qa-deployer` for private repos, `public-deployer` for public repos                         |
+| `deploy`                    | Whether to deploy on master, maintenance, dogfood and long-lived branches                                                       | `true`                                                                                      |
+| `deploy-pull-request`       | Whether to also deploy for pull requests. If deploy is false, this has no effect.                                               | `false`                                                                                     |
+| `maven-args`                | Additional arguments to pass to Maven                                                                                           | (optional)                                                                                  |
+| `scanner-java-opts`         | Additional Java options for the Sonar scanner (`SONAR_SCANNER_JAVA_OPTS`)                                                       | `-Xmx512m`                                                                                  |
+| `repox-url`                 | URL for Repox used for dependency resolution (JFrog Edge by default). See [Repox resolve and deploy](#repox-resolve-and-deploy) | `https://repox-internal.dev.sonar.build`                                                    |
+| `repox-deploy-url`          | URL for Repox used for deployment and build info. Must stay on SaaS: the Edge is read-only                                      | `https://repox.jfrog.io`                                                                    |
+| `use-develocity`            | Whether to use Develocity for build tracking                                                                                    | `false`                                                                                     |
+| `develocity-url`            | URL for Develocity                                                                                                              | `https://develocity.sonar.build/`                                                           |
+| `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', 'sqc-us', or 'none'. Use 'none' to skip sonar scans                              | `next`                                                                                      |
+| `working-directory`         | Relative path under github.workspace to execute the build in                                                                    | `.`                                                                                         |
+| `run-shadow-scans`          | If true, run SonarQube analysis on all 3 platforms (next, sqc-eu, sqc-us); if false, only on the selected `sonar-platform`      | `false`                                                                                     |
+| `cache-paths`               | Custom cache paths (multiline). Overrides default `~/.m2/repository`.                                                           | (optional)                                                                                  |
+| `cache-cleanup`             | Whether to clean up the cache before saving it.                                                                                 | `true`                                                                                      |
+| `disable-caching`           | Whether to disable Maven caching entirely                                                                                       | `false`                                                                                     |
+| `provenance`                | Whether to generate provenance attestation for built artifacts                                                                  | `false`                                                                                     |
+| `provenance-artifact-paths` | Relative paths of artifacts for provenance attestation (glob pattern). See [Provenance Attestation](#provenance-attestation)    | (optional)                                                                                  |
+| `mixed-privacy`             | Whether the repository contains both public and private code                                                                    | `false`                                                                                     |
+| `generate-summary`          | Whether to generate a workflow summary after the build                                                                          | `true`                                                                                      |
 
 #### `cache-cleanup`
 
@@ -461,15 +482,15 @@ See also [`get-build-number`](#get-build-number) input environment variables.
 
 ### Inputs
 
-| Input                     | Description                                                                 | Default                                                              |
-|---------------------------|-----------------------------------------------------------------------------|----------------------------------------------------------------------|
-| `working-directory`       | Relative path under github.workspace to execute the build in                | `.`                                                                  |
-| `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault                             | `private-reader` for private repos, `public-reader` for public repos |
-| `artifactory-pypi-repo`   | PyPI virtual repository to resolve dependencies from                        | `sonarsource-pypi`                                                   |
-| `repox-url`               | URL for Repox                                                               | `https://repox.jfrog.io`                                             |
-| `poetry-virtualenvs-path` | Path to the Poetry virtual environments, relative to GitHub workspace       | `.cache/pypoetry/virtualenvs`                                        |
-| `poetry-cache-dir`        | Path to the Poetry cache directory, relative to GitHub workspace            | `.cache/pypoetry`                                                    |
-| `disable-caching`         | Whether to disable Poetry caching entirely                                  | `false`                                                              |
+| Input                     | Description                                                                                                                     | Default                                                              |
+|---------------------------|---------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------|
+| `working-directory`       | Relative path under github.workspace to execute the build in                                                                    | `.`                                                                  |
+| `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault                                                                                 | `private-reader` for private repos, `public-reader` for public repos |
+| `artifactory-pypi-repo`   | PyPI virtual repository to resolve dependencies from                                                                            | `sonarsource-pypi`                                                   |
+| `repox-url`               | URL for Repox used for dependency resolution (JFrog Edge by default). See [Repox resolve and deploy](#repox-resolve-and-deploy) | `https://repox-internal.dev.sonar.build`                             |
+| `poetry-virtualenvs-path` | Path to the Poetry virtual environments, relative to GitHub workspace                                                           | `.cache/pypoetry/virtualenvs`                                        |
+| `poetry-cache-dir`        | Path to the Poetry cache directory, relative to GitHub workspace                                                                | `.cache/pypoetry`                                                    |
+| `disable-caching`         | Whether to disable Poetry caching entirely                                                                                      | `false`                                                              |
 
 ### Outputs
 
@@ -568,7 +589,8 @@ See also [`config-poetry`](#config-poetry) input environment variables.
 | `deploy-pull-request`       | Whether to also deploy pull request artifacts. If `deploy` is `false`, this has no effect                                                                                                     | `false`                                                                                               |
 | `poetry-virtualenvs-path`   | Path to the Poetry virtual environments, relative to GitHub workspace                                                                                                                         | `.cache/pypoetry/virtualenvs`                                                                         |
 | `poetry-cache-dir`          | Path to the Poetry cache directory, relative to GitHub workspace                                                                                                                              | `.cache/pypoetry`                                                                                     |
-| `repox-url`                 | URL for Repox                                                                                                                                                                                 | `https://repox.jfrog.io`                                                                              |
+| `repox-url`                 | URL for Repox used for dependency resolution (JFrog Edge by default). See [Repox resolve and deploy](#repox-resolve-and-deploy)                                                               | `https://repox-internal.dev.sonar.build`                                                              |
+| `repox-deploy-url`          | URL for Repox used for deployment and build info. Must stay on SaaS: the Edge is read-only                                                                                                    | `https://repox.jfrog.io`                                                                              |
 | `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', sqc-us, or 'none'. Use 'none' to skip sonar scans                                                                                              | `next`                                                                                                |
 | `run-shadow-scans`          | If true, run sonar scanner on all 3 platforms using the provided URL and token. If false, run on the platform provided by sonar-platform. When enabled, the sonar-platform setting is ignored | `false`                                                                                               |
 | `working-directory`         | Relative path under github.workspace to execute the build in                                                                                                                                  | `.`                                                                                                   |
@@ -674,15 +696,15 @@ If provided, `SONARSOURCE_REPOSITORY` is used at runtime by the Gradle init scri
 
 ### Inputs
 
-| Input                     | Description                                                                 | Default                                                              |
-|---------------------------|-----------------------------------------------------------------------------|----------------------------------------------------------------------|
-| `working-directory`       | Relative path under github.workspace to execute the build in                | `.`                                                                  |
-| `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault                             | `private-reader` for private repos, `public-reader` for public repos |
-| `use-develocity`          | Whether to use Develocity for build tracking                                | `false`                                                              |
-| `develocity-url`          | URL for Develocity                                                          | `https://develocity.sonar.build/`                                    |
-| `repox-url`               | URL for Repox                                                               | `https://repox.jfrog.io`                                             |
-| `cache-paths`             | Custom cache paths (multiline).                                             | `~/.gradle/caches`<br>`~/.gradle/wrapper`                            |
-| `disable-caching`         | Whether to disable Gradle caching entirely                                  | `false`                                                              |
+| Input                     | Description                                                                                                                     | Default                                                              |
+|---------------------------|---------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------|
+| `working-directory`       | Relative path under github.workspace to execute the build in                                                                    | `.`                                                                  |
+| `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault                                                                                 | `private-reader` for private repos, `public-reader` for public repos |
+| `use-develocity`          | Whether to use Develocity for build tracking                                                                                    | `false`                                                              |
+| `develocity-url`          | URL for Develocity                                                                                                              | `https://develocity.sonar.build/`                                    |
+| `repox-url`               | URL for Repox used for dependency resolution (JFrog Edge by default). See [Repox resolve and deploy](#repox-resolve-and-deploy) | `https://repox-internal.dev.sonar.build`                             |
+| `cache-paths`             | Custom cache paths (multiline).                                                                                                 | `~/.gradle/caches`<br>`~/.gradle/wrapper`                            |
+| `disable-caching`         | Whether to disable Gradle caching entirely                                                                                      | `false`                                                              |
 
 ### Outputs
 
@@ -803,7 +825,8 @@ See also [`config-gradle`](#config-gradle) input environment variables.
 | `use-develocity`            | Whether to use Develocity for build tracking                                                                                                                                                                              | `false`                                                                                     |
 | `gradle-args`               | Additional arguments to pass to Gradle                                                                                                                                                                                    | (optional)                                                                                  |
 | `develocity-url`            | URL for Develocity                                                                                                                                                                                                        | `https://develocity.sonar.build/`                                                           |
-| `repox-url`                 | URL for Repox                                                                                                                                                                                                             | `https://repox.jfrog.io`                                                                    |
+| `repox-url`                 | URL for Repox used for dependency resolution (JFrog Edge by default). See [Repox resolve and deploy](#repox-resolve-and-deploy)                                                                                           | `https://repox-internal.dev.sonar.build`                                                    |
+| `repox-deploy-url`          | URL for Repox used for deployment and build info. Must stay on SaaS: the Edge is read-only                                                                                                                                | `https://repox.jfrog.io`                                                                    |
 | `sonar-platform`            | SonarQube variant - 'next', 'sqc-eu', 'sqc-us', or 'none'. Use 'none' to skip sonar scans                                                                                                                                 | `next`                                                                                      |
 | `working-directory`         | Relative path under github.workspace to execute the build in                                                                                                                                                              | `.`                                                                                         |
 | `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding)                                                                                                                                            | `false`                                                                                     |
@@ -996,13 +1019,13 @@ See also [`get-build-number`](#get-build-number) input environment variables.
 
 ### Inputs
 
-| Input                     | Description                                                                 | Default                                                              |
-|---------------------------|-----------------------------------------------------------------------------|----------------------------------------------------------------------|
-| `working-directory`       | Relative path under github.workspace to execute the build in                | `.`                                                                  |
-| `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault                             | `private-reader` for private repos, `public-reader` for public repos |
-| `disable-caching`         | Whether to disable NPM caching entirely                                     | `false`                                                              |
-| `cache-npm`               | Deprecated. Use `disable-caching: 'true'` instead                           | `true`                                                               |
-| `repox-url`               | URL for Repox                                                               | `https://repox.jfrog.io`                                             |
+| Input                     | Description                                                                                                                     | Default                                                              |
+|---------------------------|---------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------|
+| `working-directory`       | Relative path under github.workspace to execute the build in                                                                    | `.`                                                                  |
+| `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault                                                                                 | `private-reader` for private repos, `public-reader` for public repos |
+| `disable-caching`         | Whether to disable NPM caching entirely                                                                                         | `false`                                                              |
+| `cache-npm`               | Deprecated. Use `disable-caching: 'true'` instead                                                                               | `true`                                                               |
+| `repox-url`               | URL for Repox used for dependency resolution (JFrog Edge by default). See [Repox resolve and deploy](#repox-resolve-and-deploy) | `https://repox-internal.dev.sonar.build`                             |
 
 ### Outputs
 
@@ -1095,7 +1118,8 @@ See also [`config-npm`](#config-npm) input environment variables.
 | `skip-tests`                | Whether to skip running tests                                                                                                                                                                                      | `false`                                                                                      |
 | `disable-caching`           | Whether to disable NPM caching entirely                                                                                                                                                                            | `false`                                                                                      |
 | `cache-npm`                 | Deprecated. Use `disable-caching: 'true'` instead                                                                                                                                                                  | `true`                                                                                       |
-| `repox-url`                 | URL for Repox                                                                                                                                                                                                      | `https://repox.jfrog.io`                                                                     |
+| `repox-url`                 | URL for Repox used for dependency resolution (JFrog Edge by default). See [Repox resolve and deploy](#repox-resolve-and-deploy)                                                                                    | `https://repox-internal.dev.sonar.build`                                                     |
+| `repox-deploy-url`          | URL for Repox used for deployment and build info. Must stay on SaaS: the Edge is read-only                                                                                                                         | `https://repox.jfrog.io`                                                                     |
 | `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', or 'sqc-us'                                                                                                                                                         | `next`                                                                                       |
 | `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding)                                                                                                                                     | `false`                                                                                      |
 | `build-name`                | Name of the JFrog build to publish.                                                                                                                                                                                | `<Repository name>`                                                                          |
@@ -1195,24 +1219,25 @@ jobs:
 
 ### Inputs
 
-| Input                       | Description                                                                                                                  | Default                                                                                     |
-|-----------------------------|------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
-| `working-directory`         | Relative path under github.workspace to execute the build in                                                                 | `.`                                                                                         |
-| `public`                    | Deprecated                                                                                                                   | Repository visibility                                                                       |
-| `artifactory-reader-role`   | Suffix for the Artifactory reader role in Vault                                                                              | `private-reader` for private repos, `public-reader` for public repos                        |
-| `artifactory-deployer-role` | Suffix for the Artifactory deployer role in Vault                                                                            | `qa-deployer` for private repos, `public-deployer` for public repos                         |
-| `artifactory-deploy-repo`   | Deployment repository                                                                                                        | `sonarsource-private-qa` for private repositories, `sonarsource-public-qa` for public repos |
-| `deploy`                    | Whether to deploy on master, maintenance, dogfood and long-lived branches                                                    | `true`                                                                                      |
-| `deploy-pull-request`       | Whether to also deploy pull request artifacts. If `deploy` is `false`, this has no effect                                    | `false`                                                                                     |
-| `skip-tests`                | Whether to skip running tests                                                                                                | `false`                                                                                     |
-| `disable-caching`           | Whether to disable Yarn caching entirely                                                                                     | `false`                                                                                     |
-| `cache-yarn`                | Deprecated. Use `disable-caching: 'true'` instead                                                                            | `true`                                                                                      |
-| `repox-url`                 | URL for Repox                                                                                                                | `https://repox.jfrog.io`                                                                    |
-| `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', 'sqc-us', or 'none'. Use 'none' to skip sonar scans                           | `next`                                                                                      |
-| `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding)                                               | `false`                                                                                     |
-| `provenance`                | Whether to generate provenance attestation for built artifacts                                                               | `false`                                                                                     |
-| `provenance-artifact-paths` | Relative paths of artifacts for provenance attestation (glob pattern). See [Provenance Attestation](#provenance-attestation) | (optional)                                                                                  |
-| `generate-summary`          | Whether to generate a workflow summary after the build                                                                       | `true`                                                                                      |
+| Input                       | Description                                                                                                                     | Default                                                                                     |
+|-----------------------------|---------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
+| `working-directory`         | Relative path under github.workspace to execute the build in                                                                    | `.`                                                                                         |
+| `public`                    | Deprecated                                                                                                                      | Repository visibility                                                                       |
+| `artifactory-reader-role`   | Suffix for the Artifactory reader role in Vault                                                                                 | `private-reader` for private repos, `public-reader` for public repos                        |
+| `artifactory-deployer-role` | Suffix for the Artifactory deployer role in Vault                                                                               | `qa-deployer` for private repos, `public-deployer` for public repos                         |
+| `artifactory-deploy-repo`   | Deployment repository                                                                                                           | `sonarsource-private-qa` for private repositories, `sonarsource-public-qa` for public repos |
+| `deploy`                    | Whether to deploy on master, maintenance, dogfood and long-lived branches                                                       | `true`                                                                                      |
+| `deploy-pull-request`       | Whether to also deploy pull request artifacts. If `deploy` is `false`, this has no effect                                       | `false`                                                                                     |
+| `skip-tests`                | Whether to skip running tests                                                                                                   | `false`                                                                                     |
+| `disable-caching`           | Whether to disable Yarn caching entirely                                                                                        | `false`                                                                                     |
+| `cache-yarn`                | Deprecated. Use `disable-caching: 'true'` instead                                                                               | `true`                                                                                      |
+| `repox-url`                 | URL for Repox used for dependency resolution (JFrog Edge by default). See [Repox resolve and deploy](#repox-resolve-and-deploy) | `https://repox-internal.dev.sonar.build`                                                    |
+| `repox-deploy-url`          | URL for Repox used for deployment and build info. Must stay on SaaS: the Edge is read-only                                      | `https://repox.jfrog.io`                                                                    |
+| `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', 'sqc-us', or 'none'. Use 'none' to skip sonar scans                              | `next`                                                                                      |
+| `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding)                                                  | `false`                                                                                     |
+| `provenance`                | Whether to generate provenance attestation for built artifacts                                                                  | `false`                                                                                     |
+| `provenance-artifact-paths` | Relative paths of artifacts for provenance attestation (glob pattern). See [Provenance Attestation](#provenance-attestation)    | (optional)                                                                                  |
+| `generate-summary`          | Whether to generate a workflow summary after the build                                                                          | `true`                                                                                      |
 
 ### Outputs
 
@@ -1286,13 +1311,13 @@ steps:
 
 ### Inputs
 
-| Input                     | Description                                                                 | Default                                                              |
-|---------------------------|-----------------------------------------------------------------------------|----------------------------------------------------------------------|
-| `working-directory`       | Relative path under github.workspace to execute the build in                | `.`                                                                  |
-| `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault                             | `private-reader` for private repos, `public-reader` for public repos |
-| `repox-url`               | URL for Repox                                                               | `https://repox.jfrog.io`                                             |
-| `cache-paths`             | Cache paths to use (multiline)                                              | `~/.cache/pip`                                                       |
-| `disable-caching`         | Whether to disable pip caching entirely                                     | `false`                                                              |
+| Input                     | Description                                                                                                                     | Default                                                              |
+|---------------------------|---------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------|
+| `working-directory`       | Relative path under github.workspace to execute the build in                                                                    | `.`                                                                  |
+| `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault                                                                                 | `private-reader` for private repos, `public-reader` for public repos |
+| `repox-url`               | URL for Repox used for dependency resolution (JFrog Edge by default). See [Repox resolve and deploy](#repox-resolve-and-deploy) | `https://repox-internal.dev.sonar.build`                             |
+| `cache-paths`             | Cache paths to use (multiline)                                                                                                  | `~/.cache/pip`                                                       |
+| `disable-caching`         | Whether to disable pip caching entirely                                                                                         | `false`                                                              |
 
 ### Outputs
 
@@ -1387,14 +1412,14 @@ For build-info collection, pass `--build-name` and `--build-number` to `jf uv` a
 
 ### Inputs
 
-| Input                     | Description                                                                 | Default                                                              |
-|---------------------------|-----------------------------------------------------------------------------|----------------------------------------------------------------------|
-| `working-directory`       | Relative path under github.workspace to execute the build in                | `.`                                                                  |
-| `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault                             | `private-reader` for private repos, `public-reader` for public repos |
-| `uv-index-name`           | Name of the uv index in `pyproject.toml` to authenticate                    | `repox`                                                              |
-| `repox-url`               | URL for Repox                                                               | `https://repox.jfrog.io`                                             |
-| `uv-cache-dir`            | Path to the uv cache directory, relative to GitHub workspace                | `.cache/uv`                                                          |
-| `disable-caching`         | Whether to disable uv caching entirely                                      | `false`                                                              |
+| Input                     | Description                                                                                                                     | Default                                                              |
+|---------------------------|---------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------|
+| `working-directory`       | Relative path under github.workspace to execute the build in                                                                    | `.`                                                                  |
+| `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault                                                                                 | `private-reader` for private repos, `public-reader` for public repos |
+| `uv-index-name`           | Name of the uv index in `pyproject.toml` to authenticate                                                                        | `repox`                                                              |
+| `repox-url`               | URL for Repox used for dependency resolution (JFrog Edge by default). See [Repox resolve and deploy](#repox-resolve-and-deploy) | `https://repox-internal.dev.sonar.build`                             |
+| `uv-cache-dir`            | Path to the uv cache directory, relative to GitHub workspace                                                                    | `.cache/uv`                                                          |
+| `disable-caching`         | Whether to disable uv caching entirely                                                                                          | `false`                                                              |
 
 ### Outputs
 
@@ -1493,7 +1518,7 @@ promote:
 
 | Input                     | Description                                                                                                               | Default                  |
 |---------------------------|---------------------------------------------------------------------------------------------------------------------------|--------------------------|
-| `repox-url`               | URL for Repox                                                                                                             | `https://repox.jfrog.io` |
+| `repox-url`               | URL for Repox used for promotion. Must stay on SaaS, where artifacts are deployed                                         | `https://repox.jfrog.io` |
 | `promote-pull-request`    | Whether to promote pull request artifacts. Requires `deploy-pull-request` input to be set to `true` in the build action   | `false`                  |
 | `multi-repo`              | If true, promotes to public and private repositories. For projects with both public and private artifacts                 | (optional)               |
 | `artifactory-deploy-repo` | Repository to deploy to. If not set, it will be retrieved from the build info                                             | (optional)               |
