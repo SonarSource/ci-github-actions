@@ -346,10 +346,10 @@ Describe 'check_settings_xml()'
 End
 
 Describe 'check_build_output_restored()'
-  It 'succeeds when a target/classes directory exists'
+  It 'succeeds when a target/classes directory exists in a deeply nested module'
     temp_dir=$(mktemp -d)
     pushd "$temp_dir" > /dev/null || exit
-    mkdir -p some-module/target/classes
+    mkdir -p a/b/c/target/classes
 
     When call check_build_output_restored
     The status should be success
@@ -458,6 +458,21 @@ Describe 'build_maven()'
       The output should not include "sign"
     End
 
+    It 'fails when skip-build is enabled but no build output was restored'
+      temp_dir=$(mktemp -d)
+      pushd "$temp_dir" > /dev/null || exit
+      export SKIP_BUILD="true"
+      export DEPLOY="false"
+
+      When run build_maven
+      The status should be failure
+      The output should include "Skipping Maven compile/test/deploy (skip-build enabled)"
+      The stderr should include "Missing build output::skip-build is enabled"
+
+      popd > /dev/null || exit
+      rm -rf "$temp_dir"
+    End
+
     Describe 'skip-build'
       Mock check_build_output_restored
         true
@@ -475,15 +490,15 @@ Describe 'build_maven()'
         The output should include "orchestrate_sonar_platforms"
       End
 
-      It 'skips the build output check when analysis is disabled'
+      It 'fails instead of skipping both the build and analysis'
         export SKIP_BUILD="true"
         export DEPLOY="false"
         export SONAR_PLATFORM="none"
         export RUN_SHADOW_SCANS="false"
 
         When call build_maven
-        The status should be success
-        The output should include "Skipping Maven compile/test/deploy (skip-build enabled)"
+        The status should be failure
+        The stderr should include "Nothing to do::skip-build is enabled, but Sonar analysis is disabled"
         The output should not include "orchestrate_sonar_platforms"
       End
     End
