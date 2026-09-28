@@ -359,6 +359,7 @@ See also [`config-maven`](#config-maven) input environment variables.
 | `artifactory-deployer-role` | Suffix for the Artifactory deployer role in Vault                                                                            | `qa-deployer` for private repos, `public-deployer` for public repos                         |
 | `deploy`                    | Whether to deploy on master, maintenance, dogfood and long-lived branches                                                    | `true`                                                                                      |
 | `deploy-pull-request`       | Whether to also deploy for pull requests. If deploy is false, this has no effect.                                            | `false`                                                                                     |
+| `skip-build`                | If `true`, skip compile/test/deploy and only run Sonar analysis against restored `target/` output. Requires `deploy: false`. | `false`                                                                                     |
 | `maven-args`                | Additional arguments to pass to Maven                                                                                        | (optional)                                                                                  |
 | `scanner-java-opts`         | Additional Java options for the Sonar scanner (`SONAR_SCANNER_JAVA_OPTS`)                                                    | `-Xmx512m`                                                                                  |
 | `repox-url`                 | URL for Repox                                                                                                                | `https://repox.jfrog.io`                                                                    |
@@ -374,6 +375,58 @@ See also [`config-maven`](#config-maven) input environment variables.
 | `provenance-artifact-paths` | Relative paths of artifacts for provenance attestation (glob pattern). See [Provenance Attestation](#provenance-attestation) | (optional)                                                                                  |
 | `mixed-privacy`             | Whether the repository contains both public and private code                                                                 | `false`                                                                                     |
 | `generate-summary`          | Whether to generate a workflow summary after the build                                                                       | `true`                                                                                      |
+
+#### `skip-build`
+
+Run the build and Sonar analysis in separate jobs to retry a scan without rebuilding. Upload the complete `target/` trees,
+including classes and any JaCoCo and test reports the analysis needs. The scan job restores the artifact from the same workflow
+run and reuses its build number. The example below assumes Java and Maven are available in both jobs.
+
+```yaml
+jobs:
+  build:
+    runs-on: github-ubuntu-latest-s
+    permissions:
+      id-token: write
+      contents: write
+    outputs:
+      build-number: ${{ steps.maven.outputs.BUILD_NUMBER }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: SonarSource/ci-github-actions/build-maven@v1
+        id: maven
+        with:
+          sonar-platform: none
+          maven-args: -Pcoverage
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: build-output-${{ steps.maven.outputs.BUILD_NUMBER }}
+          path: '**/target'
+          retention-days: 3
+          overwrite: true
+
+  scan:
+    needs: build
+    runs-on: github-ubuntu-latest-s
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      BUILD_NUMBER: ${{ needs.build.outputs.build-number }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: build-output-${{ needs.build.outputs.build-number }}
+      - uses: SonarSource/ci-github-actions/build-maven@v1
+        with:
+          deploy: false
+          skip-build: true
+          sonar-platform: next
+```
+
+Keep `maven-args: -Pcoverage` in the build job when Sonar coverage is required: `sonar-platform: none` disables the action's
+automatic coverage profile. See [sonar-lits PR #177](https://github.com/SonarSource/sonar-lits/pull/177) for a working example.
 
 #### `cache-cleanup`
 
