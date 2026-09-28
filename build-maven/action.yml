@@ -16,6 +16,12 @@ inputs:
   deploy-pull-request:
     description: Whether to also deploy pull request artifacts. If deploy is `false`, this has no effect.
     default: 'false'
+  skip-build:
+    description: >-
+      If `true`, skip Maven compilation, tests and deployment, then run the configured Sonar analysis
+      using existing target/ output in the working directory. Requires `deploy: false` and enabled
+      Sonar analysis.
+    default: 'false'
   maven-args:
     description: Additional Maven arguments to pass to the build script.
     default: ''
@@ -187,6 +193,7 @@ runs:
         # Action inputs
         DEPLOY: ${{ inputs.deploy }}
         DEPLOY_PULL_REQUEST: ${{ inputs.deploy-pull-request }}
+        SKIP_BUILD: ${{ inputs.skip-build }}
         USER_MAVEN_ARGS: ${{ steps.params.outputs.USER_MAVEN_ARGS }}
         SONAR_SCANNER_JAVA_OPTS: ${{ inputs.scanner-java-opts }}
         SONAR_PLATFORM: ${{ inputs.sonar-platform }}
