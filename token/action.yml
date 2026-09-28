@@ -1,0 +1,22 @@
+---
+name: Wait for Artifactory token federation
+description: Wait until a SaaS-issued Artifactory access token is accepted by a JFrog Edge node
+inputs:
+  artifactory-url:
+    description: Artifactory base URL (ending with `/artifactory`). The wait is skipped for `jfrog.io` hosts.
+    default: https://repox-internal.dev.sonar.build/artifactory
+  access-token:
+    description: Artifactory access token to verify. Defaults to the `ARTIFACTORY_ACCESS_TOKEN` environment variable.
+    default: ''
+  probe-path:
+    description: Authenticated endpoint, relative to `artifactory-url`, that returns HTTP 200 once the token is accepted
+    default: api/system/version
+  timeout-seconds:
+    description: Maximum time to wait for the token to be accepted
+    default: '300'
+  interval-seconds:
+    description: Time between two probes
+    default: '10'
+runs:
+  using: node24
+  main: index.js

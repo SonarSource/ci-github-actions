@@ -34,6 +34,8 @@ jobs:
           rm kcov_38+dfsg-1_amd64.deb
 
           ./run_shell_tests.sh
+      - name: Run Node tests
+        run: node --test 'spec/**/*.test.js'
       - name: Vault
         id: secrets
         uses: SonarSource/vault-action-wrapper@881045d830534a70ec3c7c275fa3714412c8ff6e # 3.6.1
