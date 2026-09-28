@@ -13,8 +13,8 @@ inputs:
     description: PyPI virtual repository to resolve dependencies from
     default: sonarsource-pypi
   repox-url:
-    description: URL for Repox
-    default: https://repox.jfrog.io
+    description: URL for Repox used for dependency resolution
+    default: https://repox-internal.dev.sonar.build
   poetry-virtualenvs-path:
     description: Path to the Poetry virtual environments, relative to GitHub workspace. The folder is cached only if it is a subdirectory of
       `poetry-cache-dir`.
@@ -118,10 +118,17 @@ runs:
       if: steps.config-poetry-completed.outputs.skip != 'true'
       id: secrets
       with:
-        url: ${{ contains(inputs.repox-url, 'dev.sonar.build') && 'https://vault.dev.sonar.build' || 'https://vault.sonar.build' }}
         secrets: |
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
+
+    - name: Wait for Artifactory token federation
+      if: steps.config-poetry-completed.outputs.skip != 'true'
+      shell: bash
+      env:
+        ARTIFACTORY_URL: ${{ format('{0}/artifactory', inputs.repox-url) }}
+        ARTIFACTORY_ACCESS_TOKEN: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN || '' }}
+      run: $ACTION_PATH_CONFIG_POETRY/../shared/wait-for-artifactory-token.sh
 
     - name: Configure Poetry authentication
       if: steps.config-poetry-completed.outputs.skip != 'true'
