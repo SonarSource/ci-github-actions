@@ -79,8 +79,6 @@ The actions resolve dependencies through the JFrog Edge and deploy, publish and 
 - The Edge is read-only. Never point `repox-deploy-url` or `promote`'s `repox-url` at it.
 - Artifactory tokens always come from `https://vault.sonar.build`, whatever the Repox URLs. SaaS issues them and Access
   Federation propagates them to the Edge.
-- A token minted for a job can take a few seconds to reach the Edge. When `repox-url` is not a `jfrog.io` host, the
-  `config-*` actions wait until the Edge accepts it (`shared/wait-for-artifactory-token.sh`, up to 5 minutes).
 - `repox-internal.dev.sonar.build` is only reachable from runners inside the SonarSource network. Jobs on GitHub-hosted
   runners must set `repox-url: https://repox.jfrog.io`.
 - `config-*` exports `ARTIFACTORY_URL` (resolve), `ARTIFACTORY_RESOLVE_URL` (Gradle) and `SONARSOURCE_REPOSITORY_URL`.

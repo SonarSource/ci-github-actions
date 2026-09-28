@@ -79,13 +79,6 @@ runs:
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
           development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
 
-    - name: Wait for Artifactory token federation
-      shell: bash
-      env:
-        ARTIFACTORY_URL: ${{ format('{0}/artifactory', inputs.repox-url) }}
-        ARTIFACTORY_ACCESS_TOKEN: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN || '' }}
-      run: $ACTION_PATH_CONFIG_PIP/../shared/wait-for-artifactory-token.sh
-
     - name: Set environment variables for Artifactory authentication
       shell: bash
       env:
