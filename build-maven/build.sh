@@ -35,8 +35,8 @@
 # Optional user customization:
 # - DEPLOY: Whether to deploy (default: true)
 # - DEPLOY_PULL_REQUEST: Whether to deploy pull request artifacts (default: false)
-# - SKIP_BUILD: If true, skip compile/test/deploy and only run Sonar analysis against target/ output
-#   already restored on disk (default: false)
+# - SKIP_BUILD: If true, run Sonar analysis using existing target/ output without compiling,
+#   testing or deploying (default: false)
 # - SONAR_SCANNER_JAVA_OPTS: JVM options for SonarQube scanner (e.g. -Xmx512m)
 # - SCANNER_VERSION: SonarQube Maven plugin version (default: 5.6.0.6792)
 # - USER_MAVEN_ARGS: Additional arguments to pass to Maven
@@ -186,13 +186,12 @@ build_and_deploy() {
   fi
 }
 
-# Sanity check for skip-build: the caller is responsible for restoring a prior build's target/
-# output before this runs; if none is present, fail loudly instead of letting the Sonar scanner
-# silently produce a degraded analysis (e.g. missing bytecode-based issues/coverage).
+# Sanity check for skip-build: the caller must provide build output before this runs.
+# Without compiled classes, the Sonar scanner could silently produce a degraded analysis.
 check_build_output_restored() {
-  if ! find . -mindepth 1 -maxdepth 4 -type d -path '*/target/classes' 2>/dev/null | grep -q .; then
+  if [[ -z "$(/usr/bin/find . -type d -path '*/target/classes' -print -quit 2>/dev/null)" ]]; then
     echo "::error title=Missing build output::skip-build is enabled but no target/classes directories were found under" \
-      "$(pwd) - was the prior build job's output actually restored before this step ran?" >&2
+      "$(pwd) - make sure build output is present before this step runs." >&2
     exit 1
   fi
 }
@@ -214,7 +213,12 @@ build_maven() {
   if [[ "$SKIP_BUILD" != "true" ]]; then
     build_and_deploy "$@"
   else
-    echo "Skipping Maven compile/test/deploy (skip-build enabled) - analyzing previously built output restored on disk."
+    if ! should_scan; then
+      echo "::error title=Nothing to do::skip-build is enabled, but Sonar analysis is disabled for $GITHUB_REF_NAME;" \
+        "no build or scan would run." >&2
+      return 1
+    fi
+    echo "Skipping Maven compile/test/deploy (skip-build enabled) - analyzing existing build output."
   fi
 
   # Execute SonarQube analysis if enabled
