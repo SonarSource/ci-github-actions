@@ -66,6 +66,16 @@ These badges show the status of workflows in dummy repositories that use (or sho
 - [`update-release-channel`](#update-release-channel)
 - [`report-ci-metrics`](#report-ci-metrics)
 
+## Resolving through the JFrog Edge
+
+The actions resolve, deploy and promote on SaaS Repox (`https://repox.jfrog.io`) by default. To resolve dependencies through
+the JFrog Edge instead, set `repox-url: https://repox-internal.dev.sonar.build` on the `config-*` and `build-*` actions.
+
+- Deployment, publication, build info and promotion always use `https://repox.jfrog.io`: the Edge is read-only.
+- With the Edge, the resolve token is issued by the Edge through `development/artifactory-edge-dev` on
+  `https://vault.dev.sonar.build`. Otherwise it comes from `development/artifactory` on `https://vault.sonar.build`.
+- `repox-internal.dev.sonar.build` is only reachable from runners inside the SonarSource network.
+
 ---
 
 ## `get-build-number`
@@ -1493,7 +1503,6 @@ promote:
 
 | Input                     | Description                                                                                                               | Default                  |
 |---------------------------|---------------------------------------------------------------------------------------------------------------------------|--------------------------|
-| `repox-url`               | URL for Repox                                                                                                             | `https://repox.jfrog.io` |
 | `promote-pull-request`    | Whether to promote pull request artifacts. Requires `deploy-pull-request` input to be set to `true` in the build action   | `false`                  |
 | `multi-repo`              | If true, promotes to public and private repositories. For projects with both public and private artifacts                 | (optional)               |
 | `artifactory-deploy-repo` | Repository to deploy to. If not set, it will be retrieved from the build info                                             | (optional)               |
