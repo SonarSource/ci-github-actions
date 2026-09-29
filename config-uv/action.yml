@@ -13,8 +13,8 @@ inputs:
     description: Name of the uv index in pyproject.toml to authenticate (e.g. repox for `[[tool.uv.index]]` with `name = "repox"`)
     default: repox
   repox-url:
-    description: URL for Repox
-    default: https://repox.jfrog.io
+    description: URL for Repox used for dependency resolution
+    default: https://repox-internal.dev.sonar.build
   uv-cache-dir:
     description: Path to the uv cache directory, relative to GitHub workspace
     default: .cache/uv
@@ -106,10 +106,12 @@ runs:
       if: steps.config-uv-completed.outputs.skip != 'true'
       id: secrets
       with:
-        url: ${{ contains(inputs.repox-url, 'dev.sonar.build') && 'https://vault.dev.sonar.build' || 'https://vault.sonar.build' }}
+        url: https://vault.dev.sonar.build
+        # yamllint disable rule:line-length
         secrets: |
-          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
-          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
+          development/artifactory-edge-dev/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
+          development/artifactory-edge-dev/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
+        # yamllint enable rule:line-length
 
     - name: Configure uv authentication
       if: steps.config-uv-completed.outputs.skip != 'true'
