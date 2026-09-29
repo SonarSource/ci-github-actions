@@ -1385,7 +1385,7 @@ default = true
 
 #### Other Dependencies
 
-The `uv` tool must be pre-installed. Use of `mise` is recommended.
+The action installs `uv` 0.12.20 with `mise` and puts it first on `PATH` for the rest of the job.
 
 ### Usage
 
