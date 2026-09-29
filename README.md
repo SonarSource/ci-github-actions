@@ -65,6 +65,27 @@ These badges show the status of workflows in dummy repositories that use (or sho
 - [`check-sca`](#check-sca)
 - [`update-release-channel`](#update-release-channel)
 - [`report-ci-metrics`](#report-ci-metrics)
+- [`wait-for-artifactory-token-federation`](#wait-for-artifactory-token-federation)
+
+---
+
+## `wait-for-artifactory-token-federation`
+
+Wait for a Vault-issued Artifactory token to become usable on the JFrog Edge node before downloading Orchestrator artifacts.
+Set `ARTIFACTORY_ACCESS_TOKEN` in a prior step and use an authenticated path that the token can read. The action retries
+temporary HTTP and connection failures, then fails after 12 attempts. It requires a runner that can reach the Edge node;
+GitHub-hosted runners currently cannot reach the default internal host.
+
+```yaml
+- uses: SonarSource/ci-github-actions/wait-for-artifactory-token-federation@715009ff183f509d685a028c3cac34c69e3714c4
+  with:
+    probe-path: "api/search/versions?g=com.sonarsource.sonarqube&a=sonarqube-enterprise-lw&remote=1&repos=sonarsource-releases&v=*"
+```
+
+| Input | Description | Default |
+| --- | --- | --- |
+| `artifactory-url` | Artifactory base URL on the Edge node | `https://repox-internal.dev.sonar.build/artifactory` |
+| `probe-path` | Readable path relative to the Artifactory base URL | Required |
 
 ---
 
