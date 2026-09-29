@@ -36,10 +36,7 @@ inputs:
     description: Deprecated. Use `disable-caching` instead. Whether to cache Yarn dependencies.
     default: 'true'
   repox-url:
-    description: URL for Repox used for dependency resolution (npm registry)
-    default: https://repox-internal.dev.sonar.build
-  repox-deploy-url:
-    description: URL for Repox used for artifact deployment. Defaults to SaaS Repox so deploy does not depend on edge Access Federation.
+    description: URL for Repox used to resolve dependencies. Use https://repox-internal.dev.sonar.build for the JFrog Edge.
     default: https://repox.jfrog.io
   sonar-platform:
     description: SonarQube primary platform (next, sqc-eu, sqc-us, or none). Use 'none' to skip sonar scans.
@@ -135,11 +132,11 @@ runs:
     - uses: SonarSource/vault-action-wrapper@881045d830534a70ec3c7c275fa3714412c8ff6e # 3.6.1
       id: artifactory
       with:
-        url: https://vault.dev.sonar.build
         # yamllint disable rule:line-length
+        url: ${{ contains(inputs.repox-url, 'jfrog.io') && 'https://vault.sonar.build' || 'https://vault.dev.sonar.build' }}
         secrets: |
-          development/artifactory-edge-dev/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
-          development/artifactory-edge-dev/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
+          development/${{ contains(inputs.repox-url, 'jfrog.io') && 'artifactory' || 'artifactory-edge-dev' }}/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
+          development/${{ contains(inputs.repox-url, 'jfrog.io') && 'artifactory' || 'artifactory-edge-dev' }}/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
         # yamllint enable rule:line-length
     - uses: SonarSource/vault-action-wrapper@881045d830534a70ec3c7c275fa3714412c8ff6e # 3.6.1
       if: inputs.deploy != 'false' && inputs.run-shadow-scans != 'true'
@@ -173,7 +170,7 @@ runs:
 
         # Action inputs
         ARTIFACTORY_URL: ${{ format('{0}/artifactory', inputs.repox-url) }}
-        ARTIFACTORY_DEPLOY_URL: ${{ format('{0}/artifactory', inputs.repox-deploy-url) }}
+        ARTIFACTORY_DEPLOY_URL: https://repox.jfrog.io/artifactory
         ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo != '' && inputs.artifactory-deploy-repo ||
           github.event.repository.visibility == 'public' && 'sonarsource-public-qa' || 'sonarsource-private-qa' }}
         ARTIFACTORY_USERNAME: ${{ steps.artifactory.outputs.vault &&
@@ -215,7 +212,7 @@ runs:
       if: always() && inputs.generate-summary != 'false'
       shell: bash
       env:
-        ARTIFACTORY_URL: ${{ format('{0}/artifactory', inputs.repox-deploy-url) }}
+        ARTIFACTORY_URL: https://repox.jfrog.io/artifactory
         JFROG_CLI_COMMAND_SUMMARY_OUTPUT_DIR: ${{ runner.temp }}/jfrog-summary
       run: |
         build_name="${GITHUB_REPOSITORY#*/}"

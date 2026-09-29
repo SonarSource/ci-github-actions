@@ -45,10 +45,7 @@ inputs:
       for public repositories.
     default: ''
   repox-url:
-    description: URL for Repox used for dependency resolution
-    default: https://repox-internal.dev.sonar.build
-  repox-deploy-url:
-    description: URL for Repox used for artifact deployment. Defaults to SaaS Repox so deploy does not depend on edge Access Federation.
+    description: URL for Repox used to resolve dependencies. Use https://repox-internal.dev.sonar.build for the JFrog Edge.
     default: https://repox.jfrog.io
   use-develocity:
     description: Whether to use Develocity for build tracking.
@@ -173,8 +170,7 @@ runs:
         RUN_SHADOW_SCANS: ${{ inputs.run-shadow-scans }}
         ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo != '' && inputs.artifactory-deploy-repo ||
           github.event.repository.visibility == 'public' && 'sonarsource-public-qa' || 'sonarsource-private-qa' }}
-        # Upload target for artifactoryPublish (downloads still use ARTIFACTORY_RESOLVE_URL from config-gradle).
-        ARTIFACTORY_URL: ${{ format('{0}/artifactory', inputs.repox-deploy-url) }}
+        ARTIFACTORY_URL: https://repox.jfrog.io/artifactory
 
         # Vault secrets
         # yamllint disable rule:line-length
@@ -224,7 +220,7 @@ runs:
       if: always() && inputs.generate-summary != 'false'
       shell: bash
       env:
-        ARTIFACTORY_URL: ${{ format('{0}/artifactory', inputs.repox-deploy-url) }}
+        ARTIFACTORY_URL: https://repox.jfrog.io/artifactory
       run: |
         build_name="${GITHUB_REPOSITORY#*/}"
         echo "## 🏗 Gradle Build Summary (\`${GITHUB_JOB}\`)" >> $GITHUB_STEP_SUMMARY

@@ -89,8 +89,6 @@ allprojects {
 
 class RepoxAuth {
     companion object {
-        // Prefer ARTIFACTORY_RESOLVE_URL so dependency resolution can target an edge node
-        // while ARTIFACTORY_URL is used for artifactoryPublish / deploy (often SaaS).
         val artifactoryUrl = System.getenv("ARTIFACTORY_RESOLVE_URL")
             ?: System.getenv("ARTIFACTORY_URL")
             ?: "https://repox.jfrog.io/artifactory"

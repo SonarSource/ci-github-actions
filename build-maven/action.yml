@@ -49,10 +49,7 @@ inputs:
     description: Maven flags for all subsequent mvn calls
     default: --batch-mode --no-transfer-progress --errors --fail-at-end --show-version -Dmaven.test.redirectTestOutputToFile=false
   repox-url:
-    description: URL for Repox used for dependency resolution (Maven mirror)
-    default: https://repox-internal.dev.sonar.build
-  repox-deploy-url:
-    description: URL for Repox used for artifact deployment. Defaults to SaaS Repox so deploy does not depend on edge Access Federation.
+    description: URL for Repox used to resolve dependencies. Use https://repox-internal.dev.sonar.build for the JFrog Edge.
     default: https://repox.jfrog.io
   use-develocity:
     description: Whether to use Develocity for build tracking.
@@ -131,7 +128,7 @@ runs:
         MIXED_PRIVACY: ${{ inputs.mixed-privacy }}
         USER_MAVEN_ARGS: ${{ inputs.maven-args }}
         ARTIFACTORY_RESOLVE_URL: ${{ format('{0}/artifactory', inputs.repox-url) }}
-        ARTIFACTORY_DEPLOY_URL: ${{ format('{0}/artifactory', inputs.repox-deploy-url) }}
+        ARTIFACTORY_DEPLOY_URL: https://repox.jfrog.io/artifactory
         ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo != '' && inputs.artifactory-deploy-repo ||
           (github.event.repository.visibility == 'public' || inputs.mixed-privacy == 'true') && 'sonarsource-public-qa' ||
           'sonarsource-private-qa' }}
@@ -152,7 +149,6 @@ runs:
           echo "ARTIFACTORY_DEPLOY_USERNAME_VAULT=development/artifactory/token/{REPO_OWNER_NAME_DASH}-${ARTIFACTORY_DEPLOYER_ROLE} username | ARTIFACTORY_DEPLOY_USERNAME;"
           echo "ARTIFACTORY_DEPLOY_ACCESS_TOKEN_VAULT=development/artifactory/token/{REPO_OWNER_NAME_DASH}-${ARTIFACTORY_DEPLOYER_ROLE} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;"
         } >> "$GITHUB_OUTPUT"
-        # Downloads (Maven settings mirror) always use repox-url; uploads use ARTIFACTORY_DEPLOY_URL / repox-deploy-url.
         echo "ARTIFACTORY_URL=${ARTIFACTORY_RESOLVE_URL}" >> "$GITHUB_ENV"
         echo "SONARSOURCE_REPOSITORY_URL=${ARTIFACTORY_RESOLVE_URL}/sonarsource" >> "$GITHUB_ENV"
         echo "Artifactory resolve (download): ${ARTIFACTORY_RESOLVE_URL}"
@@ -201,7 +197,6 @@ runs:
         SONAR_PLATFORM: ${{ inputs.sonar-platform }}
         RUN_SHADOW_SCANS: ${{ inputs.run-shadow-scans }}
         ARTIFACTORY_DEPLOY_REPO: ${{ steps.params.outputs.ARTIFACTORY_DEPLOY_REPO }}
-        # Upload target for the Artifactory Maven plugin / parent POM (downloads still use SONARSOURCE_REPOSITORY_URL).
         ARTIFACTORY_URL: ${{ steps.params.outputs.ARTIFACTORY_DEPLOY_URL }}
 
         # Vault secrets
