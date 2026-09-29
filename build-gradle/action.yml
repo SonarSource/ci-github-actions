@@ -45,7 +45,7 @@ inputs:
       for public repositories.
     default: ''
   repox-url:
-    description: URL for Repox
+    description: URL for Repox used to resolve dependencies. Use https://repox-internal.dev.sonar.build for the JFrog Edge.
     default: https://repox.jfrog.io
   use-develocity:
     description: Whether to use Develocity for build tracking.
@@ -131,7 +131,6 @@ runs:
       if: inputs.deploy != 'false' && inputs.run-shadow-scans != 'true'
       id: artifactory
       with:
-        url: ${{ contains(inputs.repox-url, 'dev.sonar.build') && 'https://vault.dev.sonar.build' || 'https://vault.sonar.build' }}
         # yamllint disable rule:line-length
         secrets: |
           ${{ format('development/artifactory/token/{{REPO_OWNER_NAME_DASH}}-{0} username | ARTIFACTORY_DEPLOY_USERNAME;', env.ARTIFACTORY_DEPLOYER_ROLE) }}
@@ -171,6 +170,7 @@ runs:
         RUN_SHADOW_SCANS: ${{ inputs.run-shadow-scans }}
         ARTIFACTORY_DEPLOY_REPO: ${{ inputs.artifactory-deploy-repo != '' && inputs.artifactory-deploy-repo ||
           github.event.repository.visibility == 'public' && 'sonarsource-public-qa' || 'sonarsource-private-qa' }}
+        ARTIFACTORY_URL: https://repox.jfrog.io/artifactory
 
         # Vault secrets
         # yamllint disable rule:line-length
@@ -219,6 +219,8 @@ runs:
     - name: Generate workflow summary
       if: always() && inputs.generate-summary != 'false'
       shell: bash
+      env:
+        ARTIFACTORY_URL: https://repox.jfrog.io/artifactory
       run: |
         build_name="${GITHUB_REPOSITORY#*/}"
         echo "## 🏗 Gradle Build Summary (\`${GITHUB_JOB}\`)" >> $GITHUB_STEP_SUMMARY

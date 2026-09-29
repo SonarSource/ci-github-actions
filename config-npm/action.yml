@@ -16,7 +16,7 @@ inputs:
     description: Deprecated. Use `disable-caching` instead. Whether to cache NPM dependencies.
     default: 'true'
   repox-url:
-    description: URL for Repox
+    description: URL for Repox used to resolve dependencies. Use https://repox-internal.dev.sonar.build for the JFrog Edge.
     default: https://repox.jfrog.io
   host-actions-root:
     description: Path to the actions folder on the host (used when called from another local action)
@@ -93,10 +93,12 @@ runs:
       if: steps.config-npm-completed.outputs.skip != 'true'
       id: secrets
       with:
-        url: ${{ contains(inputs.repox-url, 'dev.sonar.build') && 'https://vault.dev.sonar.build' || 'https://vault.sonar.build' }}
+        # yamllint disable rule:line-length
+        url: ${{ contains(inputs.repox-url, 'jfrog.io') && 'https://vault.sonar.build' || 'https://vault.dev.sonar.build' }}
         secrets: |
-          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
-          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
+          development/${{ contains(inputs.repox-url, 'jfrog.io') && 'artifactory' || 'artifactory-edge-dev' }}/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
+          development/${{ contains(inputs.repox-url, 'jfrog.io') && 'artifactory' || 'artifactory-edge-dev' }}/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
+        # yamllint enable rule:line-length
 
     - name: Configure NPM authentication
       if: steps.config-npm-completed.outputs.skip != 'true'

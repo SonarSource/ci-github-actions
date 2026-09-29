@@ -89,7 +89,9 @@ allprojects {
 
 class RepoxAuth {
     companion object {
-        val artifactoryUrl = System.getenv("ARTIFACTORY_URL") ?: "https://repox.jfrog.io/artifactory"
+        val artifactoryUrl = System.getenv("ARTIFACTORY_RESOLVE_URL")
+            ?: System.getenv("ARTIFACTORY_URL")
+            ?: "https://repox.jfrog.io/artifactory"
         val host = java.net.URI(artifactoryUrl).host
         val sonarsourceRepositoryUrl =
             RepoxAuth.artifactoryUrl.trimEnd('/') + "/" + (System.getenv("SONARSOURCE_REPOSITORY") ?: "sonarsource")
