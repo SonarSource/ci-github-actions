@@ -391,12 +391,13 @@ See also [`config-maven`](#config-maven) input environment variables.
 `skip-build` runs the configured Sonar analysis using build output already present in the working directory. Set `deploy: false`
 and enable Sonar analysis. Provide compiled `target/classes` output and any coverage or test reports the analysis needs.
 
-For example, a build job can upload its `target/` trees for a separate scan job to restore. Run the scan job only where this
-action scans: pull requests, the default branch, `branch-*` and `feature/long/*`. Skip it on merge-queue and dogfood refs.
+For example, a build job can upload its `target/` trees for a separate analysis job to restore. Run the analysis job only where
+this action scans: pull requests, the default branch, `branch-*` and `feature/long/*`. Skip it on merge-queue and dogfood refs.
+The example assumes a v2 release containing `skip-build`; until then, pin the analysis action to a commit from this PR.
 
 ```yaml
 # Build job, after checkout and Maven setup:
-- uses: SonarSource/ci-github-actions/build-maven@v1
+- uses: SonarSource/ci-github-actions/build-maven@v2
   id: build
   with:
     sonar-platform: none
@@ -405,20 +406,20 @@ action scans: pull requests, the default branch, `branch-*` and `feature/long/*`
   with:
     name: maven-target
     path: '**/target'
-    retention-days: 3
+    retention-days: 7
     overwrite: true
 
-# Scan job, after checkout and Maven setup, with a job condition as described above:
+# Analysis job, after checkout and Maven setup, with a job condition as described above:
 - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
   with:
     name: maven-target
-- uses: SonarSource/ci-github-actions/build-maven@v1
+- uses: SonarSource/ci-github-actions/build-maven@v2
   with:
     deploy: false
     skip-build: true
 ```
 
-Make the scan job depend on the build job, check out the same revision, and pass the producer's `BUILD_NUMBER` to it. A scan job
+Make the analysis job depend on the build job, check out the same revision, and pass the producer's `BUILD_NUMBER` to it. The job
 can then be retried while the artifact is retained. Use `maven-args: -Pcoverage` in the producer when coverage is required:
 `sonar-platform: none` disables the action's automatic coverage profile.
 
