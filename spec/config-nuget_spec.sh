@@ -18,7 +18,8 @@ End
 Include config-nuget/nuget_config.sh
 
 write_nuget_config() {
-  cat > "$1" <<'EOF'
+  local nuget_config="$1"
+  cat > "$nuget_config" <<'EOF'
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
   <packageSources>
@@ -31,6 +32,7 @@ write_nuget_config() {
   </trustedSigners>
 </configuration>
 EOF
+  return
 }
 
 common_setup() {
@@ -43,6 +45,7 @@ common_setup() {
 common_cleanup() {
   cd - > /dev/null || true
   rm -rf "$WORK_DIR" "$GITHUB_ENV"
+  return
 }
 
 Describe 'export_credentials()'
