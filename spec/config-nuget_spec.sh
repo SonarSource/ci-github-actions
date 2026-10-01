@@ -110,6 +110,17 @@ Describe 'main()'
     The contents of file b/nuget.config should not include 'value="https://repox.jfrog.io/'
   End
 
+  It 'keeps backslashes and apostrophes in listed paths'
+    write_nuget_config $'its\\NuGet.config'
+    mkdir -p "owner's"
+    write_nuget_config "owner's/NuGet.Config"
+    export NUGET_CONFIG_FILES=$'its\\NuGet.config\nowner'"'"'s/NuGet.Config'
+    When call main
+    The status should be success
+    The line 2 should equal $'Package sources of its\\NuGet.config now resolve through https://repox-internal.dev.sonar.build/artifactory'
+    The line 3 should equal "Package sources of owner's/NuGet.Config now resolve through https://repox-internal.dev.sonar.build/artifactory"
+  End
+
   It 'leaves the files unchanged with SaaS Repox'
     write_nuget_config NuGet.Config
     export ARTIFACTORY_URL="https://repox.jfrog.io/artifactory"

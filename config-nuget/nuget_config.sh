@@ -53,7 +53,8 @@ main() {
     local config
     while IFS= read -r config; do
       config="${config%$'\r'}"
-      config="$(echo "$config" | xargs)"
+      config="${config#"${config%%[![:space:]]*}"}"
+      config="${config%"${config##*[![:space:]]}"}"
       [[ -z "$config" ]] && continue
       point_nuget_config "$config" || return 1
     done <<< "$NUGET_CONFIG_FILES"
