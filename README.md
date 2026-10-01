@@ -1436,6 +1436,16 @@ referenced by the `packageSourceCredentials` of the NuGet configuration files. W
 every package source `value` starting with `https://repox.jfrog.io/artifactory/` in the listed files is rewritten to `repox-url`,
 so the committed files can keep SaaS Repox for local builds. Other attributes, such as `trustedSigners` service indexes, are unchanged.
 
+> **Note:** The listed files are rewritten in place, so the checkout has local modifications for the rest of the job. Do not commit them,
+> for example with `git add -A`, and exclude them from any diff check.
+
+Calling the action again in the same job, for example with other `nuget-config-files`, is supported: files that already resolve
+through `repox-url` are skipped. Unlike `config-maven` or `config-npm`, it therefore has no `CONFIG_NUGET_COMPLETED` guard.
+
+The action does not cache NuGet packages. The global packages folder or a `RestorePackagesPath` is specific to each repository, so
+cache it in the calling workflow, for example with [`SonarSource/gh-action_cache`](https://github.com/SonarSource/gh-action_cache)
+keyed on `packages.lock.json`.
+
 ### Requirements
 
 #### Required GitHub Permissions
@@ -1452,10 +1462,9 @@ so the committed files can keep SaaS Repox for local builds. Other attributes, s
 permissions:
   id-token: write
 steps:
-  - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+  - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
   - uses: SonarSource/ci-github-actions/config-nuget@v2
     with:
-      repox-url: https://repox-internal.dev.sonar.build
       nuget-config-files: |
         NuGet.Config
         its/NuGet.config

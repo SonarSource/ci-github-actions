@@ -42,7 +42,7 @@ runs:
       env:
         ACTION_PATH_CONFIG_NUGET: ${{ github.action_path }}
         ARTIFACTORY_URL: ${{ format('{0}/artifactory', inputs.repox-url) }}
-        ARTIFACTORY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME }}
-        ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
+        ARTIFACTORY_USERNAME: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME || '' }}
+        ARTIFACTORY_ACCESS_TOKEN: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN || '' }}
         NUGET_CONFIG_FILES: ${{ inputs.nuget-config-files }}
       run: '"$ACTION_PATH_CONFIG_NUGET/nuget_config.sh"'

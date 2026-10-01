@@ -35,6 +35,10 @@ point_nuget_config() {
     return 1
   fi
   if ! grep -q "$saas_pattern" "$config"; then
+    if grep -qF "value=\"${ARTIFACTORY_URL}/" "$config"; then
+      echo "Package sources of $config already resolve through $ARTIFACTORY_URL"
+      return 0
+    fi
     echo "::error::No package source on $SAAS_ARTIFACTORY_URL in $config" >&2
     return 1
   fi

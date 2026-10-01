@@ -78,6 +78,15 @@ Describe 'point_nuget_config()'
     The file NuGet.Config.bak should not be exist
   End
 
+  It 'skips a file that already resolves through ARTIFACTORY_URL'
+    write_nuget_config NuGet.Config
+    point_nuget_config NuGet.Config > /dev/null
+    When call point_nuget_config NuGet.Config
+    The status should be success
+    The output should equal "Package sources of NuGet.Config already resolve through https://repox-internal.dev.sonar.build/artifactory"
+    The contents of file NuGet.Config should include 'value="https://repox-internal.dev.sonar.build/artifactory/api/nuget/v3/nuget/index.json"'
+  End
+
   It 'fails when the file does not exist'
     When call point_nuget_config missing/NuGet.Config
     The status should be failure
