@@ -59,6 +59,7 @@ These badges show the status of workflows in dummy repositories that use (or sho
 - [`build-yarn`](#build-yarn)
 - [`config-pip`](#config-pip)
 - [`config-uv`](#config-uv)
+- [`config-nuget`](#config-nuget)
 - [`promote`](#promote)
 - [`pr_cleanup`](#pr_cleanup)
 - [`code-signing`](#code-signing)
@@ -1423,6 +1424,71 @@ For build-info collection, pass `--build-name` and `--build-number` to `jf uv` a
 | `UV_CACHE_DIR`            | Path to the uv cache directory                        |
 
 See also [`get-build-number`](#get-build-number) output environment variables.
+
+---
+
+## `config-nuget`
+
+Configure NuGet authentication and resolve the Repox package sources of NuGet configuration files through `repox-url`.
+
+The action reads a Repox reader token from Vault and exports it as `ARTIFACTORY_USER` and `ARTIFACTORY_PASSWORD`, the variables
+referenced by the `packageSourceCredentials` of the NuGet configuration files. With a `repox-url` other than `https://repox.jfrog.io`,
+every package source `value` starting with `https://repox.jfrog.io/artifactory/` in the listed files is rewritten to `repox-url`,
+so the committed files can keep SaaS Repox for local builds. Other attributes, such as `trustedSigners` service indexes, are unchanged.
+
+> **Note:** The listed files are rewritten in place, so the checkout has local modifications for the rest of the job. Do not commit them,
+> for example with `git add -A`, and exclude them from any diff check.
+
+Calling the action again in the same job, for example with other `nuget-config-files`, is supported: files that already resolve
+through `repox-url` are skipped. Unlike `config-maven` or `config-npm`, it therefore has no `CONFIG_NUGET_COMPLETED` guard.
+
+The action does not cache NuGet packages. The global packages folder or a `RestorePackagesPath` is specific to each repository, so
+cache it in the calling workflow, for example with [`SonarSource/gh-action_cache`](https://github.com/SonarSource/gh-action_cache)
+keyed on `packages.lock.json`.
+
+### Requirements
+
+#### Required GitHub Permissions
+
+- `id-token: write`
+
+#### Required Vault Permissions
+
+- `public-reader` or `private-reader`: Artifactory role for reading dependencies.
+
+### Usage
+
+```yaml
+permissions:
+  id-token: write
+steps:
+  - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+  - uses: SonarSource/ci-github-actions/config-nuget@v2
+    with:
+      nuget-config-files: |
+        NuGet.Config
+        its/NuGet.config
+  - run: dotnet restore
+```
+
+### Inputs
+
+| Input                     | Description                                                                           | Default                                                              |
+|---------------------------|---------------------------------------------------------------------------------------|----------------------------------------------------------------------|
+| `nuget-config-files`      | NuGet configuration files to update (multiline), relative to `working-directory`      | `NuGet.Config`                                                       |
+| `working-directory`       | Relative path under github.workspace to execute the action in                         | `.`                                                                  |
+| `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault                                       | `private-reader` for private repos, `public-reader` for public repos |
+| `repox-url`               | URL for Repox                                                                         | `https://repox.jfrog.io`                                             |
+
+### Output Environment Variables
+
+| Environment Variable       | Description                                 |
+|----------------------------|---------------------------------------------|
+| `ARTIFACTORY_URL`          | Repox Artifactory URL used for resolving    |
+| `ARTIFACTORY_USERNAME`     | Repox username                              |
+| `ARTIFACTORY_ACCESS_TOKEN` | Repox access token                          |
+| `ARTIFACTORY_USER`         | Repox username for NuGet configurations     |
+| `ARTIFACTORY_PASSWORD`     | Repox access token for NuGet configurations |
 
 ---
 
