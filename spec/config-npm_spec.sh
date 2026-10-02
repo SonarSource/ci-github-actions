@@ -101,17 +101,62 @@ Describe 'set_build_env()'
     The line 2 should equal "jf config add repox --url https://repox.jfrog.io --artifactory-url https://repox.jfrog.io/artifactory --access-token reader-token"
     The line 3 should equal "jf config use repox"
     The line 4 should equal "jf npm-config --global --repo-resolve npm"
-    The contents of file "$HOME/.npmrc" should not include "replace-registry-host"
   End
 
-  It 'replaces the SaaS Repox host of lockfile URLs when resolving through the Edge'
+  It 'configures the Edge registry and token'
     export ARTIFACTORY_URL="https://repox-internal.dev.sonar.build/artifactory"
     When call set_build_env
     The status should be success
     The contents of file "$HOME/.npmrc" should include "registry=https://repox-internal.dev.sonar.build/artifactory/api/npm/npm"
     The contents of file "$HOME/.npmrc" should include "//repox-internal.dev.sonar.build/artifactory/api/npm/:_authToken=reader-token"
-    The contents of file "$HOME/.npmrc" should include "replace-registry-host=repox.jfrog.io"
     The output should include "jf config add repox --url https://repox-internal.dev.sonar.build"
+  End
+End
+
+Describe 'rewrite_lockfiles()'
+  SAAS_TGZ="https://repox.jfrog.io/artifactory/api/npm/npm/is-number/-/is-number-7.0.0.tgz"
+  EDGE_TGZ="https://repox-internal.dev.sonar.build/artifactory/api/npm/npm/is-number/-/is-number-7.0.0.tgz"
+  NPMJS_TGZ="https://registry.npmjs.org/is-odd/-/is-odd-3.0.1.tgz"
+
+  setup_lockfiles() {
+    ORIGINAL_DIR=$PWD
+    LOCK_DIR=$(mktemp -d)
+    mkdir -p "$LOCK_DIR/its/app" "$LOCK_DIR/node_modules/dep"
+    for f in package-lock.json its/app/package-lock.json its/app/npm-shrinkwrap.json node_modules/dep/package-lock.json; do
+      printf '{"resolved": "%s", "other": "%s"}\n' "$SAAS_TGZ" "$NPMJS_TGZ" > "$LOCK_DIR/$f"
+    done
+    cd "$LOCK_DIR" || return 1
+  }
+
+  cleanup_lockfiles() {
+    cd "$ORIGINAL_DIR" || return 1
+    rm -rf "$LOCK_DIR"
+  }
+
+  BeforeEach 'setup_lockfiles'
+  AfterEach 'cleanup_lockfiles'
+
+  It 'rewrites SaaS Repox URLs of every lockfile outside node_modules when resolving through the Edge'
+    export ARTIFACTORY_URL="https://repox-internal.dev.sonar.build/artifactory"
+    When call rewrite_lockfiles
+    The status should be success
+    The output should include "Resolving package-lock.json through https://repox-internal.dev.sonar.build/artifactory"
+    The output should include "Resolving its/app/package-lock.json through"
+    The output should include "Resolving its/app/npm-shrinkwrap.json through"
+    The contents of file "package-lock.json" should include "\"resolved\": \"$EDGE_TGZ\""
+    The contents of file "its/app/package-lock.json" should include "$EDGE_TGZ"
+    The contents of file "its/app/npm-shrinkwrap.json" should include "$EDGE_TGZ"
+    The contents of file "package-lock.json" should include "$NPMJS_TGZ"
+    The contents of file "node_modules/dep/package-lock.json" should include "$SAAS_TGZ"
+    The file "package-lock.json.bak" should not be exist
+  End
+
+  It 'leaves lockfiles unchanged on SaaS Repox'
+    export ARTIFACTORY_URL="https://repox.jfrog.io/artifactory"
+    When call rewrite_lockfiles
+    The status should be success
+    The output should equal ""
+    The contents of file "package-lock.json" should include "$SAAS_TGZ"
   End
 End
 
