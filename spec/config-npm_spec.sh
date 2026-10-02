@@ -101,6 +101,17 @@ Describe 'set_build_env()'
     The line 2 should equal "jf config add repox --url https://repox.jfrog.io --artifactory-url https://repox.jfrog.io/artifactory --access-token reader-token"
     The line 3 should equal "jf config use repox"
     The line 4 should equal "jf npm-config --global --repo-resolve npm"
+    The contents of file "$HOME/.npmrc" should not include "replace-registry-host"
+  End
+
+  It 'replaces the SaaS Repox host of lockfile URLs when resolving through the Edge'
+    export ARTIFACTORY_URL="https://repox-internal.dev.sonar.build/artifactory"
+    When call set_build_env
+    The status should be success
+    The contents of file "$HOME/.npmrc" should include "registry=https://repox-internal.dev.sonar.build/artifactory/api/npm/npm"
+    The contents of file "$HOME/.npmrc" should include "//repox-internal.dev.sonar.build/artifactory/api/npm/:_authToken=reader-token"
+    The contents of file "$HOME/.npmrc" should include "replace-registry-host=repox.jfrog.io"
+    The output should include "jf config add repox --url https://repox-internal.dev.sonar.build"
   End
 End
 
