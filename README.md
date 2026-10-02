@@ -965,6 +965,11 @@ Configure NPM and JFrog build environment with build number, authentication, and
 
 Set the project version in `package.json` with the build number if the file exists.
 
+With a `repox-url` other than `https://repox.jfrog.io`, every `https://repox.jfrog.io/artifactory/api/npm/` URL in the
+`package-lock.json` and `npm-shrinkwrap.json` files of the workspace (outside `node_modules`) is rewritten to `repox-url`,
+so their package tarballs are fetched from `repox-url`. The rewrite is not committed. Lockfile URLs on `registry.npmjs.org`
+keep going through the configured registry with npm's default `replace-registry-host`.
+
 > **Note:** This action automatically calls [`get-build-number`](#get-build-number) to manage the build number.
 
 ### Requirements
