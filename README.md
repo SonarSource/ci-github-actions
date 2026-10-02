@@ -965,6 +965,9 @@ Configure NPM and JFrog build environment with build number, authentication, and
 
 Set the project version in `package.json` with the build number if the file exists.
 
+With a `repox-url` other than `https://repox.jfrog.io`, `replace-registry-host=repox.jfrog.io` is also set, so package
+tarballs whose lockfile URLs point at `https://repox.jfrog.io` are fetched from `repox-url`.
+
 > **Note:** This action automatically calls [`get-build-number`](#get-build-number) to manage the build number.
 
 ### Requirements

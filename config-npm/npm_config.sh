@@ -18,6 +18,9 @@ set_build_env() {
 registry=${ARTIFACTORY_URL}/api/npm/npm
 ${ARTIFACTORY_URL#https:}/api/npm/:_authToken=${ARTIFACTORY_ACCESS_TOKEN}
 EOF
+  if [[ "$ARTIFACTORY_URL" != https://repox.jfrog.io/* ]]; then
+    echo "replace-registry-host=repox.jfrog.io" >> ~/.npmrc
+  fi
   jf config remove repox > /dev/null 2>&1 || true # Ignore inexistent configuration
   jf config add repox --url "${ARTIFACTORY_URL%/artifactory*}" --artifactory-url "$ARTIFACTORY_URL" --access-token "$ARTIFACTORY_ACCESS_TOKEN"
   jf config use repox
