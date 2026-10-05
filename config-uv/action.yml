@@ -97,7 +97,7 @@ runs:
           format('{0}/pyproject.toml', inputs.working-directory)) }}
         restore-keys: uv-${{ runner.os }}-
 
-    - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
+    - uses: jdx/mise-action@9149ea85001c7435d5a66bb127d6a1b6227cb0a5 # v5.0.0
       if: steps.config-uv-completed.outputs.skip != 'true'
       with:
         version: 2026.5.9
