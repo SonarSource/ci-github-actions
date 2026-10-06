@@ -33,9 +33,9 @@ inputs:
     description: Deprecated. Use `disable-caching` instead. Whether to cache NPM dependencies.
     default: 'true'
   repox-url:
-    description: URL for Repox used to resolve dependencies. Use https://repox-internal.sonar.build for the production JFrog Edge
-      or https://repox-internal.dev.sonar.build for the dev Edge.
-    default: https://repox.jfrog.io
+    description: URL for Repox used to resolve dependencies. Defaults to the production JFrog Edge.
+      Use https://repox.jfrog.io for SaaS or https://repox-internal.dev.sonar.build for the dev Edge.
+    default: https://repox-internal.sonar.build
   sonar-platform:
     description: SonarQube primary platform (next, sqc-eu, sqc-us, or none). Use 'none' to skip sonar scans.
     default: next
