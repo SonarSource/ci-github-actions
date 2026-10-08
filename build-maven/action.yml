@@ -55,8 +55,7 @@ inputs:
     description: Maven flags for all subsequent mvn calls
     default: --batch-mode --no-transfer-progress --errors --fail-at-end --show-version -Dmaven.test.redirectTestOutputToFile=false
   repox-url:
-    description: URL for Repox used to resolve dependencies. Use https://repox-internal.sonar.build for the production JFrog Edge
-      or https://repox-internal.dev.sonar.build for the dev Edge.
+    description: URL for Repox used to resolve dependencies. Use https://repox-internal.sonar.build for the production JFrog Edge.
     default: https://repox.jfrog.io
   use-develocity:
     description: Whether to use Develocity for build tracking.
