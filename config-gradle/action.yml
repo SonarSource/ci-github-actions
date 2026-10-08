@@ -10,9 +10,9 @@ inputs:
       and `public-reader` for public repositories.
     default: ''
   repox-url:
-    description: URL for Repox used to resolve dependencies. Use https://repox-internal.sonar.build for the production JFrog Edge
-      or https://repox-internal.dev.sonar.build for the dev Edge.
-    default: https://repox.jfrog.io
+    description: URL for Repox used to resolve dependencies. Defaults to the production JFrog Edge.
+      Use https://repox.jfrog.io for SaaS or https://repox-internal.dev.sonar.build for the dev Edge.
+    default: https://repox-internal.sonar.build
   use-develocity:
     description: Whether to use Develocity for build tracking.
     default: 'false'

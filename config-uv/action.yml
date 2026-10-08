@@ -13,9 +13,9 @@ inputs:
     description: Name of the uv index in pyproject.toml to authenticate (e.g. repox for `[[tool.uv.index]]` with `name = "repox"`)
     default: repox
   repox-url:
-    description: URL for Repox used to resolve dependencies. Use https://repox-internal.sonar.build for the production JFrog Edge
-      or https://repox-internal.dev.sonar.build for the dev Edge.
-    default: https://repox.jfrog.io
+    description: URL for Repox used to resolve dependencies. Defaults to the production JFrog Edge.
+      Use https://repox.jfrog.io for SaaS or https://repox-internal.dev.sonar.build for the dev Edge.
+    default: https://repox-internal.sonar.build
   uv-cache-dir:
     description: Path to the uv cache directory, relative to GitHub workspace
     default: .cache/uv
