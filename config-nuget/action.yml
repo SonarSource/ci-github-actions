@@ -31,7 +31,7 @@ runs:
       id: secrets
       with:
         # yamllint disable rule:line-length
-        url: https://vault.sonar.build
+        url: ${{ contains(inputs.repox-url, '.dev.sonar.build') && 'https://vault.dev.sonar.build' || 'https://vault.sonar.build' }}
         secrets: |
           development/${{ contains(inputs.repox-url, 'jfrog.io') && 'artifactory' || (contains(inputs.repox-url, '.dev.sonar.build') && 'artifactory-edge-dev' || 'artifactory-edge-prod') }}/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
           development/${{ contains(inputs.repox-url, 'jfrog.io') && 'artifactory' || (contains(inputs.repox-url, '.dev.sonar.build') && 'artifactory-edge-dev' || 'artifactory-edge-prod') }}/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;

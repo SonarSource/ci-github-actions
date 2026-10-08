@@ -74,14 +74,13 @@ the production JFrog Edge instead, set `repox-url: https://repox-internal.sonar.
 Use `https://repox-internal.dev.sonar.build` for the dev Edge.
 
 - Deployment, publication, build info and promotion always use `https://repox.jfrog.io`: the Edge is read-only.
-- Resolve credentials always come from production Vault (`https://vault.sonar.build`). SaaS uses
-  `development/artifactory`; dev Edge uses `development/artifactory-edge-dev`; production Edge uses
-  `development/artifactory-edge-prod`. Edge reader tokens are issued directly by the corresponding Edge.
+- SaaS resolve credentials come from `development/artifactory` on `https://vault.sonar.build`. Production Edge
+  credentials come from `development/artifactory-edge-prod` on `https://vault.sonar.build`, and dev Edge credentials
+  from `development/artifactory-edge-dev` on `https://vault.dev.sonar.build`. Edge reader tokens are issued directly
+  by the corresponding Edge.
 - The internal Edge hostnames are only reachable from runners inside the SonarSource network. Their public aliases
   `repox.dev.sonar.build` and `repox.sonar.build` select the same dev and production engines, respectively.
-- Before adopting these actions for either Edge, its production Vault engine must be seeded and configured.
-  Keep older action versions on dev Vault until migration completes. To return resolution to SaaS, set
-  `repox-url: https://repox.jfrog.io`.
+- To return resolution to SaaS, set `repox-url: https://repox.jfrog.io`.
 
 ---
 
