@@ -70,12 +70,17 @@ These badges show the status of workflows in dummy repositories that use (or sho
 ## Resolving through the JFrog Edge
 
 The actions resolve, deploy and promote on SaaS Repox (`https://repox.jfrog.io`) by default. To resolve dependencies through
-the JFrog Edge instead, set `repox-url: https://repox-internal.dev.sonar.build` on the `config-*` and `build-*` actions.
+the production JFrog Edge instead, set `repox-url: https://repox-internal.sonar.build` on the `config-*` and `build-*` actions.
+Use `https://repox-internal.dev.sonar.build` for the dev Edge.
 
 - Deployment, publication, build info and promotion always use `https://repox.jfrog.io`: the Edge is read-only.
-- With the Edge, the resolve token is issued by the Edge through `development/artifactory-edge-dev` on
-  `https://vault.dev.sonar.build`. Otherwise it comes from `development/artifactory` on `https://vault.sonar.build`.
-- `repox-internal.dev.sonar.build` is only reachable from runners inside the SonarSource network.
+- SaaS resolve credentials come from `development/artifactory` on `https://vault.sonar.build`. Production Edge
+  credentials come from `development/artifactory-edge-prod` on `https://vault.sonar.build`, and dev Edge credentials
+  from `development/artifactory-edge-dev` on `https://vault.dev.sonar.build`. Edge reader tokens are issued directly
+  by the corresponding Edge.
+- The internal Edge hostnames are only reachable from runners inside the SonarSource network. Their public aliases
+  `repox.dev.sonar.build` and `repox.sonar.build` select the same dev and production engines, respectively.
+- To return resolution to SaaS, set `repox-url: https://repox.jfrog.io`.
 
 ---
 
