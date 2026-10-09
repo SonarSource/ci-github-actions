@@ -32,7 +32,7 @@ jobs:
           [[ "${{ steps.urc.outputs.version-url }}" == "https://binaries.sonarsource.com/Distribution/test-fixture/stable.version" ]]
           [[ "${{ steps.urc.outputs.version }}" == "0.0.0-test" ]]
       - uses: ./config-npm
-      - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
+      - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
         with:
           version: 2026.6.14
       - name: Validate body against schema/v1.json

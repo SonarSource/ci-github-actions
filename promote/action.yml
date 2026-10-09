@@ -57,7 +57,7 @@ runs:
       with:
         secrets: |
           development/github/token/{REPO_OWNER_NAME_DASH}-promotion token | GITHUB_TOKEN;
-    - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
+    - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
       with:
         version: 2026.6.14
     - name: Promote artifacts
