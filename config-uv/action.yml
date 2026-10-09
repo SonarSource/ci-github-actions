@@ -13,7 +13,7 @@ inputs:
     description: Name of the uv index in pyproject.toml to authenticate (e.g. repox for `[[tool.uv.index]]` with `name = "repox"`)
     default: repox
   repox-url:
-    description: URL for Repox used to resolve dependencies. Use https://repox-internal.dev.sonar.build for the JFrog Edge.
+    description: URL for Repox used to resolve dependencies. Use https://repox-internal.sonar.build for the production JFrog Edge.
     default: https://repox.jfrog.io
   uv-cache-dir:
     description: Path to the uv cache directory, relative to GitHub workspace
@@ -107,10 +107,10 @@ runs:
       id: secrets
       with:
         # yamllint disable rule:line-length
-        url: ${{ contains(inputs.repox-url, 'jfrog.io') && 'https://vault.sonar.build' || 'https://vault.dev.sonar.build' }}
+        url: ${{ contains(inputs.repox-url, '.dev.sonar.build') && 'https://vault.dev.sonar.build' || 'https://vault.sonar.build' }}
         secrets: |
-          development/${{ contains(inputs.repox-url, 'jfrog.io') && 'artifactory' || 'artifactory-edge-dev' }}/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
-          development/${{ contains(inputs.repox-url, 'jfrog.io') && 'artifactory' || 'artifactory-edge-dev' }}/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
+          development/${{ contains(inputs.repox-url, 'jfrog.io') && 'artifactory' || (contains(inputs.repox-url, '.dev.sonar.build') && 'artifactory-edge-dev' || 'artifactory-edge-prod') }}/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
+          development/${{ contains(inputs.repox-url, 'jfrog.io') && 'artifactory' || (contains(inputs.repox-url, '.dev.sonar.build') && 'artifactory-edge-dev' || 'artifactory-edge-prod') }}/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
         # yamllint enable rule:line-length
 
     - name: Configure uv authentication
