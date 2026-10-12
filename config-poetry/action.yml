@@ -13,8 +13,9 @@ inputs:
     description: PyPI virtual repository to resolve dependencies from
     default: sonarsource-pypi
   repox-url:
-    description: URL for Repox used to resolve dependencies. Use https://repox-internal.sonar.build for the production JFrog Edge.
-    default: https://repox.jfrog.io
+    description: URL for Repox used to resolve dependencies. Defaults to SaaS on GitHub-hosted runners and the production Edge
+      on self-hosted runners. Explicit URLs override runner selection.
+    default: ${{ runner.environment == 'github-hosted' && 'https://repox.jfrog.io' || 'https://repox-internal.sonar.build' }}
   poetry-virtualenvs-path:
     description: Path to the Poetry virtual environments, relative to GitHub workspace. The folder is cached only if it is a subdirectory of
       `poetry-cache-dir`.
