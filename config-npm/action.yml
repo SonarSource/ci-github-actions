@@ -16,8 +16,9 @@ inputs:
     description: Deprecated. Use `disable-caching` instead. Whether to cache NPM dependencies.
     default: 'true'
   repox-url:
-    description: URL for Repox used to resolve dependencies. Use https://repox.jfrog.io to resolve from SaaS Repox.
-    default: https://repox-internal.sonar.build
+    description: URL for Repox used to resolve dependencies. Defaults to SaaS on GitHub-hosted runners and the production Edge
+      on self-hosted runners. Explicit URLs override runner selection.
+    default: ${{ runner.environment == 'github-hosted' && 'https://repox.jfrog.io' || 'https://repox-internal.sonar.build' }}
   host-actions-root:
     description: Path to the actions folder on the host (used when called from another local action)
     default: ''
