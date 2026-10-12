@@ -31,8 +31,8 @@ inputs:
     description: Path to the Poetry cache directory, relative to GitHub workspace.
     default: .cache/pypoetry
   repox-url:
-    description: URL for Repox used to resolve dependencies. Use https://repox-internal.sonar.build for the production JFrog Edge.
-    default: https://repox.jfrog.io
+    description: URL for Repox used to resolve dependencies. Use https://repox.jfrog.io to resolve from SaaS Repox.
+    default: https://repox-internal.sonar.build
   sonar-platform:
     description: SonarQube primary platform (next, sqc-eu, sqc-us, or none). Use 'none' to skip sonar scans.
     default: next
