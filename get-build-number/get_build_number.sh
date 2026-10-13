@@ -8,13 +8,15 @@
 # refs/build-number-lock: exclusive, transient, repository-wide lock serializing every new claim, not just those within one run.
 # Released immediately after use (success or failure) via the trap below, not held for a run's lifetime.
 #
-# Every ref points at $GITHUB_SHA purely because creation requires some valid target; that target is never read back.
+# Every ref points at the default branch HEAD purely because creation requires some valid target; that target is never read back.
+# PR merge commits can require workflows:write when used as ref targets, even with contents:write. The existing default branch
+# head avoids that restriction without changing the claim/lock protocol or requiring a more privileged token.
 # All ref reads/writes use the ambient GITHUB_TOKEN. LEGACY_PROPERTY_TOKEN (from Vault) is only used to read the legacy
 # build_number property during migration - see README.
 
 set -euo pipefail
 
-: "${GITHUB_REPOSITORY:?}" "${GITHUB_SHA:?}" "${GITHUB_RUN_ID:?}"
+: "${GITHUB_REPOSITORY:?}" "${GITHUB_RUN_ID:?}"
 
 GH_API_VERSION_HEADER="X-GitHub-Api-Version: 2022-11-28"
 BUILD_NUMBER_FILE="${BUILD_NUMBER_FILE:-.build_number.txt}"
@@ -31,7 +33,7 @@ RETRY_INTERVAL_SECONDS="${RETRY_INTERVAL_SECONDS:-1}" # between internal retries
 
 create_ref() {
   local ref="$1"
-  gh api --method POST -H "$GH_API_VERSION_HEADER" "$REFS_API_URL" -f "ref=refs/${ref}" -f "sha=${GITHUB_SHA}" 2>&1
+  gh api --method POST -H "$GH_API_VERSION_HEADER" "$REFS_API_URL" -f "ref=refs/${ref}" -f "sha=${REF_TARGET_SHA}" 2>&1
 }
 
 delete_ref() {
@@ -93,8 +95,22 @@ trap release_lock EXIT
 echo "::group::Get build number"
 
 attempt=1
+REF_TARGET_SHA=""
 while true; do
   try_reuse_existing_claim && { echo "::endgroup::" && exit 0; }
+
+  # Resolve once, before acquiring the lock. Existing run markers remain a read-only fast path.
+  # HEAD resolves to the repository's default branch, independently of the workflow's trigger/ref.
+  if [[ -z "$REF_TARGET_SHA" ]]; then
+    if ! REF_TARGET_SHA=$(gh api -H "$GH_API_VERSION_HEADER" "repos/${GITHUB_REPOSITORY}/commits/HEAD" --jq '.sha // empty'); then
+      echo "::error title=Build number claim failed::Could not resolve the repository's default branch HEAD." >&2
+      exit 1
+    fi
+    if [[ -z "$REF_TARGET_SHA" ]]; then
+      echo "::error title=Build number claim failed::The repository's default branch HEAD has no commit SHA." >&2
+      exit 1
+    fi
+  fi
 
   RESPONSE=$(create_ref "$NUMBER_LOCK_REF") && LOCK_STATUS=0 || LOCK_STATUS=$?
   if [[ "$LOCK_STATUS" -eq 0 ]]; then

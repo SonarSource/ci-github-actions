@@ -27,7 +27,7 @@ Describe 'get_build_number.sh'
     Mock gh
       if [[ "$*" == *"matching-refs/build-runs/"* ]]; then
         echo "refs/build-runs/${GITHUB_RUN_ID}/5"
-      elif [[ "$*" == *"build-number-lock"* ]]; then
+      elif [[ "$*" == *"build-number-lock"* || "$*" == *"commits/HEAD"* ]]; then
         echo "1" >>"$GH_LOCK_CALLS_FILE"
         echo "gh $*"
       else
@@ -39,6 +39,77 @@ Describe 'get_build_number.sh'
     The output should include "Reusing build number 5"
     The contents of file "$BUILD_NUMBER_FILE" should equal "5"
     The path "$GH_LOCK_CALLS_FILE" should not be file
+  End
+
+  It 'should anchor the lock, claim and run marker to the default branch head rather than the PR merge SHA'
+    export GH_POST_CALLS_FILE="${TEMP_DIR}/gh_post_calls_default_head.txt"
+    export DEFAULT_HEAD_SHA="0123456789abcdef0123456789abcdef01234567"
+    rm -f "$GH_POST_CALLS_FILE"
+    Mock gh
+      if [[ "$*" == *"commits/HEAD"* ]]; then
+        echo "$DEFAULT_HEAD_SHA"
+      elif [[ "$*" == *"matching-refs/build-runs/"* ]]; then
+        echo ''
+      elif [[ "$*" == *"matching-refs/build-number/"* ]]; then
+        echo 'refs/build-number/5'
+      elif [[ "$*" == *"--method POST"* ]]; then
+        echo "$*" >>"$GH_POST_CALLS_FILE"
+        if [[ "$*" != *"sha=${DEFAULT_HEAD_SHA}"* || "$*" == *"sha=${GITHUB_SHA}"* ]]; then
+          echo '{"message":"Resource not accessible by integration"}' >&2
+          exit 1
+        fi
+        echo "gh $*"
+      else
+        echo "gh $*"
+      fi
+    End
+    When run script get-build-number/get_build_number.sh
+    The status should be success
+    The output should include "Claimed build number 6"
+    The contents of file "$BUILD_NUMBER_FILE" should equal "6"
+    The contents of file "$GH_POST_CALLS_FILE" should include "ref=refs/build-number-lock/global"
+    The contents of file "$GH_POST_CALLS_FILE" should include "ref=refs/build-number/6"
+    The contents of file "$GH_POST_CALLS_FILE" should include "ref=refs/build-runs/${GITHUB_RUN_ID}/6"
+  End
+
+  It 'should fail before writing refs if the default branch head cannot be resolved'
+    export GH_POST_CALLS_FILE="${TEMP_DIR}/gh_post_calls_lookup_failure.txt"
+    rm -f "$GH_POST_CALLS_FILE"
+    Mock gh
+      if [[ "$*" == *"matching-refs/build-runs/"* ]]; then
+        echo ''
+      elif [[ "$*" == *"commits/HEAD"* ]]; then
+        exit 1
+      elif [[ "$*" == *"--method POST"* ]]; then
+        echo "$*" >>"$GH_POST_CALLS_FILE"
+      else
+        echo "gh $*"
+      fi
+    End
+    When run script get-build-number/get_build_number.sh
+    The status should be failure
+    The output should include "::group::Get build number"
+    The stderr should include "Could not resolve the repository's default branch HEAD"
+    The path "$GH_POST_CALLS_FILE" should not be file
+  End
+
+  It 'should fail before writing refs if the default branch has no commit SHA'
+    export GH_POST_CALLS_FILE="${TEMP_DIR}/gh_post_calls_empty_head.txt"
+    rm -f "$GH_POST_CALLS_FILE"
+    Mock gh
+      if [[ "$*" == *"matching-refs/build-runs/"* || "$*" == *"commits/HEAD"* ]]; then
+        echo ''
+      elif [[ "$*" == *"--method POST"* ]]; then
+        echo "$*" >>"$GH_POST_CALLS_FILE"
+      else
+        echo "gh $*"
+      fi
+    End
+    When run script get-build-number/get_build_number.sh
+    The status should be failure
+    The output should include "::group::Get build number"
+    The stderr should include "default branch HEAD has no commit SHA"
+    The path "$GH_POST_CALLS_FILE" should not be file
   End
 
   It 'should claim build number 1 and warn when there are no build-number refs and no migration token'
