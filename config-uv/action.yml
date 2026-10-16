@@ -100,7 +100,7 @@ runs:
     - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
       if: steps.config-uv-completed.outputs.skip != 'true'
       with:
-        version: 2026.10.6
+        version: 2026.10.8
 
     - uses: SonarSource/vault-action-wrapper@a7fa5fd4a4e4e0f2593f6137c0812cac196cf4ce # 3.7.0
       if: steps.config-uv-completed.outputs.skip != 'true'
