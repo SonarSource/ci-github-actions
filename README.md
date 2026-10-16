@@ -146,7 +146,9 @@ No inputs are required for this action.
 ### Git References
 
 This action coordinates purely through Git references on the repository - no external state, cache, or database. Each reference is created
-pointing at `$GITHUB_SHA` (the commit that triggered the claim); that target is never read back - only the reference's existence matters
+pointing at the repository's default branch HEAD, resolved once before acquiring the lock. Using the existing default branch head avoids
+GitHub's additional workflow-write restrictions on some PR merge commits; `contents: write` remains sufficient. The target is never read
+back - only the reference's existence matters
 (for `build-number` and `build-number-lock`), or its name, which encodes the claimed number (for `build-runs`).
 
 | Reference                             | Lifetime                                                                                     | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
