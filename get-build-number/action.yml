@@ -6,6 +6,9 @@ outputs:
     description: The build number, newly claimed or reused if this workflow run already claimed one
     value: ${{ steps.export.outputs.BUILD_NUMBER }}
 inputs:
+  ref-sha:
+    description: Commit targeted by bookkeeping refs. Defaults to the PR head for pull requests, otherwise the workflow commit.
+    default: ${{ github.event.pull_request.head.sha || github.sha }}
   host-actions-root:
     description: Path to the actions folder on the host (used when called from another local action)
     default: ''
@@ -60,6 +63,7 @@ runs:
       if: steps.from-env.outputs.skip != 'true'
       shell: bash
       env:
+        BUILD_NUMBER_REF_SHA: ${{ inputs.ref-sha }}
         GITHUB_TOKEN: ${{ github.token }}
         GH_TOKEN: ${{ github.token }}
         LEGACY_PROPERTY_TOKEN: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).github_token || '' }}

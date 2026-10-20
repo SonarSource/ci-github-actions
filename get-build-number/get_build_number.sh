@@ -8,7 +8,8 @@
 # refs/build-number-lock: exclusive, transient, repository-wide lock serializing every new claim, not just those within one run.
 # Released immediately after use (success or failure) via the trap below, not held for a run's lifetime.
 #
-# Every ref points at $GITHUB_SHA purely because creation requires some valid target; that target is never read back.
+# Every ref points at $BUILD_NUMBER_REF_SHA (or $GITHUB_SHA for direct script callers) because creation requires a valid target;
+# that target is never read back. PR merge commits can be rejected by GitHub even when the PR head is accepted.
 # All ref reads/writes use the ambient GITHUB_TOKEN. LEGACY_PROPERTY_TOKEN (from Vault) is only used to read the legacy
 # build_number property during migration - see README.
 
@@ -31,7 +32,7 @@ RETRY_INTERVAL_SECONDS="${RETRY_INTERVAL_SECONDS:-1}" # between internal retries
 
 create_ref() {
   local ref="$1"
-  gh api --method POST -H "$GH_API_VERSION_HEADER" "$REFS_API_URL" -f "ref=refs/${ref}" -f "sha=${GITHUB_SHA}" 2>&1
+  gh api --method POST -H "$GH_API_VERSION_HEADER" "$REFS_API_URL" -f "ref=refs/${ref}" -f "sha=${BUILD_NUMBER_REF_SHA:-$GITHUB_SHA}" 2>&1
 }
 
 delete_ref() {

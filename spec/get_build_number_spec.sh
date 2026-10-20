@@ -21,6 +21,27 @@ remove_build_number_file() {
 Describe 'get_build_number.sh'
   BeforeEach 'remove_build_number_file'
 
+  It 'should target the supplied commit for every bookkeeping ref'
+    export BUILD_NUMBER_REF_SHA="0123456789abcdef0123456789abcdef01234567"
+    export GH_REF_CALLS_FILE="${TEMP_DIR}/gh_ref_calls.txt"
+    rm -f "$GH_REF_CALLS_FILE"
+    Mock gh
+      if [[ "$*" == *"--method POST"* ]]; then
+        echo "$*" >>"$GH_REF_CALLS_FILE"
+        [[ "$*" == *"sha=${BUILD_NUMBER_REF_SHA}"* ]] || return 1
+      elif [[ "$*" == *"matching-refs/build-number/"* ]]; then
+        echo 'refs/build-number/5'
+      fi
+    End
+    When run script get-build-number/get_build_number.sh
+    The status should be success
+    The output should include "Claimed build number 6"
+    The contents of file "$BUILD_NUMBER_FILE" should equal "6"
+    The contents of file "$GH_REF_CALLS_FILE" should include "ref=refs/build-number-lock/global"
+    The contents of file "$GH_REF_CALLS_FILE" should include "ref=refs/build-number/6"
+    The contents of file "$GH_REF_CALLS_FILE" should include "ref=refs/build-runs/${GITHUB_RUN_ID}/6"
+  End
+
   It 'should reuse an existing claim immediately, without touching the lock or scanning build-number refs'
     export GH_LOCK_CALLS_FILE="${TEMP_DIR}/gh_lock_calls_reuse.txt"
     rm -f "$GH_LOCK_CALLS_FILE"

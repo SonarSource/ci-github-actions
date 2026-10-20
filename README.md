@@ -147,6 +147,13 @@ jobs:
 
 No inputs are required for this action.
 
+| Input | Description | Default |
+|-------|-------------|---------|
+| `ref-sha` | Commit targeted by bookkeeping refs; does not change the commit being built. | PR head for pull requests, otherwise the workflow commit |
+
+The PR head is used because GitHub can reject ref creation targeting the synthetic merge commit with HTTP 403 even with
+`contents: write`. The ref target is only needed to create the ref and is never read to allocate or reuse a number.
+
 ### Outputs
 
 | Output         | Description              |
