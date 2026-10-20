@@ -69,12 +69,28 @@ These badges show the status of workflows in dummy repositories that use (or sho
 
 ## Resolving through the JFrog Edge
 
-The actions resolve, deploy and promote on SaaS Repox (`https://repox.jfrog.io`) by default. To resolve dependencies through
-the production JFrog Edge instead, set `repox-url: https://repox-internal.sonar.build` on the `config-*` and `build-*` actions.
+The `config-*` and `build-*` actions select the dependency resolve endpoint from `runner.environment` when `repox-url` is omitted:
 
-- Deployment, publication, build info and promotion always use `https://repox.jfrog.io`: the Edge is read-only.
+- GitHub-hosted runners use SaaS Repox (`https://repox.jfrog.io`).
+- Self-hosted runners use the production JFrog Edge (`https://repox-internal.sonar.build`).
+- An explicit `repox-url` always overrides runner selection, including SaaS, dev Edge and production Edge URLs.
+
+The selected URL also determines the matching Vault server and reader-token engine.
+
+- Deployment, publication, build info and promotion always use SaaS Repox (`https://repox.jfrog.io`): the Edge is read-only.
 - The internal Edge hostname is only reachable from runners inside the SonarSource network.
-- To return resolution to SaaS, set `repox-url: https://repox.jfrog.io`.
+- Self-hosted runners without internal Edge connectivity must set `repox-url: https://repox.jfrog.io` on every affected `config-*`
+  and `build-*` action, including actions called through composite wrappers. GitHub-hosted runners with internal connectivity can
+  explicitly select `repox-url: https://repox-internal.sonar.build`.
+- Repositories resolving through Edge during Orchestrator-based integration tests need an Orchestrator release that recognizes
+  `repox-internal.sonar.build` as a SonarSource Artifactory host. Until they adopt that release, set
+  `repox-url: https://repox.jfrog.io` to preserve authenticated private downloads and version alias resolution.
+- Match hardcoded package indexes and credentials to the selected `repox-url`. For example, update a named uv index and its
+  lockfile when moving to the Edge, and avoid overwriting Edge credentials with independently fetched SaaS tokens.
+- Consumers following `@master` must complete these prerequisites before the default change merges; consumers following a
+  release branch such as `@v2` must complete them before that branch is updated. Update tests that assert a download URL to
+  use the configured resolve URL instead of a hardcoded SaaS hostname.
+- To resolve from SaaS Repox instead, set `repox-url: https://repox.jfrog.io`.
 
 ---
 
@@ -266,7 +282,7 @@ steps:
 | `working-directory`       | Relative path under github.workspace to execute the build in                | `.`                                                                                                                     |
 | `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault                             | `private-reader` for private repos, `public-reader` for public repos                                                    |
 | `common-mvn-flags`        | Maven flags for all subsequent mvn calls                                    | `--batch-mode --no-transfer-progress --errors --fail-at-end --show-version -Dmaven.test.redirectTestOutputToFile=false` |
-| `repox-url`               | URL for Repox                                                               | `https://repox.jfrog.io`                                                                                                |
+| `repox-url`               | URL for Repox                                                               | Runner-dependent (see Edge section)                                                                                     |
 | `use-develocity`          | Whether to use Develocity for build tracking                                | `false`                                                                                                                 |
 | `develocity-url`          | URL for Develocity                                                          | `https://develocity.sonar.build/`                                                                                       |
 | `cache-paths`             | Custom cache paths (multiline).                                             | (optional)                                                                                                              |
@@ -372,7 +388,7 @@ See also [`config-maven`](#config-maven) input environment variables.
 | `skip-build`                | If `true`, analyze existing `target/` output without compiling, testing or deploying. Requires `deploy: false`.              | `false`                                                                                     |
 | `maven-args`                | Additional arguments to pass to Maven                                                                                        | (optional)                                                                                  |
 | `scanner-java-opts`         | Additional Java options for the Sonar scanner (`SONAR_SCANNER_JAVA_OPTS`)                                                    | `-Xmx512m`                                                                                  |
-| `repox-url`                 | URL for Repox                                                                                                                | `https://repox.jfrog.io`                                                                    |
+| `repox-url`                 | URL for Repox                                                                                                                | Runner-dependent (see Edge section)                                                         |
 | `use-develocity`            | Whether to use Develocity for build tracking                                                                                 | `false`                                                                                     |
 | `develocity-url`            | URL for Develocity                                                                                                           | `https://develocity.sonar.build/`                                                           |
 | `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', 'sqc-us', or 'none'. Use 'none' to skip sonar scans                           | `next`                                                                                      |
@@ -514,7 +530,7 @@ See also [`get-build-number`](#get-build-number) input environment variables.
 | `working-directory`       | Relative path under github.workspace to execute the build in                | `.`                                                                  |
 | `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault                             | `private-reader` for private repos, `public-reader` for public repos |
 | `artifactory-pypi-repo`   | PyPI virtual repository to resolve dependencies from                        | `sonarsource-pypi`                                                   |
-| `repox-url`               | URL for Repox                                                               | `https://repox.jfrog.io`                                             |
+| `repox-url`               | URL for Repox                                                               | Runner-dependent (see Edge section)                                  |
 | `poetry-virtualenvs-path` | Path to the Poetry virtual environments, relative to GitHub workspace       | `.cache/pypoetry/virtualenvs`                                        |
 | `poetry-cache-dir`        | Path to the Poetry cache directory, relative to GitHub workspace            | `.cache/pypoetry`                                                    |
 | `disable-caching`         | Whether to disable Poetry caching entirely                                  | `false`                                                              |
@@ -616,7 +632,7 @@ See also [`config-poetry`](#config-poetry) input environment variables.
 | `deploy-pull-request`       | Whether to also deploy pull request artifacts. If `deploy` is `false`, this has no effect                                                                                                     | `false`                                                                                               |
 | `poetry-virtualenvs-path`   | Path to the Poetry virtual environments, relative to GitHub workspace                                                                                                                         | `.cache/pypoetry/virtualenvs`                                                                         |
 | `poetry-cache-dir`          | Path to the Poetry cache directory, relative to GitHub workspace                                                                                                                              | `.cache/pypoetry`                                                                                     |
-| `repox-url`                 | URL for Repox                                                                                                                                                                                 | `https://repox.jfrog.io`                                                                              |
+| `repox-url`                 | URL for Repox                                                                                                                                                                                 | Runner-dependent (see Edge section)                                                                   |
 | `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', sqc-us, or 'none'. Use 'none' to skip sonar scans                                                                                              | `next`                                                                                                |
 | `run-shadow-scans`          | If true, run sonar scanner on all 3 platforms using the provided URL and token. If false, run on the platform provided by sonar-platform. When enabled, the sonar-platform setting is ignored | `false`                                                                                               |
 | `working-directory`         | Relative path under github.workspace to execute the build in                                                                                                                                  | `.`                                                                                                   |
@@ -728,7 +744,7 @@ If provided, `SONARSOURCE_REPOSITORY` is used at runtime by the Gradle init scri
 | `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault                             | `private-reader` for private repos, `public-reader` for public repos |
 | `use-develocity`          | Whether to use Develocity for build tracking                                | `false`                                                              |
 | `develocity-url`          | URL for Develocity                                                          | `https://develocity.sonar.build/`                                    |
-| `repox-url`               | URL for Repox                                                               | `https://repox.jfrog.io`                                             |
+| `repox-url`               | URL for Repox                                                               | Runner-dependent (see Edge section)                                  |
 | `cache-paths`             | Custom cache paths (multiline).                                             | `~/.gradle/caches`<br>`~/.gradle/wrapper`                            |
 | `disable-caching`         | Whether to disable Gradle caching entirely                                  | `false`                                                              |
 
@@ -851,7 +867,7 @@ See also [`config-gradle`](#config-gradle) input environment variables.
 | `use-develocity`            | Whether to use Develocity for build tracking                                                                                                                                                                              | `false`                                                                                     |
 | `gradle-args`               | Additional arguments to pass to Gradle                                                                                                                                                                                    | (optional)                                                                                  |
 | `develocity-url`            | URL for Develocity                                                                                                                                                                                                        | `https://develocity.sonar.build/`                                                           |
-| `repox-url`                 | URL for Repox                                                                                                                                                                                                             | `https://repox.jfrog.io`                                                                    |
+| `repox-url`                 | URL for Repox                                                                                                                                                                                                             | Runner-dependent (see Edge section)                                                         |
 | `sonar-platform`            | SonarQube variant - 'next', 'sqc-eu', 'sqc-us', or 'none'. Use 'none' to skip sonar scans                                                                                                                                 | `next`                                                                                      |
 | `working-directory`         | Relative path under github.workspace to execute the build in                                                                                                                                                              | `.`                                                                                         |
 | `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding)                                                                                                                                            | `false`                                                                                     |
@@ -1050,7 +1066,7 @@ See also [`get-build-number`](#get-build-number) input environment variables.
 | `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault                             | `private-reader` for private repos, `public-reader` for public repos |
 | `disable-caching`         | Whether to disable NPM caching entirely                                     | `false`                                                              |
 | `cache-npm`               | Deprecated. Use `disable-caching: 'true'` instead                           | `true`                                                               |
-| `repox-url`               | URL for Repox                                                               | `https://repox.jfrog.io`                                             |
+| `repox-url`               | URL for Repox                                                               | Runner-dependent (see Edge section)                                  |
 
 ### Outputs
 
@@ -1143,7 +1159,7 @@ See also [`config-npm`](#config-npm) input environment variables.
 | `skip-tests`                | Whether to skip running tests                                                                                                                                                                                      | `false`                                                                                      |
 | `disable-caching`           | Whether to disable NPM caching entirely                                                                                                                                                                            | `false`                                                                                      |
 | `cache-npm`                 | Deprecated. Use `disable-caching: 'true'` instead                                                                                                                                                                  | `true`                                                                                       |
-| `repox-url`                 | URL for Repox                                                                                                                                                                                                      | `https://repox.jfrog.io`                                                                     |
+| `repox-url`                 | URL for Repox                                                                                                                                                                                                      | Runner-dependent (see Edge section)                                                          |
 | `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', or 'sqc-us'                                                                                                                                                         | `next`                                                                                       |
 | `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding)                                                                                                                                     | `false`                                                                                      |
 | `build-name`                | Name of the JFrog build to publish.                                                                                                                                                                                | `<Repository name>`                                                                          |
@@ -1255,7 +1271,7 @@ jobs:
 | `skip-tests`                | Whether to skip running tests                                                                                                | `false`                                                                                     |
 | `disable-caching`           | Whether to disable Yarn caching entirely                                                                                     | `false`                                                                                     |
 | `cache-yarn`                | Deprecated. Use `disable-caching: 'true'` instead                                                                            | `true`                                                                                      |
-| `repox-url`                 | URL for Repox                                                                                                                | `https://repox.jfrog.io`                                                                    |
+| `repox-url`                 | URL for Repox                                                                                                                | Runner-dependent (see Edge section)                                                         |
 | `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', 'sqc-us', or 'none'. Use 'none' to skip sonar scans                           | `next`                                                                                      |
 | `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding)                                               | `false`                                                                                     |
 | `provenance`                | Whether to generate provenance attestation for built artifacts                                                               | `false`                                                                                     |
@@ -1338,7 +1354,7 @@ steps:
 |---------------------------|-----------------------------------------------------------------------------|----------------------------------------------------------------------|
 | `working-directory`       | Relative path under github.workspace to execute the build in                | `.`                                                                  |
 | `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault                             | `private-reader` for private repos, `public-reader` for public repos |
-| `repox-url`               | URL for Repox                                                               | `https://repox.jfrog.io`                                             |
+| `repox-url`               | URL for Repox                                                               | Runner-dependent (see Edge section)                                  |
 | `cache-paths`             | Cache paths to use (multiline)                                              | `~/.cache/pip`                                                       |
 | `disable-caching`         | Whether to disable pip caching entirely                                     | `false`                                                              |
 
@@ -1440,7 +1456,7 @@ For build-info collection, pass `--build-name` and `--build-number` to `jf uv` a
 | `working-directory`       | Relative path under github.workspace to execute the build in                | `.`                                                                  |
 | `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault                             | `private-reader` for private repos, `public-reader` for public repos |
 | `uv-index-name`           | Name of the uv index in `pyproject.toml` to authenticate                    | `repox`                                                              |
-| `repox-url`               | URL for Repox                                                               | `https://repox.jfrog.io`                                             |
+| `repox-url`               | URL for Repox                                                               | Runner-dependent (see Edge section)                                  |
 | `uv-cache-dir`            | Path to the uv cache directory, relative to GitHub workspace                | `.cache/uv`                                                          |
 | `disable-caching`         | Whether to disable uv caching entirely                                      | `false`                                                              |
 
@@ -1469,7 +1485,7 @@ See also [`get-build-number`](#get-build-number) output environment variables.
 Configure NuGet authentication and resolve the Repox package sources of NuGet configuration files through `repox-url`.
 
 The action reads a Repox reader token from Vault and exports it as `ARTIFACTORY_USER` and `ARTIFACTORY_PASSWORD`, the variables
-referenced by the `packageSourceCredentials` of the NuGet configuration files. With a `repox-url` other than `https://repox.jfrog.io`,
+referenced by the `packageSourceCredentials` of the NuGet configuration files. Unless `repox-url` is `https://repox.jfrog.io`,
 every package source `value` starting with `https://repox.jfrog.io/artifactory/` in the listed files is rewritten to `repox-url`,
 so the committed files can keep SaaS Repox for local builds. Other attributes, such as `trustedSigners` service indexes, are unchanged.
 
@@ -1515,7 +1531,7 @@ steps:
 | `nuget-config-files`      | NuGet configuration files to update (multiline), relative to `working-directory`      | `NuGet.Config`                                                       |
 | `working-directory`       | Relative path under github.workspace to execute the action in                         | `.`                                                                  |
 | `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault                                       | `private-reader` for private repos, `public-reader` for public repos |
-| `repox-url`               | URL for Repox                                                                         | `https://repox.jfrog.io`                                             |
+| `repox-url`               | URL for Repox                                                                         | Runner-dependent (see Edge section)                                  |
 
 ### Output Environment Variables
 
