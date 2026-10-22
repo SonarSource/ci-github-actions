@@ -112,7 +112,8 @@ Requirements for each SonarQube Cloud platform that is analyzed:
 The token exchange fails the job when the repository is not bound, or when the job has no OIDC token. This is the case for
 pull requests from forks, as GitHub does not grant `id-token: write` to them.
 
-The secrets `development/kv/data/sonarcloud` and `development/kv/data/sonarqube-us` are not read anymore.
+The `build-*` actions do not read the secrets `development/kv/data/sonarcloud` and `development/kv/data/sonarqube-us` anymore
+(they are still used by `check-sca`).
 
 ---
 
