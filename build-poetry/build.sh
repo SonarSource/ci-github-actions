@@ -128,7 +128,7 @@ run_sonar_analysis() {
   echo "run_sonar_analysis()"
   if [[ "${RUN_SHADOW_SCANS}" = "true" ]]; then
       echo "=== Running Sonar analysis on all platforms (shadow scan enabled) ==="
-      local platforms=("next" "sqc-us" "sqc-eu")
+      local platforms=("${SONAR_PLATFORMS[@]}")
 
       for platform in "${platforms[@]}"; do
           echo "::group::Sonar analysis on $platform"
