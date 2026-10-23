@@ -165,12 +165,16 @@ promote_mono() {
 
 github_notify_promotion() {
   local check_context="$1"
-  local project_version longDescription shortDescription buildUrl githubApiUrl
+  local project_version longDescription shortDescription buildUrl githubApiUrl status_sha
+  status_sha="$GITHUB_SHA"
+  if is_pull_request; then
+    status_sha=$(jq -er '.pull_request.head.sha | strings | select(length > 0)' "$GITHUB_EVENT_PATH") || return
+  fi
   project_version="$PROJECT_VERSION"
   longDescription="Latest promoted build of '${project_version}' from branch '${GITHUB_REF}'"
   shortDescription=${longDescription:0:140} # required for GH API endpoint (max 140 chars)
   buildUrl="${ARTIFACTORY_URL%/*}/ui/builds/${BUILD_NAME}/${BUILD_NUMBER}/"
-  githubApiUrl="https://api.github.com/repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}"
+  githubApiUrl="https://api.github.com/repos/${GITHUB_REPOSITORY}/statuses/${status_sha}"
   gh api -X POST -H "$GH_API_VERSION_HEADER" "$githubApiUrl" -H "Content-Type: application/json" --input - <<EOF
 {
   "state": "success",

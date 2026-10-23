@@ -2,15 +2,16 @@
 eval "$(shellspec - -c) exit 1"
 
 Mock jf
-  if [[ "$*" == 'rt curl "api/build'* ]]; then
+  if [[ "$*" == rt\ curl\ api/build/* ]]; then
     cat <<EOF
 {
   "buildInfo" : {
     "properties" : {
       "buildInfo.env.ARTIFACTORY_DEPLOY_REPO" : "sonarsource-deploy-qa",
-      "buildInfo.env.BUILD_NUMBER" : "42"
-      "buildInfo.env.PROJECT_VERSION" : "1.2.3.42",
+      "buildInfo.env.BUILD_NUMBER" : "42",
+      "buildInfo.env.PROJECT_VERSION" : "1.2.3.42"
     }
+  }
 }
 EOF
   elif [[ "$*" == rt\ curl\ api/plugins/execute/multiRepoPromote* ]]; then
@@ -30,32 +31,6 @@ Mock gh
     echo "gh $*"
   fi
 End
-Mock jq
-  if [[ "$*" == *"buildInfo.env.ARTIFACTORY_DEPLOY_REPO"* ]]; then
-    echo "sonarsource-deploy-qa"
-  elif [[ "$*" == *"buildInfo.env.PROJECT_VERSION"* ]]; then
-    echo "1.2.3.42"
-  elif [[ "$*" == *"buildInfo.env.NON_EXISTING_PROPERTY"* ]]; then
-    echo "null"
-  elif [[ "$*" == '-e type == "object"' ]]; then
-    input=$(tr -d '[:space:]')
-    [[ "$input" == '{'*'}' ]]
-  elif [[ "$*" == "-e (.errors // []) | length > 0" ]]; then
-    input=$(cat)
-    if [[ "$input" != *'"errors"'* ]]; then
-      false
-    elif [[ "$input" =~ \"errors\"[[:space:]]*:[[:space:]]*\[[[:space:]]*\] ]]; then
-      false
-    else
-      true
-    fi
-  elif [[ "$*" == "-c .errors" ]]; then
-    tr -d '\n'
-  else
-    echo "jq $*"
-  fi
-End
-
 # Test constants
 TEST_PR_REF_NAME="123/merge"
 TEST_EVENT_PULL_REQUEST="pull_request"
@@ -77,6 +52,7 @@ export PROJECT_VERSION="1.2.3"
 export PROMOTE_PULL_REQUEST="false"
 GITHUB_EVENT_PATH=$(mktemp)
 export GITHUB_EVENT_PATH
+printf '%s\n' '{"pull_request":{"head":{"sha":"head123"}}}' > "$GITHUB_EVENT_PATH"
 GITHUB_STEP_SUMMARY=$(mktemp)
 export GITHUB_STEP_SUMMARY
 
@@ -448,6 +424,32 @@ Describe 'github_notify_promotion()'
     The output should include "gh api -X POST -H X-GitHub-Api-Version: 2022-11-28"
     The output should include "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA"
     The output should include "-H Content-Type: application/json --input -"
+  End
+
+  It 'reports pull request promotions on the head commit instead of the merge commit'
+    export GITHUB_EVENT_NAME="$TEST_EVENT_PULL_REQUEST"
+    When call github_notify_promotion "repox-dummy-project-123/merge"
+    The status should be success
+    The output should include "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/head123"
+    The output should not include "/statuses/$GITHUB_SHA"
+    The variable GITHUB_SHA should equal "abc123"
+  End
+
+  Describe 'invalid pull request head SHA'
+    Parameters
+      missing '{}'
+      null '{"pull_request":{"head":{"sha":null}}}'
+      empty '{"pull_request":{"head":{"sha":""}}}'
+      numeric '{"pull_request":{"head":{"sha":42}}}'
+    End
+
+    It 'fails without posting a status to the merge commit'
+      export GITHUB_EVENT_NAME="$TEST_EVENT_PULL_REQUEST"
+      printf '%s\n' "$2" > "$GITHUB_EVENT_PATH"
+      When run github_notify_promotion "repox-dummy-project-123/merge"
+      The status should be failure
+      The output should equal ""
+    End
   End
 End
 
