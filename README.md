@@ -903,7 +903,7 @@ See also [`config-gradle`](#config-gradle) input environment variables.
 >      - name: Workaround for setup-gradle which has no working-directory input
 >        run: |
 >          cp <working-directory>/mise.toml mise.toml
->      - uses: jdx/mise-action@5ac50f778e26fac95da98d50503682459e86d566 # v3.2.0
+>      - uses: step-security/mise-action@a225bbd7c202ddf57dd76dff22bb7992f6314173 # v5.1.2
 >        with:
 >          version: 2025.11.1
 >      - uses: SonarSource/ci-github-actions/build-gradle@v1
@@ -1438,7 +1438,7 @@ permissions:
   contents: write
 steps:
   - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-  - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+  - uses: step-security/mise-action@a225bbd7c202ddf57dd76dff22bb7992f6314173 # v5.1.2
   - uses: SonarSource/ci-github-actions/config-uv@v1
   - run: jf uv sync
 ```
