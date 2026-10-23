@@ -1,0 +1,43 @@
+---
+name: Authenticate to SonarQube Cloud
+description: >-
+  Internal action used by the build-* actions. Requests short-lived SonarQube Cloud tokens (EU and US)
+  with the GitHub OIDC token of the job. Requires the id-token write permission.
+
+inputs:
+  sonar-platform:
+    description: Sonar platform analyzed by the build (next, sqc-us, sqc-eu or none)
+    required: true
+  run-shadow-scans:
+    description: Whether the build analyzes all platforms
+    required: true
+
+outputs:
+  sqc-eu-url:
+    description: URL of SonarQube Cloud EU
+    value: ${{ steps.sqc-eu-auth.outputs.sonar-host-url }}
+  sqc-eu-token:
+    description: Token to analyze the project on SonarQube Cloud EU
+    value: ${{ steps.sqc-eu-auth.outputs.sonar-token }}
+  sqc-us-url:
+    description: URL of SonarQube Cloud US
+    value: ${{ steps.sqc-us-auth.outputs.sonar-host-url }}
+  sqc-us-token:
+    description: Token to analyze the project on SonarQube Cloud US
+    value: ${{ steps.sqc-us-auth.outputs.sonar-token }}
+
+runs:
+  using: composite
+  steps:
+    - uses: SonarSource/sonarqube-auth-action@0c409727662aa45022382faba75676ae449788ad # v1
+      id: sqc-eu-auth
+      if: inputs.run-shadow-scans == 'true' || inputs.sonar-platform == 'sqc-eu'
+      with:
+        sonar-host-url: https://sonarcloud.io
+        export-env: 'false'
+    - uses: SonarSource/sonarqube-auth-action@0c409727662aa45022382faba75676ae449788ad # v1
+      id: sqc-us-auth
+      if: inputs.run-shadow-scans == 'true' || inputs.sonar-platform == 'sqc-us'
+      with:
+        sonar-host-url: https://sonarqube.us
+        export-env: 'false'
