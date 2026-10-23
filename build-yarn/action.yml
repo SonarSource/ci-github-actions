@@ -118,7 +118,7 @@ runs:
 
     - uses: step-security/mise-action@a225bbd7c202ddf57dd76dff22bb7992f6314173 # v5.1.2
       with:
-        version: 2026.10.6
+        version: 2026.10.17
         working_directory: ${{ inputs.working-directory }}
 
     - name: Cache Yarn dependencies
