@@ -40,9 +40,7 @@ export RUNNER_OS="Linux"
 export SONAR_PLATFORM="next"
 export NEXT_URL="https://next.sonarqube.com"
 export NEXT_TOKEN="next-token"
-export SQC_US_URL="https://sonarqube.us.sonarsource.com"
 export SQC_US_TOKEN="sqc-us-token"
-export SQC_EU_URL="https://sonarqube.eu.sonarsource.com"
 export SQC_EU_TOKEN="sqc-eu-token"
 export RUN_SHADOW_SCANS="false"
 export SCANNER_VERSION="5.6.0.6792"
@@ -257,6 +255,16 @@ Describe 'run_sonar_scanner()'
     The line 2 should include "-Dsonar.token=test-token"
     The line 2 should include "-Dsonar.projectVersion=1.2.3-SNAPSHOT"
     The lines of stdout should equal 2
+  End
+
+  It 'runs sonar scanner with the region and without host URL for sqc-us'
+    unset SONAR_HOST_URL
+    export SONAR_REGION="us"
+    When call sonar_scanner_implementation
+    The status should be success
+    The line 2 should include "-Dsonar.region=us"
+    The line 2 should not include "-Dsonar.host.url"
+    The line 2 should include "-Dsonar.token=test-token"
   End
 
   It 'runs sonar scanner with additional parameters'

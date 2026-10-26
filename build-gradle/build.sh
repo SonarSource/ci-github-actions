@@ -7,9 +7,7 @@
 # - SONAR_PLATFORM: SonarQube primary platform (next, sqc-eu, sqc-us, or none). Use 'none' to skip sonar scans.
 # - NEXT_URL: URL of SonarQube server for next platform
 # - NEXT_TOKEN: Access token to send analysis reports to SonarQube for next platform
-# - SQC_US_URL: URL of SonarQube server for sqc-us platform
 # - SQC_US_TOKEN: Access token to send analysis reports to SonarQube for sqc-us platform
-# - SQC_EU_URL: URL of SonarQube server for sqc-eu platform
 # - SQC_EU_TOKEN: Access token to send analysis reports to SonarQube for sqc-eu platform
 # - RUN_SHADOW_SCANS: If true, run sonar scanner on all 3 platforms. If false, run on the platform provided by SONAR_PLATFORM.
 #     When enabled, SONAR_PLATFORM is ignored.
@@ -124,10 +122,15 @@ build_gradle_args() {
     args+=("-x" "test")
   fi
 
-  # SonarQube analysis (orchestrator will provide SONAR_HOST_URL and SONAR_TOKEN)
-  if [[ -n "${SONAR_HOST_URL:-}" && -n "${SONAR_TOKEN:-}" ]]; then
+  # SonarQube analysis (orchestrator will provide SONAR_TOKEN, and SONAR_HOST_URL or SONAR_REGION)
+  if [[ -n "${SONAR_TOKEN:-}" ]]; then
     args+=("sonar")
-    args+=("-Dsonar.host.url=$SONAR_HOST_URL")
+    if [[ -n "${SONAR_HOST_URL:-}" ]]; then
+      args+=("-Dsonar.host.url=$SONAR_HOST_URL")
+    fi
+    if [[ -n "${SONAR_REGION:-}" ]]; then
+      args+=("-Dsonar.region=$SONAR_REGION")
+    fi
     args+=("-Dsonar.token=$SONAR_TOKEN")
     args+=("-Dsonar.analysis.buildNumber=$BUILD_NUMBER")
     args+=("-Dsonar.analysis.pipeline=$GITHUB_RUN_ID")
@@ -188,7 +191,7 @@ set_gradle_cmd() {
 #
 # This function is called BY THE ORCHESTRATOR (orchestrate_sonar_platforms)
 # The orchestrator will:
-# 1. Set SONAR_HOST_URL and SONAR_TOKEN for the current platform
+# 1. Set SONAR_TOKEN, and SONAR_HOST_URL (next) or SONAR_REGION (sqc-us) for the current platform
 # 2. Call this function to execute the actual scanner
 # 3. Repeat for each platform (if shadow scanning enabled)
 gradle_build_and_analyze() {
