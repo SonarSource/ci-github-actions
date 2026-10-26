@@ -96,8 +96,8 @@ The selected URL also determines the matching Vault server and reader-token engi
 
 The `build-*` actions authenticate to SonarQube Cloud (`sonar-platform: sqc-eu` or `sqc-us`, and the matching platforms of
 `run-shadow-scans`) with the GitHub OIDC token of the job, through
-[`sonarqube-auth-action`](https://github.com/SonarSource/sonarqube-auth-action), instead of with Vault secrets.
-The `next` platform still reads its URL and token from Vault.
+[`sonarqube-auth-action`](https://github.com/SonarSource/sonarqube-auth-action), instead of with tokens stored in Vault.
+The SonarQube Cloud URLs, and the URL and token of the `next` platform, are still read from Vault.
 
 Requirements for each SonarQube Cloud platform that is analyzed:
 
