@@ -59,6 +59,7 @@ These badges show the status of workflows in dummy repositories that use (or sho
 - [`build-yarn`](#build-yarn)
 - [`config-pip`](#config-pip)
 - [`config-uv`](#config-uv)
+- [`config-bun`](#config-bun)
 - [`config-nuget`](#config-nuget)
 - [`promote`](#promote)
 - [`pr_cleanup`](#pr_cleanup)
@@ -1479,6 +1480,70 @@ For build-info collection, pass `--build-name` and `--build-number` to `jf uv` a
 | `UV_CACHE_DIR`            | Path to the uv cache directory                        |
 
 See also [`get-build-number`](#get-build-number) output environment variables.
+
+---
+
+## `config-bun`
+
+Configure Bun to resolve npm packages from Repox with the matching reader token, and cache Bun installs.
+
+The action sets [Bun's registry environment variables](https://bun.sh/docs/pm/cli/install). They replace the default
+registry and token configured in `bunfig.toml` or `.npmrc`; scoped registries are not changed.
+
+Bun downloads each locked package from the tarball URL written in `bun.lock`, not from the configured registry. Commit a
+`bun.lock` resolved through the same Repox as the selected `repox-url`.
+
+The action does not install Bun or dependencies, and does not manage the build number.
+
+### Requirements
+
+#### Required GitHub Permissions
+
+- `id-token: write`
+
+#### Required Vault Permissions
+
+- `public-reader` or `private-reader`: Artifactory role for reading dependencies
+
+#### Other Dependencies
+
+The `bun` tool must be pre-installed. Use of `mise` is recommended.
+
+### Usage
+
+```yaml
+permissions:
+  id-token: write
+steps:
+  - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+  - uses: step-security/mise-action@a225bbd7c202ddf57dd76dff22bb7992f6314173 # v5.1.2
+  - uses: SonarSource/ci-github-actions/config-bun@v2
+  - run: bun ci
+```
+
+### Inputs
+
+| Input                     | Description                                                                 | Default                                                              |
+|---------------------------|-----------------------------------------------------------------------------|----------------------------------------------------------------------|
+| `working-directory`       | Relative path under github.workspace containing `bun.lock`                  | `.`                                                                  |
+| `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault                             | `private-reader` for private repos, `public-reader` for public repos |
+| `repox-url`               | URL for Repox                                                               | Runner-dependent (see Edge section)                                  |
+| `disable-caching`         | Whether to disable Bun install caching entirely                             | `false`                                                              |
+
+### Outputs
+
+| Output     | Description                                                                                     |
+|------------|-------------------------------------------------------------------------------------------------|
+| `registry` | The npm registry URL selected for Bun. Also set as environment variable `BUN_CONFIG_REGISTRY`   |
+
+### Output Environment Variables
+
+| Environment Variable       | Description                                       |
+|----------------------------|---------------------------------------------------|
+| `BUN_CONFIG_REGISTRY`      | npm registry URL under the selected Repox         |
+| `BUN_CONFIG_TOKEN`         | Repox reader access token for that registry       |
+| `ARTIFACTORY_USERNAME`     | Repox reader username                             |
+| `ARTIFACTORY_ACCESS_TOKEN` | Repox reader access token                         |
 
 ---
 
