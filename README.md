@@ -61,6 +61,7 @@ These badges show the status of workflows in dummy repositories that use (or sho
 - [`config-uv`](#config-uv)
 - [`config-bun`](#config-bun)
 - [`config-nuget`](#config-nuget)
+- [`renovate`](#renovate)
 - [`promote`](#promote)
 - [`pr_cleanup`](#pr_cleanup)
 - [`code-signing`](#code-signing)
@@ -1609,6 +1610,96 @@ steps:
 | `ARTIFACTORY_ACCESS_TOKEN` | Repox access token                          |
 | `ARTIFACTORY_USER`         | Repox username for NuGet configurations     |
 | `ARTIFACTORY_PASSWORD`     | Repox access token for NuGet configurations |
+
+---
+
+## `renovate`
+
+Run self-hosted [Renovate](https://docs.renovatebot.com/) on the current repository.
+
+Use it instead of the Mend-hosted Renovate app when lockfiles pin the production JFrog Edge: Mend can't reach the Edge, so the
+lockfile updates it makes fail or write SaaS URLs back. Run it on a self-hosted runner, and disable the Mend app for the
+repository so the two don't open competing pull requests.
+
+The action installs the `renovate` npm package from the selected Repox and runs it on Node.js installed with mise. It passes
+the selected Repox reader to the commands Renovate runs (lockfile updates and `postUpgradeTasks`). Package lookups follow the
+repository's Renovate configuration; the shared `SonarSource/renovate-config` presets use SaaS Repox with the `REPOX_TOKEN`
+secret, which the action sets.
+
+Renovate runs with `binarySource: global`, so the tools needed for lockfile updates must be on `PATH`. The action runs `mise`,
+which installs the tools declared in the repository's mise configuration.
+
+### Requirements
+
+#### Required GitHub Permissions
+
+- `id-token: write`
+
+The other permissions come from the GitHub token used by Renovate.
+
+#### Required Vault Permissions
+
+- `renovate`: GitHub App token for the repository, unless `github-token` is set. It needs `checks`, `contents`, `issues`,
+  `pull_requests`, `statuses` and `workflows` write access, and `metadata` read access.
+- `public-reader` or `private-reader`: Artifactory role for reading dependencies, for both SaaS Repox and the selected Repox
+
+#### Other Dependencies
+
+The tools used by the repository's lockfile updates and `postUpgradeTasks`, declared in its mise configuration.
+
+### Usage
+
+```yaml
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 21 * * 1-5"
+
+jobs:
+  renovate:
+    runs-on: sonar-xs
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: SonarSource/ci-github-actions/renovate@v2
+        env:
+          RENOVATE_ALLOWED_COMMANDS: '["^bun install$"]'
+```
+
+Global-only Renovate options, such as `allowedCommands` or `force`, can't be set in the repository's Renovate configuration. Set
+them as `RENOVATE_*` environment variables on the step, as above.
+
+### Inputs
+
+| Input                     | Description                                           | Default                                                              |
+|---------------------------|-------------------------------------------------------|----------------------------------------------------------------------|
+| `renovate-version`        | Version of the `renovate` npm package to run          | `43.257.5`                                                           |
+| `node-version`            | Node.js version used to run Renovate                  | `24.11.0`                                                            |
+| `github-token`            | GitHub token used by Renovate                         | The repository's `renovate` GitHub App token from Vault              |
+| `artifactory-reader-role` | Suffix for the Artifactory reader role in Vault       | `private-reader` for private repos, `public-reader` for public repos |
+| `repox-url`               | URL for Repox                                         | Runner-dependent (see Edge section)                                  |
+
+Pull requests opened with `GITHUB_TOKEN` don't trigger workflows, so CI doesn't run on them.
+
+### Input Environment Variables
+
+| Environment Variable            | Description                                                                                    |
+|---------------------------------|------------------------------------------------------------------------------------------------|
+| `RENOVATE_*`, `LOG_LEVEL`       | Passed to Renovate                                                                             |
+| `RENOVATE_REPOSITORIES`         | Repositories to process. Defaults to the current repository                                    |
+| `RENOVATE_SECRETS`              | JSON object merged with the `REPOX_TOKEN` secret set by the action                             |
+| `RENOVATE_CUSTOM_ENV_VARIABLES` | JSON object merged with the variables the action sets for Renovate commands                    |
+
+### Environment Variables for Renovate Commands
+
+| Environment Variable       | Description                                    |
+|----------------------------|------------------------------------------------|
+| `ARTIFACTORY_URL`          | Selected Repox Artifactory URL                 |
+| `ARTIFACTORY_USERNAME`     | Selected Repox reader username                 |
+| `ARTIFACTORY_ACCESS_TOKEN` | Selected Repox reader access token             |
+| `BUN_CONFIG_REGISTRY`      | npm registry URL under the selected Repox      |
+| `BUN_CONFIG_TOKEN`         | Selected Repox reader access token             |
 
 ---
 

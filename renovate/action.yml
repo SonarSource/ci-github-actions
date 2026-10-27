@@ -1,0 +1,62 @@
+---
+name: Renovate
+description: GitHub Action to run self-hosted Renovate on the current repository, installed from Repox and resolving lockfile updates
+  through the selected Repox
+inputs:
+  renovate-version:
+    description: Version of the `renovate` npm package to run
+    default: 43.257.5
+  node-version:
+    description: Node.js version used to run Renovate, installed with mise
+    default: 24.11.0
+  github-token:
+    description: GitHub token used by Renovate. Defaults to the repository's `renovate` GitHub App token from Vault.
+    default: ''
+  artifactory-reader-role:
+    description: Suffix for the Artifactory reader role in Vault. Defaults to `private-reader` for private repositories, and `public-reader`
+      for public repositories.
+    default: ''
+  repox-url:
+    description: URL for Repox used to install Renovate and by the commands Renovate runs. Defaults to SaaS on GitHub-hosted runners and
+      the production Edge on self-hosted runners. Explicit URLs override runner selection.
+    default: ${{ runner.environment == 'github-hosted' && 'https://repox.jfrog.io' || 'https://repox-internal.sonar.build' }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set local action paths
+      shell: bash
+      env:
+        ARTIFACTORY_READER_ROLE: ${{ inputs.artifactory-reader-role != '' && inputs.artifactory-reader-role ||
+          (github.event.repository.visibility == 'public' && 'public-reader' || 'private-reader') }}
+      run: |
+        echo "ACTION_PATH_RENOVATE=${{ github.action_path }}" >> "$GITHUB_ENV"
+        echo "ARTIFACTORY_READER_ROLE=${ARTIFACTORY_READER_ROLE}" >> "$GITHUB_ENV"
+
+    - uses: step-security/mise-action@a225bbd7c202ddf57dd76dff22bb7992f6314173 # v5.1.2
+      with:
+        version: 2026.10.17
+
+    - uses: SonarSource/vault-action-wrapper@a7fa5fd4a4e4e0f2593f6137c0812cac196cf4ce # 3.7.0
+      id: secrets
+      with:
+        # yamllint disable rule:line-length
+        url: ${{ contains(inputs.repox-url, '.dev.sonar.build') && 'https://vault.dev.sonar.build' || 'https://vault.sonar.build' }}
+        secrets: |
+          ${{ inputs.github-token == '' && 'development/github/token/{REPO_OWNER_NAME_DASH}-renovate token | RENOVATE_TOKEN;' || '' }}
+          development/artifactory/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | REPOX_TOKEN;
+          development/${{ contains(inputs.repox-url, 'jfrog.io') && 'artifactory' || (contains(inputs.repox-url, '.dev.sonar.build') && 'artifactory-edge-dev' || 'artifactory-edge-prod') }}/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
+          development/${{ contains(inputs.repox-url, 'jfrog.io') && 'artifactory' || (contains(inputs.repox-url, '.dev.sonar.build') && 'artifactory-edge-dev' || 'artifactory-edge-prod') }}/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
+        # yamllint enable rule:line-length
+
+    - name: Run Renovate
+      shell: bash
+      env:
+        RENOVATE_VERSION: ${{ inputs.renovate-version }}
+        NODE_VERSION: ${{ inputs.node-version }}
+        ARTIFACTORY_URL: ${{ format('{0}/artifactory', inputs.repox-url) }}
+        ARTIFACTORY_USERNAME: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_USERNAME }}
+        ARTIFACTORY_ACCESS_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).ARTIFACTORY_ACCESS_TOKEN }}
+        REPOX_TOKEN: ${{ fromJSON(steps.secrets.outputs.vault).REPOX_TOKEN }}
+        RENOVATE_TOKEN: ${{ inputs.github-token != '' && inputs.github-token || fromJSON(steps.secrets.outputs.vault).RENOVATE_TOKEN }}
+      run: $ACTION_PATH_RENOVATE/renovate.sh
