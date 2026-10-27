@@ -12,9 +12,7 @@
 # - SONAR_PLATFORM: SonarQube primary platform (next, sqc-eu, sqc-us, or none). Use 'none' to skip sonar scans.
 # - NEXT_URL: URL of SonarQube server for next platform
 # - NEXT_TOKEN: Access token to send analysis reports to SonarQube for next platform
-# - SQC_US_URL: URL of SonarQube server for sqc-us platform
 # - SQC_US_TOKEN: Access token to send analysis reports to SonarQube for sqc-us platform
-# - SQC_EU_URL: URL of SonarQube server for sqc-eu platform
 # - SQC_EU_TOKEN: Access token to send analysis reports to SonarQube for sqc-eu platform
 # - RUN_SHADOW_SCANS: If true, run sonar scanner on all 3 platforms. If false, run on the platform provided by SONAR_PLATFORM.
 #     When enabled, SONAR_PLATFORM is ignored.
@@ -81,12 +79,12 @@ set_sonar_platform_vars() {
       export SONAR_REGION=""
       ;;
     "sqc-us")
-      export SONAR_HOST_URL="$SQC_US_URL"
+      unset SONAR_HOST_URL
       export SONAR_TOKEN="$SQC_US_TOKEN"
       export SONAR_REGION="us"
       ;;
     "sqc-eu")
-      export SONAR_HOST_URL="$SQC_EU_URL"
+      unset SONAR_HOST_URL
       export SONAR_TOKEN="$SQC_EU_TOKEN"
       export SONAR_REGION=""
       ;;
@@ -100,22 +98,29 @@ set_sonar_platform_vars() {
       ;;
   esac
 
-  echo "Using Sonar platform: $platform (URL: $SONAR_HOST_URL)"
+  echo "Using Sonar platform: $platform (URL: ${SONAR_HOST_URL:-default})"
 }
 
 run_sonar_scanner() {
     local additional_params=("$@")
+    local location_args=()
+    if [[ -n "${SONAR_HOST_URL:-}" ]]; then
+        location_args+=("-Dsonar.host.url=${SONAR_HOST_URL}")
+    fi
+    if [[ -n "${SONAR_REGION:-}" ]]; then
+        location_args+=("-Dsonar.region=${SONAR_REGION}")
+    fi
 
     # Install pysonar into Poetry's virtual environment without modifying project files
     poetry run pip install pysonar
     echo "Poetry command: poetry run pysonar ..." \
-        "-Dsonar.host.url=${SONAR_HOST_URL}" \
+        "${location_args[@]+${location_args[@]}}" \
         "-Dsonar.analysis.buildNumber=${BUILD_NUMBER}" \
         "-Dsonar.analysis.pipeline=${GITHUB_RUN_ID}" \
         "-Dsonar.analysis.repository=${GITHUB_REPOSITORY}" \
         "${additional_params[@]+${additional_params[@]}}"
     poetry run pysonar \
-        -Dsonar.host.url="${SONAR_HOST_URL}" \
+        "${location_args[@]+${location_args[@]}}" \
         -Dsonar.token="${SONAR_TOKEN}" \
         -Dsonar.analysis.buildNumber="${BUILD_NUMBER}" \
         -Dsonar.analysis.pipeline="${GITHUB_RUN_ID}" \

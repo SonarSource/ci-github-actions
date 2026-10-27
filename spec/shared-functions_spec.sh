@@ -2,9 +2,7 @@
 eval "$(shellspec - -c) exit 1"
 export NEXT_URL="https://next.sonarqube.com"
 export NEXT_TOKEN="next-token"
-export SQC_US_URL="https://sonarqube-us.example.com"
 export SQC_US_TOKEN="sqc-us-token"
-export SQC_EU_URL="https://sonarcloud.io"
 export SQC_EU_TOKEN="sqc-eu-token"
 
 Describe 'shared/common-functions.sh'
@@ -22,16 +20,18 @@ Describe 'shared/common-functions.sh'
     It 'sets sonar variables for sqc-us platform'
       When call set_sonar_platform_vars "sqc-us"
       The status should be success
-      The line 1 should equal "Using Sonar platform: sqc-us (URL: sonarqube-us.example.com, Region: us)"
-      The variable SONAR_HOST_URL should equal "https://sonarqube-us.example.com"
+      The line 1 should equal "Using Sonar platform: sqc-us (URL: default, Region: us)"
+      The variable SONAR_HOST_URL should be undefined
+      The variable SONAR_REGION should equal "us"
       The variable SONAR_TOKEN should equal "sqc-us-token"
     End
 
     It 'sets sonar variables for sqc-eu platform'
       When call set_sonar_platform_vars "sqc-eu"
       The status should be success
-      The line 1 should equal "Using Sonar platform: sqc-eu (URL: sonarcloud.io, Region: none)"
-      The variable SONAR_HOST_URL should equal "https://sonarcloud.io"
+      The line 1 should equal "Using Sonar platform: sqc-eu (URL: default, Region: none)"
+      The variable SONAR_HOST_URL should be undefined
+      The variable SONAR_REGION should be undefined
       The variable SONAR_TOKEN should equal "sqc-eu-token"
     End
 
@@ -59,7 +59,7 @@ Describe 'shared/common-functions.sh'
 
   Describe 'require_sonar_env()'
     check_sonar_env() (
-      unset NEXT_URL NEXT_TOKEN SQC_US_URL SQC_US_TOKEN SQC_EU_URL SQC_EU_TOKEN
+      unset NEXT_URL NEXT_TOKEN SQC_US_TOKEN SQC_EU_TOKEN
       local environment="$1" assignments assignment
       IFS=' ' read -ra assignments <<< "$environment"
       for assignment in "${assignments[@]}"; do
@@ -73,9 +73,9 @@ Describe 'shared/common-functions.sh'
       Parameters
         "RUN_SHADOW_SCANS=false SONAR_PLATFORM=none"
         "RUN_SHADOW_SCANS=false SONAR_PLATFORM=next NEXT_URL=u NEXT_TOKEN=t"
-        "RUN_SHADOW_SCANS=false SONAR_PLATFORM=sqc-us SQC_US_URL=u SQC_US_TOKEN=t"
-        "RUN_SHADOW_SCANS=false SONAR_PLATFORM=sqc-eu SQC_EU_URL=u SQC_EU_TOKEN=t"
-        "RUN_SHADOW_SCANS=true SONAR_PLATFORM=none NEXT_URL=u NEXT_TOKEN=t SQC_US_URL=u SQC_US_TOKEN=t SQC_EU_URL=u SQC_EU_TOKEN=t"
+        "RUN_SHADOW_SCANS=false SONAR_PLATFORM=sqc-us SQC_US_TOKEN=t"
+        "RUN_SHADOW_SCANS=false SONAR_PLATFORM=sqc-eu SQC_EU_TOKEN=t"
+        "RUN_SHADOW_SCANS=true SONAR_PLATFORM=none NEXT_URL=u NEXT_TOKEN=t SQC_US_TOKEN=t SQC_EU_TOKEN=t"
       End
 
       It "succeeds with: $1"
@@ -86,9 +86,9 @@ Describe 'shared/common-functions.sh'
 
     Describe 'when a variable of an analyzed platform is missing'
       Parameters
-        "RUN_SHADOW_SCANS=false SONAR_PLATFORM=sqc-eu SQC_EU_URL=u" "SQC_EU_TOKEN"
-        "RUN_SHADOW_SCANS=false SONAR_PLATFORM=sqc-us SQC_EU_URL=u SQC_EU_TOKEN=t" "SQC_US_URL"
-        "RUN_SHADOW_SCANS=true SONAR_PLATFORM=sqc-eu SQC_EU_URL=u SQC_EU_TOKEN=t" "NEXT_URL"
+        "RUN_SHADOW_SCANS=false SONAR_PLATFORM=sqc-eu" "SQC_EU_TOKEN"
+        "RUN_SHADOW_SCANS=false SONAR_PLATFORM=sqc-us SQC_EU_TOKEN=t" "SQC_US_TOKEN"
+        "RUN_SHADOW_SCANS=true SONAR_PLATFORM=sqc-eu SQC_EU_TOKEN=t" "NEXT_URL"
       End
 
       It "fails with: $1"

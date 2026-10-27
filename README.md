@@ -97,8 +97,8 @@ The selected URL also determines the matching Vault server and reader-token engi
 
 The `build-*` actions authenticate to SonarQube Cloud (`sonar-platform: sqc-eu` or `sqc-us`, and the matching platforms of
 `run-shadow-scans`) with the GitHub OIDC token of the job, through
-[`sonarqube-auth-action`](https://github.com/SonarSource/sonarqube-auth-action), instead of with tokens stored in Vault.
-The SonarQube Cloud URLs, and the URL and token of the `next` platform, are still read from Vault.
+[`sonarqube-auth-action`](https://github.com/SonarSource/sonarqube-auth-action), instead of with Vault secrets.
+The `next` platform still reads its URL and token from Vault.
 
 Requirements for each SonarQube Cloud platform that is analyzed:
 
@@ -107,6 +107,10 @@ Requirements for each SonarQube Cloud platform that is analyzed:
   organization has enabled trusted scanning for GitHub Actions.
 - The `sonar.organization` and `sonar.projectKey` of the build match the project bound to the repository: the token only grants
   access to that project.
+- The scanner of the build resolves the SonarQube Cloud URL from the region: the actions pass `sonar.region=us` for `sqc-us` and no
+  `sonar.host.url` for `sqc-eu`. This requires the SonarScanner for Gradle 6.1+ (`org.sonarqube` plugin), which is the first version to
+  support regions. The SonarScanner for Maven is pinned by the action. A `sonar.host.url` set in the build of the project must
+  match the region, or be removed.
 - The build, the tests and the analysis complete within 30 minutes. The token is requested right before the build and lasts 30
   minutes, which is the delay the analysis report must be uploaded within.
 
