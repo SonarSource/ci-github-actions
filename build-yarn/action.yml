@@ -241,5 +241,5 @@ runs:
       if: always()
       shell: bash
       run: |
-        rm -f .actions/get-build-number .actions/shared
+        rm -rf .actions/get-build-number .actions/shared
         rmdir .actions 2>/dev/null || true
