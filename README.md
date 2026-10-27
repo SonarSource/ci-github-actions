@@ -93,6 +93,29 @@ The selected URL also determines the matching Vault server and reader-token engi
   use the configured resolve URL instead of a hardcoded SaaS hostname.
 - To resolve from SaaS Repox instead, set `repox-url: https://repox.jfrog.io`.
 
+## SonarQube Cloud authentication
+
+The `build-*` actions authenticate to SonarQube Cloud (`sonar-platform: sqc-eu` or `sqc-us`, and the matching platforms of
+`run-shadow-scans`) with the GitHub OIDC token of the job, through
+[`sonarqube-auth-action`](https://github.com/SonarSource/sonarqube-auth-action), instead of with tokens stored in Vault.
+The SonarQube Cloud URLs, and the URL and token of the `next` platform, are still read from Vault.
+
+Requirements for each SonarQube Cloud platform that is analyzed:
+
+- The job has the `id-token: write` permission.
+- The repository is bound to a SonarQube Cloud project on that platform through the GitHub integration, and an administrator of the
+  organization has enabled trusted scanning for GitHub Actions.
+- The `sonar.organization` and `sonar.projectKey` of the build match the project bound to the repository: the token only grants
+  access to that project.
+- The build, the tests and the analysis complete within 30 minutes. The token is requested right before the build and lasts 30
+  minutes, which is the delay the analysis report must be uploaded within.
+
+The token exchange fails the job when the repository is not bound, or when the job has no OIDC token. This is the case for
+pull requests from forks, as GitHub does not grant `id-token: write` to them.
+
+The `build-*` actions do not read the secrets `development/kv/data/sonarcloud` and `development/kv/data/sonarqube-us` anymore.
+They are still used by [`check-sca`](#check-sca), so they must not be revoked yet.
+
 ---
 
 ## `get-build-number`
@@ -340,6 +363,10 @@ Build and deploy a Maven project with SonarQube analysis and Artifactory deploym
 - `public-deployer` or `qa-deployer`: Artifactory role for deployment.
 - `development/kv/data/develocity`: Develocity access token (only fetched when `use-develocity: true`).
 
+#### SonarQube Cloud Authentication
+
+Analysis on `sqc-eu` and `sqc-us` uses the GitHub OIDC token, see [SonarQube Cloud authentication](#sonarqube-cloud-authentication).
+
 #### Other Dependencies
 
 - The Java and Maven tools must be pre-installed. Use of `mise` is recommended.
@@ -578,6 +605,10 @@ Build, analyze, and publish a Python project using Poetry with SonarQube integra
 - `public-reader` or `private-reader`: Artifactory role for reading dependencies
 - `public-deployer` or `qa-deployer`: Artifactory role for deployment
 
+#### SonarQube Cloud Authentication
+
+Analysis on `sqc-eu` and `sqc-us` uses the GitHub OIDC token, see [SonarQube Cloud authentication](#sonarqube-cloud-authentication).
+
 #### Other Dependencies
 
 The Python and Poetry tools must be pre-installed. Use of `mise` is recommended.
@@ -798,6 +829,10 @@ Build and publish a Gradle project with SonarQube analysis and Artifactory deplo
 - `development/kv/data/develocity`: Develocity access token (only fetched when `use-develocity: true`)
 - `public-reader` or `private-reader`: Artifactory role for reading dependencies
 - `public-deployer` or `qa-deployer`: Artifactory role for deployment
+
+#### SonarQube Cloud Authentication
+
+Analysis on `sqc-eu` and `sqc-us` uses the GitHub OIDC token, see [SonarQube Cloud authentication](#sonarqube-cloud-authentication).
 
 #### Other Dependencies
 
@@ -1108,6 +1143,10 @@ Build, test, analyze with SonarQube, and deploy an NPM project to JFrog Artifact
 - `public-reader` or `private-reader`: Artifactory role for reading dependencies
 - `public-deployer` or `qa-deployer`: Artifactory role for deployment
 
+#### SonarQube Cloud Authentication
+
+Analysis on `sqc-eu` and `sqc-us` uses the GitHub OIDC token, see [SonarQube Cloud authentication](#sonarqube-cloud-authentication).
+
 #### Other Dependencies
 
 The Node.js and NPM tools must be pre-installed. Use of `mise` is recommended.
@@ -1219,6 +1258,10 @@ Build, test, analyze, and deploy a Yarn project with SonarQube integration and A
 
 - `public-reader` or `private-reader`: Artifactory role for reading dependencies
 - `public-deployer` or `qa-deployer`: Artifactory role for deployment
+
+#### SonarQube Cloud Authentication
+
+Analysis on `sqc-eu` and `sqc-us` uses the GitHub OIDC token, see [SonarQube Cloud authentication](#sonarqube-cloud-authentication).
 
 #### Other Dependencies
 
