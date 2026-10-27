@@ -164,5 +164,5 @@ runs:
       if: always() && steps.config-poetry-completed.outputs.skip != 'true'
       shell: bash
       run: |
-        rm -f .actions/get-build-number .actions/shared
+        rm -rf .actions/get-build-number .actions/shared
         rmdir .actions 2>/dev/null || true
