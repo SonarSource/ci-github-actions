@@ -3,11 +3,11 @@ eval "$(shellspec - -c) exit 1"
 
 export GITHUB_ENV=/dev/null
 export GITHUB_OUTPUT=/dev/null
-export ARTIFACTORY_URL="https://repox-internal.sonar.build/artifactory"
+export ARTIFACTORY_URL="https://repox.sonar.build/artifactory"
 export ARTIFACTORY_USERNAME="test-user"
 export ARTIFACTORY_ACCESS_TOKEN="test-token"
 
-EDGE_REGISTRY="https://repox-internal.sonar.build/artifactory/api/npm/npm/"
+EDGE_REGISTRY="https://repox.sonar.build/artifactory/api/npm/npm/"
 
 Describe 'config-bun/bun_config.sh'
   It 'does not run main when sourced'
