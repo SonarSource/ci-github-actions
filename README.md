@@ -73,18 +73,19 @@ These badges show the status of workflows in dummy repositories that use (or sho
 The `config-*` and `build-*` actions select the dependency resolve endpoint from `runner.environment` when `repox-url` is omitted:
 
 - GitHub-hosted runners use SaaS Repox (`https://repox.jfrog.io`).
-- Self-hosted runners use the production JFrog Edge (`https://repox-internal.sonar.build`).
+- Self-hosted runners use the production JFrog Edge (`https://repox.sonar.build`).
 - An explicit `repox-url` always overrides runner selection, including SaaS, dev Edge and production Edge URLs.
 
 The selected URL also determines the matching Vault server and reader-token engine.
 
 - Deployment, publication, build info and promotion always use SaaS Repox (`https://repox.jfrog.io`): the Edge is read-only.
-- The internal Edge hostname is only reachable from runners inside the SonarSource network.
-- Self-hosted runners without internal Edge connectivity must set `repox-url: https://repox.jfrog.io` on every affected `config-*`
-  and `build-*` action, including actions called through composite wrappers. GitHub-hosted runners with internal connectivity can
-  explicitly select `repox-url: https://repox-internal.sonar.build`.
+- `repox.sonar.build` resolves to the Edge's internal load balancer from the SonarSource runner networks and to its public load
+  balancer elsewhere, so the same URL works for runners, developer machines and committed lockfiles.
+- Self-hosted runners that must not use the Edge must set `repox-url: https://repox.jfrog.io` on every affected `config-*`
+  and `build-*` action, including actions called through composite wrappers. GitHub-hosted runners can explicitly select
+  `repox-url: https://repox.sonar.build`.
 - Repositories resolving through Edge during Orchestrator-based integration tests need an Orchestrator release that recognizes
-  `repox-internal.sonar.build` as a SonarSource Artifactory host. Until they adopt that release, set
+  `repox.sonar.build` as a SonarSource Artifactory host (6.4.4.4797 or later). Until they adopt that release, set
   `repox-url: https://repox.jfrog.io` to preserve authenticated private downloads and version alias resolution.
 - Match hardcoded package indexes and credentials to the selected `repox-url`. For example, update a named uv index and its
   lockfile when moving to the Edge, and avoid overwriting Edge credentials with independently fetched SaaS tokens.
