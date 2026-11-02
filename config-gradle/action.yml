@@ -174,7 +174,7 @@ runs:
 
     - name: Configure Gradle
       if: steps.config-gradle-completed.outputs.skip != 'true'
-      uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
       with:
         develocity-injection-enabled: ${{ inputs.use-develocity == 'true' }}
         cache-disabled: true
@@ -211,7 +211,7 @@ runs:
       run: echo "workflow_name=${WORKFLOW_NAME// /-}" >> "$GITHUB_OUTPUT"
 
     - name: Gradle Cache
-      uses: SonarSource/gh-action_cache@0b86c7a0e6c3cb8238c826be7dd9fdfd02f16f8b # v1.7.3
+      uses: SonarSource/gh-action_cache@141f879febb7781981b1e091927d8125cff2c145 # v1.7.4
       if: steps.config-gradle-completed.outputs.skip != 'true' && inputs.disable-caching == 'false'
       with:
         path: ${{ inputs.cache-paths }}
