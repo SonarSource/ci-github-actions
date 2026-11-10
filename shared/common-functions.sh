@@ -45,6 +45,29 @@ set_sonar_platform_vars() {
   echo "Using Sonar platform: $platform (URL: ${SONAR_HOST_URL#*//}, Region: ${SONAR_REGION:-none})"
 }
 
+SONAR_PLATFORMS=("next" "sqc-us" "sqc-eu")
+
+# Fails when the URL or token of a platform that is going to be analyzed is missing
+require_sonar_env() {
+  local platforms=()
+  if [[ "${RUN_SHADOW_SCANS:-false}" == "true" ]]; then
+    platforms=("${SONAR_PLATFORMS[@]}")
+  else
+    platforms=("${SONAR_PLATFORM:?}")
+  fi
+
+  local platform
+  for platform in "${platforms[@]}"; do
+    case "$platform" in
+      next) : "${NEXT_URL:?}" "${NEXT_TOKEN:?}" ;;
+      sqc-us) : "${SQC_US_URL:?}" "${SQC_US_TOKEN:?}" ;;
+      sqc-eu) : "${SQC_EU_URL:?}" "${SQC_EU_TOKEN:?}" ;;
+      *) ;;
+    esac
+  done
+  return 0
+}
+
 # ORCHESTRATOR FUNCTION: Multi-platform SonarQube analysis coordinator
 #
 # This function:
@@ -62,7 +85,7 @@ orchestrate_sonar_platforms() {
 
   if [[ "$RUN_SHADOW_SCANS" = "true" ]]; then
       echo "=== ORCHESTRATOR: Running Sonar analysis on all platforms (shadow scan enabled) ==="
-      local platforms=("next" "sqc-us" "sqc-eu")
+      local platforms=("${SONAR_PLATFORMS[@]}")
 
       for platform in "${platforms[@]}"; do
           echo "::group::Sonar analysis on $platform"

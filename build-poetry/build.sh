@@ -50,9 +50,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 if [[ "${DEPLOY:=true}" != "false" && "$RUN_SHADOW_SCANS" != "true" ]]; then
   : "${ARTIFACTORY_DEPLOY_ACCESS_TOKEN:?}"
 fi
-if [[ "${SONAR_PLATFORM:?}" != "none" || "$RUN_SHADOW_SCANS" == "true" ]]; then
-  : "${NEXT_URL:?}" "${NEXT_TOKEN:?}" "${SQC_US_URL:?}" "${SQC_US_TOKEN:?}" "${SQC_EU_URL:?}" "${SQC_EU_TOKEN:?}"
-fi
+require_sonar_env
 export DEPLOY DEPLOY_PULL_REQUEST
 
 # Unshallow and fetch all commit history for SonarQube analysis and issue assignment
@@ -130,7 +128,7 @@ run_sonar_analysis() {
   echo "run_sonar_analysis()"
   if [[ "${RUN_SHADOW_SCANS}" = "true" ]]; then
       echo "=== Running Sonar analysis on all platforms (shadow scan enabled) ==="
-      local platforms=("next" "sqc-us" "sqc-eu")
+      local platforms=("${SONAR_PLATFORMS[@]}")
 
       for platform in "${platforms[@]}"; do
           echo "::group::Sonar analysis on $platform"
