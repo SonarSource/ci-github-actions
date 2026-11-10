@@ -7,9 +7,7 @@
 # - SONAR_PLATFORM: SonarQube primary platform (next, sqc-eu, sqc-us, or none). Use 'none' to skip sonar scans.
 # - NEXT_URL: URL of SonarQube server for next platform
 # - NEXT_TOKEN: Access token to send analysis reports to SonarQube for next platform
-# - SQC_US_URL: URL of SonarQube server for sqc-us platform
 # - SQC_US_TOKEN: Access token to send analysis reports to SonarQube for sqc-us platform
-# - SQC_EU_URL: URL of SonarQube server for sqc-eu platform
 # - SQC_EU_TOKEN: Access token to send analysis reports to SonarQube for sqc-eu platform
 # - RUN_SHADOW_SCANS: If true, run sonar scanner on all 3 platforms. If false, run on the platform provided by SONAR_PLATFORM.
 #     When enabled, SONAR_PLATFORM is ignored.
@@ -143,14 +141,16 @@ set_project_version() {
 #
 # This function is called BY THE ORCHESTRATOR (orchestrate_sonar_platforms)
 # The orchestrator will:
-# 1. Set SONAR_HOST_URL and SONAR_TOKEN for the current platform
+# 1. Set SONAR_TOKEN, and SONAR_HOST_URL (next) or SONAR_REGION (sqc-us) for the current platform
 # 2. Call this function to execute the actual scanner
 # 3. Repeat for each platform (if shadow scanning enabled)
 sonar_scanner_implementation() {
     local additional_params=("$@")
-    # Build base scanner arguments (using orchestrator-provided SONAR_HOST_URL/SONAR_TOKEN)
+    # Build base scanner arguments (using orchestrator-provided SONAR_HOST_URL/SONAR_REGION/SONAR_TOKEN)
     local scanner_args=()
-    scanner_args+=("-Dsonar.host.url=${SONAR_HOST_URL}")
+    if [[ -n "${SONAR_HOST_URL:-}" ]]; then
+        scanner_args+=("-Dsonar.host.url=${SONAR_HOST_URL}")
+    fi
     scanner_args+=("-Dsonar.token=${SONAR_TOKEN}")
     scanner_args+=("-Dsonar.analysis.buildNumber=${BUILD_NUMBER}")
     scanner_args+=("-Dsonar.analysis.pipeline=${GITHUB_RUN_ID}")

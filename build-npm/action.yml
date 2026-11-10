@@ -149,8 +149,6 @@ runs:
         secrets: |
           ${{ (inputs.sonar-platform == 'next' || inputs.run-shadow-scans == 'true') && 'development/kv/data/next url | NEXT_URL;' || '' }}
           ${{ (inputs.sonar-platform == 'next' || inputs.run-shadow-scans == 'true') && 'development/kv/data/next token | NEXT_TOKEN;' || '' }}
-          ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/sonarqube-us url | SQC_US_URL;' || '' }}
-          ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/sonarcloud url | SQC_EU_URL;' || '' }}
       # yamllint enable rule:line-length
     # The SonarQube Cloud tokens expire after 30 minutes: keep this step right before the build step.
     - uses: ./.actions/shared/sonar-auth
@@ -182,9 +180,7 @@ runs:
         SONAR_PLATFORM: ${{ inputs.sonar-platform }}
         NEXT_URL: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).NEXT_URL || '' }}
         NEXT_TOKEN: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).NEXT_TOKEN || '' }}
-        SQC_EU_URL: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).SQC_EU_URL || '' }}
         SQC_EU_TOKEN: ${{ steps.sonar-auth.outputs.sqc-eu-token }}
-        SQC_US_URL: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).SQC_US_URL || '' }}
         SQC_US_TOKEN: ${{ steps.sonar-auth.outputs.sqc-us-token }}
         JFROG_CLI_COMMAND_SUMMARY_OUTPUT_DIR: ${{ runner.temp }}/jfrog-summary
         # JFROG_CLI_GITHUB_TOKEN:

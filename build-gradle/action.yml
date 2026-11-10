@@ -144,8 +144,6 @@ runs:
         secrets: |
           ${{ (inputs.sonar-platform == 'next' || inputs.run-shadow-scans == 'true') && 'development/kv/data/next url | NEXT_URL;' || '' }}
           ${{ (inputs.sonar-platform == 'next' || inputs.run-shadow-scans == 'true') && 'development/kv/data/next token | NEXT_TOKEN;' || '' }}
-          ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/sonarqube-us url | SQC_US_URL;' || '' }}
-          ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/sonarcloud url | SQC_EU_URL;' || '' }}
           development/kv/data/sign key | SIGN_KEY;
           development/kv/data/sign passphrase | PGP_PASSPHRASE;
           development/kv/data/sign key_id | SIGN_KEY_ID;
@@ -185,9 +183,7 @@ runs:
         # yamllint enable rule:line-length
         NEXT_URL: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).NEXT_URL || '' }}
         NEXT_TOKEN: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).NEXT_TOKEN || '' }}
-        SQC_EU_URL: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).SQC_EU_URL || '' }}
         SQC_EU_TOKEN: ${{ steps.sonar-auth.outputs.sqc-eu-token }}
-        SQC_US_URL: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).SQC_US_URL || '' }}
         SQC_US_TOKEN: ${{ steps.sonar-auth.outputs.sqc-us-token }}
         ORG_GRADLE_PROJECT_signingKey: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).SIGN_KEY || '' }}
         ORG_GRADLE_PROJECT_signingPassword: ${{ steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).PGP_PASSPHRASE || '' }}

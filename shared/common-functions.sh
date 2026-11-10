@@ -24,12 +24,12 @@ set_sonar_platform_vars() {
       unset SONAR_REGION
       ;;
     "sqc-us")
-      export SONAR_HOST_URL="$SQC_US_URL"
+      unset SONAR_HOST_URL
       export SONAR_TOKEN="$SQC_US_TOKEN"
       export SONAR_REGION="us"
       ;;
     "sqc-eu")
-      export SONAR_HOST_URL="$SQC_EU_URL"
+      unset SONAR_HOST_URL
       export SONAR_TOKEN="$SQC_EU_TOKEN"
       unset SONAR_REGION
       ;;
@@ -42,12 +42,13 @@ set_sonar_platform_vars() {
       return 1
       ;;
   esac
-  echo "Using Sonar platform: $platform (URL: ${SONAR_HOST_URL#*//}, Region: ${SONAR_REGION:-none})"
+  local url="${SONAR_HOST_URL:-default}"
+  echo "Using Sonar platform: $platform (URL: ${url#*//}, Region: ${SONAR_REGION:-none})"
 }
 
 SONAR_PLATFORMS=("next" "sqc-us" "sqc-eu")
 
-# Fails when the URL or token of a platform that is going to be analyzed is missing
+# Fails when the token (and the URL for next) of a platform that is going to be analyzed is missing
 require_sonar_env() {
   local platforms=()
   if [[ "${RUN_SHADOW_SCANS:-false}" == "true" ]]; then
@@ -60,8 +61,8 @@ require_sonar_env() {
   for platform in "${platforms[@]}"; do
     case "$platform" in
       next) : "${NEXT_URL:?}" "${NEXT_TOKEN:?}" ;;
-      sqc-us) : "${SQC_US_URL:?}" "${SQC_US_TOKEN:?}" ;;
-      sqc-eu) : "${SQC_EU_URL:?}" "${SQC_EU_TOKEN:?}" ;;
+      sqc-us) : "${SQC_US_TOKEN:?}" ;;
+      sqc-eu) : "${SQC_EU_TOKEN:?}" ;;
       *) ;;
     esac
   done

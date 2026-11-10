@@ -50,9 +50,7 @@ export SONAR_PLATFORM="next"
 export RUN_SHADOW_SCANS="false"
 export NEXT_URL="https://next.sonarqube.com"
 export NEXT_TOKEN="next-token"
-export SQC_US_URL="https://sonarcloud.io"
 export SQC_US_TOKEN="sqc-us-token"
-export SQC_EU_URL="https://sonarcloud.io"
 export SQC_EU_TOKEN="sqc-eu-token"
 export ORG_GRADLE_PROJECT_signingKey="signing-key"
 export ORG_GRADLE_PROJECT_signingPassword="signing-pass"
@@ -205,6 +203,17 @@ Describe 'build_gradle_args'
     When call build_gradle_args
     The output should include "sonar"
     The output should include "-Dsonar.host.url=https://sonar.example.com"
+  End
+
+  It 'includes sonar with the region and without host URL when configured for sqc-us'
+    export GRADLE_ARGS=""
+    unset SONAR_HOST_URL
+    export SONAR_REGION="us"
+    export SONAR_TOKEN="sonar-token"
+    When call build_gradle_args
+    The output should include "sonar"
+    The output should include "-Dsonar.region=us"
+    The output should not include "-Dsonar.host.url"
   End
 
   It 'includes deployment for master'
