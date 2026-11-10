@@ -122,7 +122,7 @@ runs:
       run: echo "workflow_name=${WORKFLOW_NAME// /-}" >> "$GITHUB_OUTPUT"
 
     - name: Cache NPM dependencies
-      uses: SonarSource/gh-action_cache@4e40632e780e11a8bbe9b721985ab22b42847cc4 # v1.7.2
+      uses: SonarSource/gh-action_cache@10fff0296bfc17164fb1ed6473f7238df3430ebf # v1.7.5
       if: steps.config-npm-completed.outputs.skip != 'true' && inputs.disable-caching != 'true' && inputs.cache-npm == 'true'
       with:
         path: ~/.npm
