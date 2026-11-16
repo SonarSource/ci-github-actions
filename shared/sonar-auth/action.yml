@@ -23,12 +23,12 @@ outputs:
 runs:
   using: composite
   steps:
-    - uses: SonarSource/sonarqube-auth-action@ae14f168e34a5309326fa31d3df09245c2c8a611 # master
+    - uses: SonarSource/sonarqube-auth-action@a0aa643acde4162396015b4f12536c1b9c4aab82 # v1.1.0
       id: sqc-eu-auth
       if: inputs.run-shadow-scans == 'true' || inputs.sonar-platform == 'sqc-eu'
       with:
         export-env: 'false'
-    - uses: SonarSource/sonarqube-auth-action@ae14f168e34a5309326fa31d3df09245c2c8a611 # master
+    - uses: SonarSource/sonarqube-auth-action@a0aa643acde4162396015b4f12536c1b9c4aab82 # v1.1.0
       id: sqc-us-auth
       if: inputs.run-shadow-scans == 'true' || inputs.sonar-platform == 'sqc-us'
       with:

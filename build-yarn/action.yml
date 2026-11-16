@@ -86,10 +86,12 @@ runs:
         echo "host_actions_root=$host_actions_root" >> "$GITHUB_OUTPUT"
 
         # Windows Git-Bash's ln -sf can't re-link over an existing symlink-to-directory; clear it first.
-        rm -rf .actions/get-build-number .actions/shared
+        rm -rf .actions/get-build-number .actions/shared .actions/sonar-auth
         mkdir -p ".actions"
         ln -sf "$host_actions_root/get-build-number" .actions/get-build-number
         ln -sf "$host_actions_root/shared" .actions/shared
+        # Child config actions clean up .actions/shared; authentication needs its own link.
+        ln -s "$host_actions_root/shared/sonar-auth" .actions/sonar-auth
         ls -la .actions/*
         echo "::endgroup::"
 
@@ -159,7 +161,7 @@ runs:
           ${{ (inputs.sonar-platform != 'none' || inputs.run-shadow-scans == 'true') && 'development/kv/data/sonarcloud url | SQC_EU_URL;' || '' }}
       # yamllint enable rule:line-length
     # The SonarQube Cloud tokens expire after 30 minutes: keep this step right before the build step.
-    - uses: ./.actions/shared/sonar-auth
+    - uses: ./.actions/sonar-auth
       id: sonar-auth
       with:
         sonar-platform: ${{ inputs.sonar-platform }}
@@ -246,4 +248,5 @@ runs:
       shell: bash
       run: |
         rm -f .actions/get-build-number .actions/shared
+        rm -rf .actions/sonar-auth
         rmdir .actions 2>/dev/null || true

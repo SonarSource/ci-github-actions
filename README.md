@@ -109,11 +109,15 @@ Requirements for each SonarQube Cloud platform that is analyzed:
 - The build, the tests and the analysis complete within 30 minutes. The token is requested right before the build and lasts 30
   minutes, which is the delay the analysis report must be uploaded within.
 
-The token exchange fails the job when the repository is not bound, or when the job has no OIDC token. This is the case for
-pull requests from forks, as GitHub does not grant `id-token: write` to them.
+Each token authorizes one bound project only. Builds that scan multiple SonarQube projects or organizations, and repositories
+with multiple project bindings, need a separate migration plan before upgrading. The `build-*` actions do not select a project
+when requesting a token. Builds exceeding the 30-minute token lifetime also need a separate plan before upgrading.
 
-The `build-*` actions do not read the secrets `development/kv/data/sonarcloud` and `development/kv/data/sonarqube-us` anymore.
-They are still used by [`check-sca`](#check-sca), so they must not be revoked yet.
+The token exchange fails the job when the repository is not bound, or when the job has no OIDC token. As with Vault
+authentication, the job must be allowed to obtain a GitHub OIDC token; this migration does not add fork pull request support.
+
+The shared long-lived tokens in `development/kv/data/sonarcloud` and `development/kv/data/sonarqube-us` no longer authenticate
+`build-*` scans. These secrets are still used by [`check-sca`](#check-sca), so they must not be revoked yet.
 
 ---
 
