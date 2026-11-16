@@ -62,7 +62,11 @@ require_sonar_env() {
       next) : "${NEXT_URL:?}" "${NEXT_TOKEN:?}" ;;
       sqc-us) : "${SQC_US_URL:?}" "${SQC_US_TOKEN:?}" ;;
       sqc-eu) : "${SQC_EU_URL:?}" "${SQC_EU_TOKEN:?}" ;;
-      *) ;;
+      none) ;;
+      *)
+        echo "::error title=Invalid Sonar platform::Invalid Sonar platform '$platform'. Must be one of: next, sqc-us, sqc-eu, none" >&2
+        return 1
+        ;;
     esac
   done
   return 0

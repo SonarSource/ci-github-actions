@@ -76,11 +76,26 @@ Describe 'shared/common-functions.sh'
         "RUN_SHADOW_SCANS=false SONAR_PLATFORM=sqc-us SQC_US_URL=u SQC_US_TOKEN=t"
         "RUN_SHADOW_SCANS=false SONAR_PLATFORM=sqc-eu SQC_EU_URL=u SQC_EU_TOKEN=t"
         "RUN_SHADOW_SCANS=true SONAR_PLATFORM=none NEXT_URL=u NEXT_TOKEN=t SQC_US_URL=u SQC_US_TOKEN=t SQC_EU_URL=u SQC_EU_TOKEN=t"
+        "RUN_SHADOW_SCANS=true SONAR_PLATFORM=ignored NEXT_URL=u NEXT_TOKEN=t SQC_US_URL=u SQC_US_TOKEN=t SQC_EU_URL=u SQC_EU_TOKEN=t"
       End
 
       It "succeeds with: $1"
         When call check_sonar_env "$1"
         The status should be success
+      End
+    End
+
+    Describe 'when the selected platform is unknown'
+      Parameters
+        sqc_eu
+        unsupported
+      End
+
+      It "rejects $1 before the build starts"
+        When call check_sonar_env "RUN_SHADOW_SCANS=false SONAR_PLATFORM=$1"
+        The status should be failure
+        The stderr should include "Invalid Sonar platform '$1'"
+        The stderr should include 'next, sqc-us, sqc-eu, none'
       End
     End
 

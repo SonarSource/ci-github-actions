@@ -114,6 +114,10 @@ Each token authorizes one bound project only. Builds that scan multiple SonarQub
 with multiple project bindings, need a separate migration plan before upgrading. The `build-*` actions do not select a project
 when requesting a token. Builds exceeding the 30-minute token lifetime also need a separate plan before upgrading.
 
+For Maven, move analysis after the long build into a separate job using [`skip-build`](#skip-build), `deploy: false`, and the
+selected Cloud `sonar-platform`. Restore compiled output and reports before invoking the action, so the token is requested for
+the analysis phase rather than before compilation and tests. The analysis itself must still finish within the token lifetime.
+
 The token exchange fails the job when the repository is not bound, or when the job has no OIDC token. As with Vault
 authentication, the job must be allowed to obtain a GitHub OIDC token; this migration does not add fork pull request support.
 
