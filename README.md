@@ -96,11 +96,11 @@ The selected URL also determines the matching Vault server and reader-token engi
 ## SonarQube Cloud authentication
 
 The `build-*` actions authenticate to SonarQube Cloud (`sonar-platform: sqc-eu` or `sqc-us`, and the matching platforms of
-`run-shadow-scans`) with the GitHub OIDC token of the job, through
+`run-shadow-scans`) with the GitHub OIDC token of the job by default (`secretless: true`), through
 [`sonarqube-auth-action`](https://github.com/SonarSource/sonarqube-auth-action), instead of with tokens stored in Vault.
 The SonarQube Cloud URLs, and the URL and token of the `next` platform, are still read from Vault.
 
-Requirements for each SonarQube Cloud platform that is analyzed:
+Requirements for each SonarQube Cloud platform analyzed with `secretless: true`:
 
 - The job has the `id-token: write` permission.
 - The repository is bound to a SonarQube Cloud project on that platform through the GitHub integration, and an administrator of the
@@ -111,18 +111,28 @@ Requirements for each SonarQube Cloud platform that is analyzed:
   minutes, which is the delay the analysis report must be uploaded within.
 
 Each token authorizes one bound project only. Builds that scan multiple SonarQube projects or organizations, and repositories
-with multiple project bindings, need a separate migration plan before upgrading. The `build-*` actions do not select a project
-when requesting a token. Builds exceeding the 30-minute token lifetime also need a separate plan before upgrading.
+with multiple project bindings, need a separate migration plan before enabling WIF. The `build-*` actions do not select a project
+when requesting a token. For these consumers and builds exceeding the 30-minute token lifetime, set `secretless: false` to keep
+using the shared legacy Vault tokens:
 
-For Maven, move analysis after the long build into a separate job using [`skip-build`](#skip-build), `deploy: false`, and the
+```yaml
+with:
+  sonar-platform: sqc-eu
+  secretless: false
+```
+
+`secretless` accepts only `true` or `false`. It applies to Cloud scans, including shadow scans; Next authentication is unchanged.
+There is no automatic fallback to legacy tokens if the WIF exchange fails.
+
+Alternatively, for Maven, move analysis after the long build into a separate job using [`skip-build`](#skip-build), `deploy: false`, and the
 selected Cloud `sonar-platform`. Restore compiled output and reports before invoking the action, so the token is requested for
 the analysis phase rather than before compilation and tests. The analysis itself must still finish within the token lifetime.
 
 The token exchange fails the job when the repository is not bound, or when the job has no OIDC token. As with Vault
 authentication, the job must be allowed to obtain a GitHub OIDC token; this migration does not add fork pull request support.
 
-The shared long-lived tokens in `development/kv/data/sonarcloud` and `development/kv/data/sonarqube-us` no longer authenticate
-`build-*` scans. These secrets are still used by [`check-sca`](#check-sca), so they must not be revoked yet.
+The shared long-lived tokens in `development/kv/data/sonarcloud` and `development/kv/data/sonarqube-us` are still used by
+`secretless: false` scans and [`check-sca`](#check-sca), so they must not be revoked yet.
 
 ---
 
@@ -373,7 +383,7 @@ Build and deploy a Maven project with SonarQube analysis and Artifactory deploym
 
 #### SonarQube Cloud Authentication
 
-Analysis on `sqc-eu` and `sqc-us` uses the GitHub OIDC token, see [SonarQube Cloud authentication](#sonarqube-cloud-authentication).
+Analysis on `sqc-eu` and `sqc-us` uses the GitHub OIDC token by default, see [SonarQube Cloud authentication](#sonarqube-cloud-authentication).
 
 #### Other Dependencies
 
@@ -430,6 +440,7 @@ See also [`config-maven`](#config-maven) input environment variables.
 | `use-develocity`            | Whether to use Develocity for build tracking                                                                                 | `false`                                                                                     |
 | `develocity-url`            | URL for Develocity                                                                                                           | `https://develocity.sonar.build/`                                                           |
 | `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', 'sqc-us', or 'none'. Use 'none' to skip sonar scans                           | `next`                                                                                      |
+| `secretless` | Use WIF for Cloud scans; set to `false` to use legacy Vault tokens | `true` |
 | `working-directory`         | Relative path under github.workspace to execute the build in                                                                 | `.`                                                                                         |
 | `run-shadow-scans`          | If true, run SonarQube analysis on all 3 platforms (next, sqc-eu, sqc-us); if false, only on the selected `sonar-platform`   | `false`                                                                                     |
 | `cache-paths`               | Custom cache paths (multiline). Overrides default `~/.m2/repository`.                                                        | (optional)                                                                                  |
@@ -615,7 +626,7 @@ Build, analyze, and publish a Python project using Poetry with SonarQube integra
 
 #### SonarQube Cloud Authentication
 
-Analysis on `sqc-eu` and `sqc-us` uses the GitHub OIDC token, see [SonarQube Cloud authentication](#sonarqube-cloud-authentication).
+Analysis on `sqc-eu` and `sqc-us` uses the GitHub OIDC token by default, see [SonarQube Cloud authentication](#sonarqube-cloud-authentication).
 
 #### Other Dependencies
 
@@ -676,6 +687,7 @@ See also [`config-poetry`](#config-poetry) input environment variables.
 | `poetry-cache-dir`          | Path to the Poetry cache directory, relative to GitHub workspace                                                                                                                              | `.cache/pypoetry`                                                                                     |
 | `repox-url`                 | URL for Repox                                                                                                                                                                                 | Runner-dependent (see Edge section)                                                                   |
 | `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', sqc-us, or 'none'. Use 'none' to skip sonar scans                                                                                              | `next`                                                                                                |
+| `secretless` | Use WIF for Cloud scans; set to `false` to use legacy Vault tokens | `true` |
 | `run-shadow-scans`          | If true, run sonar scanner on all 3 platforms using the provided URL and token. If false, run on the platform provided by sonar-platform. When enabled, the sonar-platform setting is ignored | `false`                                                                                               |
 | `working-directory`         | Relative path under github.workspace to execute the build in                                                                                                                                  | `.`                                                                                                   |
 | `disable-caching`           | Whether to disable Poetry caching entirely                                                                                                                                                    | `false`                                                                                               |
@@ -840,7 +852,7 @@ Build and publish a Gradle project with SonarQube analysis and Artifactory deplo
 
 #### SonarQube Cloud Authentication
 
-Analysis on `sqc-eu` and `sqc-us` uses the GitHub OIDC token, see [SonarQube Cloud authentication](#sonarqube-cloud-authentication).
+Analysis on `sqc-eu` and `sqc-us` uses the GitHub OIDC token by default, see [SonarQube Cloud authentication](#sonarqube-cloud-authentication).
 
 #### Other Dependencies
 
@@ -915,6 +927,7 @@ See also [`config-gradle`](#config-gradle) input environment variables.
 | `develocity-url`            | URL for Develocity                                                                                                                                                                                                        | `https://develocity.sonar.build/`                                                           |
 | `repox-url`                 | URL for Repox                                                                                                                                                                                                             | Runner-dependent (see Edge section)                                                         |
 | `sonar-platform`            | SonarQube variant - 'next', 'sqc-eu', 'sqc-us', or 'none'. Use 'none' to skip sonar scans                                                                                                                                 | `next`                                                                                      |
+| `secretless` | Use WIF for Cloud scans; set to `false` to use legacy Vault tokens | `true` |
 | `working-directory`         | Relative path under github.workspace to execute the build in                                                                                                                                                              | `.`                                                                                         |
 | `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding)                                                                                                                                            | `false`                                                                                     |
 | `cache-paths`               | Custom cache paths (multiline).                                                                                                                                                                                           | `~/.gradle/caches`<br>`~/.gradle/wrapper`                                                   |
@@ -1153,7 +1166,7 @@ Build, test, analyze with SonarQube, and deploy an NPM project to JFrog Artifact
 
 #### SonarQube Cloud Authentication
 
-Analysis on `sqc-eu` and `sqc-us` uses the GitHub OIDC token, see [SonarQube Cloud authentication](#sonarqube-cloud-authentication).
+Analysis on `sqc-eu` and `sqc-us` uses the GitHub OIDC token by default, see [SonarQube Cloud authentication](#sonarqube-cloud-authentication).
 
 #### Other Dependencies
 
@@ -1211,6 +1224,7 @@ See also [`config-npm`](#config-npm) input environment variables.
 | `cache-npm`                 | Deprecated. Use `disable-caching: 'true'` instead                                                                                                                                                                  | `true`                                                                                       |
 | `repox-url`                 | URL for Repox                                                                                                                                                                                                      | Runner-dependent (see Edge section)                                                          |
 | `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', or 'sqc-us'                                                                                                                                                         | `next`                                                                                       |
+| `secretless` | Use WIF for Cloud scans; set to `false` to use legacy Vault tokens | `true` |
 | `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding)                                                                                                                                     | `false`                                                                                      |
 | `build-name`                | Name of the JFrog build to publish.                                                                                                                                                                                | `<Repository name>`                                                                          |
 | `provenance`                | Whether to generate provenance attestation for built artifacts                                                                                                                                                     | `false`                                                                                      |
@@ -1269,7 +1283,7 @@ Build, test, analyze, and deploy a Yarn project with SonarQube integration and A
 
 #### SonarQube Cloud Authentication
 
-Analysis on `sqc-eu` and `sqc-us` uses the GitHub OIDC token, see [SonarQube Cloud authentication](#sonarqube-cloud-authentication).
+Analysis on `sqc-eu` and `sqc-us` uses the GitHub OIDC token by default, see [SonarQube Cloud authentication](#sonarqube-cloud-authentication).
 
 #### Other Dependencies
 
@@ -1327,6 +1341,7 @@ jobs:
 | `cache-yarn`                | Deprecated. Use `disable-caching: 'true'` instead                                                                            | `true`                                                                                      |
 | `repox-url`                 | URL for Repox                                                                                                                | Runner-dependent (see Edge section)                                                         |
 | `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', 'sqc-us', or 'none'. Use 'none' to skip sonar scans                           | `next`                                                                                      |
+| `secretless` | Use WIF for Cloud scans; set to `false` to use legacy Vault tokens | `true` |
 | `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding)                                               | `false`                                                                                     |
 | `provenance`                | Whether to generate provenance attestation for built artifacts                                                               | `false`                                                                                     |
 | `provenance-artifact-paths` | Relative paths of artifacts for provenance attestation (glob pattern). See [Provenance Attestation](#provenance-attestation) | (optional)                                                                                  |

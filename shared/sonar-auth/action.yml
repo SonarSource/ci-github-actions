@@ -2,9 +2,13 @@
 name: Authenticate to SonarQube Cloud
 description: >-
   Internal action used by the build-* actions. Requests short-lived SonarQube Cloud tokens (EU and US)
-  with the GitHub OIDC token of the job. Requires the id-token write permission.
+  with the GitHub OIDC token of the job by default, or legacy Vault tokens when secretless is false.
+  Requires the id-token write permission.
 
 inputs:
+  secretless:
+    description: Use WIF ('true') or legacy Vault tokens ('false') for SonarQube Cloud
+    default: 'true'
   sonar-platform:
     description: Sonar platform analyzed by the build (next, sqc-us, sqc-eu or none)
     required: true
@@ -15,22 +19,46 @@ inputs:
 outputs:
   sqc-eu-token:
     description: Token to analyze the project on SonarQube Cloud EU
-    value: ${{ steps.sqc-eu-auth.outputs.sonar-token }}
+    value: >-
+      ${{ inputs.secretless == 'true' && steps.sqc-eu-auth.outputs.sonar-token ||
+        fromJSON(steps.legacy-auth.outputs.vault || '{}').SQC_EU_TOKEN }}
   sqc-us-token:
     description: Token to analyze the project on SonarQube Cloud US
-    value: ${{ steps.sqc-us-auth.outputs.sonar-token }}
+    value: >-
+      ${{ inputs.secretless == 'true' && steps.sqc-us-auth.outputs.sonar-token ||
+        fromJSON(steps.legacy-auth.outputs.vault || '{}').SQC_US_TOKEN }}
 
 runs:
   using: composite
   steps:
+    - name: Validate secretless input
+      shell: bash
+      env:
+        SECRETLESS: ${{ inputs.secretless }}
+      run: |
+        case "$SECRETLESS" in
+          true|false) ;;
+          *) echo '::error::secretless must be true or false' >&2; exit 1 ;;
+        esac
+    - uses: SonarSource/vault-action-wrapper@a7fa5fd4a4e4e0f2593f6137c0812cac196cf4ce # 3.7.0
+      id: legacy-auth
+      if: >-
+        inputs.secretless == 'false' && (inputs.run-shadow-scans == 'true' ||
+        inputs.sonar-platform == 'sqc-eu' || inputs.sonar-platform == 'sqc-us')
+      with:
+        # yamllint disable rule:line-length
+        secrets: |
+          ${{ (inputs.sonar-platform == 'sqc-eu' || inputs.run-shadow-scans == 'true') && 'development/kv/data/sonarcloud token | SQC_EU_TOKEN;' || '' }}
+          ${{ (inputs.sonar-platform == 'sqc-us' || inputs.run-shadow-scans == 'true') && 'development/kv/data/sonarqube-us token | SQC_US_TOKEN;' || '' }}
+        # yamllint enable rule:line-length
     - uses: SonarSource/sonarqube-auth-action@a0aa643acde4162396015b4f12536c1b9c4aab82 # v1.1.0
       id: sqc-eu-auth
-      if: inputs.run-shadow-scans == 'true' || inputs.sonar-platform == 'sqc-eu'
+      if: inputs.secretless == 'true' && (inputs.run-shadow-scans == 'true' || inputs.sonar-platform == 'sqc-eu')
       with:
         export-env: 'false'
     - uses: SonarSource/sonarqube-auth-action@a0aa643acde4162396015b4f12536c1b9c4aab82 # v1.1.0
       id: sqc-us-auth
-      if: inputs.run-shadow-scans == 'true' || inputs.sonar-platform == 'sqc-us'
+      if: inputs.secretless == 'true' && (inputs.run-shadow-scans == 'true' || inputs.sonar-platform == 'sqc-us')
       with:
         sonar-region: us
         export-env: 'false'

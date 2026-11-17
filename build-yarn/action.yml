@@ -42,6 +42,9 @@ inputs:
   sonar-platform:
     description: SonarQube primary platform (next, sqc-eu, sqc-us, or none). Use 'none' to skip sonar scans.
     default: next
+  secretless:
+    description: Use WIF for SonarQube Cloud scans. Set to 'false' to use legacy Vault tokens.
+    default: 'true'
   run-shadow-scans:
     description: If `true`, run sonar scanner on all 3 platforms. If `false`, run on the platform provided by `sonar-platform`.
       When enabled, the `sonar-platform` setting is ignored.
@@ -166,6 +169,7 @@ runs:
       with:
         sonar-platform: ${{ inputs.sonar-platform }}
         run-shadow-scans: ${{ inputs.run-shadow-scans }}
+        secretless: ${{ inputs.secretless }}
 
     - name: Build, test, analyze and deploy
       id: build
