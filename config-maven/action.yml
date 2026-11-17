@@ -235,7 +235,9 @@ runs:
         COMMON_MVN_FLAGS: ${{ inputs.common-mvn-flags }}
       run: |
         # - 'command mvn' prevents the function from calling itself in a loop.
-        echo "mvn() { command mvn ${COMMON_MVN_FLAGS} \"\$@\"; }" >> "$HOME/.bash_profile"
-        echo "BASH_ENV=$HOME/.bash_profile" >> "$GITHUB_ENV"
+        # - A dedicated file keeps the runner's own ~/.bash_profile (PATH, image settings) out of every bash step.
+        MVN_FUNCTION_FILE="$RUNNER_TEMP/config-maven-mvn.sh"
+        echo "mvn() { command mvn ${COMMON_MVN_FLAGS} \"\$@\"; }" > "$MVN_FUNCTION_FILE"
+        echo "BASH_ENV=$MVN_FUNCTION_FILE" >> "$GITHUB_ENV"
         echo "MAVEN_OPTS=${MAVEN_OPTS:=-Xmx1536m -Xms128m}" >> "$GITHUB_ENV"
         echo "CONFIG_MAVEN_COMPLETED=$GITHUB_ACTION" >> "$GITHUB_ENV"
