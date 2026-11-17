@@ -113,13 +113,13 @@ runs:
             "Use \`disable-caching\` instead." >&2
         fi
 
-    - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
+    - uses: step-security/mise-action@2796166110dee826668caddd4bffedae5116e7cd # v4.2.0
       with:
         version: 2026.6.14
         working_directory: ${{ inputs.working-directory }}
 
     - name: Cache Yarn dependencies
-      uses: SonarSource/gh-action_cache@4e40632e780e11a8bbe9b721985ab22b42847cc4 # v1.7.2
+      uses: SonarSource/gh-action_cache@10fff0296bfc17164fb1ed6473f7238df3430ebf # v1.7.5
       if: ${{ inputs.cache-yarn == 'true' && inputs.disable-caching != 'true' }}
       with:
         path: |

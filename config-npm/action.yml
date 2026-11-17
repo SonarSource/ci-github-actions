@@ -84,7 +84,7 @@ runs:
             "Use \`disable-caching\` instead." >&2
         fi
 
-    - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
+    - uses: step-security/mise-action@2796166110dee826668caddd4bffedae5116e7cd # v4.2.0
       if: steps.config-npm-completed.outputs.skip != 'true'
       with:
         version: 2026.3.7
