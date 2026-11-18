@@ -98,7 +98,12 @@ The selected URL also determines the matching Vault server and reader-token engi
 The `build-*` actions authenticate to SonarQube Cloud (`sonar-platform: sqc-eu` or `sqc-us`, and the matching platforms of
 `run-shadow-scans`) with the GitHub OIDC token of the job by default (`secretless: true`), through
 [`sonarqube-auth-action`](https://github.com/SonarSource/sonarqube-auth-action), instead of with tokens stored in Vault.
-The SonarQube Cloud URLs, and the URL and token of the `next` platform, are still read from Vault.
+The `next` platform still reads its URL and token from Vault.
+
+All SonarQube Cloud scans, including `secretless: false`, use scanner region resolution. The actions pass `sonar.region=us`
+for `sqc-us` and no `sonar.host.url` for `sqc-eu`. This requires SonarScanner for Gradle 6.1+ (`org.sonarqube` plugin).
+The SonarScanner for Maven is pinned by the action. A `sonar.host.url` set in the project must match the selected region,
+or be removed. Disabling secretless authentication does not restore the previous URL handling.
 
 Requirements for each SonarQube Cloud platform analyzed with `secretless: true`:
 
