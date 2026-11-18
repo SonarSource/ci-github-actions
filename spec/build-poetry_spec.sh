@@ -32,9 +32,7 @@ export GITHUB_RUN_ID="dummy-run-id"
 export SONAR_PLATFORM="next"
 export NEXT_URL="https://next.sonarqube.com"
 export NEXT_TOKEN="next-token"
-export SQC_US_URL="https://sonarqube-us.com"
 export SQC_US_TOKEN="sqc-us-token"
-export SQC_EU_URL="https://sonarcloud.io"
 export SQC_EU_TOKEN="sqc-eu-token"
 export DEPLOY="true"
 export RUN_SHADOW_SCANS="false"
@@ -442,15 +440,15 @@ Describe 'build_poetry()'
     The line 22 should equal '::endgroup::'
     The line 23 should equal '::group::Sonar analysis on sqc-us'
     The line 24 should equal '--- ORCHESTRATOR: Analyzing with platform: sqc-us ---'
-    The line 25 should equal 'Using Sonar platform: sqc-us (URL: https://sonarqube-us.com)'
+    The line 25 should equal 'Using Sonar platform: sqc-us (URL: default)'
     The line 26 should equal 'poetry run pip install pysonar'
-    The line 28 should equal 'poetry run pysonar -Dsonar.host.url=https://sonarqube-us.com -Dsonar.token=sqc-us-token -Dsonar.analysis.buildNumber=42 -Dsonar.analysis.pipeline=dummy-run-id -Dsonar.analysis.repository=my-org/my-repo'
+    The line 28 should equal 'poetry run pysonar -Dsonar.region=us -Dsonar.token=sqc-us-token -Dsonar.analysis.buildNumber=42 -Dsonar.analysis.pipeline=dummy-run-id -Dsonar.analysis.repository=my-org/my-repo'
     The line 29 should equal '::endgroup::'
     The line 30 should equal '::group::Sonar analysis on sqc-eu'
     The line 31 should equal '--- ORCHESTRATOR: Analyzing with platform: sqc-eu ---'
-    The line 32 should equal 'Using Sonar platform: sqc-eu (URL: https://sonarcloud.io)'
+    The line 32 should equal 'Using Sonar platform: sqc-eu (URL: default)'
     The line 33 should equal 'poetry run pip install pysonar'
-    The line 35 should equal 'poetry run pysonar -Dsonar.host.url=https://sonarcloud.io -Dsonar.token=sqc-eu-token -Dsonar.analysis.buildNumber=42 -Dsonar.analysis.pipeline=dummy-run-id -Dsonar.analysis.repository=my-org/my-repo'
+    The line 35 should equal 'poetry run pysonar -Dsonar.token=sqc-eu-token -Dsonar.analysis.buildNumber=42 -Dsonar.analysis.pipeline=dummy-run-id -Dsonar.analysis.repository=my-org/my-repo'
     The line 36 should equal '::endgroup::'
     The line 37 should equal '=== Completed Sonar analysis on all platforms ==='
     The stderr should include "::warning title=Deployment disabled::Shadow scans enabled - disabling deployment"

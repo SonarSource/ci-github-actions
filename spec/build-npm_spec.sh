@@ -82,9 +82,7 @@ export RUN_SHADOW_SCANS="false"
 export SKIP_TESTS="false"
 export SONAR_PLATFORM="next"
 export SQC_EU_TOKEN="sqc-eu-token"
-export SQC_EU_URL="https://sonarcloud.io"
 export SQC_US_TOKEN="sqc-us-token"
-export SQC_US_URL="https://sonarqube-us.example.com"
 GITHUB_EVENT_PATH=$(mktemp)
 export GITHUB_EVENT_PATH
 echo '{}' > "$GITHUB_EVENT_PATH"
@@ -332,7 +330,7 @@ Describe 'sonar_scanner_implementation()'
   End
 
   It 'runs sonar scanner with region parameter for sqc-us'
-    export SONAR_HOST_URL="https://sonarqube-us.example.com"
+    unset SONAR_HOST_URL
     export SONAR_TOKEN="us-token"
     export SONAR_REGION="us"
     export BUILD_NUMBER="42"
@@ -342,6 +340,7 @@ Describe 'sonar_scanner_implementation()'
     When call sonar_scanner_implementation
     The status should be success
     The output should include "-Dsonar.region=us"
+    The output should not include "-Dsonar.host.url"
   End
 
   It 'runs sonar scanner with additional parameters'

@@ -50,9 +50,7 @@ export SONAR_PLATFORM="next"
 export RUN_SHADOW_SCANS="false"
 export NEXT_URL="https://next.sonarqube.com"
 export NEXT_TOKEN="next-token"
-export SQC_US_URL="https://sonarcloud.io"
 export SQC_US_TOKEN="sqc-us-token"
-export SQC_EU_URL="https://sonarcloud.io"
 export SQC_EU_TOKEN="sqc-eu-token"
 export ORG_GRADLE_PROJECT_signingKey="signing-key"
 export ORG_GRADLE_PROJECT_signingPassword="signing-pass"
@@ -205,6 +203,17 @@ Describe 'build_gradle_args'
     When call build_gradle_args
     The output should include "sonar"
     The output should include "-Dsonar.host.url=https://sonar.example.com"
+  End
+
+  It 'includes sonar with the region and without host URL when configured for sqc-us'
+    export GRADLE_ARGS=""
+    unset SONAR_HOST_URL
+    export SONAR_REGION="us"
+    export SONAR_TOKEN="sonar-token"
+    When call build_gradle_args
+    The output should include "sonar"
+    The output should include "-Dsonar.region=us"
+    The output should not include "-Dsonar.host.url"
   End
 
   It 'includes deployment for master'
@@ -414,6 +423,36 @@ Describe 'gradle_build'
     The stderr should include "::warning title=No artifacts found::"
 
     rm -f gradle-mock gradle.properties
+  End
+End
+
+Describe 'gradle_build when scanning is disabled'
+  Parameters
+    none master token-only
+    next dogfood-on-main token-only
+    next feature/ordinary token-only
+    none master all
+    next dogfood-on-main all
+    next feature/ordinary all
+  End
+
+  It "ignores inherited Sonar credentials ($3) for platform $1 on $2"
+    export SONAR_PLATFORM="$1" GITHUB_REF_NAME="$2"
+    export SONAR_TOKEN="inherited-token"
+    unset SONAR_HOST_URL SONAR_REGION
+    if [[ "$3" == all ]]; then
+      export SONAR_HOST_URL="https://inherited.example" SONAR_REGION="us"
+    fi
+    export DEPLOY="false" GRADLE_CMD="gradle"
+
+    When call gradle_build
+    The status should be success
+    The output should include "gradle --no-daemon --stacktrace --console plain build"
+    The output should not include " build sonar"
+    The output should not include "sonar.token="
+    The output should not include "sonar.host.url="
+    The output should not include "sonar.region="
+    The variable SONAR_TOKEN should equal "inherited-token"
   End
 End
 

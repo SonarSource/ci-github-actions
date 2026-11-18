@@ -60,9 +60,7 @@ export SONAR_PLATFORM="next"
 export RUN_SHADOW_SCANS="false"
 export NEXT_URL="https://next.sonarqube.com"
 export NEXT_TOKEN="next-token"
-export SQC_US_URL="https://sonarqube-us.example.com"
 export SQC_US_TOKEN="sqc-us-token"
-export SQC_EU_URL="https://sonarcloud.io"
 export SQC_EU_TOKEN="sqc-eu-token"
 export DEPLOY="true"
 export DEPLOY_PULL_REQUEST="false" SKIP_TESTS="false" DEFAULT_BRANCH="main" PULL_REQUEST=""
@@ -311,7 +309,7 @@ Describe 'build-yarn/build.sh'
     End
 
     It 'runs sonar scanner with region parameter for sqc-us'
-      export SONAR_HOST_URL="https://sonarqube-us.example.com"
+      unset SONAR_HOST_URL
       export SONAR_TOKEN="us-token"
       export SONAR_REGION="us"
       export BUILD_NUMBER="42"
@@ -322,6 +320,7 @@ Describe 'build-yarn/build.sh'
       When call sonar_scanner_implementation
       The status should be success
       The output should include "-Dsonar.region=us"
+      The output should not include "-Dsonar.host.url"
     End
 
     It 'runs sonar scanner with additional parameters'
