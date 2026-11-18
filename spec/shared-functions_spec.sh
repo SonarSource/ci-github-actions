@@ -57,6 +57,63 @@ Describe 'shared/common-functions.sh'
     End
   End
 
+  Describe 'require_sonar_env()'
+    check_sonar_env() (
+      unset NEXT_URL NEXT_TOKEN SQC_US_URL SQC_US_TOKEN SQC_EU_URL SQC_EU_TOKEN
+      local environment="$1" assignments assignment
+      IFS=' ' read -ra assignments <<< "$environment"
+      for assignment in "${assignments[@]}"; do
+        declare -gx "$assignment"
+      done
+      require_sonar_env
+      return $?
+    )
+
+    Describe 'when the variables of every analyzed platform are set'
+      Parameters
+        "RUN_SHADOW_SCANS=false SONAR_PLATFORM=none"
+        "RUN_SHADOW_SCANS=false SONAR_PLATFORM=next NEXT_URL=u NEXT_TOKEN=t"
+        "RUN_SHADOW_SCANS=false SONAR_PLATFORM=sqc-us SQC_US_URL=u SQC_US_TOKEN=t"
+        "RUN_SHADOW_SCANS=false SONAR_PLATFORM=sqc-eu SQC_EU_URL=u SQC_EU_TOKEN=t"
+        "RUN_SHADOW_SCANS=true SONAR_PLATFORM=none NEXT_URL=u NEXT_TOKEN=t SQC_US_URL=u SQC_US_TOKEN=t SQC_EU_URL=u SQC_EU_TOKEN=t"
+        "RUN_SHADOW_SCANS=true SONAR_PLATFORM=ignored NEXT_URL=u NEXT_TOKEN=t SQC_US_URL=u SQC_US_TOKEN=t SQC_EU_URL=u SQC_EU_TOKEN=t"
+      End
+
+      It "succeeds with: $1"
+        When call check_sonar_env "$1"
+        The status should be success
+      End
+    End
+
+    Describe 'when the selected platform is unknown'
+      Parameters
+        sqc_eu
+        unsupported
+      End
+
+      It "rejects $1 before the build starts"
+        When call check_sonar_env "RUN_SHADOW_SCANS=false SONAR_PLATFORM=$1"
+        The status should be failure
+        The stderr should include "Invalid Sonar platform '$1'"
+        The stderr should include 'next, sqc-us, sqc-eu, none'
+      End
+    End
+
+    Describe 'when a variable of an analyzed platform is missing'
+      Parameters
+        "RUN_SHADOW_SCANS=false SONAR_PLATFORM=sqc-eu SQC_EU_URL=u" "SQC_EU_TOKEN"
+        "RUN_SHADOW_SCANS=false SONAR_PLATFORM=sqc-us SQC_EU_URL=u SQC_EU_TOKEN=t" "SQC_US_URL"
+        "RUN_SHADOW_SCANS=true SONAR_PLATFORM=sqc-eu SQC_EU_URL=u SQC_EU_TOKEN=t" "NEXT_URL"
+      End
+
+      It "fails with: $1"
+        When call check_sonar_env "$1"
+        The status should not be success
+        The stderr should include "$2"
+      End
+    End
+  End
+
   Describe 'orchestrate_sonar_platforms()'
     # Mock sonar_scanner_implementation for orchestrator tests
     sonar_scanner_implementation() {

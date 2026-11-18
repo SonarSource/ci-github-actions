@@ -53,9 +53,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 if [[ "${DEPLOY:=true}" != "false" && "$RUN_SHADOW_SCANS" != "true" ]]; then
   : "${ARTIFACTORY_DEPLOY_USERNAME:?}" "${ARTIFACTORY_DEPLOY_PASSWORD:?}"
 fi
-if [[ "${SONAR_PLATFORM:?}" != "none" || "$RUN_SHADOW_SCANS" == "true" ]]; then
-  : "${NEXT_URL:?}" "${NEXT_TOKEN:?}" "${SQC_US_URL:?}" "${SQC_US_TOKEN:?}" "${SQC_EU_URL:?}" "${SQC_EU_TOKEN:?}"
-fi
+require_sonar_env
 : "${USER_MAVEN_ARGS:=}"
 : "${SKIP_BUILD:=false}"
 if [[ "$SKIP_BUILD" == "true" && "$DEPLOY" != "false" ]]; then

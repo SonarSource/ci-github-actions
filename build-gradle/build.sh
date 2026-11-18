@@ -55,9 +55,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/../shared/common-functions.sh"
 if [[ "${DEPLOY:=true}" != "false" && "$RUN_SHADOW_SCANS" != "true" ]]; then
   : "${ARTIFACTORY_DEPLOY_USERNAME:?}" "${ARTIFACTORY_DEPLOY_ACCESS_TOKEN:?}"
 fi
-if [[ "${SONAR_PLATFORM:?}" != "none" || "$RUN_SHADOW_SCANS" == "true" ]]; then
-  : "${NEXT_URL:?}" "${NEXT_TOKEN:?}" "${SQC_US_URL:?}" "${SQC_US_TOKEN:?}" "${SQC_EU_URL:?}" "${SQC_EU_TOKEN:?}"
-fi
+require_sonar_env
 : "${ORG_GRADLE_PROJECT_signingKey:?}" "${ORG_GRADLE_PROJECT_signingPassword:?}" "${ORG_GRADLE_PROJECT_signingKeyId:?}"
 : "${SKIP_TESTS:=false}" "${GRADLE_ARGS:=}"
 export DEPLOY DEPLOY_PULL_REQUEST SKIP_TESTS GRADLE_ARGS
