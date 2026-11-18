@@ -189,7 +189,7 @@ runs:
       run: echo "workflow_name=${WORKFLOW_NAME// /-}" >> "$GITHUB_OUTPUT"
 
     - name: Cache local Maven repository
-      uses: SonarSource/gh-action_cache@0b86c7a0e6c3cb8238c826be7dd9fdfd02f16f8b # v1.7.3
+      uses: SonarSource/gh-action_cache@10fff0296bfc17164fb1ed6473f7238df3430ebf # v1.7.5
       if: steps.config-maven-completed.outputs.skip != 'true' && inputs.disable-caching == 'false'
       with:
         path: ${{ inputs.cache-paths }}
@@ -235,7 +235,9 @@ runs:
         COMMON_MVN_FLAGS: ${{ inputs.common-mvn-flags }}
       run: |
         # - 'command mvn' prevents the function from calling itself in a loop.
-        echo "mvn() { command mvn ${COMMON_MVN_FLAGS} \"\$@\"; }" >> "$HOME/.bash_profile"
-        echo "BASH_ENV=$HOME/.bash_profile" >> "$GITHUB_ENV"
+        # - A dedicated file keeps the runner's own ~/.bash_profile (PATH, image settings) out of every bash step.
+        MVN_FUNCTION_FILE="$RUNNER_TEMP/config-maven-mvn.sh"
+        echo "mvn() { command mvn ${COMMON_MVN_FLAGS} \"\$@\"; }" > "$MVN_FUNCTION_FILE"
+        echo "BASH_ENV=$MVN_FUNCTION_FILE" >> "$GITHUB_ENV"
         echo "MAVEN_OPTS=${MAVEN_OPTS:=-Xmx1536m -Xms128m}" >> "$GITHUB_ENV"
         echo "CONFIG_MAVEN_COMPLETED=$GITHUB_ACTION" >> "$GITHUB_ENV"
