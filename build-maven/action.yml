@@ -167,7 +167,7 @@ runs:
         echo "Artifactory deploy (upload): ${ARTIFACTORY_DEPLOY_URL}"
       # yamllint enable rule:line-length
 
-    - uses: SonarSource/vault-action-wrapper@a7fa5fd4a4e4e0f2593f6137c0812cac196cf4ce # 3.7.0
+    - uses: SonarSource/vault-action-wrapper@996f98a833543737de7835d6d23f4be988389b4e # 3.8.0
       if: inputs.deploy != 'false'
       id: artifactory
       with:
@@ -177,7 +177,7 @@ runs:
           ${{ inputs.deploy != 'false' && inputs.run-shadow-scans != 'true' && steps.params.outputs.ARTIFACTORY_DEPLOY_ACCESS_TOKEN_VAULT || '' }}
           ${{ inputs.deploy != 'false' && inputs.mixed-privacy == 'true' && steps.params.outputs.ARTIFACTORY_PRIVATE_DEPLOY_ACCESS_TOKEN_VAULT || '' }}
         # yamllint enable rule:line-length
-    - uses: SonarSource/vault-action-wrapper@a7fa5fd4a4e4e0f2593f6137c0812cac196cf4ce # 3.7.0
+    - uses: SonarSource/vault-action-wrapper@996f98a833543737de7835d6d23f4be988389b4e # 3.8.0
       id: secrets
       with:
         # yamllint disable rule:line-length

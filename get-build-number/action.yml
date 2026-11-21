@@ -47,7 +47,7 @@ runs:
     # continue-on-error: a repository with no build_number history (or no {REPO_OWNER_NAME_DASH}-build-number preset configured
     # yet) has nothing to migrate - a failure here must not block claiming, only fall through to get_build_number.sh's own
     # no-migration-token warning path (an empty LEGACY_PROPERTY_TOKEN below, same as if this step is skipped entirely).
-    - uses: SonarSource/vault-action-wrapper@a7fa5fd4a4e4e0f2593f6137c0812cac196cf4ce # 3.7.0
+    - uses: SonarSource/vault-action-wrapper@996f98a833543737de7835d6d23f4be988389b4e # 3.8.0
       id: secrets
       if: steps.from-env.outputs.skip != 'true'
       continue-on-error: true
