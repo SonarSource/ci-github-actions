@@ -172,11 +172,15 @@ completes. Do not track a file named `.build_number.txt` in your repository.
 
 - `id-token: write`
 - `contents: write`
+- `actions: read` for automatic recovery of abandoned locks
 
 > **Breaking change:** this action used to require only `contents: read`. Claiming now needs `contents: write` to create the
 > [Git references](#git-references) below - `contents: read` alone will fail with a 403 on every claim except the narrow case where this
 > exact workflow run already has a marker to reuse (e.g. certain reruns), since that path is read-only. There is no working
 > read-only/rerun-only mode: any run that needs a genuinely new number will fail until the caller's `permissions:` block is updated.
+
+Existing callers must add `actions: read` to enable automatic recovery. Without it, new claims still work, but an abandoned
+lock remains locked because its owner cannot be verified.
 
 #### Required Vault Permissions
 
@@ -193,6 +197,7 @@ jobs:
     permissions:
       id-token: write
       contents: write
+      actions: read
     steps:
       - uses: SonarSource/ci-github-actions/get-build-number@v1
 ```
@@ -221,11 +226,18 @@ No inputs are required for this action.
 
 ### Git References
 
-This action coordinates purely through Git references on the repository - no external state, cache, or database. Each reference is created
-pointing at the repository's default branch HEAD, resolved once before acquiring the lock. Using the existing default branch head avoids
-GitHub's additional workflow-write restrictions on some PR merge commits; `contents: write` remains sufficient. The target is never read
-back - only the reference's existence matters
-(for `build-number` and `build-number-lock`), or its name, which encodes the claimed number (for `build-runs`).
+This action coordinates through Git references on the repository. Claims and run markers point at the default branch HEAD.
+The lock points at a unique metadata commit with the same tree and the default branch HEAD as its parent. Its message records
+the owner run ID, attempt, creation time, and acquisition identity. No branch content changes.
+The timestamp is taken before the first acquisition attempt and reused while waiting. A lock acquired after two minutes of
+waiting is already two minutes old. Recovery still requires confirmation that its owner attempt has completed.
+Each invocation that needs a new lock creates one metadata commit. After lock removal, the commit is unreachable; this action
+does not delete commit objects or manage their retention. GitHub controls their storage and garbage collection.
+
+A waiter can recover a lock after five minutes only when the GitHub Actions API confirms that the recorded owner attempt has
+completed. Recovery requires `actions: read` in addition to `contents: write`. Failed lookups and active owners preserve the lock.
+Recovery and normal cleanup use an exact-object Git lease, so they cannot delete a replacement lock. Git uses the existing job
+token through an ephemeral credential helper. No caller checkout or persistent Git authentication change is required.
 
 | Reference                             | Lifetime                                                                                     | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ------------------------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -235,6 +247,15 @@ back - only the reference's existence matters
 
 ### Known limitations
 
+- Legacy locks have no reliable owner or acquisition time. They remain locked until an operator confirms that no claim is active
+  and removes them with the command in the timeout error. Older action versions can still create these locks. All versions
+  contend on the same global ref; upgrade callers to enable automatic recovery for new locks.
+- A waiter gives up after about two minutes, but recovery needs a lock at least five minutes old. A claim that arrives while
+  an abandoned lock is younger than about three minutes can time out; re-run it, or a later claim recovers the lock.
+- An owner attempt that GitHub still reports as active cannot be recovered, even if its runner has disappeared. Waiters retain
+  their bounded timeout (40 attempts, three seconds apart). A later invocation can recover the lock after the owner completes.
+- If the owner run was deleted or expired under GitHub retention, its lookup can return 404. The action cannot confirm completion
+  and preserves the lock. Remove it manually only after confirming that no claim is active, as for a legacy lock.
 - `refs/build-runs/<run_id>/<number>` markers are never automatically deleted, so they accumulate for the lifetime of the
   repository - see [Inspecting current refs](#inspecting-current-refs) below to check what currently exists. Not expected to
   matter in practice for a long time; no automated cleanup is implemented today.
@@ -306,6 +327,9 @@ By default, Maven caches `~/.m2/repository`. You can customize this behavior:
 
 - `id-token: write`
 - `contents: write`
+- `actions: read` for automatic build-number lock recovery
+
+Automatic lock recovery requires `actions: read`. See [Git References](#git-references) for recovery conditions.
 
 #### Required Vault Permissions
 
@@ -321,6 +345,7 @@ The Maven tool must be pre-installed. Use of `mise` is recommended.
 permissions:
   id-token: write
   contents: write
+  actions: read
 steps:
   - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
   - uses: SonarSource/ci-github-actions/config-maven@v1
@@ -393,6 +418,9 @@ Build and deploy a Maven project with SonarQube analysis and Artifactory deploym
 
 - `id-token: write`
 - `contents: write`
+- `actions: read` for automatic build-number lock recovery
+
+Automatic lock recovery requires `actions: read`. See [Git References](#git-references) for recovery conditions.
 
 #### Required Vault Permissions
 
@@ -428,6 +456,7 @@ Analysis on `sqc-eu` and `sqc-us` uses the GitHub OIDC token by default, see [So
 permissions:
   id-token: write
   contents: write
+  actions: read
 steps:
   - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
   - uses: SonarSource/ci-github-actions/config-maven@v1
@@ -563,6 +592,9 @@ This action configures Poetry to pull packages from the internal JFrog Artifacto
 
 - `id-token: write`
 - `contents: write`
+- `actions: read` for automatic build-number lock recovery
+
+Automatic lock recovery requires `actions: read`. See [Git References](#git-references) for recovery conditions.
 
 #### Required Vault Permissions
 
@@ -578,6 +610,7 @@ The Python and Poetry tools must be pre-installed. Use of `mise` is recommended.
 permissions:
   id-token: write
   contents: write
+  actions: read
 steps:
   - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
   - uses: SonarSource/ci-github-actions/config-poetry@v1
@@ -639,6 +672,9 @@ Build, analyze, and publish a Python project using Poetry with SonarQube integra
 
 - `id-token: write`
 - `contents: write`
+- `actions: read` for automatic build-number lock recovery
+
+Automatic lock recovery requires `actions: read`. See [Git References](#git-references) for recovery conditions.
 
 #### Required Vault Permissions
 
@@ -677,6 +713,7 @@ jobs:
     permissions:
       id-token: write
       contents: write
+      actions: read
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - uses: SonarSource/ci-github-actions/build-poetry@v1
@@ -773,6 +810,9 @@ By default, Gradle caches `~/.gradle/caches` and `~/.gradle/wrapper`. You can cu
 
 - `id-token: write`
 - `contents: write`
+- `actions: read` for automatic build-number lock recovery
+
+Automatic lock recovery requires `actions: read`. See [Git References](#git-references) for recovery conditions.
 
 #### Required Vault Permissions
 
@@ -792,6 +832,7 @@ which will be used automatically. If the Gradle wrapper is not available, you ca
 permissions:
   id-token: write
   contents: write
+  actions: read
 steps:
   - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
   - uses: SonarSource/ci-github-actions/config-gradle@v1
@@ -867,6 +908,9 @@ Build and publish a Gradle project with SonarQube analysis and Artifactory deplo
 
 - `id-token: write`
 - `contents: write`
+- `actions: read` for automatic build-number lock recovery
+
+Automatic lock recovery requires `actions: read`. See [Git References](#git-references) for recovery conditions.
 
 #### Required Vault Permissions
 
@@ -923,6 +967,7 @@ jobs:
     permissions:
       id-token: write
       contents: write
+      actions: read
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - uses: SonarSource/ci-github-actions/build-gradle@v1
@@ -1112,6 +1157,9 @@ Set the project version in `package.json` with the build number if the file exis
 
 - `id-token: write`
 - `contents: write`
+- `actions: read` for automatic build-number lock recovery
+
+Automatic lock recovery requires `actions: read`. See [Git References](#git-references) for recovery conditions.
 
 #### Required Vault Permissions
 
@@ -1130,6 +1178,7 @@ config:
   permissions:
     id-token: write
     contents: write
+    actions: read
   steps:
     - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
     - uses: SonarSource/ci-github-actions/config-npm@v1
@@ -1185,6 +1234,9 @@ Build, test, analyze with SonarQube, and deploy an NPM project to JFrog Artifact
 
 - `id-token: write`
 - `contents: write`
+- `actions: read` for automatic build-number lock recovery
+
+Automatic lock recovery requires `actions: read`. See [Git References](#git-references) for recovery conditions.
 
 #### Required Vault Permissions
 
@@ -1223,6 +1275,7 @@ jobs:
     permissions:
       id-token: write
       contents: write
+      actions: read
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - uses: SonarSource/ci-github-actions/build-npm@v1
@@ -1303,6 +1356,9 @@ Build, test, analyze, and deploy a Yarn project with SonarQube integration and A
 
 - `id-token: write`
 - `contents: write`
+- `actions: read` for automatic build-number lock recovery
+
+Automatic lock recovery requires `actions: read`. See [Git References](#git-references) for recovery conditions.
 
 #### Required Vault Permissions
 
@@ -1341,6 +1397,7 @@ jobs:
     permissions:
       id-token: write
       contents: write
+      actions: read
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - uses: SonarSource/ci-github-actions/build-yarn@v1
@@ -1401,6 +1458,9 @@ This action configures pip to pull packages from the internal JFrog Artifactory 
 
 - `id-token: write`
 - `contents: write`
+- `actions: read` for automatic build-number lock recovery
+
+Automatic lock recovery requires `actions: read`. See [Git References](#git-references) for recovery conditions.
 
 #### Required Vault Permissions
 
@@ -1412,6 +1472,7 @@ This action configures pip to pull packages from the internal JFrog Artifactory 
 permissions:
   id-token: write
   contents: write
+  actions: read
 steps:
   - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
   - uses: SonarSource/ci-github-actions/config-pip@v1
@@ -1517,6 +1578,9 @@ default = true
 
 - `id-token: write`
 - `contents: write`
+- `actions: read` for automatic build-number lock recovery
+
+Automatic lock recovery requires `actions: read`. See [Git References](#git-references) for recovery conditions.
 
 #### Required Vault Permissions
 
@@ -1532,6 +1596,7 @@ The `uv` tool must be pre-installed. Use of `mise` is recommended.
 permissions:
   id-token: write
   contents: write
+  actions: read
 steps:
   - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
   - uses: step-security/mise-action@a225bbd7c202ddf57dd76dff22bb7992f6314173 # v5.1.2
@@ -1724,6 +1789,9 @@ The GitHub status check is named `repox-${GITHUB_REF_NAME}`.
 
 - `id-token: write`
 - `contents: write`
+- `actions: read` for automatic build-number lock recovery
+
+Automatic lock recovery requires `actions: read`. See [Git References](#git-references) for recovery conditions.
 
 #### Required Vault Permissions
 
@@ -1751,6 +1819,7 @@ promote:
   permissions:
     id-token: write
     contents: write
+    actions: read
   steps:
     # BUILD_NUMBER is automatically reused from the `build` job's run - no manual wiring needed.
     - uses: SonarSource/ci-github-actions/promote@v1
@@ -1767,6 +1836,7 @@ promote:
   permissions:
     id-token: write
     contents: write
+    actions: read
   env:
     PROJECT_VERSION: '2.0.0-custom'  # Override version from JFrog build info
   steps:

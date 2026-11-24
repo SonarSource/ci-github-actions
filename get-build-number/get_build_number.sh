@@ -8,7 +8,7 @@
 # refs/build-number-lock: exclusive, transient, repository-wide lock serializing every new claim, not just those within one run.
 # Released immediately after use (success or failure) via the trap below, not held for a run's lifetime.
 #
-# Every ref points at the default branch HEAD purely because creation requires some valid target; that target is never read back.
+# Claims and run markers point at the default branch HEAD. The lock points at a unique metadata commit with the same tree.
 # PR merge commits can require workflows:write when used as ref targets, even with contents:write. The existing default branch
 # head avoids that restriction without changing the claim/lock protocol or requiring a more privileged token.
 # All ref reads/writes use the ambient GITHUB_TOKEN. LEGACY_PROPERTY_TOKEN (from Vault) is only used to read the legacy
@@ -33,7 +33,8 @@ RETRY_INTERVAL_SECONDS="${RETRY_INTERVAL_SECONDS:-1}" # between internal retries
 
 create_ref() {
   local ref="$1"
-  gh api --method POST -H "$GH_API_VERSION_HEADER" "$REFS_API_URL" -f "ref=refs/${ref}" -f "sha=${REF_TARGET_SHA}" 2>&1
+  local target_sha="${2:-$REF_TARGET_SHA}"
+  gh api --method POST -H "$GH_API_VERSION_HEADER" "$REFS_API_URL" -f "ref=refs/${ref}" -f "sha=${target_sha}" 2>&1
 }
 
 delete_ref() {
@@ -84,11 +85,89 @@ try_reuse_existing_claim() {
   echo "${existing}" >"$BUILD_NUMBER_FILE"
 }
 
+# Git's expected-object lease makes deletion conditional at the server, including races with other waiters.
+# A private empty repository avoids depending on a caller checkout or changing its Git authentication.
+LOCK_GIT_DIR=""
 HELD_LOCK=""
+LOCK_TARGET_SHA=""
+CACHED_LOCK_SHA=""
+CACHED_LOCK_MESSAGE=""
+OWNER_LOOKUP_WARNED=""
+delete_lock_if_unchanged() {
+  local expected_sha="$1"
+  if [[ -z "$LOCK_GIT_DIR" ]]; then
+    LOCK_GIT_DIR=$(mktemp -d) || return 1
+    git init --bare "$LOCK_GIT_DIR" >/dev/null 2>&1 || return 1
+  fi
+  GIT_TERMINAL_PROMPT=0 git -C "$LOCK_GIT_DIR" \
+    -c credential.helper= -c 'credential.helper=!gh auth git-credential' \
+    -c http.followRedirects=false -c http.extraHeader= \
+    push --quiet --force-with-lease="refs/${NUMBER_LOCK_REF}:${expected_sha}" \
+    "${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY}.git" ":refs/${NUMBER_LOCK_REF}" >/dev/null 2>&1
+}
+
+create_lock_target() {
+  local tree_sha created nonce message
+  tree_sha=$(gh api -H "$GH_API_VERSION_HEADER" "repos/${GITHUB_REPOSITORY}/git/commits/${REF_TARGET_SHA}" --jq '.tree.sha') || return 1
+  created=$(date +%s)
+  nonce="${RANDOM}${RANDOM}${RANDOM}${RANDOM}"
+  message="build-number-lock/v1 ${GITHUB_RUN_ID} ${GITHUB_RUN_ATTEMPT:-1} ${created} ${nonce}"
+  LOCK_TARGET_SHA=$(gh api --method POST -H "$GH_API_VERSION_HEADER" "repos/${GITHUB_REPOSITORY}/git/commits" \
+    -f "message=${message}" -f "tree=${tree_sha}" -f "parents[]=${REF_TARGET_SHA}" --jq '.sha') || return 1
+  [[ "$LOCK_TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+}
+
+prepare_lock_target() {
+  local target_attempt
+  for target_attempt in 1 2 3; do
+    create_lock_target && return 0
+    ((target_attempt < 3)) && sleep "$RETRY_INTERVAL_SECONDS"
+  done
+  return 1
+}
+
+recover_abandoned_lock() {
+  local observed_sha message owner_run owner_attempt created now status
+  observed_sha=$(gh api -H "$GH_API_VERSION_HEADER" "${REFS_API_URL}/${NUMBER_LOCK_REF}" --jq '.object.sha' 2>/dev/null) || return 1
+  [[ "$observed_sha" =~ ^[0-9a-f]{40}$ ]] || return 1
+  # Commit messages are immutable. Cache successful reads only; a failed lookup is not an absent owner.
+  if [[ "$observed_sha" != "$CACHED_LOCK_SHA" ]]; then
+    message=$(gh api -H "$GH_API_VERSION_HEADER" "repos/${GITHUB_REPOSITORY}/git/commits/${observed_sha}" --jq '.message' 2>/dev/null) || return 1
+    CACHED_LOCK_SHA="$observed_sha"
+    CACHED_LOCK_MESSAGE="$message"
+  else
+    message="$CACHED_LOCK_MESSAGE"
+  fi
+  # Bound numeric fields before arithmetic or URL use. Legacy source commits are not ownership evidence.
+  [[ "$message" =~ ^build-number-lock/v1\ ([1-9][0-9]{0,19})\ ([1-9][0-9]{0,9})\ ([1-9][0-9]{0,11})\ ([a-zA-Z0-9]+)$ ]] || return 1
+  owner_run="${BASH_REMATCH[1]}"
+  owner_attempt="${BASH_REMATCH[2]}"
+  created="${BASH_REMATCH[3]}"
+  now=$(date +%s)
+  ((now - created >= 300)) || return 1
+  if ! status=$(gh api -H "$GH_API_VERSION_HEADER" "repos/${GITHUB_REPOSITORY}/actions/runs/${owner_run}/attempts/${owner_attempt}" \
+    --jq '.status' 2>/dev/null); then
+    if [[ -z "$OWNER_LOOKUP_WARNED" ]]; then
+      echo "::warning title=Lock owner not verifiable::Could not check the lock owner; automatic recovery requires 'actions: read'." \
+        "Check caller permissions, GitHub API availability, or whether the owner run was deleted. The lock is preserved." >&2
+      OWNER_LOOKUP_WARNED=1
+    fi
+    return 1
+  fi
+  [[ "$status" == completed ]] || return 1
+  if delete_lock_if_unchanged "$observed_sha"; then
+    echo "::debug::Recovered refs/${NUMBER_LOCK_REF} from completed run ${owner_run}, attempt ${owner_attempt}"
+    return 0
+  fi
+  return 1
+}
+
 release_lock() {
-  [[ -n "$HELD_LOCK" ]] || return 0
-  delete_ref "$NUMBER_LOCK_REF" || echo "::warning title=Build number lock not released::Failed to delete refs/${NUMBER_LOCK_REF};" \
-    "a later claim may have to wait out its timeout before proceeding." >&2
+  if [[ -n "$HELD_LOCK" ]]; then
+    delete_lock_if_unchanged "$HELD_LOCK" || echo "::warning title=Build number lock not released::Could not conditionally delete" \
+      "refs/${NUMBER_LOCK_REF}; it may have changed or require recovery by a later claim." >&2
+  fi
+  [[ -z "$LOCK_GIT_DIR" ]] || rm -rf -- "$LOCK_GIT_DIR"
 }
 trap release_lock EXIT
 
@@ -112,13 +191,28 @@ while true; do
     fi
   fi
 
-  RESPONSE=$(create_ref "$NUMBER_LOCK_REF") && LOCK_STATUS=0 || LOCK_STATUS=$?
+  if [[ -z "$LOCK_TARGET_SHA" ]] && ! prepare_lock_target; then
+    echo "::error title=Build number claim failed::Could not create lock ownership metadata." >&2
+    exit 1
+  fi
+  RESPONSE=$(create_ref "$NUMBER_LOCK_REF" "$LOCK_TARGET_SHA") && LOCK_STATUS=0 || LOCK_STATUS=$?
   if [[ "$LOCK_STATUS" -eq 0 ]]; then
-    HELD_LOCK=1
+    HELD_LOCK="$LOCK_TARGET_SHA"
     break
   fi
   if [[ "$RESPONSE" != *"Reference already exists"* ]]; then
     fail_claim "$RESPONSE"
+  fi
+
+  if recover_abandoned_lock; then
+    RESPONSE=$(create_ref "$NUMBER_LOCK_REF" "$LOCK_TARGET_SHA") && LOCK_STATUS=0 || LOCK_STATUS=$?
+    if [[ "$LOCK_STATUS" -eq 0 ]]; then
+      HELD_LOCK="$LOCK_TARGET_SHA"
+      break
+    fi
+    if [[ "$RESPONSE" != *"Reference already exists"* ]]; then
+      fail_claim "$RESPONSE"
+    fi
   fi
 
   if ((attempt >= LOCK_WAIT_MAX_ATTEMPTS)); then

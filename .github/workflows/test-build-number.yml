@@ -15,6 +15,7 @@ jobs:
     permissions:
       id-token: write
       contents: write
+      actions: read
     outputs:
       BUILD_NUMBER: ${{ steps.get_build_number.outputs.BUILD_NUMBER }}
     steps:
