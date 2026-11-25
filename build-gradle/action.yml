@@ -57,6 +57,9 @@ inputs:
   develocity-url:
     description: URL for Develocity
     default: https://develocity.sonar.build/
+  develocity-auth:
+    description: How to authenticate to Develocity, `vault` or `oidc`. See config-gradle.
+    default: vault
   cache-paths:
     description: Cache paths to use (multiline).
     default: |-
@@ -122,6 +125,7 @@ runs:
         repox-url: ${{ inputs.repox-url }}
         use-develocity: ${{ inputs.use-develocity }}
         develocity-url: ${{ inputs.develocity-url }}
+        develocity-auth: ${{ inputs.develocity-auth }}
         cache-paths: ${{ inputs.cache-paths }}
         disable-caching: ${{ inputs.disable-caching }}
 
