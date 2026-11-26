@@ -26,6 +26,10 @@ inputs:
     description: How to authenticate to Develocity. `vault` reads the shared access key from Vault. `oidc` exchanges the GitHub
       OIDC token for a short-lived access key and requires the `id-token` write permission on the job.
     default: vault
+  develocity-token-expiry:
+    description: Lifetime in hours, from 1 to 24, of the Develocity access token requested with `develocity-auth` `oidc`. Develocity
+      defaults to 2 hours when empty.
+    default: ''
   cache-paths:
     description: Cache paths to use (multiline).
     default: ~/.m2/repository
@@ -127,7 +131,19 @@ runs:
       env:
         DEVELOCITY_URL: ${{ inputs.develocity-url }}
         DEVELOCITY_HOSTNAME: ${{ steps.develocity-hostname.outputs.hostname }}
+        DEVELOCITY_TOKEN_EXPIRY: ${{ inputs.develocity-token-expiry }}
       run: |
+        token_url="${DEVELOCITY_URL%/}/api/auth/token"
+        if [[ -n "$DEVELOCITY_TOKEN_EXPIRY" ]]; then
+          hours=0
+          [[ "$DEVELOCITY_TOKEN_EXPIRY" =~ ^[0-9]+$ ]] && hours=$((10#$DEVELOCITY_TOKEN_EXPIRY))
+          if (( hours < 1 || hours > 24 )); then
+            echo "::error title=Invalid develocity-token-expiry::Expected a number of hours from 1 to 24," \
+              "got '${DEVELOCITY_TOKEN_EXPIRY}'." >&2
+            exit 1
+          fi
+          token_url="${token_url}?expiresInHours=${hours}"
+        fi
         if [[ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]]; then
           echo "::error title=Missing OIDC permission::develocity-auth=oidc requires 'permissions: id-token: write' on the job." >&2
           exit 1
@@ -139,8 +155,7 @@ runs:
           exit 1
         fi
         echo "::add-mask::$oidc_token"
-        access_token=$(curl -fsS --retry 3 -X POST -H "Authorization: Bearer ${oidc_token}" \
-          "${DEVELOCITY_URL%/}/api/auth/token" || true)
+        access_token=$(curl -fsS --retry 3 -X POST -H "Authorization: Bearer ${oidc_token}" "$token_url" || true)
         if [[ -z "$access_token" ]]; then
           echo "::error title=Develocity OIDC::Could not exchange the OIDC token for a Develocity access token at" \
             "${DEVELOCITY_URL%/}/api/auth/token (check the workload identity rule and that the host is reachable)" >&2

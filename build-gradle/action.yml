@@ -60,6 +60,9 @@ inputs:
   develocity-auth:
     description: How to authenticate to Develocity, `vault` or `oidc`. See config-gradle.
     default: vault
+  develocity-token-expiry:
+    description: Lifetime in hours of the Develocity access token requested with `develocity-auth` `oidc`. See config-gradle.
+    default: ''
   cache-paths:
     description: Cache paths to use (multiline).
     default: |-
@@ -126,6 +129,7 @@ runs:
         use-develocity: ${{ inputs.use-develocity }}
         develocity-url: ${{ inputs.develocity-url }}
         develocity-auth: ${{ inputs.develocity-auth }}
+        develocity-token-expiry: ${{ inputs.develocity-token-expiry }}
         cache-paths: ${{ inputs.cache-paths }}
         disable-caching: ${{ inputs.disable-caching }}
 
