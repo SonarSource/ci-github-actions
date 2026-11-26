@@ -60,6 +60,10 @@ inputs:
   develocity-auth:
     description: How to authenticate to Develocity, `vault` or `oidc`. See config-gradle.
     default: vault
+  develocity-injection:
+    description: Whether `setup-gradle` injects the Develocity plugin. Set to `false` when the project applies the Develocity
+      plugin itself.
+    default: 'true'
   cache-paths:
     description: Cache paths to use (multiline).
     default: |-
@@ -126,6 +130,7 @@ runs:
         use-develocity: ${{ inputs.use-develocity }}
         develocity-url: ${{ inputs.develocity-url }}
         develocity-auth: ${{ inputs.develocity-auth }}
+        develocity-injection: ${{ inputs.develocity-injection }}
         cache-paths: ${{ inputs.cache-paths }}
         disable-caching: ${{ inputs.disable-caching }}
 
