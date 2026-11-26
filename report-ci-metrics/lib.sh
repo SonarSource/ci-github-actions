@@ -131,19 +131,23 @@ _rci_metric_for_job() {
 }
 
 _rci_worst_cpu_util() {
-  _rci_worst_by_metric "$1" _rci_cpu_util
+  local records=$1
+  _rci_worst_by_metric "$records" _rci_cpu_util
 }
 
 _rci_cpu_util_for_job() {
-  _rci_metric_for_job "$1" "$2" _rci_cpu_util
+  local records=$1 target=$2
+  _rci_metric_for_job "$records" "$target" _rci_cpu_util
 }
 
 _rci_worst_mem_util() {
-  _rci_worst_by_metric "$1" _rci_mem_util
+  local records=$1
+  _rci_worst_by_metric "$records" _rci_mem_util
 }
 
 _rci_mem_util_for_job() {
-  _rci_metric_for_job "$1" "$2" _rci_mem_util
+  local records=$1 target=$2
+  _rci_metric_for_job "$records" "$target" _rci_mem_util
 }
 
 # Neutral signed delta; empty baseline renders as n/a.
