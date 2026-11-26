@@ -23,6 +23,10 @@ inputs:
     description: How to authenticate to Develocity. `vault` reads the shared access key from Vault. `oidc` exchanges the GitHub
       OIDC token for a short-lived access key and requires the `id-token` write permission on the job.
     default: vault
+  develocity-injection:
+    description: Whether `setup-gradle` injects the Develocity plugin. Set to `false` when the project applies the Develocity
+      plugin itself.
+    default: 'true'
   cache-paths:
     description: Cache paths to use (multiline).
     default: |-
@@ -208,16 +212,18 @@ runs:
       if: steps.config-gradle-completed.outputs.skip != 'true'
       uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
       with:
-        develocity-injection-enabled: ${{ inputs.use-develocity == 'true' }}
+        develocity-injection-enabled: ${{ inputs.use-develocity == 'true' && inputs.develocity-injection == 'true' }}
         cache-disabled: true
         develocity-plugin-version: '4.0'
         develocity-access-key: ${{ inputs.use-develocity == 'true' &&
           steps.secrets.outputs.vault && fromJSON(steps.secrets.outputs.vault).DEVELOCITY_TOKEN || '' }}
         # Resolve Develocity plugin via Repox — plugins.gradle.org is blocked during registry brownouts.
-        gradle-plugin-repository-url: ${{ inputs.use-develocity == 'true' &&
+        gradle-plugin-repository-url: ${{ inputs.use-develocity == 'true' && inputs.develocity-injection == 'true' &&
           format('{0}/artifactory/plugins.gradle.org/', inputs.repox-url) || '' }}
-        gradle-plugin-repository-username: ${{ inputs.use-develocity == 'true' && env.ARTIFACTORY_USERNAME || '' }}
-        gradle-plugin-repository-password: ${{ inputs.use-develocity == 'true' && env.ARTIFACTORY_ACCESS_TOKEN || '' }}
+        gradle-plugin-repository-username: ${{ inputs.use-develocity == 'true' && inputs.develocity-injection == 'true' &&
+          env.ARTIFACTORY_USERNAME || '' }}
+        gradle-plugin-repository-password: ${{ inputs.use-develocity == 'true' && inputs.develocity-injection == 'true' &&
+          env.ARTIFACTORY_ACCESS_TOKEN || '' }}
 
     - name: Generate Gradle Cache Key
       if: steps.config-gradle-completed.outputs.skip != 'true' && inputs.disable-caching != 'true'
