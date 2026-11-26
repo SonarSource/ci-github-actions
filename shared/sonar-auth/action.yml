@@ -40,7 +40,7 @@ runs:
           true|false) ;;
           *) echo '::error::secretless must be true or false' >&2; exit 1 ;;
         esac
-    - uses: SonarSource/vault-action-wrapper@a7fa5fd4a4e4e0f2593f6137c0812cac196cf4ce # 3.7.0
+    - uses: SonarSource/vault-action-wrapper@20728776e291b4027acb3618091a31fa15c61a30 # 3.9.0
       id: legacy-auth
       if: >-
         inputs.secretless == 'false' && (inputs.run-shadow-scans == 'true' ||
@@ -51,12 +51,12 @@ runs:
           ${{ (inputs.sonar-platform == 'sqc-eu' || inputs.run-shadow-scans == 'true') && 'development/kv/data/sonarcloud token | SQC_EU_TOKEN;' || '' }}
           ${{ (inputs.sonar-platform == 'sqc-us' || inputs.run-shadow-scans == 'true') && 'development/kv/data/sonarqube-us token | SQC_US_TOKEN;' || '' }}
         # yamllint enable rule:line-length
-    - uses: SonarSource/sonarqube-auth-action@a0aa643acde4162396015b4f12536c1b9c4aab82 # v1.1.0
+    - uses: SonarSource/sonarqube-auth-action@b372e2c2930aadfcc4f4399446da1e12772709ad # v1.2
       id: sqc-eu-auth
       if: inputs.secretless == 'true' && (inputs.run-shadow-scans == 'true' || inputs.sonar-platform == 'sqc-eu')
       with:
         export-env: 'false'
-    - uses: SonarSource/sonarqube-auth-action@a0aa643acde4162396015b4f12536c1b9c4aab82 # v1.1.0
+    - uses: SonarSource/sonarqube-auth-action@b372e2c2930aadfcc4f4399446da1e12772709ad # v1.2
       id: sqc-us-auth
       if: inputs.secretless == 'true' && (inputs.run-shadow-scans == 'true' || inputs.sonar-platform == 'sqc-us')
       with:

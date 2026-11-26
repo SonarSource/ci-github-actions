@@ -135,7 +135,7 @@ runs:
         key: yarn-${{ runner.os }}-${{ hashFiles('**/yarn.lock') }}
         restore-keys: yarn-${{ runner.os }}-
 
-    - uses: SonarSource/vault-action-wrapper@a7fa5fd4a4e4e0f2593f6137c0812cac196cf4ce # 3.7.0
+    - uses: SonarSource/vault-action-wrapper@20728776e291b4027acb3618091a31fa15c61a30 # 3.9.0
       id: artifactory
       with:
         # yamllint disable rule:line-length
@@ -144,7 +144,7 @@ runs:
           development/${{ contains(inputs.repox-url, 'jfrog.io') && 'artifactory' || (contains(inputs.repox-url, '.dev.sonar.build') && 'artifactory-edge-dev' || 'artifactory-edge-prod') }}/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} username | ARTIFACTORY_USERNAME;
           development/${{ contains(inputs.repox-url, 'jfrog.io') && 'artifactory' || (contains(inputs.repox-url, '.dev.sonar.build') && 'artifactory-edge-dev' || 'artifactory-edge-prod') }}/token/{REPO_OWNER_NAME_DASH}-${{ env.ARTIFACTORY_READER_ROLE }} access_token | ARTIFACTORY_ACCESS_TOKEN;
         # yamllint enable rule:line-length
-    - uses: SonarSource/vault-action-wrapper@a7fa5fd4a4e4e0f2593f6137c0812cac196cf4ce # 3.7.0
+    - uses: SonarSource/vault-action-wrapper@20728776e291b4027acb3618091a31fa15c61a30 # 3.9.0
       if: inputs.deploy != 'false' && inputs.run-shadow-scans != 'true'
       id: artifactory-deploy
       with:
@@ -153,7 +153,7 @@ runs:
           ${{ format('development/artifactory/token/{{REPO_OWNER_NAME_DASH}}-{0} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;', env.ARTIFACTORY_DEPLOYER_ROLE) }}
         # yamllint enable rule:line-length
 
-    - uses: SonarSource/vault-action-wrapper@a7fa5fd4a4e4e0f2593f6137c0812cac196cf4ce # 3.7.0
+    - uses: SonarSource/vault-action-wrapper@20728776e291b4027acb3618091a31fa15c61a30 # 3.9.0
       id: secrets
       # yamllint disable rule:line-length
       with:

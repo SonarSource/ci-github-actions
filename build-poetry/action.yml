@@ -127,7 +127,7 @@ runs:
         poetry-virtualenvs-path: ${{ inputs.poetry-virtualenvs-path }}
         disable-caching: ${{ inputs.disable-caching }}
 
-    - uses: SonarSource/vault-action-wrapper@a7fa5fd4a4e4e0f2593f6137c0812cac196cf4ce # 3.7.0
+    - uses: SonarSource/vault-action-wrapper@20728776e291b4027acb3618091a31fa15c61a30 # 3.9.0
       if: inputs.deploy != 'false' && inputs.run-shadow-scans != 'true'
       id: artifactory
       with:
@@ -135,7 +135,7 @@ runs:
         secrets: |
           ${{ format('development/artifactory/token/{{REPO_OWNER_NAME_DASH}}-{0} access_token | ARTIFACTORY_DEPLOY_ACCESS_TOKEN;', env.ARTIFACTORY_DEPLOYER_ROLE) }}
         # yamllint enable rule:line-length
-    - uses: SonarSource/vault-action-wrapper@a7fa5fd4a4e4e0f2593f6137c0812cac196cf4ce # 3.7.0
+    - uses: SonarSource/vault-action-wrapper@20728776e291b4027acb3618091a31fa15c61a30 # 3.9.0
       id: secrets
       # yamllint disable rule:line-length
       with:
