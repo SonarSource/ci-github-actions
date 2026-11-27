@@ -116,9 +116,9 @@ Requirements for each SonarQube Cloud platform analyzed with `secretless: true`:
 - The build, the tests and the analysis complete within 30 minutes. The token is requested right before the build and lasts 30
   minutes, which is the delay the analysis report must be uploaded within.
 
-Each token authorizes one bound project only. Builds that scan multiple SonarQube projects or organizations need a separate
-migration plan before enabling WIF. For these consumers and builds exceeding the 30-minute token lifetime, set
-`secretless: false` to keep using the shared legacy Vault tokens:
+A token authorizes one bound project only, and each `build-*` call requests one token per platform. A build that scans multiple
+SonarQube projects or organizations needs a separate migration plan before enabling WIF. For these consumers and builds exceeding
+the 30-minute token lifetime, set `secretless: false` to keep using the shared legacy Vault tokens:
 
 ```yaml
 with:
@@ -126,8 +126,8 @@ with:
   secretless: false
 ```
 
-A repository bound to several SonarQube Cloud projects (monorepo) selects the project to scan with `sonar-project-key`, which is
-passed to the token exchange as the `project-key` of `sonarqube-auth-action`:
+A repository bound to several SonarQube Cloud projects (monorepo) selects the project of each `build-*` call with
+`sonar-project-key`, which is passed to the token exchange as the `project-key` of `sonarqube-auth-action`:
 
 ```yaml
 with:
