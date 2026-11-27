@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Run IRIS Analysis
-        uses: SonarSource/unified-dogfooding-actions/run-iris@03e023516511b1c9da325ad104c2290e3b91688c # 1.1.0
+        uses: SonarSource/unified-dogfooding-actions/run-iris@593bc80c57bedf467e17e8bbc2d9472df7db724d # 1.1.1
         with:
           primary_project_key: SonarSource_ci-github-actions
           primary_platform: SQC-EU
