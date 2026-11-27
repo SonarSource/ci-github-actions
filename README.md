@@ -1984,6 +1984,46 @@ check-sca:
   project-key: your-project-key
 ```
 
+### Monorepos
+
+Use `all` mode to require SCA data for every explicit project key. Configure it in `.github/repo-metadata.yaml`:
+
+```yaml
+check-sca:
+  project-key:
+    - capability-backend
+    - capability-frontend
+  project-key-mode: all
+  repository-key-fallback: false
+```
+
+Use a scalar with comma-separated keys or the block sequence shown above. Action inputs accept comma- or newline-separated keys:
+
+```yaml
+with:
+  project-key: |
+    capability-backend
+    capability-frontend
+  project-key-mode: all
+  repository-key-fallback: 'false'
+```
+
+Nonempty action options override metadata. Metadata options override defaults (`any` and `true`).
+A nonempty `project-key` action input selects action keys instead of metadata keys for the explicit required set. Entries are trimmed;
+blank entries and duplicates are removed in order. `.yaml` takes precedence over `.yml`.
+
+In `all` mode, only explicit keys are checked. Discovered aliases and the repository-name key cannot
+satisfy a missing required key. In `any` mode, configuration discovery remains enabled and one successful
+key is sufficient. Set `repository-key-fallback: false` to omit the derived repository-name key in `any`
+mode. Both `all` mode and disabled fallback require at least one explicit key. Invalid modes and boolean
+values fail before polling. `working-directory` does not change the root metadata location.
+
+Each key can have SCA data on a different platform or supported branch/PR probe. A measure of zero is valid.
+Completed keys are retained between polling rounds. One overall timeout applies to the set. A timeout
+reports each unresolved key and its own diagnosis. The workflow summary lists verified and unresolved keys.
+See the [SCA Scanning Checks FAQ](https://xtranet-sonarsource.atlassian.net/wiki/spaces/Platform/pages/5136908364/SCA+Scanning+Checks#FAQ)
+for troubleshooting.
+
 ### Requirements
 
 #### Required GitHub Permissions
@@ -2024,20 +2064,27 @@ jobs:
 
 ### Inputs
 
-| Input               | Description                                                                                                                       | Default |
-|---------------------|-----------------------------------------------------------------------------------------------------------------------------------|---------|
-| `project-key`       | Explicit SonarQube project key to include when checking SCA results. The action also discovers additional keys from config files. | `''`    |
-| `poll-timeout`      | Maximum time in seconds to poll for SCA results before failing.                                                                   | `300`   |
-| `poll-interval`     | Time in seconds between polling attempts.                                                                                         | `15`    |
-| `working-directory` | Relative path under `github.workspace` to look for project config files.                                                          | `.`     |
+| Input                     | Description                                                                                                                         | Default   |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| `project-key`             | Comma- or newline-separated explicit project keys. The action also discovers keys from config files.                                | `''`      |
+| `project-key-mode`        | `any` or `all`. Empty uses metadata, then `any`.                                                                                    | `''`      |
+| `repository-key-fallback` | `true` or `false`. Empty uses metadata, then `true`.                                                                                | `''`      |
+| `poll-timeout`            | Maximum time in seconds to poll for SCA results before failing.                                                                     | `300`     |
+| `poll-interval`           | Time in seconds between polling attempts.                                                                                           | `15`      |
+| `working-directory`       | Relative path under `github.workspace` to look for project config files.                                                            | `.`       |
 
 ### Outputs
 
-| Output         | Description                                                                                                         |
-|----------------|---------------------------------------------------------------------------------------------------------------------|
-| `sca-verified` | Whether SCA was verified on at least one platform (`true` or `false`)                                               |
-| `platform`     | The SonarQube platform where SCA was found (`next`, `sqc-us`, or `sqc-eu`). Only set when `sca-verified` is `true`. |
-| `project-key`  | The project key where SCA was verified. Only set when `sca-verified` is `true`.                                     |
+| Output                | Description                                                                                                                                    |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sca-verified`        | Whether the selected `any` or `all` requirement passed (`true` or `false`)                                                                     |
+| `platform`            | The SonarQube platform where SCA was found (`next`, `sqc-us`, or `sqc-eu`). Only set on success in `any` mode.                                 |
+| `project-key`         | The project key where SCA was verified. Only set on success in `any` mode.                                                                     |
+| `verified-projects`   | JSON array of verified pairs, for example `[{"project-key":"backend","platform":"next"}]`. Available after polling, including partial failure. |
+| `unresolved-projects` | JSON array of project keys still missing data after polling.                                                                                   |
+
+In `all` mode the legacy `platform` and `project-key` outputs remain empty. Use `verified-projects`
+for the complete result.
 
 ---
 

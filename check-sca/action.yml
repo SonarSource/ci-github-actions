@@ -8,10 +8,16 @@ description: >-
 inputs:
   project-key:
     description: >-
-      Explicit SonarQube project key to include when checking SCA results.
+      Explicit SonarQube project keys, separated by commas or newlines.
       The action also discovers additional project keys from
       .sonarlint/connectedMode.json, sonar-project.properties, pom.xml,
       build.gradle(.kts), and GITHUB_REPOSITORY. The explicit key is checked first.
+    default: ''
+  project-key-mode:
+    description: Require any or all explicit projects. Empty uses metadata, then any.
+    default: ''
+  repository-key-fallback:
+    description: Include the repository-name key in any mode. Empty uses metadata, then true.
     default: ''
   poll-timeout:
     description: Maximum time in seconds to poll for SCA results before failing.
@@ -25,8 +31,14 @@ inputs:
 
 outputs:
   sca-verified:
-    description: Whether SCA was verified on at least one platform (true or false)
+    description: Whether the selected any or all requirement passed (true or false)
     value: ${{ steps.check.outputs.sca-verified || steps.vault-fail.outputs.sca-verified || 'false' }}
+  verified-projects:
+    description: JSON array of verified project-key and platform pairs.
+    value: ${{ steps.check.outputs.verified-projects }}
+  unresolved-projects:
+    description: JSON array of project keys still missing SCA data.
+    value: ${{ steps.check.outputs.unresolved-projects }}
   platform:
     description: The SonarQube platform where SCA was found (next, sqc-us, or sqc-eu)
     value: ${{ steps.check.outputs.platform }}
@@ -107,6 +119,8 @@ runs:
       id: check
       shell: bash
       env:
+        PROJECT_KEY_MODE_INPUT: ${{ inputs.project-key-mode }}
+        REPOSITORY_KEY_FALLBACK_INPUT: ${{ inputs.repository-key-fallback }}
         PROJECT_KEY_INPUT: ${{ inputs.project-key }}
         POLL_TIMEOUT: ${{ inputs.poll-timeout }}
         POLL_INTERVAL: ${{ inputs.poll-interval }}
@@ -124,6 +138,8 @@ runs:
       if: always() && steps.vault-fail.outcome != 'failure'
       shell: bash
       env:
+        VERIFIED_PROJECTS: ${{ steps.check.outputs.verified-projects }}
+        PROJECT_DIAGNOSES: ${{ steps.check.outputs.project-diagnoses }}
         SCA_VERIFIED: ${{ steps.check.outputs.sca-verified }}
         SCA_PLATFORM: ${{ steps.check.outputs.platform }}
         SCA_PROJECT_KEY: ${{ steps.check.outputs.project-key }}
@@ -136,13 +152,26 @@ runs:
           echo "## SCA Verification"
           echo ""
           if [[ "$SCA_VERIFIED" == "true" ]]; then
-            echo "SCA verified on **${SCA_PLATFORM}** for project \`${SCA_PROJECT_KEY}\`."
+            if [[ -n "$SCA_PROJECT_KEY" ]]; then
+              echo "SCA verified on **${SCA_PLATFORM}** for project \`${SCA_PROJECT_KEY}\`."
+            else
+              echo "SCA verified for every required project."
+            fi
+          elif [[ -z "$VERIFIED_PROJECTS" ]]; then
+            echo "SCA configuration or execution failed before results were available. See the Verify SCA ran logs."
           else
             echo "SCA check failed — no SCA data could be read for \`${NAME}\`."
             echo ""
             echo "Most often the repo isn't allowed to read the SonarQube secrets from Vault. **Fix:** run the **[Manage Vault Policy SPEED action](${PORT})** to grant \`${NAME}\` access, then re-run."
             echo ""
             echo "If access is already set up, the project may not be analyzed yet or \`check-sca.project-key\` may not match — see the **Verify SCA ran** logs above."
+          fi
+          echo ""
+          echo "Verified projects:"
+          jq -r '.[] | "- `\(.["project-key"])`: \(.platform)"' <<< "${VERIFIED_PROJECTS:-[]}"
+          if [[ "$SCA_VERIFIED" != true ]]; then
+            echo "Unresolved projects:"
+            jq -r '.[] | "- `\(.["project-key"])`: \(.diagnosis) (see Verify SCA ran logs)"' <<< "${PROJECT_DIAGNOSES:-[]}"
           fi
           echo ""
           echo "ℹ️ [SCA Scanning Checks FAQ](${FAQ})"

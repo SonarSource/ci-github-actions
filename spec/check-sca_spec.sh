@@ -20,6 +20,7 @@ export PROJECT_KEY_INPUT=""
 setup_main() {
   TEST_DIR=$(mktemp -d)
   export WORKING_DIRECTORY="$TEST_DIR"
+  export GITHUB_WORKSPACE="$TEST_DIR"
   GITHUB_OUTPUT=$(mktemp)
   export GITHUB_OUTPUT
   return 0
@@ -539,5 +540,334 @@ Describe 'main() timeout diagnosis'
       The output should include "Diagnosis:"
       The contents of file "$GITHUB_OUTPUT" should include "sca-verified=false"
     End
+  End
+End
+
+Describe 'explicit monorepo configuration'
+  Include check-sca/check-sca.sh
+  BeforeEach 'setup_main'
+  AfterEach 'teardown_main'
+
+  It 'trims and deduplicates comma- and newline-separated input'
+    PROJECT_KEY_INPUT=$' first ,second\n\nfirst , second '
+    PROJECT_KEY_MODE_INPUT=all
+    When call resolve_configuration
+    The status should be success
+    The variable EXPLICIT_KEYS should equal $'first\nsecond'
+    The variable PROJECT_KEY_MODE should equal all
+  End
+
+  It 'uses metadata lists and options when action inputs are empty'
+    mkdir -p "$TEST_DIR/.github"
+    printf 'check-sca:\n  project-key:\n    - "first"\n    - second\n    - third\n  project-key-mode: all\n  repository-key-fallback: false\n' > "$TEST_DIR/.github/repo-metadata.yaml"
+    When call resolve_configuration
+    The status should be success
+    The variable EXPLICIT_KEYS should equal $'first\nsecond\nthird'
+    The variable REPOSITORY_KEY_FALLBACK should equal false
+    The variable PROJECT_KEY_MODE should equal all
+  End
+
+  It 'lets action keys and settings override metadata'
+    mkdir -p "$TEST_DIR/.github"
+    printf 'check-sca:\n  project-key:\n    - ignored\n  project-key-mode: all\n  repository-key-fallback: false\n' > "$TEST_DIR/.github/repo-metadata.yaml"
+    PROJECT_KEY_INPUT=selected,scalar
+    PROJECT_KEY_MODE_INPUT=any
+    export REPOSITORY_KEY_FALLBACK_INPUT=true
+    When call resolve_configuration
+    The status should be success
+    The variable EXPLICIT_KEYS should equal $'selected\nscalar'
+    The variable REPOSITORY_KEY_FALLBACK should equal true
+    The variable PROJECT_KEY_MODE should equal any
+  End
+
+  It 'rejects an invalid mode before polling'
+    PROJECT_KEY_MODE_INPUT=every
+    When call resolve_configuration
+    The status should be failure
+    The stderr should include 'project-key-mode must be any or all'
+  End
+
+  It 'rejects an invalid fallback option'
+    export REPOSITORY_KEY_FALLBACK_INPUT=no
+    When call resolve_configuration
+    The status should be failure
+    The stderr should include 'repository-key-fallback must be true or false'
+  End
+
+  It 'requires explicit keys for all mode'
+    PROJECT_KEY_MODE_INPUT=all
+    When call resolve_configuration
+    The status should be failure
+    The stderr should include 'Explicit project keys are required'
+  End
+
+  It 'requires explicit keys when repository fallback is disabled'
+    export REPOSITORY_KEY_FALLBACK_INPUT=false
+    When call resolve_configuration
+    The status should be failure
+    The stderr should include 'Explicit project keys are required'
+  End
+
+  It 'does not discover aliases in all mode'
+    export PROJECT_KEY_MODE=all
+    export EXPLICIT_KEYS=$'first\nsecond'
+    echo 'sonar.projectKey=alias' > "$TEST_DIR/sonar-project.properties"
+    When call discover_project_keys
+    The output should equal $'first\nsecond'
+  End
+
+  It 'omits the repository-name key when fallback is disabled'
+    export REPOSITORY_KEY_FALLBACK=false
+    PROJECT_KEY_INPUT=explicit
+    When call discover_project_keys
+    The output should equal explicit
+  End
+End
+
+Describe 'monorepo polling'
+  BeforeEach 'setup_main'
+  AfterEach 'teardown_main'
+
+  Mock curl
+    for arg; do :; done
+    if [[ "$arg" == *component=first\&* && "$arg" == *next.sonarqube.com* ]] ||
+       [[ "$arg" == *component=second\&* && "$arg" == *sonarcloud.io* && "${SECOND_READY:-true}" == true ]]; then
+      printf '{"component":{"measures":[{"metric":"sca_count_any_issue","value":"0"}]}}\n200'
+    else
+      printf '{"component":{"measures":[]}}\n200'
+    fi
+  End
+
+  It 'requires all keys and reports different platforms with zero measures'
+    export PROJECT_KEY_INPUT=$'first\nsecond'
+    export PROJECT_KEY_MODE_INPUT=all
+    When run script check-sca/check-sca.sh
+    The status should be success
+    The output should include 'for project key: first'
+    The output should include 'for project key: second'
+    The contents of file "$GITHUB_OUTPUT" should include 'sca-verified=true'
+    The contents of file "$GITHUB_OUTPUT" should include 'verified-projects=[{"project-key":"first","platform":"next"},{"project-key":"second","platform":"sqc-eu"}]'
+    The contents of file "$GITHUB_OUTPUT" should not include $'\nproject-key='
+  End
+
+  It 'fails on partial success and diagnoses only the unresolved key'
+    export PROJECT_KEY_INPUT=$'first\nsecond'
+    export PROJECT_KEY_MODE_INPUT=all
+    export SECOND_READY=false POLL_TIMEOUT=2 POLL_INTERVAL=2
+    When run script check-sca/check-sca.sh
+    The status should be failure
+    The stderr should include 'project found but no SCA data'
+    The output should include 'Unresolved project: second'
+    The output should not include 'Unresolved project: first'
+    The contents of file "$GITHUB_OUTPUT" should include 'unresolved-projects=["second"]'
+    The contents of file "$GITHUB_OUTPUT" should not include 'sca-verified=true'
+  End
+
+  It 'keeps legacy any success with a partial explicit list'
+    export PROJECT_KEY_INPUT=$'first\nsecond'
+    export SECOND_READY=false
+    When run script check-sca/check-sca.sh
+    The status should be success
+    The output should include 'SCA verified on next'
+    The contents of file "$GITHUB_OUTPUT" should include 'project-key=first'
+    The contents of file "$GITHUB_OUTPUT" should include 'unresolved-projects=[]'
+    The contents of file "$GITHUB_OUTPUT" should include 'project-diagnoses=[]'
+  End
+End
+
+Describe 'monorepo successes across polling rounds'
+  BeforeEach 'setup_main'
+  AfterEach 'teardown_main'
+  Mock curl
+    for arg; do :; done
+    if [[ "$arg" == *component=first\&* && ! -f "$WORKING_DIRECTORY/round-two" ]] ||
+       [[ "$arg" == *component=second\&* && -f "$WORKING_DIRECTORY/round-two" ]]; then
+      printf '{"component":{"measures":[{"metric":"sca_count_any_issue","value":"1"}]}}\n200'
+    else
+      printf '{"component":{"measures":[]}}\n200'
+    fi
+  End
+  Mock sleep
+    touch "$WORKING_DIRECTORY/round-two"
+  End
+  It 'retains first-round successes when only the second key succeeds later'
+    export PROJECT_KEY_INPUT=$'first\nsecond'
+    export PROJECT_KEY_MODE_INPUT=all
+    export POLL_TIMEOUT=30
+    When run script check-sca/check-sca.sh
+    The status should be success
+    The output should include 'Poll attempt 2'
+    The contents of file "$GITHUB_OUTPUT" should include 'sca-verified=true'
+    The contents of file "$GITHUB_OUTPUT" should include 'unresolved-projects=[]'
+  End
+End
+
+Describe 'any-mode timeout with discovered aliases'
+  BeforeEach 'setup_main'
+  AfterEach 'teardown_main'
+  Mock curl
+    for arg; do :; done
+    if [[ "$arg" == *component=explicit\&* ]]; then
+      printf '{"component":{"measures":[]}}\n200'
+    else
+      printf '{"errors":[{"msg":"not found"}]}\n404'
+    fi
+  End
+  It 'reports one combined diagnosis without a misleading alias error'
+    export PROJECT_KEY_INPUT=explicit
+    export POLL_TIMEOUT=3 POLL_INTERVAL=3
+    When run script check-sca/check-sca.sh
+    The status should be failure
+    The stderr should include 'project found but no SCA data'
+    The stderr should not include 'no matching SonarQube project'
+    The lines of stderr should equal 1
+    The output should include 'Diagnosis:'
+    The contents of file "$GITHUB_OUTPUT" should include '"diagnosis":"MEASURE_MISSING"'
+  End
+End
+
+Describe 'diagnosis retention across polling rounds'
+  BeforeEach 'setup_main'
+  AfterEach 'teardown_main'
+  Mock date
+    if [[ -f "$WORKING_DIRECTORY/finished" ]]; then
+      echo 3
+    elif [[ -f "$WORKING_DIRECTORY/second-round" ]]; then
+      echo 1
+    else
+      echo 0
+    fi
+  End
+  Mock sleep
+    if [[ -f "$WORKING_DIRECTORY/second-round" ]]; then
+      touch "$WORKING_DIRECTORY/finished"
+    else
+      touch "$WORKING_DIRECTORY/second-round"
+    fi
+  End
+  Mock curl
+    if [[ -f "$WORKING_DIRECTORY/second-round" ]]; then
+      printf '{"errors":[{"msg":"not found"}]}\n404'
+    else
+      printf '{"component":{"measures":[]}}\n200'
+    fi
+  End
+  It 'keeps the most informative diagnosis after old probe files are discarded'
+    export PROJECT_KEY_INPUT=explicit PROJECT_KEY_MODE_INPUT=all
+    export POLL_TIMEOUT=3
+    When run script check-sca/check-sca.sh
+    The status should be failure
+    The output should include 'Poll attempt 2'
+    The stderr should include 'project found but no SCA data'
+    The stderr should not include 'no matching SonarQube project'
+    The contents of file "$GITHUB_OUTPUT" should include 'project-diagnoses=[{"project-key":"explicit","diagnosis":"MEASURE_MISSING"}]'
+  End
+End
+
+Describe 'project-key metadata formats'
+  Include check-sca/check-sca.sh
+  BeforeEach 'setup_main'
+  AfterEach 'teardown_main'
+
+  It 'ignores comments between metadata sequence entries'
+    mkdir -p "$TEST_DIR/.github"
+    printf 'check-sca:\n  project-key:\n    - first\n    # second capability\n    - second\n  project-key-mode: all\n' > "$TEST_DIR/.github/repo-metadata.yaml"
+    When call resolve_configuration
+    The status should be success
+    The variable EXPLICIT_KEYS should equal $'first\nsecond'
+  End
+
+  It 'accepts compact sequences and stops at the next metadata setting'
+    mkdir -p "$TEST_DIR/.github"
+    printf 'check-sca:\n  project-key:\n  - first\n  # second capability\n  - second\n  project-key-mode: all\n  unrelated:\n    - ignored\n' > "$TEST_DIR/.github/repo-metadata.yaml"
+    When call resolve_configuration
+    The status should be success
+    The variable EXPLICIT_KEYS should equal $'first\nsecond'
+  End
+
+  It 'accepts a comma-separated scalar'
+    mkdir -p "$TEST_DIR/.github"
+    printf 'check-sca:\n  project-key: "first, second, first"\n' > "$TEST_DIR/.github/repo-metadata.yaml"
+    When call resolve_configuration
+    The status should be success
+    The variable EXPLICIT_KEYS should equal $'first\nsecond'
+  End
+
+  It 'accepts newline-separated literal metadata'
+    mkdir -p "$TEST_DIR/.github"
+    printf 'check-sca:\n  project-key: |\n    first\n    second\n' > "$TEST_DIR/.github/repo-metadata.yaml"
+    When call resolve_configuration
+    The status should be success
+    The variable EXPLICIT_KEYS should equal $'first\nsecond'
+  End
+
+  It 'rejects the removed plural metadata setting rather than falling back'
+    mkdir -p "$TEST_DIR/.github"
+    printf 'check-sca:\n  project-keys: [first, second]\n' > "$TEST_DIR/.github/repo-metadata.yaml"
+    When call resolve_configuration
+    The status should be failure
+    The stderr should include 'Use check-sca.project-key instead of project-keys'
+  End
+
+  It 'rejects unsupported flow-style metadata rather than falling back'
+    mkdir -p "$TEST_DIR/.github"
+    printf 'check-sca:\n  project-key: [first, second]\n' > "$TEST_DIR/.github/repo-metadata.yaml"
+    When call resolve_configuration
+    The status should be failure
+    The stderr should include 'Use a scalar or block sequence'
+  End
+End
+
+Describe 'atomic result publication failures'
+  Include check-sca/check-sca.sh
+  BeforeEach 'setup_main'
+  AfterEach 'teardown_main'
+  Mock curl
+    printf '{"component":{"measures":[{"metric":"sca_count_any_issue","value":"0"}]}}\n200'
+  End
+  Mock ln
+    return 1
+  End
+  It 'reports a failed link when no complete match exists'
+    When call check_sca_metric 'https://example.com' token explicit next "$TEST_DIR"
+    The status should equal 2
+    The stderr should include 'Could not publish the SCA result'
+    The path "$TEST_DIR/match" should not be exist
+  End
+  It 'accepts a complete match published by another probe'
+    printf '%s' 'next:explicit' > "$TEST_DIR/match"
+    When call check_sca_metric 'https://example.com' token explicit next "$TEST_DIR"
+    The status should be success
+    The contents of file "$TEST_DIR/match" should equal 'next:explicit'
+  End
+End
+
+Describe 'bounded concurrent probes'
+  Include check-sca/check-sca.sh
+  BeforeEach 'setup_main'
+  AfterEach 'teardown_main'
+
+  # shellcheck disable=SC2329  # Invoked by main in the test subprocess
+  check_sca_metric() {
+    local result_dir="$5" active
+    touch "$TEST_DIR/active/$BASHPID"
+    active=("$TEST_DIR/active/"*)
+    if [[ ${#active[@]} -gt 16 ]]; then
+      touch "$TEST_DIR/over-limit"
+    fi
+    sleep 0.1
+    printf '%s' "next:$3" > "$result_dir/match"
+    rm "$TEST_DIR/active/$BASHPID"
+  }
+
+  It 'limits active probes while completing every required project'
+    export PROJECT_KEY_INPUT='first,second,third,fourth'
+    export PROJECT_KEY_MODE_INPUT=all PULL_REQUEST=42 POLL_TIMEOUT=300
+    mkdir "$TEST_DIR/active"
+    When run main
+    The status should be success
+    The output should include 'SCA verified on next for project key: fourth'
+    The path "$TEST_DIR/over-limit" should not be exist
+    The contents of file "$GITHUB_OUTPUT" should include 'sca-verified=true'
   End
 End

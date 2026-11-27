@@ -14,7 +14,9 @@
 #   GITHUB_OUTPUT                - GitHub Actions output file
 #
 # Optional environment variables:
-#   PROJECT_KEY_INPUT             - Explicit project key (additional to discovered keys)
+#   PROJECT_KEY_INPUT             - Comma- or newline-separated explicit project keys
+#   PROJECT_KEY_MODE_INPUT        - any (default) or all; overrides metadata
+#   REPOSITORY_KEY_FALLBACK_INPUT  - true (default) or false; overrides metadata
 #   POLL_TIMEOUT                  - Max polling time in seconds (default: 300)
 #   POLL_INTERVAL                 - Seconds between polls (default: 15)
 #   PULL_REQUEST                  - PR number; when set, also checks PR-specific analysis
@@ -27,6 +29,7 @@ set -euo pipefail
 : "${POLL_TIMEOUT:=300}" "${POLL_INTERVAL:=15}" "${WORKING_DIRECTORY:=.}"
 : "${PROJECT_KEY_INPUT:=}" "${PULL_REQUEST:=}"
 
+readonly MAX_CONCURRENT_PROBES=16
 readonly ENDGROUP="::endgroup::"
 
 # Platform definitions: name:url_var:token_var
@@ -50,10 +53,107 @@ read_repo_metadata() {
   sed -n "/^${section}:/,/^[^ ]/{ /^  ${key}:/{ s/^  ${key}:[ ]*//; s/^['\"]//; s/['\"]$//; p; q; }; }" "$file" | tr -d '[:space:]'
 }
 
+# Read a scalar, block sequence, or literal block from the metadata key setting.
+read_metadata_keys() {
+  local metadata_file="$1"
+  awk '
+    function emit(value) {
+      sub(/^[[:space:]]+/, "", value); sub(/[[:space:]]+$/, "", value)
+      sub(/^[\047\042]/, "", value); sub(/[\047\042]$/, "", value)
+      if (value != "") print value
+    }
+    /^check-sca:/ { section=1; next }
+    section && /^[^ ]/ { section=0 }
+    section && /^  project-keys:/ {
+      print "::error::Use check-sca.project-key instead of project-keys" > "/dev/stderr"
+      invalid=1
+    }
+    section && /^  project-key:/ {
+      value=$0; sub(/^  project-key:[ ]*/, "", value)
+      if (value ~ /^\[/) {
+        print "::error::Use a scalar or block sequence for check-sca.project-key" > "/dev/stderr"
+        invalid=1
+      } else if (value == "" || value ~ /^\|[-+]?$/) {
+        collecting=1
+        literal=(value ~ /^\|[-+]?$/)
+      } else emit(value)
+      next
+    }
+    section && collecting && /^  -([ ]|$)/ && !literal {
+      value=$0; sub(/^  -[ ]*/, "", value); emit(value); next
+    }
+    section && collecting && /^  #/ { next }
+    collecting && /^  [^ ]/ { collecting=0 }
+    section && collecting && /^    / {
+      value=$0
+      if (literal) sub(/^    /, "", value)
+      else {
+        if (value !~ /^    -([ ]|$)/) next
+        sub(/^    -[ ]*/, "", value)
+      }
+      emit(value)
+    }
+    END { if (invalid) exit 1 }
+  ' "$metadata_file"
+}
+
+# Normalize explicit keys without changing their order.
+normalize_keys() {
+  tr ',' '\n' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | awk 'NF && !seen[$0]++'
+}
+
+# Action options override metadata; empty option inputs allow metadata defaults.
+resolve_configuration() {
+  local repo_root="${GITHUB_WORKSPACE:-${WORKING_DIRECTORY:-.}}" metadata_file
+  METADATA_FILE=""
+  for metadata_file in "$repo_root/.github/repo-metadata.yaml" "$repo_root/.github/repo-metadata.yml"; do
+    if [[ -f "$metadata_file" ]]; then
+      METADATA_FILE="$metadata_file"
+      break
+    fi
+  done
+  local metadata_mode="" metadata_fallback=""
+  if [[ -n "$METADATA_FILE" ]]; then
+    metadata_mode=$(read_repo_metadata "$METADATA_FILE" check-sca project-key-mode)
+    metadata_fallback=$(read_repo_metadata "$METADATA_FILE" check-sca repository-key-fallback)
+  fi
+  PROJECT_KEY_MODE="${PROJECT_KEY_MODE_INPUT:-${metadata_mode:-any}}"
+  REPOSITORY_KEY_FALLBACK="${REPOSITORY_KEY_FALLBACK_INPUT:-${metadata_fallback:-true}}"
+  case "$PROJECT_KEY_MODE" in
+    any|all) ;;
+    *) echo "::error::project-key-mode must be any or all" >&2; return 1 ;;
+  esac
+  case "$REPOSITORY_KEY_FALLBACK" in
+    true|false) ;;
+    *) echo "::error::repository-key-fallback must be true or false" >&2; return 1 ;;
+  esac
+  EXPLICIT_KEYS=$(explicit_project_keys | normalize_keys) || return 1
+  if [[ ( "$PROJECT_KEY_MODE" == all || "$REPOSITORY_KEY_FALLBACK" == false ) && -z "$EXPLICIT_KEYS" ]]; then
+    echo "::error::Explicit project keys are required for all mode or disabled repository fallback" >&2
+    return 1
+  fi
+}
+
+explicit_project_keys() {
+  if [[ -n "${PROJECT_KEY_INPUT:-}" ]]; then
+    printf '%s\n' "$PROJECT_KEY_INPUT"
+  elif [[ -n "${METADATA_FILE:-}" ]]; then
+    read_metadata_keys "$METADATA_FILE"
+  fi
+}
+
 # Discover candidate SonarQube project keys from config files.
 # Returns one key per line, deduplicated, in priority order.
 discover_project_keys() {
   local keys=()
+  local explicit_key
+  while IFS= read -r explicit_key; do
+    [[ -n "$explicit_key" ]] && keys+=("$explicit_key")
+  done < <(printf '%s\n' "${EXPLICIT_KEYS:-}" | normalize_keys)
+  if [[ "${PROJECT_KEY_MODE:-any}" == all ]]; then
+    printf '%s\n' "${keys[@]}"
+    return 0
+  fi
   local work_dir="${WORKING_DIRECTORY:-.}"
 
   # 1. Explicit input takes highest priority
@@ -67,7 +167,7 @@ discover_project_keys() {
   for metadata_file in "$repo_root/.github/repo-metadata.yaml" "$repo_root/.github/repo-metadata.yml"; do
     if [[ -f "$metadata_file" ]]; then
       local key
-      key=$(read_repo_metadata "$metadata_file" "check-sca" "project-key")
+      key=$(read_metadata_keys "$metadata_file") || return 1
       if [[ -n "$key" ]]; then
         keys+=("$key")
       fi
@@ -160,26 +260,12 @@ discover_project_keys() {
   done
 
   # 7. Derive from GITHUB_REPOSITORY (e.g. SonarSource/repo-name -> SonarSource_repo-name)
-  if [[ -n "${GITHUB_REPOSITORY:-}" ]]; then
+  if [[ "${REPOSITORY_KEY_FALLBACK:-true}" == true && -n "${GITHUB_REPOSITORY:-}" ]]; then
     local derived_key="${GITHUB_REPOSITORY/\//_}"
     keys+=("$derived_key")
   fi
 
-  # Deduplicate while preserving order
-  local seen=()
-  for k in "${keys[@]+"${keys[@]}"}"; do
-    local is_dup=false
-    for s in "${seen[@]+"${seen[@]}"}"; do
-      if [[ "$s" == "$k" ]]; then
-        is_dup=true
-        break
-      fi
-    done
-    if [[ "$is_dup" == "false" ]]; then
-      seen+=("$k")
-      echo "$k"
-    fi
-  done
+  printf '%s\n' "${keys[@]+"${keys[@]}"}" | normalize_keys
   return 0
 }
 
@@ -235,7 +321,16 @@ check_sca_metric() {
   ' 2>/dev/null) || { record_state "$result_dir" "API_ERROR"; return 1; }
 
   if [[ -n "$metric_value" ]]; then
-    echo "${platform_name}:${project_key}" > "${result_dir}/match"
+    local match_file
+    match_file=$(mktemp "${result_dir}/match.XXXXXX")
+    printf '%s:%s' "$platform_name" "$project_key" > "$match_file"
+    # The hard link publishes a complete record once, even with parallel probes.
+    if ! { ln "$match_file" "${result_dir}/match" 2>/dev/null || [[ -e "${result_dir}/match" ]]; }; then
+      rm -f "$match_file"
+      echo "::error::Could not publish the SCA result for $project_key" >&2
+      return 2
+    fi
+    rm -f "$match_file"
     return 0
   fi
 
@@ -295,15 +390,57 @@ report_timeout() {
       ;;
   esac
   echo "::error title=SCA check timeout::${msg}" >&2
-  echo "Diagnosis: ${detail}"
+  echo "Diagnosis: project key(s) ${keys_csv}. ${detail}"
+}
+
+# Publish compact JSON so project names cannot inject extra action outputs.
+write_results() {
+  local result_dir="$1" verified="$2"
+  shift 2
+  local project_keys=("$@") index match platform project_key
+  local results='[]' unresolved='[]' diagnoses='[]'
+  local state
+  for index in "${!project_keys[@]}"; do
+    project_key="${project_keys[index]}"
+    if [[ -f "$result_dir/$index/match" ]]; then
+      match=$(cat "$result_dir/$index/match")
+      platform="${match%%:*}"
+      results=$(jq -c --arg key "$project_key" --arg platform "$platform" '. + [{"project-key": $key, platform: $platform}]' <<< "$results")
+    elif [[ "$PROJECT_KEY_MODE" != any || "$verified" != true ]]; then
+      unresolved=$(jq -c --arg key "$project_key" '. + [$key]' <<< "$unresolved")
+      state=NONE
+      if [[ -f "$result_dir/$index/best-state" ]]; then
+        state=$(cat "$result_dir/$index/best-state")
+      fi
+      diagnoses=$(jq -c --arg key "$project_key" --arg state "$state" '. + [{"project-key": $key, diagnosis: $state}]' <<< "$diagnoses")
+    fi
+  done
+  {
+    echo "verified-projects=$results"
+    echo "unresolved-projects=$unresolved"
+    echo "project-diagnoses=$diagnoses"
+  } >> "$GITHUB_OUTPUT"
+}
+
+# Retain each PID for final status checks, including jobs reaped by wait -n.
+wait_for_probe_slot() {
+  local running
+  while true; do
+    mapfile -t running < <(jobs -pr)
+    [[ ${#running[@]} -lt $MAX_CONCURRENT_PROBES ]] && return 0
+    wait -n || true
+  done
 }
 
 main() {
+  echo "sca-verified=false" >> "$GITHUB_OUTPUT"
+  resolve_configuration || exit 1
   echo "::group::Discover project keys"
-  local project_keys=()
+  local project_keys=() discovered_keys
+  discovered_keys=$(discover_project_keys) || exit 1
   while IFS= read -r line; do
-    project_keys+=("$line")
-  done < <(discover_project_keys)
+    [[ -n "$line" ]] && project_keys+=("$line")
+  done <<< "$discovered_keys"
 
   if [[ ${#project_keys[@]} -eq 0 ]]; then
     echo "::error title=No project keys::Could not discover any SonarQube project keys" >&2
@@ -318,24 +455,39 @@ main() {
   done
   echo "$ENDGROUP"
 
-  # Comma-separated key list for diagnostic messages.
-  local keys_csv
-  keys_csv=$(IFS=,; echo "${project_keys[*]}")
-
   echo "::group::Poll for SCA data"
   local start_time
   start_time=$(date +%s)
   local attempt=0
-  local best_state="NONE"
   local result_dir
   result_dir=$(mktemp -d)
+  local index
+  local best_states=()
+  for index in "${!project_keys[@]}"; do
+    mkdir -p "$result_dir/$index"
+    best_states[index]=NONE
+  done
 
   while true; do
     attempt=$((attempt + 1))
     local elapsed=$(( $(date +%s) - start_time ))
 
     if [[ $elapsed -ge $POLL_TIMEOUT ]]; then
-      report_timeout "$best_state" "$keys_csv"
+      if [[ "$PROJECT_KEY_MODE" == any ]]; then
+        local best_state=NONE keys_csv
+        for index in "${!project_keys[@]}"; do
+          best_state=$(higher_state "$best_state" "${best_states[index]}")
+        done
+        keys_csv=$(IFS=,; echo "${project_keys[*]}")
+        report_timeout "$best_state" "$keys_csv"
+      else
+        for index in "${!project_keys[@]}"; do
+          [[ -f "$result_dir/$index/match" ]] && continue
+          echo "Unresolved project: ${project_keys[index]}"
+          report_timeout "${best_states[index]}" "${project_keys[index]}"
+        done
+      fi
+      write_results "$result_dir" false "${project_keys[@]}"
       echo "$ENDGROUP"
       echo "sca-verified=false" >> "$GITHUB_OUTPUT"
       rm -rf "$result_dir"
@@ -344,31 +496,34 @@ main() {
 
     echo "--- Poll attempt $attempt (${elapsed}s / ${POLL_TIMEOUT}s) ---"
 
-    # Run all checks in parallel. Clear last round's match flag and diagnostic states.
-    rm -f "${result_dir}/match"
-    rm -rf "${result_dir}/states"
+    # Keep completed keys between rounds and isolate diagnostics by numeric index.
     local pids=()
-    for key in "${project_keys[@]}"; do
+    for index in "${!project_keys[@]}"; do
+      key="${project_keys[index]}"
+      [[ -f "$result_dir/$index/match" ]] && continue
       for platform_def in "${PLATFORMS[@]}"; do
         IFS=':' read -r platform_name url_var token_var <<< "$platform_def"
         local url="${!url_var}" token="${!token_var}"
 
         # Check SQ project's primary branch (no qualifier = SQ default, may differ from main/master)
         echo "  Checking $platform_name / $key ..."
-        check_sca_metric "$url" "$token" "$key" "$platform_name" "$result_dir" &
+        wait_for_probe_slot
+        check_sca_metric "$url" "$token" "$key" "$platform_name" "$result_dir/$index" &
         pids+=($!)
 
         # Also check well-known branch names explicitly
         for branch_name in main master; do
           echo "  Checking $platform_name / $key (branch: $branch_name) ..."
-          check_sca_metric "$url" "$token" "$key" "$platform_name" "$result_dir" "&branch=${branch_name}" &
+          wait_for_probe_slot
+          check_sca_metric "$url" "$token" "$key" "$platform_name" "$result_dir/$index" "&branch=${branch_name}" &
           pids+=($!)
         done
 
         # Check PR-specific analysis when running on a pull request
         if [[ -n "${PULL_REQUEST:-}" ]]; then
           echo "  Checking $platform_name / $key (PR #${PULL_REQUEST}) ..."
-          check_sca_metric "$url" "$token" "$key" "$platform_name" "$result_dir" "&pullRequest=${PULL_REQUEST}" &
+          wait_for_probe_slot
+          check_sca_metric "$url" "$token" "$key" "$platform_name" "$result_dir/$index" "&pullRequest=${PULL_REQUEST}" &
           pids+=($!)
         fi
       done
@@ -376,35 +531,48 @@ main() {
 
     # Wait for all background jobs to finish
     for pid in "${pids[@]}"; do
-      wait "$pid" 2>/dev/null || true
+      local probe_status=0
+      wait "$pid" || probe_status=$?
+      if [[ $probe_status -eq 2 ]]; then
+        echo "::error::SCA result publication failed" >&2
+        # Finish the remaining probes before removing their result directory.
+        wait || true
+        rm -rf "$result_dir"
+        exit 1
+      fi
     done
 
-    # Check if any succeeded
-    if [[ -f "${result_dir}/match" ]]; then
-      local match
-      match=$(cat "${result_dir}/match")
-      local found_platform="${match%%:*}"
-      local found_key="${match#*:}"
-      echo "  SCA verified on $found_platform for project key: $found_key"
+    local verified_count=0 found_platform="" found_key="" match
+    for index in "${!project_keys[@]}"; do
+      if [[ -f "$result_dir/$index/match" ]]; then
+        verified_count=$((verified_count + 1))
+        match=$(cat "$result_dir/$index/match")
+        found_platform="${match%%:*}"
+        found_key="${match#*:}"
+        echo "  SCA verified on $found_platform for project key: $found_key"
+      else
+        local state_file observed
+        for state_file in "$result_dir/$index/states"/*; do
+          [[ -e "$state_file" ]] || continue
+          observed=$(cat "$state_file")
+          best_states[index]=$(higher_state "${best_states[index]}" "$observed")
+        done
+        printf '%s' "${best_states[index]}" > "$result_dir/$index/best-state"
+        rm -rf "$result_dir/$index/states"
+      fi
+    done
+    if [[ ( "$PROJECT_KEY_MODE" == any && $verified_count -gt 0 ) || $verified_count -eq ${#project_keys[@]} ]]; then
       echo "$ENDGROUP"
+      write_results "$result_dir" true "${project_keys[@]}"
       {
         echo "sca-verified=true"
-        echo "platform=$found_platform"
-        echo "project-key=$found_key"
+        if [[ "$PROJECT_KEY_MODE" == any ]]; then
+          echo "platform=$found_platform"
+          echo "project-key=$found_key"
+        fi
       } >> "$GITHUB_OUTPUT"
       rm -rf "$result_dir"
       exit 0
-    fi
-
-    # No match this round: fold the probes' observations into the best state so
-    # far, so a subsequent timeout can report the most informative reason.
-    if [[ -d "${result_dir}/states" ]]; then
-      local state_file observed
-      for state_file in "${result_dir}/states"/*; do
-        [[ -e "$state_file" ]] || continue
-        observed=$(cat "$state_file")
-        best_state=$(higher_state "$best_state" "$observed")
-      done
     fi
 
     echo "SCA data not yet available. Waiting ${POLL_INTERVAL}s..."
