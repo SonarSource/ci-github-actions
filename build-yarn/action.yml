@@ -45,6 +45,11 @@ inputs:
   secretless:
     description: Use WIF for SonarQube Cloud scans. Set to 'false' to use legacy Vault tokens.
     default: 'true'
+  sonar-project-key:
+    description: >-
+      Key of the SonarQube Cloud project to request the WIF token for. Required when the repository is bound to several
+      projects. Ignored when `secretless` is `false`.
+    default: ''
   run-shadow-scans:
     description: If `true`, run sonar scanner on all 3 platforms. If `false`, run on the platform provided by `sonar-platform`.
       When enabled, the `sonar-platform` setting is ignored.
@@ -168,6 +173,7 @@ runs:
         sonar-platform: ${{ inputs.sonar-platform }}
         run-shadow-scans: ${{ inputs.run-shadow-scans }}
         secretless: ${{ inputs.secretless }}
+        sonar-project-key: ${{ inputs.sonar-project-key }}
 
     - name: Build, test, analyze and deploy
       id: build

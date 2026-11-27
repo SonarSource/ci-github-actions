@@ -9,6 +9,11 @@ inputs:
   secretless:
     description: Use WIF ('true') or legacy Vault tokens ('false') for SonarQube Cloud
     default: 'true'
+  sonar-project-key:
+    description: >-
+      Key of the SonarQube Cloud project to request the WIF token for. Required when the repository is bound to several projects.
+      Ignored when secretless is 'false'.
+    default: ''
   sonar-platform:
     description: Sonar platform analyzed by the build (next, sqc-us, sqc-eu or none)
     required: true
@@ -55,10 +60,12 @@ runs:
       id: sqc-eu-auth
       if: inputs.secretless == 'true' && (inputs.run-shadow-scans == 'true' || inputs.sonar-platform == 'sqc-eu')
       with:
+        project-key: ${{ inputs.sonar-project-key }}
         export-env: 'false'
     - uses: SonarSource/sonarqube-auth-action@a0aa643acde4162396015b4f12536c1b9c4aab82 # v1.1.0
       id: sqc-us-auth
       if: inputs.secretless == 'true' && (inputs.run-shadow-scans == 'true' || inputs.sonar-platform == 'sqc-us')
       with:
         sonar-region: us
+        project-key: ${{ inputs.sonar-project-key }}
         export-env: 'false'

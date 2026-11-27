@@ -42,3 +42,30 @@ Describe 'SonarQube authentication input'
     End
   End
 End
+
+Describe 'SonarQube project key input'
+  It 'is declared as an optional input of the authentication action'
+    When call awk '/^  sonar-project-key:/ { found = 1 } found && /default: / { print; exit }' shared/sonar-auth/action.yml
+    The output should include "default: ''"
+  End
+
+  It 'is requested on both Cloud platforms'
+    When call grep -cF 'project-key: ${{ inputs.sonar-project-key }}' shared/sonar-auth/action.yml
+    The output should equal 2
+  End
+
+  Describe 'forwarding'
+    Parameters
+      build-gradle
+      build-maven
+      build-npm
+      build-poetry
+      build-yarn
+    End
+
+    It "is forwarded by $1 to the authentication action"
+      When call grep -cF 'sonar-project-key: ${{ inputs.sonar-project-key }}' "$1/action.yml"
+      The output should equal 1
+    End
+  End
+End
