@@ -116,16 +116,28 @@ Requirements for each SonarQube Cloud platform analyzed with `secretless: true`:
 - The build, the tests and the analysis complete within 30 minutes. The token is requested right before the build and lasts 30
   minutes, which is the delay the analysis report must be uploaded within.
 
-Each token authorizes one bound project only. Builds that scan multiple SonarQube projects or organizations, and repositories
-with multiple project bindings, need a separate migration plan before enabling WIF. The `build-*` actions do not select a project
-when requesting a token. For these consumers and builds exceeding the 30-minute token lifetime, set `secretless: false` to keep
-using the shared legacy Vault tokens:
+A token authorizes one bound project only, and each `build-*` call requests one token per platform. A build that scans multiple
+SonarQube projects or organizations needs a separate migration plan before enabling WIF. For these consumers and builds exceeding
+the 30-minute token lifetime, set `secretless: false` to keep using the shared legacy Vault tokens:
 
 ```yaml
 with:
   sonar-platform: sqc-eu
   secretless: false
 ```
+
+A repository bound to several SonarQube Cloud projects (monorepo) selects the project of each `build-*` call with
+`sonar-project-key`, which is passed to the token exchange as the `project-key` of `sonarqube-auth-action`:
+
+```yaml
+with:
+  sonar-platform: sqc-eu
+  sonar-project-key: my-org_my-project
+```
+
+The key must belong to a project bound to the repository, and must match the `sonar.projectKey` of the build. With
+`run-shadow-scans`, the same key is requested on every Cloud platform, so it only fits builds using the same project key on EU and US.
+`sonar-project-key` is optional, and ignored when `secretless` is `false`.
 
 `secretless` accepts only `true` or `false`. It applies to Cloud scans, including shadow scans; Next authentication is unchanged.
 There is no automatic fallback to legacy tokens if the WIF exchange fails.
@@ -449,6 +461,7 @@ See also [`config-maven`](#config-maven) input environment variables.
 | `develocity-auth`           | How to authenticate to Develocity: `vault` (shared key) or `oidc` (GitHub OIDC token, needs `id-token: write`)               | `vault`                                                                                     |
 | `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', 'sqc-us', or 'none'. Use 'none' to skip sonar scans                           | `next`                                                                                      |
 | `secretless`                | Use WIF for Cloud scans; set to `false` to use legacy Vault tokens                                                           | `true`                                                                                      |
+| `sonar-project-key`         | SonarQube Cloud project key for the WIF token, required for repos bound to several projects; ignored if `secretless: false`  | (optional)                                                                                  |
 | `working-directory`         | Relative path under github.workspace to execute the build in                                                                 | `.`                                                                                         |
 | `run-shadow-scans`          | If true, run SonarQube analysis on all 3 platforms (next, sqc-eu, sqc-us); if false, only on the selected `sonar-platform`   | `false`                                                                                     |
 | `cache-paths`               | Custom cache paths (multiline). Overrides default `~/.m2/repository`.                                                        | (optional)                                                                                  |
@@ -696,6 +709,7 @@ See also [`config-poetry`](#config-poetry) input environment variables.
 | `repox-url`                 | URL for Repox                                                                                                                                                                                 | Runner-dependent (see Edge section)                                                                   |
 | `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', sqc-us, or 'none'. Use 'none' to skip sonar scans                                                                                              | `next`                                                                                                |
 | `secretless`                | Use WIF for Cloud scans; set to `false` to use legacy Vault tokens                                                                                                                            | `true`                                                                                                |
+| `sonar-project-key`         | SonarQube Cloud project key for the WIF token, required for repos bound to several projects; ignored if `secretless: false`                                                                   | (optional)                                                                                            |
 | `run-shadow-scans`          | If true, run sonar scanner on all 3 platforms using the provided URL and token. If false, run on the platform provided by sonar-platform. When enabled, the sonar-platform setting is ignored | `false`                                                                                               |
 | `working-directory`         | Relative path under github.workspace to execute the build in                                                                                                                                  | `.`                                                                                                   |
 | `disable-caching`           | Whether to disable Poetry caching entirely                                                                                                                                                    | `false`                                                                                               |
@@ -940,6 +954,7 @@ See also [`config-gradle`](#config-gradle) input environment variables.
 | `repox-url`                 | URL for Repox                                                                                                                                                                                                             | Runner-dependent (see Edge section)                                                         |
 | `sonar-platform`            | SonarQube variant - 'next', 'sqc-eu', 'sqc-us', or 'none'. Use 'none' to skip sonar scans                                                                                                                                 | `next`                                                                                      |
 | `secretless`                | Use WIF for Cloud scans; set to `false` to use legacy Vault tokens                                                                                                                                                        | `true`                                                                                      |
+| `sonar-project-key`         | SonarQube Cloud project key for the WIF token, required for repos bound to several projects; ignored if `secretless: false`                                                                                               | (optional)                                                                                  |
 | `working-directory`         | Relative path under github.workspace to execute the build in                                                                                                                                                              | `.`                                                                                         |
 | `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding)                                                                                                                                            | `false`                                                                                     |
 | `cache-paths`               | Custom cache paths (multiline).                                                                                                                                                                                           | `~/.gradle/caches`<br>`~/.gradle/wrapper`                                                   |
@@ -1237,6 +1252,7 @@ See also [`config-npm`](#config-npm) input environment variables.
 | `repox-url`                 | URL for Repox                                                                                                                                                                                                      | Runner-dependent (see Edge section)                                                          |
 | `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', or 'sqc-us'                                                                                                                                                         | `next`                                                                                       |
 | `secretless`                | Use WIF for Cloud scans; set to `false` to use legacy Vault tokens                                                                                                                                                 | `true`                                                                                       |
+| `sonar-project-key`         | SonarQube Cloud project key for the WIF token, required for repos bound to several projects; ignored if `secretless: false`                                                                                        | (optional)                                                                                   |
 | `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding)                                                                                                                                     | `false`                                                                                      |
 | `build-name`                | Name of the JFrog build to publish.                                                                                                                                                                                | `<Repository name>`                                                                          |
 | `provenance`                | Whether to generate provenance attestation for built artifacts                                                                                                                                                     | `false`                                                                                      |
@@ -1354,6 +1370,7 @@ jobs:
 | `repox-url`                 | URL for Repox                                                                                                                | Runner-dependent (see Edge section)                                                         |
 | `sonar-platform`            | SonarQube primary platform - 'next', 'sqc-eu', 'sqc-us', or 'none'. Use 'none' to skip sonar scans                           | `next`                                                                                      |
 | `secretless`                | Use WIF for Cloud scans; set to `false` to use legacy Vault tokens                                                           | `true`                                                                                      |
+| `sonar-project-key`         | SonarQube Cloud project key for the WIF token, required for repos bound to several projects; ignored if `secretless: false`  | (optional)                                                                                  |
 | `run-shadow-scans`          | Enable analysis across all 3 SonarQube platforms (unified platform dogfooding)                                               | `false`                                                                                     |
 | `provenance`                | Whether to generate provenance attestation for built artifacts                                                               | `false`                                                                                     |
 | `provenance-artifact-paths` | Relative paths of artifacts for provenance attestation (glob pattern). See [Provenance Attestation](#provenance-attestation) | (optional)                                                                                  |
