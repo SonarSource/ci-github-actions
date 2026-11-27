@@ -50,7 +50,7 @@ Describe 'SonarQube project key input'
   End
 
   It 'is requested on both Cloud platforms'
-    When call grep -cF 'project-key: ${{ inputs.sonar-project-key }}' shared/sonar-auth/action.yml
+    When call grep -cF "project-key: \${{ inputs.sonar-project-key }}" shared/sonar-auth/action.yml
     The output should equal 2
   End
 
@@ -64,7 +64,7 @@ Describe 'SonarQube project key input'
     End
 
     It "is forwarded by $1 to the authentication action"
-      When call grep -cF 'sonar-project-key: ${{ inputs.sonar-project-key }}' "$1/action.yml"
+      When call grep -cF "sonar-project-key: \${{ inputs.sonar-project-key }}" "$1/action.yml"
       The output should equal 1
     End
   End
